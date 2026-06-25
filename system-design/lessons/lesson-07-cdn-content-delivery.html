@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 07 — CDN &amp; Content Delivery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;margin:22px 0;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;color:var(--ink);}
+  pre code{background:none;color:var(--ink);padding:0;font-size:13px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">CDN &amp; Content<br>Delivery</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The single-origin problem</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>What a CDN actually is</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>How a request finds an edge</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Hit, miss &amp; pull-through ▸</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Pull vs push</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>TTL &amp; cache headers</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Invalidation &amp; cache-busting</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>What belongs on a CDN</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Private media &amp; TLS</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Failure, fallback &amp; cost</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">07</span><span>Lesson · System Design Interview</span></div>
+      <h1>CDN &amp; Content Delivery</h1>
+      <p class="lede">When every image, script, and video segment is served from one origin, distant users pay the speed-of-light tax and your origin drowns in bandwidth. A <strong>content delivery network</strong> pushes copies of that content to edge servers around the world, so most requests are answered close to the user — and never reach you at all.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on content delivery networks — a standard, widely-documented engineering topic. The explanations, examples, numbers, and diagrams here are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>The single-origin problem</h2>
+      <p>Imagine Shopee runs its entire app from one data centre in Singapore. A shopper in Jakarta opens a product page. Their browser asks for the product photos, the JavaScript bundle, the CSS, the web fonts, and a short promo video. Every one of those bytes has to travel from Singapore to Jakarta and back. That sounds close — it is only about 900 km — but the round trip still costs real time, and for a shopper in São Paulo, roughly 16,000 km away, every byte crosses an ocean and several network operators before it arrives.</p>
+      <p>Two distinct forces make a single origin painful, and you should name both in an interview because they are different problems with the same cure.</p>
+
+      <h3>Latency: you cannot out-engineer the speed of light</h3>
+      <p>Data in a fibre cable moves at roughly two-thirds the speed of light. Singapore to São Paulo is about a 160&nbsp;ms <strong>round-trip time</strong> (RTT) at best, and real networks add queuing, routing detours, and congestion on top. A single HTTPS connection is not one round trip — it is several: a DNS lookup, the TCP handshake, the TLS handshake, then finally the request itself. Stack three or four RTTs of 160&nbsp;ms each and the page is visibly stalling before a single image byte has moved. No faster server in Singapore fixes this; the bottleneck is the <em>distance</em>, not the CPU.</p>
+
+      <h3>Origin load and egress cost</h3>
+      <p>The second force is volume. A product page might pull 2&nbsp;MB of static assets. If a flash sale draws 500,000 shoppers in ten minutes, that is a terabyte of bandwidth your origin has to push, plus the connections, TLS handshakes, and disk reads behind it — all for files that never change between users. Worse, cloud providers charge for <strong>egress</strong> (data leaving their network to the internet), and origin egress is among the most expensive bandwidth you can buy. You are paying premium rates to send the exact same logo to half a million people.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Distant users all funnelling requests back to a single origin server, creating high latency and heavy load">
+            <rect class="node" x="20" y="26" width="118" height="40" rx="8"/>
+            <text class="lbl" x="79" y="51" text-anchor="middle">Jakarta user</text>
+            <rect class="node" x="20" y="92" width="118" height="40" rx="8"/>
+            <text class="lbl" x="79" y="117" text-anchor="middle">Mumbai user</text>
+            <rect class="node" x="20" y="158" width="118" height="40" rx="8"/>
+            <text class="lbl" x="79" y="183" text-anchor="middle">São Paulo user</text>
+            <rect x="430" y="58" width="190" height="108" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="525" y="50" text-anchor="middle">single origin · Singapore</text>
+            <g transform="translate(503,76)">
+              <rect width="44" height="64" rx="6" fill="#69B34C"/>
+              <rect x="10" y="12" width="24" height="4" rx="2" fill="#fff"/>
+              <rect x="10" y="40" width="24" height="4" rx="2" fill="#fff"/>
+              <rect x="10" y="50" width="24" height="4" rx="2" fill="#fff"/>
+            </g>
+            <text class="lbl" x="525" y="158" text-anchor="middle">Origin</text>
+            <path class="flow-r" d="M138 46 C 280 46, 340 90, 428 100" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M138 112 H 428" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M138 178 C 280 178, 340 130, 428 118" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="290" y="200" text-anchor="middle" fill="#B0532F">every byte crosses the whole distance, every time</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one origin means far-away users pay the full distance, and the origin pays the full bandwidth</figcaption>
+      </figure>
+
+      <p>The realisation that unlocks the whole lesson: the assets causing the most traffic — images, scripts, fonts, video — are <strong>the same for everyone</strong> and <strong>change rarely</strong>. If the same bytes go to millions of people, you should not fetch them from Singapore millions of times. You should keep a copy near each person. That copy-near-the-user idea is a CDN.</p>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The fix</div>
+      <h2>What a CDN actually is</h2>
+      <p>A <strong>content delivery network</strong> is a globally distributed fleet of caching servers — called <strong>edge servers</strong> or <strong>points of presence</strong> (PoPs) — placed in data centres and internet exchanges close to where users live. Each edge server holds copies of your static content. When a user requests a file, they are routed to a nearby edge instead of your origin, and most of the time that edge already has the file and answers in a few milliseconds.</p>
+      <p>The provider that runs the edge fleet — Cloudflare, Amazon CloudFront, Akamai, Fastly, Google Cloud CDN — operates hundreds of PoPs across dozens of countries. You keep one (or a few) <strong>origin</strong> servers holding the master copy of everything; the CDN's job is to fan that content out to the edges and keep the copies fresh enough.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="A central origin server with several geographically distributed edge servers, each serving nearby users">
+            <rect x="248" y="92" width="144" height="56" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <g transform="translate(258,98)">
+              <rect width="34" height="44" rx="5" fill="#69B34C"/>
+              <rect x="8" y="9" width="18" height="3" rx="1.5" fill="#fff"/>
+              <rect x="8" y="28" width="18" height="3" rx="1.5" fill="#fff"/>
+              <rect x="8" y="34" width="18" height="3" rx="1.5" fill="#fff"/>
+            </g>
+            <text class="lbl" x="350" y="124" text-anchor="middle">Origin</text>
+
+            <rect class="node-b" x="60" y="20" width="96" height="38" rx="8" stroke="#2E8B8B"/>
+            <text class="lbl" x="108" y="44" text-anchor="middle">Edge · SG</text>
+            <rect class="node-b" x="60" y="182" width="96" height="38" rx="8" stroke="#2E8B8B"/>
+            <text class="lbl" x="108" y="206" text-anchor="middle">Edge · IN</text>
+            <rect class="node-b" x="484" y="20" width="96" height="38" rx="8" stroke="#2E8B8B"/>
+            <text class="lbl" x="532" y="44" text-anchor="middle">Edge · US</text>
+            <rect class="node-b" x="484" y="182" width="96" height="38" rx="8" stroke="#2E8B8B"/>
+            <text class="lbl" x="532" y="206" text-anchor="middle">Edge · BR</text>
+
+            <path class="flow-d" d="M248 110 C 200 80, 170 60, 156 46" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M248 138 C 200 170, 170 188, 156 196" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M392 110 C 440 80, 470 60, 484 46" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M392 138 C 440 170, 470 188, 484 196" marker-end="url(#arrow-s)"/>
+
+            <path class="flow" d="M58 39 H 22" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="36" y="14" text-anchor="middle">users</text>
+            <path class="flow" d="M58 201 H 22" marker-end="url(#arrow)"/>
+            <path class="flow" d="M582 39 H 618" marker-end="url(#arrow)"/>
+            <path class="flow" d="M582 201 H 618" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="320" y="234" text-anchor="middle" fill="#4A7BA6">edges pull from origin once, then serve locally</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — one origin, many edge servers; users hit the nearest edge, not the origin</figcaption>
+      </figure>
+
+      <h3>Why this is more than just "another cache"</h3>
+      <p>You met caching in an earlier lesson as a layer in front of a database. A CDN is the same idea — store a copy so you do not recompute or refetch — moved out to the network's edge and specialised for HTTP. It buys you three things at once:</p>
+      <ul>
+        <li><strong>Lower latency.</strong> The byte travels tens of kilometres, not thousands. The Jakarta shopper now talks to an edge in Jakarta or Singapore, turning a 160&nbsp;ms ocean crossing into a sub-10&nbsp;ms hop.</li>
+        <li><strong>Origin offload.</strong> Requests answered at the edge never touch your origin, so your servers, database, and origin egress bill all see a fraction of the real traffic.</li>
+        <li><strong>Absorbed spikes.</strong> A flash sale or a viral TikTok clip lands on hundreds of edges in parallel rather than one origin, so the load is spread and your origin stays calm.</li>
+      </ul>
+
+      <div class="callout">
+        <span class="k">Under the hood</span>
+        <p>Edges do more than store files. Modern CDNs terminate TLS at the edge (so the expensive handshake happens close to the user), keep warm <strong>keep-alive</strong> connections back to the origin so a miss does not pay a fresh handshake, and run on backbone networks with better peering than the public internet. Even a cache <em>miss</em> served through a CDN is often faster than hitting your origin directly, because the edge-to-origin path is optimised.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Routing</div>
+      <h2>How a request finds an edge</h2>
+      <p>A natural question: if there are hundreds of edges, how does the Jakarta browser end up talking to the Jakarta edge and not the one in Frankfurt? Two mechanisms do the routing, and an interviewer may ask you to distinguish them.</p>
+
+      <h3>DNS-based routing (geo / latency steering)</h3>
+      <p>You point your asset hostname — say <code>cdn.shopee.example</code> — at the CDN by adding a <code>CNAME</code> record in DNS. When a browser resolves that hostname, the CDN's authoritative DNS server inspects the resolver's location and returns the IP address of a <strong>nearby</strong> edge. Jakarta gets a Southeast-Asian edge IP; São Paulo gets a South-American one. This is the older, widely supported approach. Its weakness is that DNS only knows where the user's <em>resolver</em> is, which is usually close but occasionally wrong (corporate VPNs, public DNS in another region).</p>
+
+      <h3>Anycast routing</h3>
+      <p><strong>Anycast</strong> announces the <em>same</em> IP address from every edge location simultaneously. The internet's own routing protocol (BGP) then delivers each user's packets to whichever edge is closest in network terms. The browser thinks it is talking to one IP; the network silently steers it to the nearest PoP. Cloudflare and Fastly lean heavily on anycast; it also helps absorb DDoS traffic because attack packets get spread across many PoPs instead of pointed at one box.</p>
+
+      <div class="vs">
+        <div class="col"><h4>DNS steering</h4><ul>
+          <li>Works everywhere; no special network needed</li>
+          <li>Can route on latency, geography, or load</li>
+          <li>Routes by resolver location, which can be off</li>
+          <li>TTL on the DNS record delays re-routing during a failure</li>
+        </ul></div>
+        <div class="col"><h4>Anycast</h4><ul>
+          <li>Routes by true network topology, very fast failover</li>
+          <li>Naturally disperses DDoS load across PoPs</li>
+          <li>Less granular control over which PoP a user lands on</li>
+          <li>Needs the provider to control IP announcements (BGP)</li>
+        </ul></div>
+      </div>
+
+      <p>You usually do not pick this yourself — the CDN provider does, and many combine both. The point to land in an interview is that <em>routing the user to the right edge is a solved, automatic part of the product</em>, so you can spend your design time on caching behaviour instead.</p>
+    </section>
+
+    <!-- 3 — INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The core mechanic</div>
+      <h2>Hit, miss &amp; pull-through</h2>
+      <p>Here is the heart of how a CDN keeps content fresh without you having to upload anything to every edge. The default mode is <strong>origin-pull</strong> (also called lazy or pull-through caching). When a request arrives at an edge, the edge checks whether it holds a fresh copy of that exact object:</p>
+      <ul>
+        <li>A <strong>cache hit</strong> means the edge already has the object and serves it immediately from local memory or disk. The origin never hears about this request.</li>
+        <li>A <strong>cache miss</strong> means the edge does not have it (the first request for that object at that edge, or the cached copy has expired). The edge fetches the object from your origin, stores a copy locally, and returns it to the user. Every <em>subsequent</em> nearby request for the same object is now a hit.</li>
+      </ul>
+      <p>So the first user to ask for <code>/img/durian-sale.jpg</code> at the Jakarta edge pays the full origin round trip; the next ten thousand Jakarta users are served locally in milliseconds. The cache fills itself, on demand, shaped by real traffic — popular objects naturally end up cached at the edges that need them, and obscure ones do not waste space.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pull">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive pull-through cache: first request misses and fetches from origin, later requests are hits served from the edge">
+            <g class="st" id="p-user"><rect class="node" x="20" y="100" width="96" height="48" rx="8"/><text class="lbl" x="68" y="129" text-anchor="middle">User</text></g>
+            <g class="st" id="p-edge">
+              <rect class="node-b" x="210" y="86" width="150" height="78" rx="10" stroke="#2E8B8B"/>
+              <text class="lbl" x="285" y="112" text-anchor="middle">Edge cache</text>
+              <text class="lbl-sm" id="p-state" x="285" y="134" text-anchor="middle">(empty)</text>
+            </g>
+            <g class="st" id="p-origin">
+              <rect x="486" y="74" width="138" height="100" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+              <g transform="translate(498,90)">
+                <rect width="40" height="58" rx="6" fill="#69B34C"/>
+                <rect x="9" y="11" width="22" height="4" rx="2" fill="#fff"/>
+                <rect x="9" y="36" width="22" height="4" rx="2" fill="#fff"/>
+                <rect x="9" y="45" width="22" height="4" rx="2" fill="#fff"/>
+              </g>
+              <text class="lbl" x="567" y="164" text-anchor="middle">Origin</text>
+            </g>
+            <path id="p-req" class="flow" d="M116 118 H 208" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="162" y="108" text-anchor="middle">GET /img.jpg</text>
+            <path id="p-fetch" class="flow-r" d="M360 110 H 484" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="422" y="100" text-anchor="middle" fill="#B0532F">miss → fetch</text>
+            <path id="p-fill" class="flow-d" d="M484 138 H 362" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="423" y="158" text-anchor="middle" fill="#4A7BA6">store copy</text>
+            <path id="p-serve" class="flow" d="M208 146 C 160 172, 150 168, 118 142" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="158" y="186" text-anchor="middle">return file</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the first request misses and warms the edge; later requests are pure hits</figcaption>
+      </figure>
+
+      <h3>Edge hit ratio: the number that matters</h3>
+      <p>The single metric that tells you whether a CDN is doing its job is the <strong>edge hit ratio</strong> — the fraction of requests answered from the edge without touching the origin. If 95 of every 100 requests are hits, your hit ratio is 95%, and your origin sees only 5% of traffic. Pushing that ratio from 90% to 98% does not sound like much, but it cuts origin load by five-fold (from 10% to 2% of requests), which is the difference between a comfortable origin and one falling over during a sale.</p>
+      <p>Hit ratio drops when objects expire too quickly, when URLs vary needlessly (a tracking query string on every link makes each URL look unique and cache separately), or when the edge fleet is so large that traffic for one object is spread thin across many PoPs. The fixes — longer TTLs, normalising URLs, and a <strong>shield / parent tier</strong> — appear in the next sections.</p>
+
+      <div class="callout">
+        <span class="k">Under the hood — the shield tier</span>
+        <p>A subtle scaling problem: if you have 300 edges and each misses independently on a cold object, your origin gets hit 300 times for one file. CDNs solve this with a <strong>mid-tier "shield" cache</strong> (a regional parent). Edges that miss ask the shield first; the shield misses once, fetches from origin, and serves all the edges behind it. So the origin sees one fetch, not 300 — this is sometimes called <em>cache hierarchy</em> or origin shielding, and it is worth naming when an interviewer asks "what protects the origin during a cold cache?"</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Filling the cache</div>
+      <h2>Pull vs push</h2>
+      <p>Origin-pull is the default, but it is not the only way content gets onto the edges. The two strategies trade simplicity against control.</p>
+
+      <h3>Origin-pull (lazy)</h3>
+      <p>As above: you do nothing special. You publish files on your origin, point the CDN at it, and the edges fetch on first request and cache for the object's TTL. This is self-managing and ideal for <strong>large catalogues</strong> — Shopee has tens of millions of product images, and you would never want to manually push all of them to every edge. The catch is the <strong>cold-start miss</strong>: the very first user at each edge for each object pays the origin round trip, so a brand-new viral asset hammers the origin until the edges warm up (this is exactly what the shield tier mitigates).</p>
+
+      <h3>Push</h3>
+      <p>With <strong>push</strong> (sometimes called pre-warming or static-origin upload), you proactively upload content to the CDN's storage <em>before</em> anyone requests it. You decide what lives where and for how long. This shines for <strong>large, infrequently changed files</strong> and <strong>predictable launches</strong>: a software installer, a game patch, or a marketing video for a campaign that goes live at a fixed time. You push it the night before, every edge is warm at launch, and the first user gets a hit. The downside is operational overhead — you own the publishing pipeline and the job of removing stale files.</p>
+
+      <div class="vs">
+        <div class="col"><h4>Origin-pull (lazy)</h4><ul>
+          <li>Zero management — edges self-populate from real demand</li>
+          <li>Perfect for huge, churning catalogues</li>
+          <li>Only popular objects occupy edge storage</li>
+          <li>Cold-start: first request per edge is a slow miss</li>
+          <li>A sudden spike on a cold object can stress the origin</li>
+        </ul></div>
+        <div class="col"><h4>Push</h4><ul>
+          <li>No cold-start — content is warm before launch</li>
+          <li>Full control of what is cached and when</li>
+          <li>Great for big static files and timed releases</li>
+          <li>You own the upload pipeline and cleanup</li>
+          <li>Wasteful for assets few users will ever fetch</li>
+        </ul></div>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>If asked <em>"push or pull for this workload?"</em>, answer by the access pattern. A long-tail catalogue with unpredictable demand (product images, user uploads) screams <strong>pull</strong> — you cannot pre-warm 50 million images. A small set of large files with a known launch moment (a GrabPay app update, a campaign trailer) leans <strong>push</strong>, so the launch spike lands on warm edges. The honest senior answer is "mostly pull, with push pre-warming for the handful of assets behind a big launch."</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Freshness control</div>
+      <h2>TTL &amp; cache headers</h2>
+      <p>An edge needs to know <em>how long</em> it may keep an object before checking again. That lifespan is the object's <strong>time-to-live</strong> (TTL), and you control it with HTTP response headers your origin sends. Get this right and you tune the dial between freshness (always current) and origin load (rarely refetch). This is the single most consequential thing you configure on a CDN.</p>
+
+      <h3>Cache-Control</h3>
+      <p>The <code>Cache-Control</code> response header is the modern way to set caching policy. Its directives mean specific things, and an interviewer will respect you for knowing them precisely:</p>
+      <ul>
+        <li><code>max-age=N</code> — how many seconds <em>any</em> cache (including the browser) may treat the object as fresh.</li>
+        <li><code>s-maxage=N</code> — overrides <code>max-age</code> for <em>shared</em> caches like the CDN, letting you keep an object at the edge for a week while the browser only caches it for an hour.</li>
+        <li><code>public</code> — the response may be stored by shared caches (CDN, proxies). Required for a CDN to cache it.</li>
+        <li><code>private</code> — only the end user's browser may cache it; shared caches must not. Use for per-user responses.</li>
+        <li><code>no-cache</code> — a confusing name: the object <em>may</em> be stored, but the cache must <strong>revalidate</strong> with the origin before reusing it.</li>
+        <li><code>no-store</code> — never store this anywhere. Use for genuinely sensitive responses (a bank statement, an auth token).</li>
+      </ul>
+
+      <pre><code>Cache-Control: public, max-age=300, s-maxage=2592000
+ETag: "v3-9f3a1c"</code></pre>
+      <p>That header says: browsers may treat the file as fresh for 5 minutes, but the CDN edge may hold it for 30 days. A long edge TTL is exactly what drives the hit ratio up.</p>
+
+      <h3>ETag and revalidation</h3>
+      <p>When an object expires, the edge does not always re-download the whole file. With an <strong>ETag</strong> (an opaque version fingerprint the origin attaches to a response), the edge sends a <strong>conditional request</strong> using <code>If-None-Match: "v3-9f3a1c"</code>. If the file has not changed, the origin replies <code>304 Not Modified</code> with an empty body — a tiny message that costs almost no bandwidth and refreshes the TTL. Only if the ETag differs does the origin send the full new body. (The older <code>Last-Modified</code> / <code>If-Modified-Since</code> pair does the same job with a timestamp.) Revalidation is how you keep things fresh <em>cheaply</em> instead of re-transferring megabytes.</p>
+
+      <h3>stale-while-revalidate</h3>
+      <p>The directive <code>stale-while-revalidate=N</code> is a quietly powerful trick: it tells the edge that when an object expires, it may serve the slightly stale copy <em>immediately</em> to the user while it refreshes from origin in the background. The user never waits on the revalidation — they get an instant (maybe seconds-old) response, and the next user gets the fresh one. This hides origin latency entirely and is great for content that tolerates a few seconds of staleness, like a homepage banner or a category listing.</p>
+
+      <h3>The freshness vs origin-load trade-off</h3>
+      <p>A short TTL means edges revalidate often, so content is always current but the origin sees more traffic and the hit ratio falls. A long TTL means the origin is barely touched and the hit ratio soars, but a change can take the full TTL to propagate to every edge. The standard resolution: give <strong>versioned, immutable assets</strong> (covered next) a very long TTL — a year — and give <strong>mutable but cacheable</strong> content (an API-driven listing) a short TTL plus <code>stale-while-revalidate</code>. The trick is that you rarely need short TTLs once you make your asset URLs change whenever the content changes.</p>
+
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>Expect <em>"what TTL would you set?"</em> The strong answer separates two cases. Fingerprinted static assets (<code>app.9f3a1.js</code>) get <code>max-age=31536000, immutable</code> — a year, because the URL changes when the content does, so a stale copy is impossible. Dynamic-but-cacheable content gets a short <code>s-maxage</code> (say 30–60s) with <code>stale-while-revalidate</code> so users never block on a refresh. Saying "one year for fingerprinted, seconds for the rest" shows you understand the freshness dial.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Updating content</div>
+      <h2>Invalidation &amp; cache-busting</h2>
+      <p>You have set a 30-day edge TTL on your JavaScript bundle to get a great hit ratio. Then you ship a critical bug fix. The new code is on your origin, but hundreds of edges around the world are still happily serving the 30-day-old broken version to users. This is the classic CDN problem: <strong>cache invalidation</strong>. You have two ways out, and one of them is much better than the other.</p>
+
+      <h3>Explicit purge — the slow, expensive way</h3>
+      <p>Every CDN offers a <strong>purge</strong> (or <strong>invalidate</strong>) API: you call it with a URL or a path pattern and the CDN evicts that object from its edges. It works, but it has real downsides. Purges are <em>relatively slow</em> — propagating an eviction to every PoP can take seconds to minutes. Providers often <strong>rate-limit or charge</strong> for purges, especially wildcard purges that wipe a whole prefix. And there is a window during which some edges have purged and others have not, so users may see a mix of old and new — bad if the old HTML references assets the new code expects. Purge is the right tool for an emergency (legal takedown, leaked file), not your everyday deploy mechanism.</p>
+
+      <h3>Cache-busting with versioned URLs — the right default</h3>
+      <p>The elegant fix is to <strong>never update an object in place</strong>. Instead, make a new version of the asset a <em>new URL</em>. During your build, compute a hash of each file's contents and embed it in the filename — a <strong>content fingerprint</strong>:</p>
+      <pre><code>before deploy:  /static/app.9f3a1c.js   (Cache-Control: max-age=31536000, immutable)
+after deploy:   /static/app.7b22e8.js   &lt;- new content = new hash = new URL</code></pre>
+      <p>Because the URL changed, the browser and every edge see a brand-new object they have never cached, so they fetch the fresh version on first request — no purge needed. The old <code>app.9f3a1c.js</code> simply stops being referenced and ages out of caches on its own when its TTL lapses. You get the best of both worlds: a one-year TTL (maximum hit ratio) <em>and</em> instant updates on deploy.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 218" role="img" aria-label="Cache-busting: the HTML reference changes from a hashed filename to a new hashed filename on deploy, so the edge treats it as a new object">
+            <text class="lbl-sm" x="140" y="26" text-anchor="middle">deploy v1</text>
+            <rect class="node" x="30" y="40" width="220" height="44" rx="8"/>
+            <text class="lbl" x="140" y="60" text-anchor="middle">index.html refs</text>
+            <text class="lbl-sm" x="140" y="76" text-anchor="middle">app.9f3a1c.js</text>
+            <rect class="node-b" x="30" y="120" width="220" height="58" rx="9" stroke="#2E8B8B"/>
+            <text class="lbl-sm" x="140" y="144" text-anchor="middle">edge caches</text>
+            <text class="lbl" x="140" y="164" text-anchor="middle">9f3a1c · 1-yr TTL</text>
+
+            <text class="lbl-sm" x="510" y="26" text-anchor="middle" fill="#B0532F">deploy v2</text>
+            <rect class="node" x="400" y="40" width="220" height="44" rx="8"/>
+            <text class="lbl" x="510" y="60" text-anchor="middle">index.html refs</text>
+            <text class="lbl-sm" x="510" y="76" text-anchor="middle" fill="#B0532F">app.7b22e8.js</text>
+            <rect class="node-b" x="400" y="120" width="220" height="58" rx="9" stroke="#2E8B8B"/>
+            <text class="lbl-sm" x="510" y="144" text-anchor="middle">edge sees new URL</text>
+            <text class="lbl" x="510" y="164" text-anchor="middle" fill="#B0532F">fetch fresh, cache</text>
+
+            <path class="flow" d="M250 62 H 398" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="324" y="52" text-anchor="middle">new hash → new URL</text>
+            <text class="lbl-sm" x="320" y="204" text-anchor="middle" fill="#4A7BA6">old 9f3a1c is no longer referenced; it simply ages out</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — a new build produces a new hashed URL, so caches refresh themselves without any purge</figcaption>
+      </figure>
+
+      <p>Build tools do this for you automatically: webpack, Vite, esbuild, and Rollup all emit <code>[name].[contenthash].js</code> filenames and rewrite the HTML references to match. You then serve the HTML itself with a <em>short</em> TTL (it is small and must point at the latest hashes), and the heavy assets with a one-year immutable TTL.</p>
+
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>The exact question is often <em>"how do you invalidate a stale asset?"</em> The senior answer is: "Prefer not to invalidate at all — fingerprint asset URLs so a new deploy is a new URL and old copies age out naturally; keep the small HTML entry point on a short TTL. Reserve explicit purge for emergencies like a legal takedown, because purges are slow, sometimes rate-limited, and leave a propagation window of inconsistency."</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Cacheability</div>
+      <h2>What belongs on a CDN</h2>
+      <p>A CDN only helps for content that is <strong>the same for many users</strong> and safe to store. The dividing line is whether a response is <em>cacheable</em> — and getting this wrong is dangerous, because caching a personalised response means serving one user's data to another.</p>
+
+      <h3>Static and shared content — cache it</h3>
+      <p>These are identical for everyone and change rarely, so they are ideal edge content:</p>
+      <ul>
+        <li><strong>Images</strong> — product photos, thumbnails, icons, banners.</li>
+        <li><strong>CSS and JavaScript bundles</strong> — fingerprinted, so cached for a year.</li>
+        <li><strong>Web fonts</strong> — small, reused on every page, never change.</li>
+        <li><strong>Video and audio segments</strong> — the chunked files of an HLS or DASH stream (see below).</li>
+        <li><strong>Downloadable files</strong> — PDFs, installers, app binaries.</li>
+      </ul>
+
+      <h3>Dynamic and personalised content — generally not</h3>
+      <p>A logged-in user's cart, a personalised feed, the GrabPay wallet balance, search results tied to one account — these differ per user and per moment. Caching them at a shared edge would leak data or show stale state, so they are marked <code>private</code> or <code>no-store</code> and go straight to the origin. The rule of thumb: <em>if the response depends on who is asking or changes every second, it does not belong in a shared cache.</em></p>
+
+      <h3>Streaming video: where the CDN earns its keep</h3>
+      <p>Modern video uses <strong>adaptive bitrate streaming</strong> via <strong>HLS</strong> or <strong>DASH</strong>. The player downloads a small <em>manifest</em> (a playlist of available quality levels) and then fetches the video as a long sequence of short <strong>segments</strong> — typically 2–6 second chunks, each a separate, immutable file with its own URL. Those segment files are perfect CDN content: identical for every viewer, never changing, and enormous in aggregate. A single popular video might be tens of thousands of segment files across several bitrates; serving them from the edge is the only way to deliver video at scale without your origin egress bill exploding. The manifest gets a short TTL (it can change for live streams); the segments get a long one.</p>
+
+      <h3>The middle ground: edge compute</h3>
+      <p>Between "fully static" and "fully dynamic" sits content that is <em>nearly</em> the same for everyone but needs a small per-request tweak — injecting a locale, doing an A/B split, checking an auth token. CDNs now run small functions at the edge (Cloudflare Workers, AWS Lambda@Edge, Fastly Compute) so you can personalise or make a routing decision <em>at the edge</em> without a round trip to the origin. It is worth a one-line mention: "the parts that vary slightly can run as edge functions, so even semi-dynamic responses stay close to the user."</p>
+
+      <div class="callout">
+        <span class="k">Why the Vary header matters</span>
+        <p>Some responses differ by request header — for instance, you serve WebP to browsers that support it and JPEG to those that do not, keyed on the <code>Accept</code> header, or a compressed body keyed on <code>Accept-Encoding</code>. The <code>Vary</code> response header tells the cache "store a separate copy per value of this header." Used carefully it is essential; used carelessly (e.g. <code>Vary: User-Agent</code>, which has thousands of distinct values) it shatters your cache into near-unique entries and destroys your hit ratio.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Security</div>
+      <h2>Private media &amp; TLS</h2>
+      <p>"Cacheable static content" sounds like it must be public. But plenty of valuable static media is <em>private</em> — a paid course video, a user's uploaded receipt on a SeaMoney KYC flow, a premium ebook. You still want the CDN's speed and offload, but you must not let just anyone fetch the file by guessing the URL. The mechanism is <strong>signed URLs</strong> (or signed cookies).</p>
+
+      <h3>How signed URLs work</h3>
+      <p>Your origin generates a URL containing a cryptographic <strong>signature</strong> and an <strong>expiry timestamp</strong>, signed with a secret key the CDN also knows. The edge validates the signature and expiry before serving the file; if either is wrong or expired, it returns <code>403 Forbidden</code> without touching the origin. So you hand an authenticated, logged-in user a URL like <code>video.mp4?Expires=1717200000&amp;Signature=...</code> that works for, say, the next ten minutes and only for them. The file is cached at the edge for everyone (great hit ratio), but only holders of a valid, unexpired signature can pull it. Anyone who copies the link finds it dead after the window closes.</p>
+
+      <h3>TLS at the edge</h3>
+      <p>Every CDN <strong>terminates TLS</strong> at the edge: the HTTPS handshake — the most latency-sensitive part of a connection — happens at a PoP a few milliseconds from the user rather than across an ocean to your origin. The CDN holds (or auto-provisions, e.g. via Let's Encrypt) the certificate for your asset hostname. From the edge back to your origin, traffic rides a separate, often longer-lived secure connection. The user gets a fast handshake and a padlock; you get the connection setup cost moved off your origin entirely.</p>
+
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>A common probe: <em>"how do you serve private or authenticated media through a CDN?"</em> The crisp answer: "Use signed URLs or signed cookies — the origin issues a short-lived, cryptographically signed link tied to the user; the edge validates the signature and expiry and rejects anything else with a 403. The object is still cached at the edge, so you keep the performance, but access is gated. Pair it with HTTPS so the link cannot be sniffed in transit." Mentioning expiry windows shows you have thought about leaked-link abuse.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Resilience &amp; economics</div>
+      <h2>Failure, fallback &amp; cost</h2>
+      <p>Two final things an interviewer expects you to address for any infrastructure component: what happens when it breaks, and what it costs.</p>
+
+      <h3>When an edge dies</h3>
+      <p>A CDN is built to lose nodes gracefully. If a single edge server fails, the routing layer (DNS health checks or anycast withdrawal of that PoP's route) simply stops sending traffic there and steers users to the next-nearest healthy PoP. Those users see slightly higher latency until the node recovers, but no errors. Because edges hold only cached copies of content the origin still has, losing an edge loses no data — the new edge just re-pulls on its first miss. This statelessness is precisely why CDNs scale: any edge can serve any request, and adding or removing edges is routine.</p>
+
+      <h3>When the whole CDN is unreachable</h3>
+      <p>Rarer, but it happens — a provider-wide outage or a regional network partition. The safety net is <strong>origin fallback</strong>: you keep the origin reachable and healthy so that, worst case, traffic can flow directly to it (slower and more expensive, but functioning). Robust setups go further with <strong>multi-CDN</strong>: register two providers and use DNS or a traffic-steering layer to fail over from one to the other. The principle is the same as everywhere in distributed systems — do not let a component you do not fully control become a single point of failure for the whole product.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 200" role="img" aria-label="When the primary edge is down, the user is routed to a healthy edge, and if the whole CDN is down, traffic falls back to the origin">
+            <rect class="node" x="20" y="78" width="96" height="44" rx="8"/>
+            <text class="lbl" x="68" y="105" text-anchor="middle">User</text>
+            <rect x="200" y="20" width="150" height="46" rx="9" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl" x="275" y="40" text-anchor="middle" fill="#B0532F">Edge A · down</text>
+            <text class="lbl-sm" x="275" y="56" text-anchor="middle" fill="#B0532F">✕</text>
+            <rect class="node-b" x="200" y="92" width="150" height="46" rx="9" stroke="#2E8B8B"/>
+            <text class="lbl" x="275" y="120" text-anchor="middle">Edge B · healthy</text>
+            <rect x="448" y="78" width="172" height="74" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <g transform="translate(460,92)">
+              <rect width="36" height="46" rx="5" fill="#69B34C"/>
+              <rect x="8" y="9" width="20" height="3" rx="1.5" fill="#fff"/>
+              <rect x="8" y="28" width="20" height="3" rx="1.5" fill="#fff"/>
+              <rect x="8" y="34" width="20" height="3" rx="1.5" fill="#fff"/>
+            </g>
+            <text class="lbl" x="540" y="142" text-anchor="middle">Origin</text>
+            <path class="flow-r" d="M116 90 C 160 60, 175 48, 198 44" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="150" y="52" text-anchor="middle" fill="#B0532F">fails</text>
+            <path class="flow" d="M116 104 C 160 112, 175 114, 198 115" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="158" y="136" text-anchor="middle">reroute</text>
+            <path class="flow-d" d="M350 115 H 446" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="398" y="106" text-anchor="middle" fill="#4A7BA6">fallback if all down</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — a dead edge reroutes to a healthy one; a dead CDN falls back to the origin</figcaption>
+      </figure>
+
+      <h3>The cost argument</h3>
+      <p>CDNs are not only about speed — they are frequently a cost <em>saving</em>. CDN bandwidth is typically much cheaper per gigabyte than cloud origin egress, and you buy far less of it because the edge absorbs the bulk of requests. Walk the numbers: suppose a campaign serves 100&nbsp;TB of video in a month. From cloud origin egress at, say, US$0.08–0.12/GB, that is roughly US$8,000–12,000 — and your origin servers have to push every byte. Move it behind a CDN at a blended US$0.02–0.04/GB with a 95% hit ratio, and not only is the per-GB rate lower, but your origin only ever serves the 5% of misses. The bandwidth bill drops by most of its value <em>and</em> your origin fleet shrinks. The CDN often pays for itself purely on egress.</p>
+
+      <div class="callout">
+        <span class="k">What breaks at 10x</span>
+        <p>Scale a Shopee-style flash sale 10x and the failure mode is not the edges — they scale horizontally — but the <strong>cold-miss stampede</strong> on a freshly deployed asset. Ten million users hit edges that all miss simultaneously, and without origin shielding those misses pile onto one origin. Mitigations: pre-warm (push) the launch assets, enable origin shielding so misses collapse to a single origin fetch, set immutable year-long TTLs on fingerprinted assets so nothing needlessly revalidates, and keep dynamic API traffic on a completely separate path so a static-content spike cannot starve it.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>keep copies of your shared, rarely-changing content on edge servers near users, so most requests are answered fast and locally while your origin sees only the misses.</em> If you can reason about hit ratio, TTLs, pull-vs-push, and how you update a stale asset, you can carry this part of the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">00</span><b>Distance &amp; load are the enemy</b><span>One origin means far users pay RTT and the origin pays all the bandwidth.</span></div>
+        <div class="tk"><span class="num">01</span><b>Edges hold local copies</b><span>A global fleet of caching PoPs serves nearby users; the origin is the master copy.</span></div>
+        <div class="tk"><span class="num">02</span><b>Routing is automatic</b><span>DNS steering or anycast quietly delivers each user to the nearest edge.</span></div>
+        <div class="tk"><span class="num">03</span><b>Pull-through fills itself</b><span>First request misses and warms the edge; the rest are hits. Track edge hit ratio.</span></div>
+        <div class="tk"><span class="num">04</span><b>Pull by default, push to pre-warm</b><span>Lazy for big catalogues; push for large files and timed launches.</span></div>
+        <div class="tk"><span class="num">05</span><b>TTL is the freshness dial</b><span>Cache-Control / s-maxage / ETag / stale-while-revalidate trade freshness for offload.</span></div>
+        <div class="tk"><span class="num">06</span><b>Fingerprint, do not purge</b><span>New content = new hashed URL; purge only for emergencies.</span></div>
+        <div class="tk"><span class="num">07</span><b>Cache the shared, skip the personal</b><span>Static assets and video segments yes; per-user responses no.</span></div>
+        <div class="tk"><span class="num">08</span><b>Private media via signed URLs</b><span>Short-lived signed links gate access while the edge still caches the file.</span></div>
+        <div class="tk"><span class="num">09</span><b>Fail over &amp; save money</b><span>Dead edge reroutes, dead CDN falls back to origin; cheaper egress is a bonus.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Name the two distinct problems a single origin causes, and why a faster origin server fixes neither.<br>(2) Walk through what happens on a cache miss versus a cache hit, and define edge hit ratio.<br>(3) When would you choose push over origin-pull, and why?<br>(4) You set a 30-day edge TTL and now must ship an urgent fix — how do you make users get the new version without an explicit purge?<br>(5) What does each of <code>max-age</code>, <code>s-maxage</code>, <code>no-cache</code>, and <code>stale-while-revalidate</code> do?<br>(6) How do you serve private, authenticated media through a CDN while keeping it cacheable?<br>Any fuzzy answer → re-read that section, then replay the pull-through diagram and redraw the origin-and-edges picture from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 07 · CDN &amp; CONTENT DELIVERY · interactive edition<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* pull-through edge cache: miss then hit */
+  makeStepper(document.getElementById('fig-pull'), [
+    {text:"The first user requests an object from the nearest edge. The edge cache is empty.", active:["p-user","p-edge"], path:"p-req", state:"(empty)"},
+    {text:"Cache miss — the edge has no copy, so it forwards the request to the origin.", active:["p-edge","p-origin"], path:"p-fetch", reject:true, state:"MISS"},
+    {text:"The origin sends the file back; the edge stores a local copy for next time.", active:["p-origin","p-edge"], path:"p-fill", state:"img.jpg cached"},
+    {text:"The edge returns the file to the first user — slow this once, fast forever after.", active:["p-edge","p-user"], path:"p-serve", state:"img.jpg cached"},
+    {text:"A second nearby user requests the same object.", active:["p-user","p-edge"], path:"p-req", state:"img.jpg cached"},
+    {text:"Cache HIT — the edge serves it locally in milliseconds; the origin never hears about it.", active:["p-edge","p-user"], path:"p-serve", state:"HIT"}
+  ], function(idx,s){
+    var st=document.getElementById('p-state');
+    if(st && s.state) st.textContent=s.state;
+  });
+</script>
+</body>
+</html>

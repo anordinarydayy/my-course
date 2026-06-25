@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 35 — Design a Real-Time Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  pre{margin:22px 0;padding:18px 20px;border-radius:10px;background:#1B2A38;color:#E8EEF4;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13.5px;line-height:1.6;border:1px solid #14202B;}
+  pre .c{color:#7FA6C4;} pre .kw{color:#E0995E;} pre .s{color:#9DD49B;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Real-Time<br>Leaderboard</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why leaderboards are hard</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimate</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Why not SQL?</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The sorted set</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Score update &amp; rank ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Architecture &amp; persistence</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>The hot-key problem ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Segments &amp; time windows</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Ties, failures &amp; 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">35</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Real-Time Leaderboard</h1>
+      <p class="lede">A game leaderboard has to absorb a flood of score changes and still answer "who's in the top 10?" and "what's <em>my</em> rank?" the instant a player asks — for millions of players at once. A relational <code>ORDER BY ... LIMIT</code> buckles under that load; a single in-memory data structure turns the whole problem into a few logarithmic-time operations.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on designing a real-time leaderboard — a standard, widely-documented system-design exercise. The explanations, examples, numbers, and diagrams here are my own; nothing is copied from any paid course or book. The reference shorthand <strong>BBG&nbsp;V2·C10</strong> is only a syllabus marker. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow. Examples lean on Singapore gaming/super-app context (Garena / Sea), but the concepts are general.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why leaderboards are hard</h2>
+      <p>A leaderboard looks trivial — it's just a sorted list. That intuition is exactly the trap the interview is built around. The difficulty is not <em>sorting</em>; it's keeping a list sorted while it is being <strong>mutated thousands of times per second</strong> and simultaneously <strong>queried for both a tiny slice (the top 10) and an exact position deep in the middle (a player's rank)</strong>, with both answers expected back in single-digit milliseconds.</p>
+      <p>Think about a <strong>Free Fire</strong> tournament run by Garena out of Singapore. During a weekend event, tens of millions of matches finish, each producing a score delta for one or more players. Every one of those players, between matches, refreshes their profile screen — which shows "You are ranked <strong>#1,284,902</strong> of 40 million" and "Top 100 this week." That single screen demands two fundamentally different operations against the same constantly-shifting dataset:</p>
+      <ul>
+        <li><strong>A range read</strong> — fetch the top K entries in score order.</li>
+        <li><strong>A rank lookup</strong> — given one player, count how many players score higher.</li>
+      </ul>
+      <p>The second one is the killer. Counting "how many rows are above me" naively means scanning a huge dataset on every profile open. Hold that thought — section 03 shows exactly why the obvious database approach collapses, and section 04 shows the data structure that makes both operations cost <code>O(log n)</code>.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A single profile screen demanding both a top-K range read and an exact rank lookup">
+            <rect class="node" x="24" y="80" width="120" height="60" rx="10"/>
+            <text class="lbl" x="84" y="106" text-anchor="middle">Player opens</text>
+            <text class="lbl" x="84" y="124" text-anchor="middle">profile</text>
+            <rect class="node-b" x="250" y="20" width="170" height="56" rx="9"/>
+            <text class="lbl" x="335" y="43" text-anchor="middle">"Top 100 this week"</text>
+            <text class="lbl-sm" x="335" y="62" text-anchor="middle">range read · top-K</text>
+            <rect class="node-r" x="250" y="142" width="170" height="56" rx="9"/>
+            <text class="lbl" x="335" y="165" text-anchor="middle">"You are #1,284,902"</text>
+            <text class="lbl-sm" x="335" y="184" text-anchor="middle">rank lookup · count-above</text>
+            <path class="flow" d="M144 100 C 200 70, 220 56, 248 50" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M144 120 C 200 150, 220 164, 248 170" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="500" y="48" text-anchor="middle">cheap if small</text>
+            <text class="lbl-sm" x="500" y="170" text-anchor="middle" fill="#B0532F">expensive at scale</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one screen, two very different queries against the same moving dataset</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Open by narrowing the problem out loud. Leaderboards come in many shapes, and the design hinges on the answers. Drive the conversation toward both the <strong>functional</strong> features and the <strong>non-functional</strong> constraints.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Update a score.</strong> When a match ends, a player's score changes — usually an <em>increment</em> (you earned 50 points), sometimes an absolute set (you reached level 90). This is the write path.</li>
+        <li><strong>Top-K query.</strong> Return the highest-scoring K players in order, with their scores. K is small and bounded — typically the top 10, 50, or 100.</li>
+        <li><strong>A player's own rank.</strong> Given a <code>user_id</code>, return their exact (or near-exact) position, 1-indexed, among all players.</li>
+        <li><strong>The neighborhood window.</strong> "Show me the 5 players above and 5 below me" — a range read centered on a rank, not on position 1. This is what makes the profile screen feel competitive.</li>
+        <li><strong>Real-time freshness.</strong> A score change should be reflected in queries within roughly a second, not after a nightly batch job.</li>
+      </ul>
+      <h3>Out of scope (state it, then drop it)</h3>
+      <ul>
+        <li>How scores are <em>computed</em> — that is the game server's job. We receive a final delta.</li>
+        <li>Anti-cheat and score validation — assume an upstream trust boundary already verified the score.</li>
+        <li>Rich profile data (avatars, clan names) — the leaderboard stores <code>user_id → score</code>; everything else is a join the client does separately.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Scale:</strong> tens of millions of players on a single board; tens of thousands of score updates per second at peak.</li>
+        <li><strong>Latency:</strong> reads and writes in single-digit to low-double-digit milliseconds at p99.</li>
+        <li><strong>Availability over strict consistency:</strong> if a rank is off by one for a fraction of a second, nobody is harmed. We can lean toward <em>eventual</em> consistency for ranks far from the top.</li>
+        <li><strong>Durability:</strong> a score, once accepted, must not be silently lost — there must be a source of truth we can rebuild from.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design: <em>"the hard part is supporting both top-K and arbitrary-rank lookups in real time while the data is constantly mutating."</em> Say it early. It tells the interviewer you've identified the real bottleneck instead of treating this as a sorting exercise.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimate</div>
+      <h2>Back-of-the-envelope estimate</h2>
+      <p>A quick sizing pass tells you whether this fits in memory and how much write throughput you must absorb. Use round numbers; the interviewer wants the reasoning, not precision.</p>
+      <h3>Write throughput</h3>
+      <p>Suppose 40 million monthly active players, and during a peak event 5 million are online at once. If an active player finishes a match every 5 minutes, that's <code>5,000,000 / 300s ≈ 16,600</code> score updates per second on average, spiking to perhaps <strong>50,000 writes/sec</strong> at the top of the hour when matches cluster. That is a lot for a relational table to re-sort on, but trivial for an in-memory structure.</p>
+      <h3>Read throughput</h3>
+      <p>Players check rankings far more than they play. Say each online player opens the leaderboard or profile screen once a minute: <code>5,000,000 / 60 ≈ 83,000 reads/sec</code>, and these spike harder than writes because everyone refreshes when a tournament ends. Reads dominate writes by roughly 5:1 — a crucial fact for section 08.</p>
+      <h3>Storage</h3>
+      <p>Each leaderboard entry is essentially a <code>user_id</code> (8 bytes) plus a <code>score</code> (8 bytes), but the sorted structure carries pointer overhead. Budget roughly <strong>~100 bytes per member</strong> in a Redis sorted set. For 40 million members:</p>
+      <pre><span class="c"># memory for one global board</span>
+40,000,000 members × ~100 bytes  ≈  4 GB
+
+<span class="c"># comfortably fits in RAM on a single modern node;</span>
+<span class="c"># a 50k writes/sec stream is well within one Redis instance's ceiling</span></pre>
+      <p>The headline: <strong>the entire global board fits in a few gigabytes of RAM on one machine.</strong> That single fact is why an in-memory sorted structure is the answer and a disk-based sort is not. The bottleneck will not be storage size — it will be the <em>read fan-out</em> onto one hot key.</p>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The wrong default</div>
+      <h2>Why not just use SQL?</h2>
+      <p>The reflexive answer is a relational table: <code>players(user_id PK, score, updated_at)</code>, an index on <code>score</code>, and two queries. It works beautifully at small scale and falls apart at large scale in two distinct ways — understanding <em>both</em> is what separates a strong answer from a hand-wave.</p>
+      <h3>Top-K is fine; rank is the problem</h3>
+      <p>With a B-tree index on <code>score</code>, the top-K query is actually cheap:</p>
+      <pre><span class="kw">SELECT</span> user_id, score <span class="kw">FROM</span> players
+<span class="kw">ORDER BY</span> score <span class="kw">DESC</span> <span class="kw">LIMIT</span> 100;</pre>
+      <p>The database walks the tail end of the index for 100 rows and stops. That's logarithmic plus a tiny scan — not the issue. The killer is the <strong>rank query</strong>: "how many players score higher than me?"</p>
+      <pre><span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> players
+<span class="kw">WHERE</span> score &gt; (<span class="kw">SELECT</span> score <span class="kw">FROM</span> players <span class="kw">WHERE</span> user_id = :me);</pre>
+      <p>A B-tree index lets you <em>find</em> a value in <code>O(log n)</code>, but a standard index does <strong>not</strong> store how many entries precede a given key. So <code>COUNT(*) WHERE score &gt; X</code> must scan every index entry above your score and tally them. For a player near the median of 40 million, that's counting ~20 million entries — <strong>per profile open</strong>. Multiply by 83,000 reads/sec and the database is doing trillions of index touches per second. It melts.</p>
+      <h3>Constant re-sorting under write load</h3>
+      <p>The second problem is the write side. Every score update changes a player's position, which means the <code>score</code> index must be re-balanced. At 50,000 writes/sec, the index is in perpetual churn, lock contention climbs, and the very reads above get slower still. The read and write pressures compound.</p>
+      <div class="vs">
+        <div class="col"><h4>SQL table + index</h4><ul>
+          <li>Durable and familiar; great source of truth</li>
+          <li>Top-K via <code>ORDER BY ... LIMIT</code> is genuinely fast</li>
+          <li>Rank query is <code>O(n)</code> — a full count above your score</li>
+          <li>Index churns constantly under heavy writes</li>
+          <li>Cannot hold real-time rank for millions at 80k+ reads/sec</li>
+        </ul></div>
+        <div class="col"><h4>In-memory sorted set</h4><ul>
+          <li>Update, top-K, <em>and</em> rank are all <code>O(log n)</code></li>
+          <li>Holds 40M members in ~4 GB of RAM</li>
+          <li>Absorbs 50k writes/sec on one node</li>
+          <li>Volatile — needs a persistence story (section 07)</li>
+          <li>A single global board is a hot key (section 08)</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Under the hood — why no rank from a B-tree</span>
+        <p>You <em>could</em> make SQL fast by maintaining an <strong>order-statistics tree</strong> (each node stores the size of its subtree, so rank is a logarithmic walk). But standard SQL indexes are not order-statistics trees. Redis's sorted set essentially <em>is</em> one — which is exactly why we reach for it. Some teams approximate ranks in SQL with a periodically-refreshed materialized rank column, but that sacrifices real-time freshness.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Common follow-up</span>
+        <p>"Could you use SQL anyway?" Yes — for the <em>durable source of truth</em>. The trick (section 07) is to keep PostgreSQL as the system of record and use the sorted set purely as a rebuildable serving layer. You don't pick one; you layer them.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The core idea</div>
+      <h2>The sorted set — one structure, three operations</h2>
+      <p>The heart of the design is the <strong>sorted set</strong> (Redis calls it a <code>ZSET</code>). A sorted set is a collection of unique members — here, <code>user_id</code>s — each tagged with a floating-point <strong>score</strong>. The structure keeps members ordered by score at all times, and crucially it can answer "give me members ranked A through B" <em>and</em> "what rank is this member?" both in logarithmic time.</p>
+      <h3>How it works under the hood</h3>
+      <p>Redis implements a sorted set with two cooperating structures kept in sync:</p>
+      <ul>
+        <li>A <strong>hash table</strong> mapping <code>member → score</code>, so "what is this player's score?" is <code>O(1)</code>.</li>
+        <li>A <strong>skip list</strong> ordering members by score, which gives ordered traversal and range queries in <code>O(log n)</code>.</li>
+      </ul>
+      <p>A <strong>skip list</strong> is a stack of linked lists. The bottom list holds every member in score order. Each higher list is a sparse "express lane" that skips over many nodes, built probabilistically (each node has a coin-flip chance of being promoted to the next level up). To find a position, you start at the top express lane and drop down level by level, skipping huge spans cheaply — the same logarithmic search a balanced tree gives, but simpler to implement and easy to traverse in order.</p>
+      <p>The reason this matters for <em>rank</em> specifically: Redis augments each skip-list node with a <strong>span</strong> — the number of bottom-level nodes that the forward pointer jumps over. As the search descends, it sums those spans, so by the time it locates your member it has <em>already counted</em> how many members precede it. That sum <em>is</em> your rank, computed in the same logarithmic walk. This is the order-statistics trick that SQL's plain B-tree lacks.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Skip list structure with express lanes over a base list of player scores, summing spans to compute rank">
+            <text class="lbl-sm" x="40" y="32" text-anchor="start">express lane L2</text>
+            <text class="lbl-sm" x="40" y="110" text-anchor="start">express lane L1</text>
+            <text class="lbl-sm" x="40" y="163" text-anchor="start">base list (all members)</text>
+            <!-- base nodes -->
+            <g>
+              <rect class="node-b" x="160" y="168" width="60" height="38" rx="6"/><text class="lbl-sm" x="190" y="192" text-anchor="middle">990</text>
+              <rect class="node-b" x="240" y="168" width="60" height="38" rx="6"/><text class="lbl-sm" x="270" y="192" text-anchor="middle">820</text>
+              <rect class="node-b" x="320" y="168" width="60" height="38" rx="6"/><text class="lbl-sm" x="350" y="192" text-anchor="middle">760</text>
+              <rect class="node-b" x="400" y="168" width="60" height="38" rx="6"/><text class="lbl-sm" x="430" y="192" text-anchor="middle">610</text>
+              <rect class="node-b" x="480" y="168" width="60" height="38" rx="6"/><text class="lbl-sm" x="510" y="192" text-anchor="middle">540</text>
+              <rect class="node-r" x="560" y="168" width="60" height="38" rx="6"/><text class="lbl-sm" x="590" y="192" text-anchor="middle">410</text>
+            </g>
+            <path class="flow-d" d="M220 187 H 240" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M300 187 H 320" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M380 187 H 400" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M460 187 H 480" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M540 187 H 560" marker-end="url(#arrow-s)"/>
+            <!-- L1 -->
+            <rect class="node" x="160" y="90" width="60" height="34" rx="6"/><text class="lbl-sm" x="190" y="112" text-anchor="middle">990</text>
+            <rect class="node" x="320" y="90" width="60" height="34" rx="6"/><text class="lbl-sm" x="350" y="112" text-anchor="middle">760</text>
+            <rect class="node" x="480" y="90" width="60" height="34" rx="6"/><text class="lbl-sm" x="510" y="112" text-anchor="middle">540</text>
+            <path class="flow" d="M220 107 H 320" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="270" y="98" text-anchor="middle">span 2</text>
+            <path class="flow" d="M380 107 H 480" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="430" y="98" text-anchor="middle">span 2</text>
+            <!-- L2 -->
+            <rect class="node" x="160" y="14" width="60" height="34" rx="6"/><text class="lbl-sm" x="190" y="36" text-anchor="middle">990</text>
+            <rect class="node" x="480" y="14" width="60" height="34" rx="6"/><text class="lbl-sm" x="510" y="36" text-anchor="middle">540</text>
+            <path class="flow" d="M220 31 H 480" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="350" y="24" text-anchor="middle">span 4 — skip 4 in one hop</text>
+            <text class="lbl-sm" x="320" y="232" text-anchor="middle">descend, summing spans → rank arrives for free</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — a skip list's express lanes give O(log n) search; summed spans yield rank in the same walk</figcaption>
+      </figure>
+      <h3>The four operations you actually use</h3>
+      <p>Map every leaderboard feature onto a sorted-set command. Using Redis names (the de-facto standard; most managed offerings — AWS ElastiCache, GCP Memorystore, Redis Cloud — expose the same API):</p>
+      <ul>
+        <li><strong>Update a score:</strong> <code>ZADD board 990 user:42</code> sets an absolute score; <code>ZINCRBY board 50 user:42</code> adds a delta. Both are <code>O(log n)</code> because they reposition one member in the skip list.</li>
+        <li><strong>Top-K:</strong> <code>ZREVRANGE board 0 99 WITHSCORES</code> returns the 100 highest scorers, descending. <code>O(log n + K)</code> — locate the head, then walk K nodes.</li>
+        <li><strong>A player's rank:</strong> <code>ZREVRANK board user:42</code> returns the 0-indexed position from the top. <code>O(log n)</code>, thanks to the span trick above.</li>
+        <li><strong>The neighborhood window:</strong> get the rank with <code>ZREVRANK</code>, then <code>ZREVRANGE board (rank-5) (rank+5) WITHSCORES</code> to fetch the 11 entries centered on the player.</li>
+      </ul>
+      <p>Every core feature is now a single, sub-millisecond, logarithmic-time command against ~4 GB of RAM. The SQL nightmare of section 03 has evaporated.</p>
+      <div class="callout">
+        <span class="k">Why descending (REV) commands</span>
+        <p>A sorted set orders <em>ascending</em> by score, so rank 0 is the <em>lowest</em> score. Leaderboards want the highest score at rank 1, so you use the <code>REV</code> variants (<code>ZREVRANGE</code>, <code>ZREVRANK</code>) throughout. It's the most common off-by-one mistake people make at the whiteboard — the highest scorer is <code>ZREVRANK = 0</code>, which you present to the user as "#1".</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Contracts</div>
+      <h2>API and data model</h2>
+      <p>Now make it concrete with the endpoints a client calls and the keys the storage layer holds. Going past a vague "we have a sorted set" earns real points.</p>
+      <h3>The HTTP API</h3>
+      <pre><span class="c"># write path — game server reports a finished match</span>
+<span class="kw">POST</span> /v1/leaderboards/{boardId}/scores
+  { "userId": "u_8842", "delta": 50, "occurredAt": 1717142400 }
+  → 202 Accepted
+
+<span class="c"># top-K</span>
+<span class="kw">GET</span> /v1/leaderboards/{boardId}/top?limit=100
+  → [ { "rank": 1, "userId": "u_19", "score": 99820 }, ... ]
+
+<span class="c"># a single player's standing + neighbors</span>
+<span class="kw">GET</span> /v1/leaderboards/{boardId}/rank/{userId}?window=5
+  → { "rank": 1284902, "score": 7310,
+      "neighbors": [ {rank:1284897,...}, ... {rank:1284907,...} ] }</pre>
+      <p>Two design choices worth defending. First, the write uses a <strong>delta</strong>, not an absolute score, so the leaderboard never needs to know the player's prior total — it just applies <code>ZINCRBY</code>. Second, the write returns <code>202 Accepted</code>: the score is durably enqueued, and the sorted set may update a beat later. That deliberate looseness is what lets the write path scale (section 07).</p>
+      <h3>The storage keys</h3>
+      <p>The naming convention for keys is itself a design decision, because it's how you get multiple boards (section 09) for free:</p>
+      <pre><span class="c"># one ZSET per logical board</span>
+ZADD   lb:global              99820  u_19
+ZADD   lb:region:SG           41200  u_8842
+ZADD   lb:weekly:2026-W22     7310   u_8842
+
+<span class="c"># the durable source of truth lives elsewhere (Postgres)</span>
+players(user_id PK, total_score BIGINT, region, updated_at)
+score_events(event_id PK, user_id, delta, board_id, occurred_at)</pre>
+      <p>The key prefix (<code>lb:global</code>, <code>lb:region:SG</code>, <code>lb:weekly:...</code>) encodes the board's identity. The <strong>same</strong> score event can fan out into several sorted sets — a global board, a regional board, and the current weekly board — each just another <code>ZINCRBY</code> against a different key. The relational tables are the <strong>system of record</strong>: <code>score_events</code> is an append-only log of every delta (so we can replay), and <code>players</code> holds the authoritative running total.</p>
+    </section>
+
+    <!-- 6 — INTERACTIVE -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The happy path</div>
+      <h2>Score update and rank query, end to end</h2>
+      <p>Watch the central flow play out: a player earns points, the sorted set re-orders itself, and a top-K read and a my-rank read both come back instantly. This is the loop the whole system optimizes.</p>
+      <p>When <code>ZINCRBY lb:global 50 u_8842</code> runs, Redis finds <code>u_8842</code> via the member hash, removes its skip-list node, recomputes the new score, and re-inserts the node at its new position — adjusting the span counts of the nodes it passes. The member has physically moved up the board. A subsequent <code>ZREVRANK</code> for that player now walks the express lanes and returns the new, correct rank; a <code>ZREVRANGE 0 9</code> walks the head and returns the fresh top 10. No re-sort, no scan — just two logarithmic traversals.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-update">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive: a player earns points, ZINCRBY reorders the sorted set, top-K and my-rank both return instantly">
+            <g class="st" id="u-player"><rect class="node" x="18" y="100" width="96" height="46" rx="8"/><text class="lbl" x="66" y="120" text-anchor="middle">Player</text><text class="lbl-sm" x="66" y="136" text-anchor="middle">+50 pts</text></g>
+            <g class="st" id="u-svc"><rect class="node-b" x="160" y="96" width="120" height="54" rx="9"/><text class="lbl" x="220" y="120" text-anchor="middle">Leaderboard</text><text class="lbl" x="220" y="138" text-anchor="middle">service</text></g>
+            <g class="st" id="u-zset">
+              <rect style="fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;" x="330" y="40" width="170" height="170" rx="10"/>
+              <text class="lbl-sm" x="415" y="34" text-anchor="middle">ZSET lb:global</text>
+              <g id="u-rows">
+                <rect class="node" x="350" y="56" width="130" height="26" rx="5"/><text class="lbl-sm" x="415" y="73" text-anchor="middle" id="u-r1">u_19 · 99820</text>
+                <rect class="node" x="350" y="88" width="130" height="26" rx="5"/><text class="lbl-sm" x="415" y="105" text-anchor="middle" id="u-r2">u_77 · 7360</text>
+                <rect class="node" x="350" y="120" width="130" height="26" rx="5"/><text class="lbl-sm" x="415" y="137" text-anchor="middle" id="u-r3">u_8842 · 7310</text>
+                <rect class="node" x="350" y="152" width="130" height="26" rx="5"/><text class="lbl-sm" x="415" y="169" text-anchor="middle" id="u-r4">u_50 · 7180</text>
+                <rect class="node" x="350" y="184" width="130" height="26" rx="5"/><text class="lbl-sm" x="415" y="201" text-anchor="middle" id="u-r5">u_03 · 6900</text>
+              </g>
+            </g>
+            <g class="st" id="u-out"><rect class="node-b" x="540" y="96" width="86" height="54" rx="9"/><text class="lbl-sm" x="583" y="118" text-anchor="middle">top-K +</text><text class="lbl-sm" x="583" y="134" text-anchor="middle">my-rank</text></g>
+            <path id="u-p1" class="flow" d="M114 123 H 158" marker-end="url(#arrow)"/>
+            <path id="u-p2" class="flow" d="M280 123 C 300 123, 312 123, 328 123" marker-end="url(#arrow)"/>
+            <path id="u-p3" class="flow" d="M500 123 H 538" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="135" y="113" text-anchor="middle">report</text>
+            <text class="lbl-sm" x="303" y="113" text-anchor="middle">ZINCRBY</text>
+            <text class="lbl-sm" x="519" y="113" text-anchor="middle">read</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: ZINCRBY moves the player up; top-K and my-rank stay O(log n)</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Common follow-up</span>
+        <p>"What if two matches for the same player finish at the same instant?" <code>ZINCRBY</code> is atomic and additive, so two concurrent <code>+50</code> increments correctly land as <code>+100</code> — unlike an absolute <code>ZADD</code>, where the later write would clobber the earlier one (last-writer-wins, a lost update). Prefer increments for additive scores; reserve absolute <code>ZADD</code> for "set to this exact value" semantics like a high-water-mark level.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Don't lose data</div>
+      <h2>Architecture and persistence</h2>
+      <p>The sorted set is in memory, and memory is volatile. The bottleneck the previous section created: <em>if the Redis node restarts, does every player's rank vanish?</em> The answer must be no — so we treat the sorted set as a fast, rebuildable <strong>serving layer</strong> sitting in front of a durable <strong>source of truth</strong>.</p>
+      <h3>The write pipeline</h3>
+      <p>A finished match doesn't write straight to Redis-and-pray. It flows through a pipeline that makes the score durable first:</p>
+      <ul>
+        <li>The game server <code>POST</code>s the delta to the leaderboard service, which appends it to a <strong>durable log</strong> — a <strong>Kafka</strong> topic (or writes the row to <code>score_events</code> in Postgres). This is the moment the write becomes safe, and why the API returns <code>202 Accepted</code>.</li>
+        <li>A consumer reads the log and applies <code>ZINCRBY</code> to the relevant sorted sets <em>and</em> updates the authoritative <code>players.total_score</code> in Postgres.</li>
+        <li>Because the log is the system of record, the sorted set is now <strong>fully rebuildable</strong>: replay the log (or read the <code>players</code> table) into a fresh <code>ZSET</code> and you're back.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 656 250" role="img" aria-label="Write pipeline: game server to durable Kafka log to a consumer that updates the sorted set and the source-of-truth database">
+            <rect class="node" x="20" y="100" width="96" height="48" rx="8"/>
+            <text class="lbl-sm" x="68" y="120" text-anchor="middle">Game</text>
+            <text class="lbl-sm" x="68" y="136" text-anchor="middle">server</text>
+            <rect x="156" y="98" width="120" height="52" rx="9" fill="#EEE9F6" stroke="#6E59A5" stroke-width="2"/>
+            <text class="lbl" x="216" y="120" text-anchor="middle" fill="#4b3b78">Kafka log</text>
+            <text class="lbl-sm" x="216" y="138" text-anchor="middle" fill="#6E59A5">score_events</text>
+            <rect class="node-b" x="316" y="98" width="110" height="52" rx="9"/>
+            <text class="lbl" x="371" y="122" text-anchor="middle">Consumer</text>
+            <text class="lbl-sm" x="371" y="138" text-anchor="middle">applier</text>
+            <rect class="node-r" x="468" y="24" width="150" height="52" rx="9"/>
+            <text class="lbl" x="543" y="47" text-anchor="middle">Redis ZSET</text>
+            <text class="lbl-sm" x="543" y="64" text-anchor="middle">serving layer</text>
+            <g transform="translate(490,150)">
+              <path d="M0,8 L0,46 A26,8 0 0 0 52,46 L52,8" fill="#2E73B8"/>
+              <ellipse cx="26" cy="8" rx="26" ry="8" fill="#3E86CF"/>
+              <text x="26" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text>
+            </g>
+            <text class="lbl-sm" x="516" y="226" text-anchor="middle">Postgres — source of truth</text>
+            <path class="flow" d="M116 124 H 154" marker-end="url(#arrow)"/>
+            <path class="flow" d="M276 124 H 314" marker-end="url(#arrow)"/>
+            <path class="flow" d="M426 110 C 450 80, 460 64, 466 52" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="430" y="74" text-anchor="middle">ZINCRBY</text>
+            <path class="flow" d="M426 140 C 450 158, 470 162, 488 168" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="446" y="172" text-anchor="middle">UPSERT</text>
+            <path class="flow-r" d="M516 196 C 600 196, 624 130, 600 64" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="644" y="130" text-anchor="middle" fill="#B0532F" transform="rotate(90 644 130)">rebuild on restart</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — the sorted set is a rebuildable cache; the log and DB are the durable truth</figcaption>
+      </figure>
+      <h3>Redis durability knobs</h3>
+      <p>Even though the DB is the truth, you still want Redis itself to survive a restart fast, rather than replaying the whole log every time. Redis offers two persistence modes:</p>
+      <ul>
+        <li><strong>RDB snapshots:</strong> periodic point-in-time dumps of the dataset to disk. Compact and fast to load, but you lose any writes since the last snapshot.</li>
+        <li><strong>AOF (append-only file):</strong> logs every write command. With <code>appendfsync everysec</code>, you risk at most ~1 second of writes on a crash — a good default for a leaderboard, where losing a second of score increments is recoverable from the upstream log anyway.</li>
+      </ul>
+      <div class="vs">
+        <div class="col"><h4>RDB snapshot</h4><ul>
+          <li>Small files, very fast restart load</li>
+          <li>Low runtime overhead</li>
+          <li>Loses writes since the last snapshot</li>
+        </ul></div>
+        <div class="col"><h4>AOF (everysec)</h4><ul>
+          <li>At most ~1s of writes lost on crash</li>
+          <li>File grows; needs periodic rewrite/compaction</li>
+          <li>Slower restart (replays the command log)</li>
+        </ul></div>
+      </div>
+      <h3>Failure mode: the Redis node dies</h3>
+      <p>If the primary fails, a <strong>replica</strong> (kept warm via Redis replication) is promoted by <strong>Redis Sentinel</strong> or by Redis Cluster's failover, and serving continues within seconds. Worst case — both primary and replica are lost — you rebuild the sorted set from the durable log or the <code>players</code> table. Reads might serve slightly stale ranks during the gap, which our non-functional requirements explicitly permit. The key insight: <strong>because the truth lives outside Redis, a total cache loss is a performance event, not a data-loss event.</strong></p>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> The real bottleneck</div>
+      <h2>The hot-key problem — scaling reads</h2>
+      <p>Here is where the interview gets interesting. The global board is a <strong>single key</strong>, <code>lb:global</code>, living on a single Redis node. From section 02, reads outnumber writes ~5:1 and spike to well over 100,000/sec when a tournament ends — and every one of them hammers that one key on that one node. That is a <strong>hot key</strong>: a single piece of data so popular it saturates the machine that owns it, no matter how much total cluster capacity you have. Sharding by key doesn't help, because there's only one key.</p>
+      <h3>Lever 1 — read replicas</h3>
+      <p>Writes must go to the primary (one node owns the authoritative sorted set), but reads can be served by <strong>read replicas</strong> that stream the primary's changes. Spin up several replicas behind the leaderboard service and fan reads across them. Ten replicas multiply read capacity tenfold. The trade-off is <strong>replication lag</strong>: a replica may be tens of milliseconds behind, so a player who just scored might briefly see their old rank. For a leaderboard that's acceptable — and it's exactly the eventual-consistency latitude we reserved in section 01.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-hot">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive: heavy reads overwhelming one hot key, then fanned out across read replicas with the primary taking writes">
+            <g class="st" id="h-readers"><rect class="node" x="18" y="98" width="100" height="50" rx="8"/><text class="lbl-sm" x="68" y="118" text-anchor="middle">100k+</text><text class="lbl-sm" x="68" y="134" text-anchor="middle">reads/sec</text></g>
+            <g class="st" id="h-primary"><rect class="node-r" x="250" y="40" width="150" height="56" rx="9"/><text class="lbl" x="325" y="62" text-anchor="middle">Primary</text><text class="lbl-sm" x="325" y="80" text-anchor="middle">writes + lb:global</text></g>
+            <g class="st" id="h-rep1"><rect class="node" x="250" y="116" width="150" height="38" rx="8"/><text class="lbl-sm" x="325" y="139" text-anchor="middle">Replica 1 (reads)</text></g>
+            <g class="st" id="h-rep2"><rect class="node" x="250" y="166" width="150" height="38" rx="8"/><text class="lbl-sm" x="325" y="189" text-anchor="middle">Replica 2 (reads)</text></g>
+            <g class="st" id="h-rep3"><rect class="node" x="250" y="216" width="150" height="30" rx="8"/><text class="lbl-sm" x="325" y="236" text-anchor="middle">Replica 3 (reads)</text></g>
+            <g class="st" id="h-writer"><rect class="node-b" x="470" y="40" width="150" height="56" rx="9"/><text class="lbl-sm" x="545" y="62" text-anchor="middle">write path</text><text class="lbl-sm" x="545" y="80" text-anchor="middle">(section 07)</text></g>
+            <path id="h-p1" class="flow" d="M118 130 C 180 130, 200 135, 248 135" marker-end="url(#arrow)"/>
+            <path id="h-p2" class="flow" d="M118 122 C 180 100, 200 145, 248 172" marker-end="url(#arrow)"/>
+            <path id="h-p3" class="flow" d="M118 126 C 180 120, 200 215, 248 226" marker-end="url(#arrow)"/>
+            <path id="h-p4" class="flow" d="M470 68 H 402" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="436" y="58" text-anchor="middle">writes</text>
+            <path class="flow-d" d="M325 96 V 114" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M340 96 C 360 130, 360 150, 348 164" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="430" y="108" text-anchor="middle" fill="#4A7BA6">replication stream</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: the primary owns writes; replicas absorb the read fan-out</figcaption>
+      </figure>
+      <h3>Lever 2 — cache the top-K</h3>
+      <p>The overwhelming majority of those reads want the <em>same thing</em>: the top 10 or top 100, which barely changes second to second. Compute <code>ZREVRANGE 0 99</code> once and cache the serialized result for, say, 1 second. Now 99% of read traffic is served from a tiny cached blob and never touches the sorted set at all. This single optimization often does more than adding replicas, because it collapses the hottest read into one computation per second.</p>
+      <h3>Lever 3 — exact near the top, approximate in the long tail</h3>
+      <p>Here's the deepest move. A player ranked #3 cares about the exact number. A player ranked #1,284,902 does <em>not</em> — "top 4%" is just as satisfying, and nobody can tell #1,284,902 from #1,284,915. So:</p>
+      <ul>
+        <li>For the <strong>top N</strong> (say the top 10,000), serve <strong>exact</strong> ranks straight from <code>ZREVRANK</code>.</li>
+        <li>For the <strong>long tail</strong>, serve an <strong>approximate</strong> rank derived from a <strong>score histogram</strong> — bucket scores into ranges, keep a running count per bucket (updated cheaply), and estimate rank as "(players in higher buckets) + (interpolation within my bucket)." This is <code>O(buckets)</code>, independent of how deep you are.</li>
+      </ul>
+      <p>Approximation lets the long tail cost essentially nothing while the part players actually scrutinize stays precise.</p>
+      <div class="callout">
+        <span class="k">Under the hood — why the hot key resists sharding</span>
+        <p>Normal Redis Cluster sharding distributes <em>different</em> keys to <em>different</em> nodes by hashing the key name. But a single global leaderboard is one key, so it lives entirely on one shard — sharding gives it zero relief. The escape hatches are exactly the three above: replicate the key for reads, cache the dominant read, and shrink the work for the long tail. (Splitting the board into many smaller boards — section 09 — is the other way out, and the cleanest when the product allows it.)</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Common follow-up</span>
+        <p>"How do you scale a global leaderboard that's a hot key?" Lead with: <em>"reads dominate, so I separate the write primary from many read replicas, cache the top-K aggressively because it's the same answer for everyone, and serve exact ranks only near the top while approximating the long tail with a score histogram."</em> Naming all three levers, and <em>why</em> sharding alone fails, is the full-marks answer.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Many boards</div>
+      <h2>Segmented and time-windowed leaderboards</h2>
+      <p>Real products rarely show one global board. Free Fire shows your rank among <strong>friends</strong>, within your <strong>region</strong> (Singapore vs. Indonesia), and for the current <strong>weekly season</strong>. Each of these is just another sorted set keyed differently — and segmentation happens to be the cleanest cure for the hot key, because it spreads load across many smaller, independently-shardable keys.</p>
+      <h3>Segmented boards</h3>
+      <ul>
+        <li><strong>Regional:</strong> <code>lb:region:SG</code>, <code>lb:region:ID</code>. A single match event fans out into both the global board and the player's regional board. Regional boards are far smaller, so their reads are cheap and they live on different shards.</li>
+        <li><strong>Friends:</strong> you can't precompute a board per friend group (the combinations explode). Instead, fetch each friend's score from the global board with one <code>ZMSCORE</code> call and sort the handful of friends client-side or in the service. A friends list is small (dozens), so this is trivial.</li>
+      </ul>
+      <h3>Time-windowed boards and the weekly reset</h3>
+      <p>"Top players <em>this week</em>" needs a board that resets every Monday. The elegant trick is to <strong>bake the time window into the key name</strong> and let it expire:</p>
+      <pre><span class="c"># the key itself names the window</span>
+ZINCRBY lb:weekly:2026-W22 50 u_8842
+EXPIRE  lb:weekly:2026-W22 1209600   <span class="c"># keep ~2 weeks, then auto-delete</span>
+
+<span class="c"># daily boards work the same way</span>
+ZINCRBY lb:daily:2026-05-31 50 u_8842</pre>
+      <p>The "reset" is therefore <strong>not a destructive operation</strong>. When the clock rolls into week 23, writes simply start landing in <code>lb:weekly:2026-W23</code>, a brand-new empty key. The old week's board still exists for a grace period (for end-of-season payouts and history), then Redis's <code>TTL</code> expires it automatically and reclaims the memory. No cron job scans and deletes millions of rows; no risk of a half-cleared board. This is the single most elegant pattern in the whole design.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="One score event fanning out into global, regional, and time-windowed sorted sets keyed by name">
+            <rect class="node-b" x="20" y="92" width="120" height="50" rx="9"/>
+            <text class="lbl" x="80" y="113" text-anchor="middle">score event</text>
+            <text class="lbl-sm" x="80" y="131" text-anchor="middle">u_8842 +50</text>
+            <rect class="node-r" x="380" y="14" width="240" height="36" rx="8"/>
+            <text class="lbl-sm" x="500" y="37" text-anchor="middle">lb:global  (40M members)</text>
+            <rect class="node" x="380" y="64" width="240" height="36" rx="8"/>
+            <text class="lbl-sm" x="500" y="87" text-anchor="middle">lb:region:SG  (regional)</text>
+            <rect class="node" x="380" y="114" width="240" height="36" rx="8"/>
+            <text class="lbl-sm" x="500" y="137" text-anchor="middle">lb:weekly:2026-W22  (TTL 14d)</text>
+            <rect class="node" x="380" y="164" width="240" height="36" rx="8"/>
+            <text class="lbl-sm" x="500" y="187" text-anchor="middle">lb:daily:2026-05-31  (TTL 2d)</text>
+            <path class="flow" d="M140 110 C 250 60, 300 40, 378 32" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 114 C 250 90, 300 82, 378 82" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 120 C 250 122, 300 130, 378 132" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 124 C 250 160, 300 178, 378 182" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="250" y="214" text-anchor="middle">one ZINCRBY per board the player belongs to</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — fan a single event into several sorted sets; the key name <em>is</em> the segment</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Common follow-up</span>
+        <p>"How do you do weekly resets without a giant delete?" The answer interviewers want: <em>"I never reset in place — I encode the week in the key name and set a TTL. Writes roll over to the new key automatically when the week turns, and the old board self-expires."</em> Then mention the edge case: align the key's date label to a fixed timezone (e.g. UTC, or the game's official tournament timezone) so a player crossing midnight doesn't write to the wrong week.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Edges &amp; scale-out</div>
+      <h2>Ties, failure modes, and what breaks at 10x</h2>
+      <h3>Breaking ties deterministically</h3>
+      <p>Two players with score 7,310 — who's ranked higher? A sorted set orders equal scores <em>lexicographically by member name</em>, which is arbitrary and unfair. The standard fix is to fold the tiebreaker into the score itself. Pack the score and an inverse timestamp into one number: whoever <strong>reached the score first</strong> ranks higher.</p>
+      <pre><span class="c"># composite score = points in high bits, "earlier is better" in low bits</span>
+composite = points × 1e11 + (TS_MAX − reached_at_seconds)
+ZADD lb:global  &lt;composite&gt;  u_8842</pre>
+      <p>Now equal-point players are separated by who got there first, deterministically, with no extra storage. Display logic strips the low bits back off to show the human-readable score. The alternative — a secondary sort on a separate field — means a second round trip; the composite keeps it to one atomic <code>ZADD</code>.</p>
+      <h3>Failure modes recap</h3>
+      <ul>
+        <li><strong>Redis primary dies:</strong> a replica is promoted (Sentinel / Cluster failover); reads may be briefly stale; no score is lost because the durable log holds the truth (section 07).</li>
+        <li><strong>Consumer falls behind:</strong> if the applier lags, ranks go stale but never wrong — the Kafka log buffers, and the consumer catches up. Monitor consumer lag as your freshness SLO.</li>
+        <li><strong>A region's board is corrupted or lost:</strong> rebuild that one sorted set by replaying its events; the blast radius is one segment, not the whole system — another argument for segmentation.</li>
+        <li><strong>Replication lag spikes:</strong> a player sees their old rank for a moment. Acceptable by design; if not, route that one player's own-rank read to the primary (read-your-writes) while everyone else reads replicas.</li>
+      </ul>
+      <h3>What breaks at 10x</h3>
+      <p>Push to 400 million members and 500,000 writes/sec, and the comfortable single-node story strains in two places:</p>
+      <ul>
+        <li><strong>The global board no longer fits one node's RAM cheaply</strong> (~40 GB and climbing). The cleanest answer is to lean harder on segmentation: maybe there is no single global board at all, only regional ones, and "global rank" becomes an <em>approximate</em> figure merged from per-region histograms. Exactness is sacrificed precisely where it doesn't matter.</li>
+        <li><strong>The write primary saturates.</strong> Because every increment to <code>lb:global</code> hits one node, 500k writes/sec is its own hot key on the <em>write</em> side. Solution: shard the global board into, say, 16 sub-boards by <code>hash(user_id) % 16</code>, each on its own primary. Top-K then merges the top 100 from each of the 16 shards (a 1,600-entry merge — cheap), and a player's exact global rank becomes a sum of "my rank in my shard" plus an estimate of the others — i.e. approximate again. The recurring theme: <strong>exactness near the top, approximation in the tail, and segmentation to spread the load.</strong></li>
+      </ul>
+      <div class="callout">
+        <span class="k">The thread that ties it together</span>
+        <p>Every scaling move in this lesson is the same trade made in a different place: give up a little <em>exactness</em> or <em>freshness</em> where users can't perceive it, to buy a lot of <em>throughput</em>. Cached top-K (slightly stale), replica reads (slightly lagged), approximate long-tail ranks (slightly fuzzy), sharded global board (approximate cross-shard rank). Knowing <em>where</em> the product can absorb that fuzz is the senior-engineer judgment the interview is testing.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>a leaderboard is an in-memory sorted set that turns "update score," "top-K," and "my rank" into O(log n) operations — then the engineering is keeping that one hot key fed, durable, and fast under a read flood.</em> If you can defend the sorted set over SQL, name the three hot-key levers, and explain TTL-based weekly resets, you own this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Two queries, one dataset</b><span>Top-K (range read) and my-rank (count-above) on constantly-mutating data.</span></div>
+        <div class="tk"><span class="num">02</span><b>It fits in RAM</b><span>~100 bytes/member → 40M members ≈ 4 GB on one node; reads beat writes ~5:1.</span></div>
+        <div class="tk"><span class="num">03</span><b>SQL rank is O(n)</b><span>COUNT-above scans millions per profile open; the index churns under writes.</span></div>
+        <div class="tk"><span class="num">04</span><b>Sorted set = skip list</b><span>Hash + skip list; summed spans give rank in the same O(log n) walk.</span></div>
+        <div class="tk"><span class="num">05</span><b>ZINCRBY / ZREVRANGE / ZREVRANK</b><span>Update, top-K, and rank — all logarithmic, all one command.</span></div>
+        <div class="tk"><span class="num">06</span><b>Serving layer, not truth</b><span>Durable log + DB are the record; the ZSET is a rebuildable cache.</span></div>
+        <div class="tk"><span class="num">07</span><b>Hot key, not big key</b><span>One global key on one node; replicas + cached top-K + approx tail.</span></div>
+        <div class="tk"><span class="num">08</span><b>Segment by key name</b><span>Region/weekly/daily boards are just different keys; spreads the load.</span></div>
+        <div class="tk"><span class="num">09</span><b>Reset = new key + TTL</b><span>Encode the window in the key; old board self-expires, no mass delete.</span></div>
+        <div class="tk"><span class="num">10</span><b>Trade exactness for throughput</b><span>Fuzz where users can't tell: stale top-K, lagged replicas, approx ranks.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why does a SQL <code>ORDER BY ... LIMIT</code> handle top-K fine but choke on "what's my rank?" — and what is the cost of each?<br>(2) How does a skip list compute a member's rank in O(log n) instead of O(n)?<br>(3) Why prefer <code>ZINCRBY</code> over an absolute <code>ZADD</code> for additive scores?<br>(4) The global board is a single hot key — name three independent levers to scale its reads, and say why sharding alone doesn't help.<br>(5) How do you implement a weekly reset without a giant delete, and what timezone edge case must you handle?<br>(6) Where in this design do you deliberately trade exactness or freshness for throughput, and why is that safe?<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw the architecture from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 35 · DESIGN A REAL-TIME LEADERBOARD · interactive edition · ref BBG V2·C10 · SG context: Garena / Sea<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* score update + rank query */
+  makeStepper(document.getElementById('fig-update'), [
+    {text:"A player finishes a match and earns +50 points.", active:["u-player","u-svc"], path:"u-p1"},
+    {text:"The leaderboard service issues ZINCRBY against the sorted set lb:global.", active:["u-svc","u-zset"], path:"u-p2", lift:false},
+    {text:"The sorted set reorders: u_8842 (7310 → 7360) passes u_77 and climbs.", active:["u-zset"], lift:true},
+    {text:"A top-K read (ZREVRANGE 0 9) walks the head and returns the fresh top list.", active:["u-zset","u-out"], path:"u-p3", lift:true},
+    {text:"A my-rank read (ZREVRANK u_8842) returns the new exact rank — both O(log n).", active:["u-zset","u-out"], lift:true}
+  ], function(idx,s){
+    var r2=document.getElementById('u-r2'), r3=document.getElementById('u-r3');
+    if(s.lift){ r2.textContent='u_8842 · 7360'; r3.textContent='u_77 · 7360'; }
+    else { r2.textContent='u_77 · 7360'; r3.textContent='u_8842 · 7310'; }
+  });
+
+  /* hot-key read scaling */
+  makeStepper(document.getElementById('fig-hot'), [
+    {text:"Over 100k reads/sec all target one key, lb:global, on a single node — a hot key.", active:["h-readers","h-primary"], path:"h-p1"},
+    {text:"One node can't absorb the flood, so reads fan out across several read replicas.", active:["h-readers","h-rep1","h-rep2","h-rep3"], path:"h-p2"},
+    {text:"Replicas stream the primary's changes; each can serve top-K and rank reads.", active:["h-readers","h-rep1","h-rep2","h-rep3"], path:"h-p3"},
+    {text:"Writes still go to the single primary, which owns the authoritative sorted set.", active:["h-primary","h-writer"], path:"h-p4"},
+    {text:"Cost: replicas lag the primary by milliseconds, so a fresh score may show stale a beat — acceptable for a leaderboard.", active:["h-primary","h-rep1","h-rep2","h-rep3"]}
+  ]);
+</script>
+</body>
+</html>

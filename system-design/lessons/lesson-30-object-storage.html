@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 30 — Design Object Storage (S3-like)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.5;color:var(--ink);margin:22px 0;}
+  pre .c{color:var(--blueprint-soft);} pre .k{color:var(--rust);font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Object<br>Storage</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why object storage?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope sizing</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The metadata/data split</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Durability: replicas vs EC</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The write path ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>The read path &amp; consistency</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Versioning &amp; multipart</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Node death &amp; rebuild ▸</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Scaling &amp; what breaks at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">30</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design Object Storage</h1>
+      <p class="lede">Object storage hands flat keys to blobs at planetary scale, with extreme durability and near-commodity cost. The design hinges on two ideas: split the metadata from the bytes, and lean on erasure coding so a fleet of cheap disks can survive constant failure without paying for three full copies.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on object storage — a standard, widely-documented distributed-systems topic. The explanations, numbers, schemas, and diagrams here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow. <span style="white-space:nowrap;">Ref tag: BBG V2·C9.</span>
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why object storage?</h2>
+      <p>A traditional database is built to store small, structured rows you query by rich predicates. A file system gives you a hierarchy of directories and bytes you mutate in place. Neither is the right tool when Shopee needs to keep <em>tens of billions</em> of product photos, when GrabPay must retain seven years of immutable PDF statements for the regulator, or when Agoda streams terabytes of hotel imagery to every region. What those workloads share is a different shape: enormous, mostly-immutable blobs, addressed by a simple name, read far more often than written, and expected to never disappear.</p>
+      <p><strong>Object storage</strong> is the system built for exactly that shape. An <strong>object</strong> is an opaque blob of bytes plus a little metadata, identified by a string <strong>key</strong>, living inside a flat namespace called a <strong>bucket</strong>. There are no real directories — <code>2024/invoices/feb/INV-8841.pdf</code> is just a key with slashes in it, not a tree of folders. You <code>PUT</code> a whole object and <code>GET</code> a whole object; you do not seek into byte 4,000,000 and overwrite it. That deliberate narrowing of the contract is what lets the system scale to exabytes.</p>
+      <ul>
+        <li><strong>Flat keys to blobs.</strong> No hierarchy to walk, no inodes to lock — a key maps directly to bytes.</li>
+        <li><strong>Effectively unlimited scale.</strong> Add disks and nodes; the namespace does not care how big it gets.</li>
+        <li><strong>Eleven nines of durability.</strong> The headline promise: lose, statistically, one object in a hundred billion per year.</li>
+        <li><strong>Cheap.</strong> Built on commodity disks, with erasure coding driving the storage overhead far below triple replication.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Object storage as a flat bucket of keyed blobs, contrasted with a file tree">
+            <text class="lbl-sm" x="120" y="34" text-anchor="middle">file system (tree)</text>
+            <path class="flow-d" d="M70 56 V 90 H 110" fill="none"/>
+            <path class="flow-d" d="M70 56 V 130 H 110" fill="none"/>
+            <rect class="node" x="40" y="44" width="60" height="24" rx="5"/><text class="lbl-sm" x="70" y="60" text-anchor="middle">/</text>
+            <rect class="node" x="110" y="78" width="100" height="24" rx="5"/><text class="lbl-sm" x="160" y="94" text-anchor="middle">/invoices</text>
+            <rect class="node" x="110" y="118" width="100" height="24" rx="5"/><text class="lbl-sm" x="160" y="134" text-anchor="middle">/photos</text>
+            <line x1="300" y1="30" x2="300" y2="190" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="470" y="34" text-anchor="middle">object bucket (flat)</text>
+            <rect style="fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;" x="350" y="44" width="240" height="146" rx="10"/>
+            <text class="lbl-sm" x="470" y="68" text-anchor="middle">bucket: grabpay-statements</text>
+            <rect class="node" x="368" y="80" width="204" height="22" rx="4"/><text class="lbl-sm" x="380" y="95" text-anchor="start">2024/feb/INV-8841.pdf → blob</text>
+            <rect class="node" x="368" y="110" width="204" height="22" rx="4"/><text class="lbl-sm" x="380" y="125" text-anchor="start">2024/mar/INV-9120.pdf → blob</text>
+            <rect class="node" x="368" y="140" width="204" height="22" rx="4"/><text class="lbl-sm" x="380" y="155" text-anchor="start">avatars/u-77310.jpg → blob</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — a bucket is a flat key→blob map; the slashes are just part of the name</figcaption>
+      </figure>
+      <p>The whole rest of this lesson is the answer to one uncomfortable question that the requirements above raise: <em>how do you promise eleven nines of durability on hardware that fails constantly, while still being the cheap option?</em> Everything — the metadata split, erasure coding, scrubbing, rebuild — exists to close that gap.</p>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Object storage is a deep topic, so the interviewer wants to watch you fence it off before you draw. Separate the <strong>functional requirements</strong> (what the API must do) from the <strong>non-functional requirements</strong> (the qualities that make the design hard), and state your assumptions out loud.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Create a bucket</strong> and store / retrieve / delete objects by key within it (<code>PUT</code>, <code>GET</code>, <code>DELETE</code>).</li>
+        <li><strong>List</strong> the keys in a bucket, optionally filtered by a prefix.</li>
+        <li><strong>Versioning</strong> — overwriting a key keeps the old version rather than destroying it.</li>
+        <li><strong>Multipart upload</strong> — large objects (gigabytes) uploaded in parallel chunks and assembled server-side.</li>
+        <li><strong>Object metadata</strong> — content type, size, custom tags, and a checksum you can read back.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Durability</strong> of <strong>eleven nines</strong> (99.999999999%). This is the headline and the source of nearly every design decision.</li>
+        <li><strong>Availability</strong> of around four nines (99.99%) — slightly weaker than durability, because a brief read outage is recoverable but a lost object is forever.</li>
+        <li><strong>Virtually unlimited scale</strong> — exabytes of data, trillions of objects, no fixed ceiling.</li>
+        <li><strong>Low cost</strong> per gigabyte — this is the competitive battleground, so storage overhead must stay low.</li>
+        <li><strong>Read-after-write consistency</strong> for newly created objects: a <code>GET</code> immediately after a successful <code>PUT</code> must return the new bytes.</li>
+      </ul>
+      <h3>Assumptions worth stating</h3>
+      <p>I will assume objects are <strong>immutable once written</strong> — you replace a key, you do not edit it in place. The workload is <strong>read-heavy</strong> (think a 5:1 or 10:1 read-to-write ratio for photos and content). Object sizes are bimodal: a long tail of small objects (thumbnails, JSON, statements at tens of KB) and a heavy tail of large ones (videos, backups at hundreds of MB to GB). And we are designing the storage engine itself, not the CDN that fronts it — though I will note where a CDN belongs.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design: <em>"durability is the hard requirement, availability is secondary, and cost forces us off triple replication toward erasure coding."</em> Say that early and the interviewer knows you understand which constraint is actually binding.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimate</div>
+      <h2>Back-of-envelope sizing</h2>
+      <p>A quick estimate justifies every later decision — especially the choice to split metadata from data, and the choice of erasure coding over replication. Let me size a plausible regional deployment, say the storage tier behind Shopee's image service in Southeast Asia.</p>
+      <h3>Storage volume</h3>
+      <ul>
+        <li>Assume <strong>40 billion objects</strong> stored, averaging <strong>1 MB</strong> each (photos dominate). That is <strong>40 PB</strong> of logical data.</li>
+        <li>With <strong>3× replication</strong> the raw disk needed is <strong>120 PB</strong>. With <strong>erasure coding at a 1.5× overhead</strong> it is only <strong>60 PB</strong> — a 60 PB saving, which at scale is tens of millions of dollars of disk. <em>This single line is why the rest of the lesson cares about erasure coding.</em></li>
+        <li>A modern storage node packs maybe <strong>20 disks × 20 TB = 400 TB</strong>. At 60 PB you need roughly <strong>150 storage nodes</strong> in this region, plus headroom — call it 200.</li>
+      </ul>
+      <h3>Metadata volume</h3>
+      <ul>
+        <li>Each object needs a metadata row: bucket, key, version, size, checksum, and the list of fragment locations — call it <strong>~1 KB</strong>.</li>
+        <li>40 billion objects × 1 KB ≈ <strong>40 TB of metadata</strong>. That fits comfortably in a sharded database; it does <em>not</em> fit on one machine, which is why the metadata service is itself distributed. Crucially, 40 TB of <em>metadata</em> is four orders of magnitude smaller than 40 PB of <em>data</em> — they have wildly different access patterns and belong in different systems.</li>
+      </ul>
+      <h3>Throughput &amp; bandwidth</h3>
+      <ul>
+        <li>Say <strong>2 billion reads/day</strong> and <strong>200 million writes/day</strong> (the assumed ~10:1 read:write). 2e9 / 86,400 ≈ <strong>23,000 reads/sec</strong> average, and you must provision for a peak of maybe 3× that — <strong>~70k reads/sec</strong>.</li>
+        <li>At 1 MB average, 23k reads/sec is <strong>~23 GB/sec</strong> of egress sustained. This is the number that makes you put a <strong>CDN in front</strong> for hot objects, so the storage fleet only sees the long-tail misses.</li>
+        <li>Writes at ~2,300/sec are far gentler — but each write fans out to <em>k+m</em> fragment writes across nodes, so the internal write IOPS is a multiple of the external rate.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Why the estimate matters</span>
+        <p>Two numbers drive the architecture. First, <strong>data is 1,000× larger than metadata</strong> — so they get separate, independently scaled systems (the split in step 04). Second, <strong>3× replication doubles your disk bill versus erasure coding</strong> — so EC is the default (step 05). You can derive nearly the whole design from these two ratios.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Before any boxes, pin down the interface — it disciplines everything downstream. An object store exposes a small REST-ish API. Keep it deliberately narrow: whole-object operations only.</p>
+      <h3>The API contract</h3>
+      <pre><span class="c"># Create a bucket (one-time, per namespace)</span>
+PUT  /buckets/{bucket}
+
+<span class="c"># Store an object (whole-object write, idempotent on key+version)</span>
+PUT  /{bucket}/{key}
+     Headers: Content-Length, Content-Type, x-amz-meta-*
+     Body:    &lt;raw bytes&gt;
+     → 200 OK  { etag, versionId }
+
+<span class="c"># Retrieve an object (optionally a byte range)</span>
+GET  /{bucket}/{key}?versionId=...
+     Headers: Range: bytes=0-1048575   <span class="c"># optional</span>
+     → 200 OK  &lt;raw bytes&gt; + ETag, Content-Length
+
+<span class="c"># Delete (with versioning on, writes a tombstone marker)</span>
+DELETE /{bucket}/{key}
+
+<span class="c"># List keys, paginated, prefix-filtered</span>
+GET  /{bucket}?prefix=2024/feb/&amp;max-keys=1000&amp;continuation-token=...
+
+<span class="c"># Multipart upload for large objects</span>
+POST   /{bucket}/{key}?uploads              <span class="c"># → uploadId</span>
+PUT    /{bucket}/{key}?partNumber=N&amp;uploadId=...
+POST   /{bucket}/{key}?uploadId=...         <span class="c"># complete: assemble parts</span></pre>
+      <h3>The data model: two stores, on purpose</h3>
+      <p>The model already foreshadows the architecture. <strong>Metadata</strong> lives in a structured, queryable store; <strong>data</strong> lives as opaque fragments on disk. The metadata row is the index that ties a key to where its bytes actually are.</p>
+      <pre><span class="c">-- METADATA STORE (sharded SQL or wide-column)</span>
+<span class="k">objects</span> (
+  bucket          text,
+  key             text,
+  version_id      bigint,        <span class="c">-- monotonic per key</span>
+  is_latest       bool,
+  is_delete_marker bool,         <span class="c">-- tombstone for versioned delete</span>
+  size            bigint,
+  content_type    text,
+  checksum        text,          <span class="c">-- e.g. SHA-256 of the whole object</span>
+  ec_scheme       text,          <span class="c">-- "RS(6,3)"  → k=6 data, m=3 parity</span>
+  fragment_locs   json,          <span class="c">-- [ {node, disk, frag_id}, ... ]</span>
+  created_at      timestamp,
+  PRIMARY KEY ((bucket, key), version_id)
+)
+
+<span class="c">-- DATA LAYER (not a table — bytes on storage nodes)</span>
+<span class="c">-- each fragment is a file: /disk7/&lt;obj_uuid&gt;/frag_3.dat</span></pre>
+      <p>Note the primary key is <code>(bucket, key)</code> as the partition key with <code>version_id</code> as the clustering key — so all versions of one key live together and sort newest-first. The <code>fragment_locs</code> column is the heart of the read path: it is the map from "this key" to "these nine fragments on these nine nodes."</p>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"Why store <code>fragment_locs</code> in the metadata DB instead of computing locations from the key with consistent hashing, like a key-value store does?" Good answer: because fragments <em>move</em> — during rebuild and rebalancing a fragment is recreated on a different node, and a pure hash would point at the wrong place. An explicit location map lets you relocate fragments without rewriting the key's identity. (Consistent hashing is still useful for the <em>initial</em> placement decision.)</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Architecture</div>
+      <h2>The metadata/data split</h2>
+      <p>Here is the central structural decision, and the estimate in step 02 already made the case: data is ~1,000× larger than metadata and has a completely different access pattern, so the two get <strong>separate services that scale independently</strong>.</p>
+      <h3>The three planes</h3>
+      <ul>
+        <li>The <strong>API / service layer</strong> is a fleet of stateless front-end servers behind a load balancer. They authenticate the caller, validate the request, and orchestrate the read/write across the two layers below. Because they hold no state, you scale them by adding boxes.</li>
+        <li>The <strong>metadata service</strong> maps <code>bucket + key + version → object attributes + fragment locations</code>. It is a sharded, replicated database (the index over your data). It is small in bytes but hot in QPS — every single request hits it at least once.</li>
+        <li>The <strong>data layer</strong> is the storage-node fleet that holds the actual bytes as erasure-coded fragments on local disks. It is huge in bytes, written once, read many times, and never asked a rich query — it only ever answers "give me fragment X of object Y."</li>
+      </ul>
+      <p>A <strong>placement service</strong> (sometimes folded into the API layer) decides <em>which</em> nodes a new object's fragments go to, balancing free space and spreading fragments across failure domains. Background <strong>controllers</strong> handle scrubbing, repair, and rebalancing — covered in step 09.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 280" role="img" aria-label="High-level object storage architecture split into API layer, metadata service, and data layer">
+            <rect class="node" x="24" y="120" width="92" height="46" rx="8"/>
+            <text class="lbl" x="70" y="148" text-anchor="middle">Client</text>
+            <rect class="node-b" x="148" y="116" width="92" height="54" rx="9"/>
+            <text class="lbl-sm" x="194" y="140" text-anchor="middle">Load</text>
+            <text class="lbl-sm" x="194" y="155" text-anchor="middle">balancer</text>
+            <rect class="node" x="272" y="110" width="110" height="66" rx="9"/>
+            <text class="lbl" x="327" y="138" text-anchor="middle">API layer</text>
+            <text class="lbl-sm" x="327" y="156" text-anchor="middle">(stateless)</text>
+            <!-- metadata service -->
+            <rect x="430" y="20" width="186" height="96" rx="10" fill="#FDFBF6" stroke="#2E73B8" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="523" y="40" text-anchor="middle" fill="#2E73B8">METADATA SERVICE</text>
+            <g transform="translate(452,52)"><path d="M0,8 L0,40 A22,7 0 0 0 44,40 L44,8" fill="#2E73B8"/><ellipse cx="22" cy="8" rx="22" ry="7" fill="#3E86CF"/><text x="22" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="600">M1</text></g>
+            <g transform="translate(512,52)"><path d="M0,8 L0,40 A22,7 0 0 0 44,40 L44,8" fill="#2E73B8"/><ellipse cx="22" cy="8" rx="22" ry="7" fill="#3E86CF"/><text x="22" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="600">M2</text></g>
+            <text class="lbl-sm" x="523" y="110" text-anchor="middle">key → locations</text>
+            <!-- data layer -->
+            <rect x="430" y="146" width="186" height="120" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="523" y="166" text-anchor="middle">DATA LAYER · storage nodes</text>
+            <g transform="translate(448,178)"><rect width="34" height="50" rx="5" fill="#69B34C"/><rect x="8" y="10" width="18" height="3" rx="1.5" fill="#fff"/><rect x="8" y="30" width="18" height="3" rx="1.5" fill="#fff"/><rect x="8" y="38" width="18" height="3" rx="1.5" fill="#fff"/></g>
+            <g transform="translate(496,178)"><rect width="34" height="50" rx="5" fill="#69B34C"/><rect x="8" y="10" width="18" height="3" rx="1.5" fill="#fff"/><rect x="8" y="30" width="18" height="3" rx="1.5" fill="#fff"/><rect x="8" y="38" width="18" height="3" rx="1.5" fill="#fff"/></g>
+            <g transform="translate(544,178)"><rect width="34" height="50" rx="5" fill="#69B34C"/><rect x="8" y="10" width="18" height="3" rx="1.5" fill="#fff"/><rect x="8" y="30" width="18" height="3" rx="1.5" fill="#fff"/><rect x="8" y="38" width="18" height="3" rx="1.5" fill="#fff"/></g>
+            <text class="lbl-sm" x="523" y="248" text-anchor="middle">EC fragments on disk</text>
+            <!-- arrows -->
+            <path class="flow" d="M116 143 H 146" marker-end="url(#arrow)"/>
+            <path class="flow" d="M240 143 H 270" marker-end="url(#arrow)"/>
+            <path class="flow" d="M382 130 C 405 100, 415 80, 428 70" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="360" y="104" text-anchor="middle">lookup</text>
+            <path class="flow" d="M382 156 C 405 180, 415 195, 428 200" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="360" y="190" text-anchor="middle">bytes</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — small-but-hot metadata and huge-but-cold data scale on separate planes</figcaption>
+      </figure>
+      <h3>Why not store the bytes in the metadata database?</h3>
+      <p>Because a database optimized for fast indexed lookups of 1 KB rows is a terrible, expensive place to keep 1 MB blobs. You would blow up the row size, wreck the buffer-pool cache hit rate, and pay database-grade hardware prices for what is really just sequential bytes on a disk. Splitting them lets each side use the right hardware: SSD-backed, replicated databases for the index; dense, cheap spinning disks for the blobs. The split also lets you scale the read-heavy data plane and the QPS-heavy metadata plane on different curves.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"Isn't the metadata service now a single point of failure and a bottleneck — every request hits it?" Yes, and that is why it is <em>itself</em> sharded and replicated (step 10). The reassuring framing: the metadata layer is a classic distributed database problem you already know how to solve (shard by <code>bucket+key</code>, replicate each shard); the genuinely novel part of object storage is the durability of the <em>data</em> layer.</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The durability decision</div>
+      <h2>Durability: replicas vs erasure coding</h2>
+      <p>This is the deep-dive the whole lesson points at. Disks fail constantly — at a 200-node fleet with thousands of disks, something is broken essentially all the time. To promise eleven nines, you must store enough <em>redundancy</em> that the loss of several disks (or a whole node, or a whole rack) never loses an object. There are two ways to buy that redundancy.</p>
+      <h3>Option A — Replication</h3>
+      <p><strong>Replication</strong> keeps <strong>N full copies</strong> of every object on N different nodes (the classic choice is N = 3, spread across racks). It is conceptually trivial: to read, fetch any one copy; to survive a failure, you still have N−1. It is also fast — a read is a single whole-object fetch with no computation. The cost is brutal: <strong>3× the raw storage</strong>, which at 40 PB logical means 120 PB of disk.</p>
+      <h3>Option B — Erasure coding</h3>
+      <p><strong>Erasure coding (EC)</strong> trades CPU for disk. You split an object into <strong>k data fragments</strong> and compute <strong>m parity fragments</strong> from them using <strong>Reed–Solomon</strong> math, giving <code>k + m</code> total fragments spread across <code>k + m</code> nodes. The defining property: you can reconstruct the entire object from <em>any k</em> of the <code>k + m</code> fragments — so you can lose <strong>any m fragments</strong> and still recover. With a common scheme like <strong>RS(6,3)</strong> — 6 data, 3 parity — the storage overhead is just <code>9/6 = 1.5×</code> while tolerating <strong>3 simultaneous failures</strong>, the same fault tolerance as 3× replication at half the disk cost.</p>
+      <div class="callout">
+        <span class="k">Under the hood — how the parity actually works</span>
+        <p>Treat the k data fragments as numbers and multiply them by a carefully chosen matrix to produce the m parity fragments. The matrix (a Vandermonde or Cauchy matrix over a Galois field) is built so that <em>any</em> k of the k+m output rows form an invertible sub-matrix. To rebuild a lost fragment you take any k surviving fragments, invert the corresponding sub-matrix, and multiply — recovering exactly the missing piece. The cost is the matrix multiply on every read-with-loss and every rebuild, which is why EC is "CPU for disk."</p>
+      </div>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Replication storing three full copies versus erasure coding splitting into six data and three parity fragments">
+            <text class="lbl-sm" x="160" y="28" text-anchor="middle" fill="#1F4E79">REPLICATION (3×) — 3.0× disk</text>
+            <rect class="node-b" x="100" y="44" width="120" height="34" rx="6"/><text class="lbl-sm" x="160" y="65" text-anchor="middle">full copy 1</text>
+            <rect class="node-b" x="100" y="86" width="120" height="34" rx="6"/><text class="lbl-sm" x="160" y="107" text-anchor="middle">full copy 2</text>
+            <rect class="node-b" x="100" y="128" width="120" height="34" rx="6"/><text class="lbl-sm" x="160" y="149" text-anchor="middle">full copy 3</text>
+            <text class="lbl-sm" x="160" y="186" text-anchor="middle">simple, fast read</text>
+            <text class="lbl-sm" x="160" y="204" text-anchor="middle">survives 2 losses</text>
+            <line x1="320" y1="20" x2="320" y2="220" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="475" y="28" text-anchor="middle" fill="#B0532F">ERASURE CODE RS(6,3) — 1.5× disk</text>
+            <rect class="node" x="372" y="44" width="42" height="30" rx="4"/><text class="lbl-sm" x="393" y="64" text-anchor="middle">d1</text>
+            <rect class="node" x="420" y="44" width="42" height="30" rx="4"/><text class="lbl-sm" x="441" y="64" text-anchor="middle">d2</text>
+            <rect class="node" x="468" y="44" width="42" height="30" rx="4"/><text class="lbl-sm" x="489" y="64" text-anchor="middle">d3</text>
+            <rect class="node" x="372" y="80" width="42" height="30" rx="4"/><text class="lbl-sm" x="393" y="100" text-anchor="middle">d4</text>
+            <rect class="node" x="420" y="80" width="42" height="30" rx="4"/><text class="lbl-sm" x="441" y="100" text-anchor="middle">d5</text>
+            <rect class="node" x="468" y="80" width="42" height="30" rx="4"/><text class="lbl-sm" x="489" y="100" text-anchor="middle">d6</text>
+            <rect class="node-r" x="396" y="124" width="42" height="30" rx="4"/><text class="lbl-sm" x="417" y="144" text-anchor="middle">p1</text>
+            <rect class="node-r" x="444" y="124" width="42" height="30" rx="4"/><text class="lbl-sm" x="465" y="144" text-anchor="middle">p2</text>
+            <rect class="node-r" x="492" y="124" width="42" height="30" rx="4"/><text class="lbl-sm" x="513" y="144" text-anchor="middle">p3</text>
+            <text class="lbl-sm" x="441" y="118" text-anchor="middle">6 data fragments</text>
+            <text class="lbl-sm" x="465" y="172" text-anchor="middle" fill="#B0532F">3 parity</text>
+            <text class="lbl-sm" x="453" y="194" text-anchor="middle">any 6 of 9 rebuild it</text>
+            <text class="lbl-sm" x="453" y="212" text-anchor="middle">survives 3 losses</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — same fault tolerance, half the disk: EC pays in CPU what replication pays in space</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Replication (3×)</h4><ul>
+          <li>Dead simple to reason about and operate</li>
+          <li>Fastest reads — one whole copy, zero math</li>
+          <li>Cheap, fast rebuild: just copy a surviving replica</li>
+          <li>3× storage overhead — the dealbreaker at scale</li>
+          <li>Great for small, hot, latency-sensitive objects</li>
+        </ul></div>
+        <div class="col"><h4>Erasure coding RS(6,3)</h4><ul>
+          <li>Only ~1.5× overhead — roughly half the disk bill</li>
+          <li>Same or better fault tolerance (survives 3 losses)</li>
+          <li>Costs CPU to encode on write and decode on loss</li>
+          <li>Rebuild is expensive: read k fragments to reconstruct 1</li>
+          <li>Higher read latency on a degraded read (must gather k)</li>
+          <li>Best for large, warm/cold objects — the bulk of the bytes</li>
+        </ul></div>
+      </div>
+      <p>The pragmatic real-world answer is <strong>both, tiered</strong>: replicate tiny and very hot objects (where the math overhead and the multi-node fan-out hurt latency more than the disk saving helps), and erasure-code everything large and warm/cold (where the disk saving dominates). For the interview, lead with EC as the default — the whole reason object storage is cheap — and mention replication as the tier for small/hot.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"How do you actually reach eleven nines?" You stack independent layers:<br>(1) EC that survives m simultaneous losses;<br>(2) spreading the k+m fragments across separate <strong>failure domains</strong> — different disks, nodes, racks, and ideally availability zones — so one rack losing power can't take more than one fragment;<br>(3) continuous <strong>background scrubbing</strong> that detects bit-rot and missing fragments early; and<br>(4) <strong>fast automated rebuild</strong> so the window in which you are one failure from data loss is minutes, not days.<br>Durability is a function of redundancy <em>and</em> how quickly you restore it after a failure.</p>
+      </div>
+    </section>
+
+    <!-- 6 — INTERACTIVE -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The write path</div>
+      <h2>The write path</h2>
+      <p>Now wire the pieces into an end-to-end <code>PUT</code>. The ordering here is not arbitrary — it is chosen so the system is never in a state where metadata claims an object exists that the data layer can't actually serve. The rule: <strong>commit the bytes durably first, commit the metadata last.</strong></p>
+      <ol style="list-style:decimal;padding-left:24px;">
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Receive &amp; buffer.</strong> An API server accepts the <code>PUT</code>, authenticates it, and streams the bytes in, computing a checksum as it goes.</li>
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Allocate placement.</strong> The placement service picks k+m storage nodes in distinct failure domains with free space.</li>
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Encode.</strong> The object is split into k data fragments and m Reed–Solomon parity fragments computed.</li>
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Distribute &amp; fsync.</strong> All k+m fragments are written to their nodes and flushed to disk. The write is acknowledged durable only once a <strong>write quorum</strong> of fragments is safely on disk.</li>
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Commit metadata.</strong> Only now does the API server write the <code>objects</code> row with the fragment locations and mark it <code>is_latest</code>. This commit is the atomic moment the object "exists."</li>
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Ack.</strong> Return <code>200 OK</code> with the <code>etag</code> and <code>versionId</code>.</li>
+      </ol>
+      <figure>
+        <div class="blueprint stepper" id="fig-put">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive write path: PUT is encoded into fragments, distributed across nodes, then metadata is committed">
+            <g class="st" id="w-client"><rect class="node" x="18" y="116" width="86" height="44" rx="8"/><text class="lbl" x="61" y="143" text-anchor="middle">Client</text></g>
+            <g class="st" id="w-api"><rect class="node-b" x="138" y="110" width="104" height="56" rx="9"/><text class="lbl-sm" x="190" y="134" text-anchor="middle">API +</text><text class="lbl-sm" x="190" y="150" text-anchor="middle">encoder</text></g>
+            <g class="st" id="w-n1"><rect class="node" x="300" y="14" width="120" height="30" rx="6"/><text class="lbl-sm" x="360" y="34" text-anchor="middle">node A · d1..d2</text></g>
+            <g class="st" id="w-n2"><rect class="node" x="300" y="52" width="120" height="30" rx="6"/><text class="lbl-sm" x="360" y="72" text-anchor="middle">node B · d3..d4</text></g>
+            <g class="st" id="w-n3"><rect class="node" x="300" y="90" width="120" height="30" rx="6"/><text class="lbl-sm" x="360" y="110" text-anchor="middle">node C · d5..d6</text></g>
+            <g class="st" id="w-n4"><rect class="node-r" x="300" y="128" width="120" height="30" rx="6"/><text class="lbl-sm" x="360" y="148" text-anchor="middle">node D · p1..p3</text></g>
+            <g class="st" id="w-meta"><rect x="470" y="178" width="156" height="64" rx="10" fill="#FDFBF6" stroke="#2E73B8" stroke-width="1.5" stroke-dasharray="5 4"/><g transform="translate(486,190)"><path d="M0,6 L0,32 A18,6 0 0 0 36,32 L36,6" fill="#2E73B8"/><ellipse cx="18" cy="6" rx="18" ry="6" fill="#3E86CF"/><text x="18" y="25" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">M</text></g><text class="lbl-sm" x="566" y="208" text-anchor="middle">metadata</text><text class="lbl-sm" x="566" y="224" text-anchor="middle">commit</text></g>
+            <path id="w-p1" class="flow" d="M104 138 H 136" marker-end="url(#arrow)"/>
+            <path id="w-p2" class="flow" d="M242 124 C 270 70, 285 40, 298 30" marker-end="url(#arrow)"/>
+            <path id="w-p3" class="flow" d="M242 138 H 298" marker-end="url(#arrow)"/>
+            <path id="w-p4" class="flow-r" d="M242 152 C 270 200, 285 150, 298 143" marker-end="url(#arrow-r)"/>
+            <path id="w-p5" class="flow" d="M420 143 C 470 160, 490 168, 510 176" marker-end="url(#arrow)"/>
+            <path id="w-p6" class="flow" d="M190 166 C 320 250, 460 250, 540 244" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="190" y="100" text-anchor="middle">PUT</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: encode, fan out fragments, then commit metadata last</figcaption>
+      </figure>
+      <h3>Why metadata-last is non-negotiable</h3>
+      <p>Imagine the reverse order — commit metadata, then write fragments. If the API server crashes between the two, the metadata now points at fragments that were never written. A later <code>GET</code> would find the row, try to fetch fragments, and fail — a <strong>phantom object</strong> that claims to exist but can't be served. By committing metadata last, the worst failure is the opposite and benign: fragments written but no metadata row, so the object simply "never happened" from the client's view (the <code>PUT</code> returns an error or times out, and the client retries). Those orphaned fragments are harmless garbage that a background <strong>garbage collector</strong> reaps later by finding fragments with no referencing metadata.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"What if a couple of fragment writes fail mid-<code>PUT</code>?" You require a <strong>write quorum</strong>, not all k+m. For RS(6,3) you might ack once 7 of 9 fragments are durable, then repair the missing 2 asynchronously from the survivors. This keeps write latency bounded by the fastest 7 nodes (hedging against a slow disk) while still guaranteeing enough redundancy to rebuild. The knob to name: <em>how many fragments must be durable before ack</em> — it directly trades write latency against the redundancy you start with.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> The read path</div>
+      <h2>The read path &amp; consistency</h2>
+      <p>A <code>GET</code> is the mirror image, and most reads are cheap because nothing is missing.</p>
+      <ol style="list-style:decimal;padding-left:24px;">
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Metadata lookup.</strong> The API server reads the <code>objects</code> row for <code>(bucket, key)</code> — the latest version unless a <code>versionId</code> is specified — getting the EC scheme and the fragment location list.</li>
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Fetch fragments.</strong> It requests fragments from the storage nodes. In the happy path it pulls the <strong>k data fragments</strong> directly, concatenates them, verifies the checksum, and streams the object back — <em>no decode math needed</em>, since data fragments are just the original bytes split up.</li>
+        <li style="padding-left:6px;margin-bottom:9px;"><strong>Degraded read.</strong> If one of the k data fragments is missing or its node is slow, the server fetches a parity fragment instead and runs the Reed–Solomon decode to reconstruct the missing piece on the fly. Slower, but transparent to the client.</li>
+      </ol>
+      <h3>The consistency model</h3>
+      <p>We promised <strong>read-after-write consistency for new objects</strong>: a <code>GET</code> right after a successful <code>PUT</code> returns the new bytes. The metadata-last write order gives us this almost for free — the object "exists" exactly when its metadata row commits, so any read that sees the committed row also sees a complete, durable set of fragments. The subtlety is the <em>metadata</em> layer's own replication: if the read can hit a stale metadata replica that hasn't yet seen the new row, you'd get a miss. The fix is to route the read of a freshly written key to the metadata <strong>shard leader</strong> (or read at a quorum), guaranteeing it sees the latest commit.</p>
+      <p>Overwrites and deletes are typically only <strong>eventually consistent</strong> — after you overwrite a key, a reader <em>might</em> briefly see the old version while caches and metadata replicas converge. That asymmetry (strong for new, eventual for updates) is a deliberate, well-understood trade-off: it keeps the hot read path fast and cacheable, and immutable-object workloads rarely overwrite the same key in a tight loop.</p>
+      <div class="callout">
+        <span class="k">Where the CDN fits</span>
+        <p>From the step-02 estimate, the storage fleet would face ~23 GB/sec of egress if every read hit it. In practice you front the read path with a <strong>CDN</strong> (and an internal cache tier): hot objects — a viral Shopee listing photo, an Agoda hotel hero image — are served from edge caches keyed by the object's URL + <code>etag</code>, and only cache misses and cold objects reach the storage nodes. Because objects are immutable per version, they cache beautifully: a versioned URL never goes stale.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"Why is a degraded read slower, and how do you hide that tail latency?" A normal read fetches k fragments; a degraded read must fetch k fragments <em>plus</em> do a Galois-field decode, and may have to wait on a slow node. To hide it, the API server uses <strong>hedged reads</strong> — fire requests to a few extra fragments and use whichever k return first — so one slow disk doesn't stall the whole <code>GET</code>. Name that technique and you've answered a question many candidates miss.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Object lifecycle</div>
+      <h2>Versioning &amp; multipart upload</h2>
+      <h3>Versioning &amp; immutability</h3>
+      <p><strong>Versioning</strong> means that overwriting or deleting a key never destroys data — it adds a new entry. Because objects are immutable, this is natural: each <code>PUT</code> to an existing key allocates a fresh <code>version_id</code>, writes a brand-new set of fragments, and flips <code>is_latest</code> from the old row to the new one. The old version's fragments stay on disk, reachable via <code>GET ?versionId=...</code>. A versioned <code>DELETE</code> doesn't erase anything either — it writes a <strong>delete marker</strong> (a tombstone row with <code>is_delete_marker = true</code> as the new latest), so a plain <code>GET</code> returns 404 while the prior versions remain recoverable.</p>
+      <p>This is exactly what makes object storage trustworthy for regulated data. If GrabPay accidentally overwrites a customer statement, or a buggy job deletes a thousand objects, versioning means nothing was actually lost — you flip <code>is_latest</code> back. The cost is storage growth, which you tame with <strong>lifecycle policies</strong>: "expire noncurrent versions after 90 days," "transition objects to a colder, cheaper tier after 30 days." A background job sweeps expired versions and frees their fragments.</p>
+      <h3>Multipart upload for large objects</h3>
+      <p>A single <code>PUT</code> of a 5 GB hotel-tour video over one HTTP connection is fragile — one network blip and you restart the whole 5 GB. <strong>Multipart upload</strong> fixes this by letting the client split a large object into independent <strong>parts</strong> (say 100 MB each), upload them <em>in parallel</em>, and retry just the failed parts. The flow:</p>
+      <pre>POST /{bucket}/big-video.mp4?uploads        <span class="c"># server returns uploadId</span>
+PUT  ...?partNumber=1&amp;uploadId=X    → ETag e1   <span class="c"># parts upload</span>
+PUT  ...?partNumber=2&amp;uploadId=X    → ETag e2   <span class="c"># in parallel,</span>
+PUT  ...?partNumber=3&amp;uploadId=X    → ETag e3   <span class="c"># retried per-part</span>
+POST ...?uploadId=X  body=[{1,e1},{2,e2},{3,e3}]  <span class="c"># complete</span></pre>
+      <p>Each part is stored (and erasure-coded) independently as it lands. The final <strong>complete</strong> call hands the server the ordered list of part ETags; the server validates them and writes a single <code>objects</code> row whose <code>fragment_locs</code> stitches the parts into one logical object — without ever copying the bytes again. Parts of an abandoned upload (no <code>complete</code> within N days) are reaped by the same garbage collector that handles orphaned fragments.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"How do you make a multipart upload's <code>complete</code> step atomic — what if it half-finishes?" The metadata commit of the final stitched object is a single transaction: until it commits, the object doesn't exist (the parts are just staged, addressable only via the <code>uploadId</code>). It mirrors the metadata-last rule from the write path — the object becomes visible at exactly one atomic moment, and a crash before that moment leaves only reapable staged parts.</p>
+      </div>
+    </section>
+
+    <!-- 9 — INTERACTIVE -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Failure &amp; recovery</div>
+      <h2>Node death &amp; rebuild</h2>
+      <p>The promise of eleven nines is empty unless the system actively repairs itself, because in a large fleet a disk or node is <em>always</em> dying. Three background processes keep durability real, running continuously and quietly.</p>
+      <h3>Scrubbing — catch rot before it bites</h3>
+      <p><strong>Scrubbing</strong> is a background controller that walks every fragment on disk, recomputes its checksum, and compares it to the stored value. Disks suffer <strong>bit rot</strong> — bits silently flip over time — and a corrupted fragment you don't notice is a fragment that won't help you when you need it for a rebuild. The scrubber flags any mismatch and triggers a repair of that single fragment from the survivors, so corruption is caught and fixed proactively rather than discovered at the worst possible moment.</p>
+      <h3>Rebuild — restore the lost redundancy</h3>
+      <p>When a node dies (or a disk fails, or the heartbeat to it is lost for too long), every object that had a fragment on that node is now down to k+m−1 fragments — one closer to data loss. The <strong>repair controller</strong> finds all affected objects from the metadata (which records fragment locations), and for each one: reads any k surviving fragments, runs the Reed–Solomon decode to reconstruct the missing fragment, writes the rebuilt fragment to a fresh node in a different failure domain, and updates <code>fragment_locs</code> in the metadata. Redundancy is restored, and the object is back to full m-failure tolerance.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-rebuild">
+          <svg viewBox="0 0 640 260" role="img" aria-label="Interactive rebuild: a storage node fails, the controller reads surviving fragments, decodes the missing one, and writes it to a fresh node">
+            <g class="st" id="r-obj"><rect class="node-b" x="20" y="110" width="96" height="46" rx="8"/><text class="lbl-sm" x="68" y="130" text-anchor="middle">object</text><text class="lbl-sm" x="68" y="146" text-anchor="middle">RS(6,3)</text></g>
+            <g class="st" id="r-ctl"><rect class="node-b" x="150" y="106" width="104" height="54" rx="9"/><text class="lbl-sm" x="202" y="130" text-anchor="middle">repair</text><text class="lbl-sm" x="202" y="146" text-anchor="middle">controller</text></g>
+            <g class="st" id="r-s1"><rect class="node" x="306" y="20" width="120" height="28" rx="6"/><text class="lbl-sm" x="366" y="39" text-anchor="middle">node A · ok</text></g>
+            <g class="st" id="r-s2"><rect class="node" x="306" y="56" width="120" height="28" rx="6"/><text class="lbl-sm" x="366" y="75" text-anchor="middle">node B · ok</text></g>
+            <g class="st" id="r-s3"><rect class="node" x="306" y="92" width="120" height="28" rx="6"/><text class="lbl-sm" x="366" y="111" text-anchor="middle">node C · ok</text></g>
+            <g class="st" id="r-dead"><rect class="node-r" x="306" y="128" width="120" height="28" rx="6"/><text class="lbl-sm" x="366" y="147" text-anchor="middle" fill="#B0532F">node D · DEAD</text></g>
+            <g class="st" id="r-fresh"><rect class="node" x="306" y="200" width="120" height="32" rx="6"/><text class="lbl-sm" x="366" y="220" text-anchor="middle">fresh node E</text></g>
+            <path id="r-p1" class="flow-r" d="M116 133 H 148" marker-end="url(#arrow-r)"/>
+            <path id="r-p2" class="flow" d="M254 120 C 280 70, 290 45, 304 36" marker-end="url(#arrow)"/>
+            <path id="r-p3" class="flow" d="M254 130 C 280 95, 290 75, 304 70" marker-end="url(#arrow)"/>
+            <path id="r-p4" class="flow" d="M254 140 H 304" marker-end="url(#arrow)"/>
+            <path id="r-p5" class="flow" d="M254 158 C 280 210, 290 215, 304 216" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="202" y="182" text-anchor="middle">decode → write d#</text>
+            <text class="lbl-sm" x="366" y="172" text-anchor="middle" fill="#B0532F">✕ frag lost</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: a dead node's fragment is rebuilt from any k survivors onto a fresh node</figcaption>
+      </figure>
+      <h3>Rebalancing — keep the fleet level</h3>
+      <p>When you add new storage nodes (you always are — the fleet grows monthly), they start empty while the old nodes are nearly full. <strong>Rebalancing</strong> gradually migrates fragments from hot/full nodes onto the new capacity, updating <code>fragment_locs</code> as it goes. This is also what handles permanent node decommissioning. It must run as a low-priority background trickle so it never competes with live read/write traffic for disk I/O.</p>
+      <div class="callout">
+        <span class="k">Under the hood — the rebuild-speed / durability link</span>
+        <p>Durability is exquisitely sensitive to <strong>rebuild speed</strong>. After a node dies you're one-failure-closer to losing data until the rebuild finishes; the longer that window, the higher the chance a second (then third) failure lands on the same objects. So real systems parallelize aggressively — the affected objects are spread across thousands of nodes, so thousands of nodes each rebuild a tiny slice simultaneously, turning a multi-day single-stream copy into a minutes-long fleet-wide effort. The EC parameters (k, m) are tuned <em>together</em> with expected rebuild time to hit the eleven-nines target.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"What happens when a storage node dies?" Walk it: heartbeat lost → controller marks the node down → it enumerates affected objects from metadata → for each, reads k survivors, decodes the missing fragment, writes it to a fresh node in a clean failure domain, updates the location map. Then the killer line: <em>"reads keep working the entire time via degraded reads, and durability is fully restored once rebuild completes — which we keep to minutes by parallelizing across the fleet."</em></p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Scale &amp; limits</div>
+      <h2>Scaling &amp; what breaks at 10x</h2>
+      <p>The data layer scales almost embarrassingly well: bytes are independent, so you grow capacity by racking more storage nodes and letting rebalancing fill them. The pressure shows up elsewhere.</p>
+      <h3>Scaling the metadata service</h3>
+      <p>The metadata service is the part that strains first, because every request touches it. You <strong>shard</strong> it — partition the <code>objects</code> table by a hash of <code>bucket + key</code> across many shards, each replicated for its own durability and read scaling. This is a familiar distributed-database problem (DynamoDB, Cassandra, sharded PostgreSQL/Spanner-style systems all fit). The interesting failure is <strong>listing</strong>: <code>LIST bucket?prefix=...</code> wants keys in sorted order, but hash-sharding scatters adjacent keys across shards. The usual answer is a secondary, range-partitioned index sorted by key, or accepting that list is a scatter-gather across shards with a merge.</p>
+      <h3>What breaks at 10x</h3>
+      <ul>
+        <li><strong>Metadata hot shards.</strong> 10× the objects, but one mega-bucket (every Shopee seller dumping into <code>products/</code>) hashes unevenly and overloads a shard. Fix: salt the partition key, or split the bucket's keyspace; watch for and split hot shards automatically.</li>
+        <li><strong>Small-object overhead.</strong> EC shines on big objects; a flood of 4 KB thumbnails means each one fans out into 9 tiny fragments — metadata and per-fragment overhead can exceed the data itself. Fix: <strong>pack many small objects into larger storage blobs</strong> and store an offset+length in metadata, so a 4 KB object is a slice of a packed 256 MB segment, not 9 lonely fragments.</li>
+        <li><strong>Cross-region durability &amp; latency.</strong> At 10× you serve multiple regions. Eleven nines within one region isn't enough if a whole region (a flood, a fiber cut) can vanish. Fix: <strong>cross-region replication</strong> of buckets that need it — asynchronous, eventually consistent copies in a second region.</li>
+        <li><strong>Rebuild storms.</strong> 10× the fleet means 10× the absolute rate of disk failures; a correlated event (a bad firmware rollout, a rack power loss) can trigger many simultaneous rebuilds that saturate the network. Fix: rate-limit and prioritize rebuilds (objects at k+m−2 fragments first), and spread fragments across failure domains so correlated losses don't stack on the same objects.</li>
+        <li><strong>Egress bandwidth.</strong> 10× reads = ~230 GB/sec if uncached. The CDN tier absorbs the hot set; the storage fleet is sized for the long-tail miss rate, not the raw read rate.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p>"Where's your single point of failure?" There shouldn't be one: the API layer is stateless behind a load balancer, the metadata service is sharded and each shard replicated, and the data layer survives m losses per object with active rebuild. The honest weak point to name is the <strong>placement/controller plane</strong> — if it goes down, live reads and writes continue, but rebuild and rebalancing pause, slowly eroding durability. So you run it as a small replicated, leader-elected cluster too. Naming your own weak point and how you contain it is exactly the senior signal interviewers look for.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole design compresses to one sentence: <em>split the small-but-hot metadata from the huge-but-cold data, store the data as erasure-coded fragments spread across failure domains, commit metadata last, and let background scrubbing and rebuild restore redundancy fast enough to hit eleven nines on cheap disks.</em> If you can draw the metadata/data split, explain RS(k,m), and walk the write path and a node-death rebuild, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Flat keys to blobs</b><span>Buckets are flat namespaces; you PUT/GET whole immutable objects, no editing in place.</span></div>
+        <div class="tk"><span class="num">02</span><b>Durability is the constraint</b><span>Eleven nines on failing hardware drives every decision; availability and cost are secondary.</span></div>
+        <div class="tk"><span class="num">03</span><b>Metadata ≠ data</b><span>Index is ~1000× smaller and QPS-hot; bytes are huge and cold — separate, independently scaled planes.</span></div>
+        <div class="tk"><span class="num">04</span><b>EC beats replication</b><span>RS(6,3) survives 3 losses at 1.5× disk vs 3× — CPU traded for half the storage bill.</span></div>
+        <div class="tk"><span class="num">05</span><b>Commit metadata last</b><span>Bytes durable first, metadata row last — a crash leaves reapable orphans, never phantom objects.</span></div>
+        <div class="tk"><span class="num">06</span><b>Read = k fragments</b><span>Happy path needs no decode; degraded read pulls parity and reconstructs, hidden by hedged reads.</span></div>
+        <div class="tk"><span class="num">07</span><b>Read-after-write for new</b><span>Object exists at metadata commit; route fresh reads to the shard leader. Overwrites are eventual.</span></div>
+        <div class="tk"><span class="num">08</span><b>Versioning + multipart</b><span>Overwrites add versions, deletes write tombstones; large objects upload as parallel retryable parts.</span></div>
+        <div class="tk"><span class="num">09</span><b>Self-healing fleet</b><span>Scrub catches bit-rot; rebuild decodes lost fragments onto fresh nodes; rebalance fills new capacity.</span></div>
+        <div class="tk"><span class="num">10</span><b>Rebuild speed = durability</b><span>Parallelize rebuild across the fleet so the one-failure-from-loss window is minutes, not days.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why split metadata from data, and which is bigger and hotter?<br>(2) Compare 3× replication with RS(6,3): storage overhead, fault tolerance, and where each wins.<br>(3) How do you actually reach eleven nines — name the four stacking layers.<br>(4) Why must metadata be committed <em>last</em> in the write path, and what failure does that order prevent?<br>(5) Walk through exactly what happens when a storage node dies, including how reads keep working.<br>(6) What breaks at 10×, and where is the system's real single point of failure?<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw the architecture from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 30 · DESIGN OBJECT STORAGE (S3-LIKE) · interactive edition · ref BBG V2·C9<br>
+      Original study notes on standard distributed-systems fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* write path */
+  makeStepper(document.getElementById('fig-put'), [
+    {text:"A client sends PUT; the API server buffers the bytes and computes a checksum.", active:["w-client","w-api"], path:"w-p1"},
+    {text:"The placement service picks k+m nodes in distinct failure domains; the object is erasure-coded into 6 data fragments.", active:["w-api","w-n1","w-n2","w-n3"], path:"w-p2"},
+    {text:"Data fragments d3..d4 are written and fsync'd to node B.", active:["w-api","w-n2"], path:"w-p3"},
+    {text:"The 3 parity fragments p1..p3 are written to node D — the write is acked durable once a quorum is on disk.", active:["w-api","w-n4"], path:"w-p4"},
+    {text:"Now commit metadata: the API writes the objects row with the fragment locations and marks it is_latest.", active:["w-api","w-meta"], path:"w-p5"},
+    {text:"Metadata committed = object exists. The server returns 200 OK with etag and versionId.", active:["w-client","w-api","w-meta"], path:"w-p6"}
+  ]);
+
+  /* rebuild on node death */
+  makeStepper(document.getElementById('fig-rebuild'), [
+    {text:"An object is stored as RS(6,3): 6 data + 3 parity fragments spread across nodes A–D.", active:["r-obj","r-s1","r-s2","r-s3","r-dead"]},
+    {text:"Node D dies. Its fragment is lost — the object is now one failure closer to data loss.", active:["r-dead"], path:"r-p1", reject:true},
+    {text:"The repair controller finds the affected object from metadata and reads any k surviving fragments from A, B, C.", active:["r-ctl","r-s1","r-s2","r-s3"], path:"r-p2"},
+    {text:"It runs the Reed–Solomon decode to reconstruct the missing fragment from the survivors.", active:["r-ctl","r-s2","r-s3"], path:"r-p3"},
+    {text:"The rebuilt fragment is written to a fresh node E in a clean failure domain, and fragment_locs is updated — full redundancy restored.", active:["r-ctl","r-fresh"], path:"r-p5"}
+  ]);
+</script>
+</body>
+</html>

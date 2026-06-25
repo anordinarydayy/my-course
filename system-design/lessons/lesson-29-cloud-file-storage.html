@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 29 — Design Cloud File Storage (Google Drive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;margin:22px 0;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;color:var(--ink);}
+  pre code{background:none;color:var(--ink);padding:0;font-size:13px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Cloud File<br>Storage</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why sync is hard</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Pin down requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimate</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Split metadata &amp; blocks</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Chunking &amp; dedup</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Delta sync ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Notify &amp; reconcile</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Conflicts &amp; versions</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Scale &amp; failure at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">29</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design Cloud File Storage</h1>
+      <p class="lede">A sync service like Google Drive keeps the same files byte-for-byte identical across every device a user owns — while uploading as little as physically possible. The entire design turns on one idea: stop treating a file as one blob, split it into content-addressed blocks, deduplicate them, and sync only the blocks that actually changed.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on designing a cloud file-sync service — a standard, widely-documented system-design topic. The explanations, numbers, schemas, and diagrams here are my own; nothing is copied from any paid course or book (loose reference tag: <strong>BBG&nbsp;V1·C15</strong>). Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why sync is hard</h2>
+      <p>Imagine you keep a 2&nbsp;GB folder of design assets on your laptop, your phone, and a desktop at the office. You rename one file, fix a typo in a contract, and add a new photo. A naive sync service would re-upload everything that looks "dirty" — and on a typo fix in a 40&nbsp;MB document, that means pushing 40&nbsp;MB up the wire to change three characters. Multiply that across millions of users editing all day and you have melted your bandwidth bill and made the product feel slow.</p>
+      <p>A <strong>cloud file storage</strong> service (Drive, Dropbox, OneDrive, iCloud Drive) is a system that stores a user's files in the cloud and keeps local copies on each of their devices <em>continuously consistent</em>. The hard part is never the storing — object storage solved that. The hard part is the <strong>sync loop</strong>: detecting what changed, transferring the minimum bytes, and reconciling the result on every other device without corrupting anyone's data.</p>
+      <p>The bottlenecks we will chase, in order, are:</p>
+      <ul>
+        <li><strong>Bandwidth.</strong> Re-uploading whole files on tiny edits is the cardinal sin. We fix it with chunking and delta sync.</li>
+        <li><strong>Storage cost.</strong> Storing the same byte ranges over and over — across versions and across users — wastes petabytes. We fix it with content-addressed deduplication.</li>
+        <li><strong>Freshness.</strong> A device must learn that a file changed quickly, without melting the server by polling. We fix it with a long-poll notification service.</li>
+        <li><strong>Correctness.</strong> Two offline devices edit the same file. We must not silently lose one of them. We fix it with versioning and conflict copies.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A one-line edit naively re-uploading an entire 40 megabyte file">
+            <rect class="node" x="24" y="84" width="120" height="52" rx="9"/>
+            <text class="lbl" x="84" y="106" text-anchor="middle">Laptop</text>
+            <text class="lbl-sm" x="84" y="124" text-anchor="middle">edit 3 chars</text>
+            <path class="flow-r" d="M146 100 C 280 60, 360 60, 470 84" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M146 108 H 470" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M146 116 C 280 156, 360 156, 470 124" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="300" y="46" text-anchor="middle" fill="#B0532F">re-uploads the WHOLE 40 MB file</text>
+            <rect x="472" y="64" width="146" height="96" rx="10" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl" x="545" y="100" text-anchor="middle">Cloud</text>
+            <text class="lbl" x="545" y="120" text-anchor="middle">storage</text>
+            <text class="lbl-sm" x="545" y="178" text-anchor="middle" fill="#B0532F">wasteful &amp; slow</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the naive design: a tiny edit pays for the whole file</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Pin down the requirements</h2>
+      <p>An interviewer wants to watch you carve the problem down to something buildable in 40 minutes. Cloud storage is enormous; name what is in scope and what you are deferring.</p>
+
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Upload &amp; download</strong> files of any size, including very large ones (multi-gigabyte video).</li>
+        <li><strong>Sync across devices.</strong> A change on one device appears on all the user's other devices automatically and quickly.</li>
+        <li><strong>Save bandwidth.</strong> Editing part of a file should transfer only the changed part, not the whole file.</li>
+        <li><strong>Versioning.</strong> Keep a history of previous versions so a user can roll back.</li>
+        <li><strong>Sharing &amp; permissions.</strong> Share a file or folder with another user as viewer or editor.</li>
+        <li><strong>Offline edits.</strong> Work disconnected; sync (and resolve conflicts) on reconnect.</li>
+      </ul>
+
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Durability above all.</strong> A user's files must never be lost — target <code>99.999999999%</code> ("eleven nines") durability, the object-storage standard.</li>
+        <li><strong>Availability.</strong> The service should be highly available; a brief metadata outage is more tolerable than data loss.</li>
+        <li><strong>Bandwidth efficiency &amp; low sync latency</strong> — the product's whole reason to exist.</li>
+        <li><strong>Scale</strong> to hundreds of millions of users and exabytes of data.</li>
+        <li><strong>Consistency model:</strong> a single file should converge to one agreed state; we will accept brief eventual consistency during propagation but never silent loss.</li>
+      </ul>
+
+      <h3>Assumptions to state aloud</h3>
+      <p>Lock down a few numbers so the estimate has something to chew on: assume <strong>roughly 50 million daily active users</strong>, an average of <strong>2 connected devices</strong> each, an average stored footprint around <strong>10&nbsp;GB per user</strong>, and a working file population dominated by documents and photos with a long tail of large media. I will tilt examples toward a Singapore context — say <strong>Sea/Shopee</strong> teams syncing campaign creative, or <strong>Grab</strong> ops folks sharing rider-incident PDFs across phone and laptop.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single highest-leverage sentence you can say up front is: <em>"the design is fundamentally about moving the fewest bytes, so I'll split files into content-addressed blocks and sync only the deltas."</em> If you lead with that, every later decision (dedup, metadata/block split, delta sync) reads as a consequence rather than a surprise.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-the-envelope estimate</h2>
+      <p>Rough numbers tell you where the system will hurt and which component must scale hardest. Do them out loud; precision matters less than the order of magnitude and what it implies.</p>
+
+      <h3>Storage</h3>
+      <p>50M users &times; 10&nbsp;GB = <strong>500&nbsp;PB</strong> of <em>logical</em> data. But deduplication and delta sync are exactly the tools that shrink the <em>physical</em> footprint. In practice cross-user and cross-version dedup commonly reclaims 30–50%; assume a conservative 40%, leaving roughly <strong>300&nbsp;PB physical</strong>, before counting the redundant copies object storage keeps internally for durability.</p>
+
+      <h3>Write / upload throughput</h3>
+      <p>Suppose each active user changes about 100&nbsp;MB of <em>new or modified content</em> per day. That is 50M &times; 100&nbsp;MB = 5&nbsp;PB ingested per day. Spread over 86,400 seconds that is about <strong>58&nbsp;GB/s of sustained upload</strong> — and real traffic is peaky, so provision for several times that. This is why we must never upload bytes that already exist.</p>
+
+      <h3>Metadata QPS</h3>
+      <p>Metadata operations (list a folder, fetch a file's block list, commit a new version, poll for changes) dwarf byte transfers in <em>count</em>. If each of 50M DAU triggers ~200 metadata calls/day, that is 10&nbsp;billion/day ≈ <strong>115,000 QPS average</strong>, with peaks easily 5&ndash;10&times; higher. The metadata service, not the byte store, is the throughput-critical tier — a crucial realization that justifies the architecture split in step 04.</p>
+
+      <h3>Block sizing trade-off</h3>
+      <p>If we chunk files into <strong>4&nbsp;MB blocks</strong>, then 300&nbsp;PB physical / 4&nbsp;MB ≈ <strong>75 billion blocks</strong>. Each needs a metadata row (hash, size, location). At ~100 bytes/row that is ~7.5&nbsp;TB of block metadata alone — small relative to the data, but enough that the metadata DB must be sharded.</p>
+      <div class="callout">
+        <span class="k">Why block size matters</span>
+        <p>Smaller blocks = finer-grained dedup and cheaper deltas, but far more metadata rows and per-block overhead. Larger blocks = less metadata but you re-upload more on every edit. 4&nbsp;MB is a common sweet spot; the number itself is less important than being able to <em>reason</em> about the trade-off when the interviewer pokes it.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>The API and a data-model sketch</h2>
+      <p>Sketching the API and tables early forces the abstractions to be concrete and gives you a vocabulary for the rest of the interview. The defining choice you will reveal here is that <strong>file content and file metadata travel on separate paths</strong>.</p>
+
+      <h3>Client-facing API</h3>
+      <p>The client never blindly PUTs a file. It first computes the file's blocks and their hashes, asks the server which blocks are missing, uploads only those, then commits a new version pointing at the full block list.</p>
+      <pre><code>// 1. Negotiate: which blocks does the server already have?
+POST /v1/files/{fileId}/blocks:check
+  body: { "blockHashes": ["a91f…", "7c30…", "d4e1…"] }
+  resp: { "missing": ["7c30…"] }          // server already has the rest
+
+// 2. Upload only the missing blocks (often straight to object storage
+//    via a short-lived presigned URL, bypassing the app tier)
+PUT  /v1/blocks/{blockHash}                 // body = raw 4 MB block bytes
+
+// 3. Commit a new version referencing the ordered block list
+POST /v1/files/{fileId}/versions
+  body: { "blockList": ["a91f…","7c30…","d4e1…"],
+          "baseVersion": 41, "mtime": 1717000000 }
+  resp: { "version": 42 }                   // 409 if baseVersion is stale
+
+// 4. Long-poll for changes since a cursor
+GET  /v1/changes?since=cursor_8842          // blocks until something changes
+  resp: { "changes": [ {fileId, version, op:"updated"} ], "cursor": "cursor_8907" }
+
+// 5. Download blocks the client is missing
+GET  /v1/blocks/{blockHash}                 // presigned read from object storage</code></pre>
+
+      <h3>Data model</h3>
+      <p>Three entity groups: the <strong>namespace</strong> (folder tree), the <strong>file/version</strong> records, and the <strong>block</strong> catalog. Note that a version is just an ordered list of block hashes — that indirection is what makes dedup and delta sync possible.</p>
+      <pre><code>files        (fileId PK, ownerId, name, parentFolderId,
+              currentVersion, isFolder, deleted)
+versions     (fileId, version, blockList[], size, mtime, createdBy,
+              PRIMARY KEY (fileId, version))
+blocks       (blockHash PK, sizeBytes, objectStoreKey, refCount)
+shares       (fileId, granteeUserId, role)        // role: viewer | editor
+devices      (deviceId, userId, lastSeenCursor)   // sync watermark per device</code></pre>
+      <p>The <code>blockList</code> in <code>versions</code> stores <em>references</em> (hashes), never bytes. The bytes live once in the <code>blocks</code> catalog, which points into object storage. <code>refCount</code> tracks how many versions/files still reference a block so we know when it is safe to garbage-collect.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"Why does the client check which blocks are missing before uploading?"</em> Because that single round trip is what turns an edit into a delta. If the server already has 9 of a file's 10 blocks, the client uploads 1. Skip the check and you have rebuilt the naive whole-file uploader from step 00.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE figure but actually high-level; keep static-ish? Make HLD static, sync interactive later -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The core split</div>
+      <h2>Split metadata from blocks</h2>
+      <p>This is the architectural keystone. Two kinds of data have completely different access patterns, so we store them in completely different systems.</p>
+
+      <h3>The metadata service</h3>
+      <p>The <strong>metadata service</strong> owns the structured truth: the folder tree, each file's version history, the ordered block list per version, permissions, and per-device sync cursors. Access is small, frequent, transactional, and relational — list a folder, commit a version, check a permission. That maps to a strongly-consistent, sharded relational store: <strong>PostgreSQL</strong> or <strong>MySQL</strong> sharded by <code>userId</code>, or a managed NewSQL store like <strong>Spanner</strong>/<strong>CockroachDB</strong> when you want transactions across shards. It must be ACID enough that "commit version 42" either fully happens or doesn't — a half-written block list is a corrupt file.</p>
+
+      <h3>The block store</h3>
+      <p>The <strong>block store</strong> owns the bytes: opaque, immutable, content-addressed 4&nbsp;MB blocks. Access is large-payload, write-once-read-many, and needs eleven-nines durability but not transactions. That is exactly what object storage is for: <strong>Amazon S3</strong>, <strong>Google Cloud Storage</strong>, or an on-prem equivalent. The object key is literally the block's content hash, so the store is a giant content-addressed key-value map of <code>blockHash → bytes</code>.</p>
+
+      <h3>Why split at all?</h3>
+      <p>Because forcing both into one database is the classic mistake. Put 4&nbsp;MB blobs in PostgreSQL and you destroy its cache and bloat the WAL; put the folder tree in S3 and you cannot do a transactional "rename folder" or an efficient "list children." Splitting lets each side scale on its own axis: object storage scales bytes near-infinitely and cheaply; the metadata DB scales QPS via sharding. They are even on different cost curves — cold object storage is pennies per GB-month.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 290" role="img" aria-label="High-level architecture: clients to API gateway, then metadata service plus block store, with a notification service">
+            <rect class="node" x="20" y="118" width="96" height="54" rx="9"/>
+            <text class="lbl" x="68" y="142" text-anchor="middle">Clients</text>
+            <text class="lbl-sm" x="68" y="160" text-anchor="middle">laptop+phone</text>
+
+            <rect class="node-b" x="150" y="118" width="104" height="54" rx="9"/>
+            <text class="lbl" x="202" y="142" text-anchor="middle">API</text>
+            <text class="lbl" x="202" y="160" text-anchor="middle">gateway</text>
+
+            <rect class="node" x="300" y="38" width="150" height="56" rx="9"/>
+            <text class="lbl" x="375" y="62" text-anchor="middle">Metadata svc</text>
+            <text class="lbl-sm" x="375" y="80" text-anchor="middle">tree·versions·perms</text>
+
+            <rect class="node" x="300" y="196" width="150" height="56" rx="9"/>
+            <text class="lbl" x="375" y="220" text-anchor="middle">Notification</text>
+            <text class="lbl-sm" x="375" y="238" text-anchor="middle">long-poll svc</text>
+
+            <g transform="translate(495,40)">
+              <path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#2E73B8"/>
+              <ellipse cx="24" cy="8" rx="24" ry="8" fill="#3E86CF"/>
+              <text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text>
+            </g>
+            <text class="lbl-sm" x="519" y="108" text-anchor="middle">metadata DB (sharded)</text>
+
+            <rect x="478" y="178" width="142" height="92" rx="10" fill="#E8F2F0" stroke="#2E8B8B" stroke-width="2"/>
+            <text class="lbl" x="549" y="216" text-anchor="middle">Block store</text>
+            <text class="lbl-sm" x="549" y="234" text-anchor="middle">S3 / GCS</text>
+            <text class="lbl-sm" x="549" y="250" text-anchor="middle">blockHash→bytes</text>
+
+            <path class="flow" d="M116 138 H 148" marker-end="url(#arrow)"/>
+            <path class="flow" d="M254 134 C 280 110, 285 80, 298 70" marker-end="url(#arrow)"/>
+            <path class="flow" d="M254 156 C 280 185, 285 215, 298 224" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="276" y="100" text-anchor="middle">metadata</text>
+            <path class="flow" d="M450 66 H 492" marker-end="url(#arrow)"/>
+            <path class="flow" d="M116 128 C 240 20, 360 14, 477 178" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="300" y="20" text-anchor="middle">block bytes (presigned, direct)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — the keystone: structured metadata in a sharded DB, opaque bytes in object storage</figcaption>
+      </figure>
+
+      <div class="vs">
+        <div class="col"><h4>Metadata service (RDBMS)</h4><ul>
+          <li>Strong consistency &amp; transactions for "commit version"</li>
+          <li>Rich queries: list folder, version history, permission checks</li>
+          <li>Small rows, very high QPS → shard by userId</li>
+          <li>Costlier per byte; bad at holding large blobs</li>
+        </ul></div>
+        <div class="col"><h4>Block store (object storage)</h4><ul>
+          <li>Eleven-nines durability, near-infinite byte scale</li>
+          <li>Cheap per GB; tiers to cold storage for old versions</li>
+          <li>Immutable, content-addressed, write-once</li>
+          <li>No transactions, no "list children" semantics</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"Metadata vs block storage — why split? Why not just stuff everything in one database?"</em> Answer with access patterns: metadata is tiny, transactional, query-rich, and QPS-bound; blocks are huge, immutable, durability-bound, and byte-bound. One store cannot be optimal for both. The split also lets clients upload/download bytes <em>directly</em> to object storage via presigned URLs, keeping your app servers out of the multi-gigabyte hot path.</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Chunk &amp; dedup</div>
+      <h2>Chunking and deduplication</h2>
+      <p>Now the mechanism that makes everything else possible. We never store a file as one object. We split it into <strong>blocks</strong> and address each block by a hash of its own contents.</p>
+
+      <h3>How chunking works</h3>
+      <p><strong>Chunking</strong> is splitting a file into blocks. The simplest scheme is <strong>fixed-size chunking</strong>: cut every 4&nbsp;MB. For each block, compute a cryptographic hash of its bytes — say <strong>SHA-256</strong> — and use that hash as the block's identity. This is <strong>content addressing</strong>: the name of a block <em>is</em> its content. Two blocks with identical bytes get identical hashes, anywhere in the system, forever.</p>
+      <p>A file then becomes an ordered list of hashes — its <strong>block list</strong>. A 40&nbsp;MB document is 10 hashes; a 1&nbsp;GB video is ~256 hashes. The file's content is fully reconstructable by fetching those blocks in order and concatenating them.</p>
+
+      <h3>How block-level deduplication works</h3>
+      <p><strong>Deduplication</strong> means storing each unique block exactly once. Because the block's key is its content hash, dedup is automatic: before uploading a block, the client (or server) checks whether <code>blocks[blockHash]</code> already exists. If it does, nobody uploads or stores it again — the new version simply references the existing block and bumps its <code>refCount</code>.</p>
+      <p>This collapses redundancy on two axes at once:</p>
+      <ul>
+        <li><strong>Across versions:</strong> editing one block of a 100-block file means 99 blocks are unchanged, so v43 shares 99 blocks with v42. The history of a file costs barely more than the file itself.</li>
+        <li><strong>Across users:</strong> if a Shopee marketing team of 30 people all save the same 200&nbsp;MB brand-guidelines PDF to their Drives, the bytes are stored <em>once</em>. The other 29 copies are pure metadata references.</li>
+      </ul>
+
+      <h3>Worked example</h3>
+      <p>A GrabPay finance analyst stores a 16&nbsp;MB quarterly report → 4 blocks <code>[A,B,C,D]</code>. A teammate downloads it, appends a paragraph that lands inside block&nbsp;D, and re-saves. New block list: <code>[A,B,C,D']</code>. Blocks A, B, C already exist, so only <code>D'</code> (4&nbsp;MB) is uploaded and stored. Net new storage: 4&nbsp;MB for a 16&nbsp;MB "new" file, and 4&nbsp;MB on the wire instead of 16.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="A file split into four blocks by content hash; two versions share three identical blocks and only the changed block is stored once more">
+            <text class="lbl-sm" x="60" y="34" text-anchor="start">file v1</text>
+            <rect class="node-b" x="60" y="44" width="60" height="42" rx="6"/><text class="lbl-sm" x="90" y="69" text-anchor="middle">A</text>
+            <rect class="node-b" x="124" y="44" width="60" height="42" rx="6"/><text class="lbl-sm" x="154" y="69" text-anchor="middle">B</text>
+            <rect class="node-b" x="188" y="44" width="60" height="42" rx="6"/><text class="lbl-sm" x="218" y="69" text-anchor="middle">C</text>
+            <rect class="node-b" x="252" y="44" width="60" height="42" rx="6"/><text class="lbl-sm" x="282" y="69" text-anchor="middle">D</text>
+
+            <text class="lbl-sm" x="60" y="124" text-anchor="start">file v2</text>
+            <rect class="node-b" x="60" y="134" width="60" height="42" rx="6"/><text class="lbl-sm" x="90" y="159" text-anchor="middle">A</text>
+            <rect class="node-b" x="124" y="134" width="60" height="42" rx="6"/><text class="lbl-sm" x="154" y="159" text-anchor="middle">B</text>
+            <rect class="node-b" x="188" y="134" width="60" height="42" rx="6"/><text class="lbl-sm" x="218" y="159" text-anchor="middle">C</text>
+            <rect class="node-r" x="252" y="134" width="60" height="42" rx="6"/><text class="lbl-sm" x="282" y="159" text-anchor="middle">D'</text>
+
+            <rect x="372" y="40" width="246" height="178" rx="10" fill="#E8F2F0" stroke="#2E8B8B" stroke-width="2"/>
+            <text class="lbl" x="495" y="62" text-anchor="middle">block store (each block once)</text>
+            <rect class="node" x="392" y="80" width="50" height="36" rx="6"/><text class="lbl-sm" x="417" y="103" text-anchor="middle">A</text>
+            <rect class="node" x="452" y="80" width="50" height="36" rx="6"/><text class="lbl-sm" x="477" y="103" text-anchor="middle">B</text>
+            <rect class="node" x="512" y="80" width="50" height="36" rx="6"/><text class="lbl-sm" x="537" y="103" text-anchor="middle">C</text>
+            <rect class="node" x="392" y="128" width="50" height="36" rx="6"/><text class="lbl-sm" x="417" y="151" text-anchor="middle">D</text>
+            <rect class="node-r" x="452" y="128" width="50" height="36" rx="6"/><text class="lbl-sm" x="477" y="151" text-anchor="middle">D'</text>
+            <text class="lbl-sm" x="495" y="196" text-anchor="middle" fill="#2E8B8B">A,B,C shared · only D' is new</text>
+
+            <path class="flow-d" d="M312 65 C 340 70, 350 90, 388 95" marker-end="url(#arrow-s)"/>
+            <path class="flow-r" d="M312 155 C 340 150, 360 150, 450 150" marker-end="url(#arrow-r)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — content addressing collapses identical blocks; a new version stores only what changed</figcaption>
+      </figure>
+
+      <h3>Fixed vs variable-size chunking</h3>
+      <p>Fixed-size chunking has an Achilles heel: <strong>insert a single byte at the front of a file and every subsequent block shifts</strong>, so every hash changes and dedup collapses to zero — you re-upload the whole file. <strong>Variable-size (content-defined) chunking</strong> fixes this by choosing block boundaries based on the content itself (a rolling hash like Rabin fingerprinting cuts a boundary wherever the rolling checksum hits a pattern). An inserted byte then only disturbs the one block around it; the rest keep their boundaries and their hashes.</p>
+      <div class="vs">
+        <div class="col"><h4>Fixed-size blocks</h4><ul>
+          <li>Dead simple, trivially parallel to compute</li>
+          <li>Great for append-only or block-replace edits</li>
+          <li>Breaks on byte <em>insertion</em>: all later blocks shift, dedup lost</li>
+        </ul></div>
+        <div class="col"><h4>Variable-size (CDC)</h4><ul>
+          <li>Boundaries follow content → robust to inserts/shifts</li>
+          <li>Best real-world dedup ratios</li>
+          <li>More CPU (rolling hash) and more complex to implement</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Under the hood — hash collisions</span>
+        <p>Content addressing trusts that "same hash ⇒ same bytes." With SHA-256 the odds of an accidental collision are astronomically smaller than a disk silently corrupting data, so it is treated as safe. Paranoid systems verify a full byte comparison on a hash match, or salt hashes per namespace to blunt deliberate collision attacks.</p>
+      </div>
+    </section>
+
+    <!-- 6 — INTERACTIVE delta sync -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The payoff</div>
+      <h2>Delta sync</h2>
+      <p>Chunking and dedup set the table; <strong>delta sync</strong> is the meal. Delta sync means that when a file changes, the client uploads <em>only the blocks that differ</em> from the previous version — never the whole file.</p>
+
+      <h3>How the client computes the delta</h3>
+      <p>The crucial point is that the diff happens <strong>on the client</strong>, so the network only ever sees the minimum. When a watched file changes on disk, the local sync agent:</p>
+      <ul>
+        <li>Re-chunks the file and computes the hash of each block.</li>
+        <li>Compares the new block list to the previous version's block list it has cached locally. Blocks whose hashes match are unchanged and skipped entirely.</li>
+        <li>Sends the new hash list to the metadata service's <code>blocks:check</code> endpoint, which replies with the subset the block store does not already have (catching cross-user dedup too).</li>
+        <li>Uploads only that final missing subset, then commits a new version referencing the full block list.</li>
+      </ul>
+      <p>So a one-line edit to a 40&nbsp;MB document re-uploads a single 4&nbsp;MB block (or less, with variable chunking) — a <strong>90%+ bandwidth saving</strong>, and that is the conservative case. The other device, in step 07, downloads the same single block to catch up.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-delta">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive delta sync: edit a file, diff to changed blocks, upload only those, commit a version, notify and let another device pull only the changed block">
+            <g class="st" id="ds-edit"><rect class="node" x="18" y="96" width="96" height="58" rx="9"/><text class="lbl" x="66" y="120" text-anchor="middle">Device A</text><text class="lbl-sm" x="66" y="138" text-anchor="middle">edits file</text></g>
+            <g class="st" id="ds-diff"><rect class="node-b" x="150" y="96" width="104" height="58" rx="9"/><text class="lbl" x="202" y="120" text-anchor="middle">diff →</text><text class="lbl" x="202" y="138" text-anchor="middle">block D'</text></g>
+            <g class="st" id="ds-block"><rect x="300" y="22" width="140" height="56" rx="10" fill="#E8F2F0" stroke="#2E8B8B" stroke-width="2"/><text class="lbl" x="370" y="46" text-anchor="middle">Block store</text><text class="lbl-sm" x="370" y="64" text-anchor="middle">put D' only</text></g>
+            <g class="st" id="ds-meta"><rect class="node" x="300" y="170" width="140" height="56" rx="10"/><text class="lbl" x="370" y="194" text-anchor="middle">Metadata svc</text><text class="lbl-sm" x="370" y="212" text-anchor="middle">commit v2</text></g>
+            <g class="st" id="ds-devb"><rect class="node" x="492" y="96" width="128" height="58" rx="9"/><text class="lbl" x="556" y="120" text-anchor="middle">Device B</text><text class="lbl-sm" x="556" y="138" text-anchor="middle">pulls D' only</text></g>
+
+            <path id="ds-p1" class="flow" d="M114 125 H 148" marker-end="url(#arrow)"/>
+            <path id="ds-p2" class="flow" d="M254 110 C 280 80, 290 60, 298 52" marker-end="url(#arrow)"/>
+            <path id="ds-p3" class="flow" d="M254 140 C 280 170, 290 188, 298 196" marker-end="url(#arrow)"/>
+            <path id="ds-p4" class="flow-d" d="M440 200 C 470 200, 480 170, 492 150" marker-end="url(#arrow-s)"/>
+            <path id="ds-p5" class="flow" d="M440 50 C 470 50, 480 90, 492 112" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: diff locally, upload only the changed block, commit, notify, pull just that block</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"How do you avoid re-uploading the whole file on a one-line edit?"</em> This section <em>is</em> the answer: chunk locally, hash each block, compare against the cached previous block list, ask the server which of the changed blocks it still lacks, and upload only those. The diff is computed client-side precisely so the wire only ever carries the delta. Add variable-size chunking if they push on "what about inserting text at the top of the file?"</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Propagation</div>
+      <h2>Notify and reconcile</h2>
+      <p>Uploading the delta is half the loop. The other devices have to <em>learn</em> a file changed and pull the new blocks — fast, and without hammering the server.</p>
+
+      <h3>Why not just poll?</h3>
+      <p>If every device polled "anything new?" every few seconds, 100M devices would generate a flood of mostly-empty requests. The fix is a dedicated <strong>notification service</strong> that holds a request open until there is actually something to report.</p>
+
+      <h3>Long-polling, step by step</h3>
+      <p><strong>Long-polling</strong> works like this: a device opens a <code>GET /changes?since=cursor</code> request. The server does <em>not</em> answer immediately if nothing has changed — it holds the connection open (parked for, say, up to 30 seconds). The instant a relevant file commits a new version, the notification service responds to all parked connections that care about that file/namespace, handing back the list of changed file IDs and a new cursor. The device immediately re-opens a new long-poll, so it always has one ear to the ground. This gives near-real-time push using only plain HTTP, which sails through corporate firewalls. A persistent <strong>WebSocket</strong> is an alternative when you want true server push and can keep millions of sockets open.</p>
+
+      <h3>Reconcile on the receiver</h3>
+      <p>When Device B is notified that file F advanced to v43, it does <em>not</em> download v43 wholesale. It fetches v43's block list from the metadata service, diffs it against the blocks it already has on disk, and downloads only the missing blocks from the block store — the mirror image of the upload-side delta. It then reassembles the file locally and updates its cursor. The same dedup logic runs in reverse, so freshness costs the network only the delta, both ways.</p>
+
+      <h3>What the cursor buys you</h3>
+      <p>The <code>cursor</code> (a monotonic change watermark per user/namespace) is what makes sync resumable. A device that was offline for a week reconnects with its last cursor and receives exactly the changes it missed, in order — no full re-scan. Store it in the <code>devices</code> table as <code>lastSeenCursor</code>.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Notification service holds a device's long-poll open until a file commits, then returns changed file ids and a new cursor">
+            <rect class="node" x="22" y="40" width="110" height="50" rx="9"/>
+            <text class="lbl" x="77" y="64" text-anchor="middle">Device A</text>
+            <text class="lbl-sm" x="77" y="80" text-anchor="middle">commits v43</text>
+
+            <rect class="node" x="22" y="146" width="110" height="50" rx="9"/>
+            <text class="lbl" x="77" y="170" text-anchor="middle">Device B</text>
+            <text class="lbl-sm" x="77" y="186" text-anchor="middle">long-poll open</text>
+
+            <rect class="node-b" x="248" y="86" width="150" height="58" rx="10"/>
+            <text class="lbl" x="323" y="110" text-anchor="middle">Notification</text>
+            <text class="lbl" x="323" y="128" text-anchor="middle">service</text>
+
+            <rect class="node" x="470" y="86" width="148" height="58" rx="10"/>
+            <text class="lbl" x="544" y="110" text-anchor="middle">Metadata svc</text>
+            <text class="lbl-sm" x="544" y="128" text-anchor="middle">cursor stream</text>
+
+            <path class="flow" d="M132 70 C 200 78, 210 90, 246 100" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="190" y="64" text-anchor="middle">change event</text>
+            <path class="flow" d="M398 112 H 468" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M246 128 C 200 150, 180 158, 134 168" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="196" y="186" text-anchor="middle" fill="#B0532F">wake: {F, v43, cursor}</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — a parked long-poll wakes the instant a relevant version commits</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Failure mode — a notification is lost</span>
+        <p>Push is an optimization, never the source of truth. If the notification service drops or a device misses an event, no data is lost: the device's cursor is still behind, so its next long-poll (or a periodic safety-net poll every few minutes) returns the missed changes. The cursor makes the system <em>self-healing</em> — pushes make it fast, cursors make it correct.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Correctness</div>
+      <h2>Conflicts and versioning</h2>
+      <p>The nastiest bug in any sync system is silent data loss. It happens when two devices edit the same file while disconnected from each other, then both try to commit. Whatever we do, we must never let one person's work vanish.</p>
+
+      <h3>How conflicts are detected</h3>
+      <p>Every commit carries the <code>baseVersion</code> it was derived from (recall the API in step 03). The metadata service accepts a commit only if <code>baseVersion</code> equals the file's <em>current</em> version — classic <strong>optimistic concurrency control</strong>. If Device A and Device B both edited v41 offline: A reconnects first and commits v42 (base 41 → matches → accepted). B then reconnects and commits with base 41, but the current version is now 42 → <strong>mismatch</strong>, so the server rejects it with <code>409 Conflict</code>.</p>
+
+      <h3>How conflicts are resolved</h3>
+      <p>On a 409, the client does not overwrite and does not throw away the user's edit. The standard, user-safe resolution is a <strong>conflict copy</strong>: B's version is saved as a sibling file, e.g. <code>report (conflicted copy — Bao's MacBook 2026-05-31).docx</code>. Both edits now exist; a human decides which to keep or how to merge. This is deliberately dumb-but-safe — the system refuses to guess and refuses to lose data.</p>
+      <p>Richer schemes exist for collaborative editors (Google Docs uses <strong>Operational Transformation</strong>; many modern apps use <strong>CRDTs</strong> to auto-merge concurrent edits). But for a general file-sync service holding arbitrary binary files — a PSD, a video, a ZIP — automatic merge is impossible, so conflict copies are the honest answer.</p>
+
+      <h3>Versioning as the safety net</h3>
+      <p>Because every commit creates a new immutable version (an ordered block list), the full <strong>version history</strong> is free — old versions just reference their old blocks, which dedup keeps cheap. A user can roll back to any prior version; an accidental "select-all, delete, save" is undoable. Versions also make the whole sync loop idempotent: re-applying a known version is a no-op.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Two offline devices both edit version 41; one commit wins and the other becomes a conflict copy, with full version history retained">
+            <text class="lbl-sm" x="80" y="34" text-anchor="middle">shared file at v41</text>
+            <rect class="node" x="40" y="44" width="80" height="40" rx="6"/><text class="lbl" x="80" y="69" text-anchor="middle">v41</text>
+
+            <path class="flow-d" d="M120 64 C 180 50, 200 40, 250 40" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M120 64 C 180 80, 200 100, 250 110" marker-end="url(#arrow-s)"/>
+
+            <rect class="node" x="252" y="22" width="120" height="40" rx="6"/><text class="lbl-sm" x="312" y="46" text-anchor="middle">A edits offline</text>
+            <rect class="node" x="252" y="92" width="120" height="40" rx="6"/><text class="lbl-sm" x="312" y="116" text-anchor="middle">B edits offline</text>
+
+            <rect class="node-b" x="420" y="22" width="120" height="40" rx="6"/><text class="lbl" x="480" y="46" text-anchor="middle">commit → v42 ✓</text>
+            <rect class="node-r" x="420" y="92" width="190" height="40" rx="6"/><text class="lbl-sm" x="515" y="116" text-anchor="middle" fill="#B0532F">409 → conflict copy</text>
+
+            <path class="flow" d="M372 42 H 418" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M372 112 H 418" marker-end="url(#arrow-r)"/>
+
+            <line x1="40" y1="178" x2="600" y2="178" stroke="#999" stroke-width="1.5"/>
+            <circle cx="120" cy="178" r="6" fill="#1F4E79"/><text class="lbl-sm" x="120" y="200" text-anchor="middle">v41</text>
+            <circle cx="320" cy="178" r="6" fill="#1F4E79"/><text class="lbl-sm" x="320" y="200" text-anchor="middle">v42</text>
+            <circle cx="520" cy="178" r="6" fill="#B0532F"/><text class="lbl-sm" x="520" y="200" text-anchor="middle" fill="#B0532F">conflict copy</text>
+            <text class="lbl-sm" x="320" y="222" text-anchor="middle">history retained → roll back anytime</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — first commit wins; the loser becomes a conflict copy, and nothing is ever lost</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"How do you handle two devices editing at once?"</em> Optimistic concurrency on <code>baseVersion</code>: first commit wins, the second gets a 409 and becomes a conflict copy. Stress that the design prioritizes <strong>never losing data</strong> over automatic merging — for arbitrary binary files, auto-merge is impossible, so you preserve both and let a human resolve. Mention OT/CRDTs only as the path for live collaborative <em>text</em> editing.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> The 10x question</div>
+      <h2>Scale, failure, and what breaks at 10x</h2>
+      <p>The closing move is to push your own design until it cracks, then say how you would shore it up. From 50M to 500M users, here is where it strains.</p>
+
+      <h3>Sharding the metadata service</h3>
+      <p>The metadata DB is the QPS bottleneck (step 02). <strong>Shard by <code>userId</code></strong> so that all of one user's files, versions, and permissions live on one shard — that keeps "list my folder" and "commit my version" as single-shard transactions. A shared file is read via the owner's shard plus a <code>shares</code> lookup. Hot shards (a viral shared folder) get split or fronted by a read cache. Avoid sharding by <code>fileId</code> alone, or every folder listing fans out across shards.</p>
+
+      <h3>Resumable transfers for large files</h3>
+      <p>A 5&nbsp;GB video over a flaky mobile connection will drop mid-upload; restarting from zero is unacceptable. Block-based design makes transfers naturally <strong>resumable</strong>: each 4&nbsp;MB block is uploaded independently and idempotently (its key is its hash, so re-PUTting it is harmless). On reconnect the client re-runs <code>blocks:check</code>, sees which blocks landed, and uploads only the rest. This is exactly how S3 multipart upload and the <code>tus</code> protocol behave. The version isn't committed until <em>all</em> blocks are present, so a partial upload is never visible.</p>
+
+      <h3>Cold storage for old versions</h3>
+      <p>Version history is cheap thanks to dedup, but blocks referenced <em>only</em> by old versions are rarely read. Tier them down: keep current-version blocks in standard object storage, and migrate blocks that no live version touches to a cheaper cold tier (<strong>S3 Glacier</strong> / <strong>GCS Coldline</strong>), accepting higher retrieval latency for a big cost cut. A background <strong>garbage collector</strong> walks the <code>blocks</code> catalog and deletes any block whose <code>refCount</code> has hit zero — the only safe way to reclaim space without orphaning a referenced block.</p>
+
+      <h3>Failure modes</h3>
+      <ul>
+        <li><strong>Block store node dies:</strong> object storage replicates each block across devices/AZs, so a node loss is invisible — the eleven-nines durability is doing its job.</li>
+        <li><strong>Metadata shard dies:</strong> run each shard as a replicated cluster (primary + replicas). On primary failure, a replica is promoted; the window of unavailability affects only that shard's users, and clients retry. Because object storage holds the actual bytes, no file content is at risk during a metadata outage.</li>
+        <li><strong>Client crashes mid-sync:</strong> nothing is committed until all blocks exist and the version commit succeeds, so a crash leaves a partial upload that the next <code>blocks:check</code> simply resumes. No corrupt half-file ever becomes visible.</li>
+        <li><strong>Garbage-collection race:</strong> a block being deleted (refCount 0) just as a new version references it. Guard with a transactional refCount bump or a grace period before reclaiming, so a block is never deleted out from under a live reference.</li>
+      </ul>
+
+      <h3>What breaks at 10x</h3>
+      <p>The notification service becomes the new pressure point: holding 500M+ open long-polls or sockets demands a fleet of connection-handling nodes with sticky routing and a fan-out layer (often <strong>Kafka</strong> or <strong>Redis</strong> pub/sub) carrying change events to whichever node holds each device's connection. The <code>blocks:check</code> path also gets hot, so cache "does this hash exist?" lookups in <strong>Redis</strong> in front of the metadata DB. And cross-user dedup raises a privacy nuance — a global dedup namespace can leak existence of content; isolate dedup per-user (or per-org) when that matters, trading some savings for safety.</p>
+      <div class="callout tip">
+        <span class="k">Deep-dive the interviewer may push for</span>
+        <p>Be ready for: <strong>encryption</strong> (encrypt blocks at rest; note that client-side end-to-end encryption defeats cross-user dedup, since identical plaintext encrypts to different ciphertext — a real trade-off); <strong>consistency of shared folders</strong> (a member should see a coherent view, so propagate share changes through the same versioned metadata path); and <strong>mobile constraints</strong> (only sync on Wi-Fi, throttle background bandwidth, sync metadata first so the file tree appears before bytes arrive).</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole system compresses to one sentence: <em>split files into content-addressed blocks, store each unique block once, sync only the blocks that changed, and keep structured metadata separate from opaque bytes.</em> If you can draw the metadata/block split and walk an edit through delta sync to another device, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Move the fewest bytes</b><span>The product exists to avoid re-uploading whole files; everything serves that goal.</span></div>
+        <div class="tk"><span class="num">02</span><b>Metadata is QPS-bound</b><span>Estimates show metadata calls dwarf byte transfers in count — shard the metadata DB.</span></div>
+        <div class="tk"><span class="num">03</span><b>Split metadata &amp; blocks</b><span>Sharded RDBMS for the tree/versions; object storage for immutable bytes.</span></div>
+        <div class="tk"><span class="num">04</span><b>Content addressing</b><span>A block's name is its hash, so identical blocks collapse automatically.</span></div>
+        <div class="tk"><span class="num">05</span><b>Dedup two ways</b><span>Across versions and across users; history costs barely more than the file.</span></div>
+        <div class="tk"><span class="num">06</span><b>Delta sync, client-side</b><span>Diff locally, upload only changed blocks the server lacks — 90%+ savings.</span></div>
+        <div class="tk"><span class="num">07</span><b>Long-poll + cursor</b><span>Push for speed, monotonic cursors for correctness and resumable catch-up.</span></div>
+        <div class="tk"><span class="num">08</span><b>First commit wins</b><span>Optimistic concurrency on baseVersion; the loser becomes a conflict copy.</span></div>
+        <div class="tk"><span class="num">09</span><b>Resumable &amp; tiered</b><span>Idempotent block uploads resume; old-version blocks tier to cold storage.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) How do you avoid re-uploading the whole file on a one-line edit, and where is the diff computed?<br>(2) What is content addressing, and how does it make dedup automatic across both versions and users?<br>(3) Why split the metadata service from the block store — what does each access pattern demand?<br>(4) How does long-polling deliver near-real-time sync, and why is the cursor what actually keeps it correct?<br>(5) Two devices edit the same file offline — exactly how is the conflict detected and resolved, and why don't you auto-merge?<br>(6) What breaks at 10x, and how do resumable transfers and cold-storage tiering help?<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw the architecture from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 29 · DESIGN CLOUD FILE STORAGE (GOOGLE DRIVE) · interactive edition · ref BBG V1·C15<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* delta sync */
+  makeStepper(document.getElementById('fig-delta'), [
+    {text:"Device A edits a file on disk — only one block's bytes actually changed.", active:["ds-edit","ds-diff"], path:"ds-p1"},
+    {text:"The client re-chunks and diffs locally, isolating the single changed block D'.", active:["ds-diff","ds-block"], path:"ds-p2"},
+    {text:"It uploads only D' to the block store (existing blocks are skipped via the hash check).", active:["ds-block","ds-meta"], path:"ds-p3"},
+    {text:"The metadata service commits version 2, whose block list references D' plus the unchanged blocks.", active:["ds-meta","ds-devb"], path:"ds-p4"},
+    {text:"Device B is notified and pulls only D' from the block store, then reassembles the file.", active:["ds-devb","ds-block"], path:"ds-p5"}
+  ]);
+</script>
+</body>
+</html>

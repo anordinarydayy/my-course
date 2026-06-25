@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 12 — CAP, PACELC &amp; Consistency Models</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;margin:24px 0;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;color:var(--ink);}
+  pre code{background:none;color:var(--ink);padding:0;font-size:13px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">CAP, PACELC<br>&amp; Consistency</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why one machine isn't enough</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>What a partition really is</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>CAP: the forced choice</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>CP vs AP, with real systems</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>PACELC: the fuller rule</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The consistency spectrum</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Quorums: the tuning dial ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Tuning W and R in practice</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Picking per use case</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Failure modes &amp; conflicts</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">12</span><span>Lesson · System Design Interview</span></div>
+      <h1>CAP, PACELC &amp; Consistency Models</h1>
+      <p class="lede">When the network splits, a distributed datastore faces a brutal choice: keep answering with possibly-stale data, or refuse to answer so it never lies. CAP names that forced choice. PACELC and the consistency spectrum turn it from a one-time verdict into a per-request dial you can actually tune.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on the CAP theorem, PACELC, and consistency models — standard, widely-documented distributed-systems theory. The explanations, examples, numbers, and diagrams here are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch a write and a read overlap inside a quorum.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why one machine isn't enough</h2>
+      <p>On a single database server, consistency is free. There is one copy of the data, every write lands on it, and every read sees the last write. Ask for a GrabPay wallet balance and you get the true balance, full stop. The trouble is that one machine can't survive its own death, can't serve a region on the other side of the planet with low latency, and can't hold the data of a hundred million users. So we <strong>replicate</strong>: we keep multiple copies of each piece of data on multiple machines, often in multiple data centres and multiple countries.</p>
+      <p>The instant you have more than one copy, a new question appears that simply did not exist before: <em>are the copies the same right now?</em> A write has to travel from wherever it landed to all the other replicas, and that travel takes time — milliseconds within a data centre, tens to hundreds of milliseconds between Singapore and Frankfurt. During that gap, different replicas hold different values. If a read hits a replica that hasn't caught up yet, it returns <strong>stale data</strong> — a value that was true a moment ago but isn't anymore.</p>
+      <p>This lesson is about the rules that govern that gap. They are not optional engineering preferences; they are mathematical limits on what any replicated system can promise. Understand them and you can answer the two questions every distributed-systems interviewer eventually asks: <em>"is your store CP or AP?"</em> and <em>"what consistency does this particular piece of data actually need?"</em></p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="One write must propagate to multiple replicas, creating a window where copies disagree">
+            <rect class="node" x="24" y="86" width="96" height="48" rx="8"/>
+            <text class="lbl" x="72" y="115" text-anchor="middle">Client</text>
+            <rect class="node-b" x="186" y="80" width="120" height="60" rx="9"/>
+            <text class="lbl" x="246" y="105" text-anchor="middle">Replica A</text>
+            <text class="lbl-sm" x="246" y="123" text-anchor="middle">x = 9 (new)</text>
+            <rect class="node" x="430" y="24" width="180" height="50" rx="8"/>
+            <text class="lbl" x="520" y="44" text-anchor="middle">Replica B</text>
+            <text class="lbl-sm" x="520" y="62" text-anchor="middle">x = 5 (stale)</text>
+            <rect class="node" x="430" y="146" width="180" height="50" rx="8"/>
+            <text class="lbl" x="520" y="166" text-anchor="middle">Replica C</text>
+            <text class="lbl-sm" x="520" y="184" text-anchor="middle">x = 5 (stale)</text>
+            <path class="flow" d="M120 110 H 184" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="152" y="100" text-anchor="middle">write x=9</text>
+            <path class="flow-d" d="M306 96 C 370 70, 390 60, 428 52" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M306 124 C 370 150, 390 160, 428 168" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="372" y="120" text-anchor="middle" fill="#B0532F">replication lag</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — a write lands on one replica; until it propagates, the others are stale</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The fact of life</div>
+      <h2>What a partition really is</h2>
+      <p>A <strong>network partition</strong> is when the machines in your cluster can't all talk to each other, even though each one is alive and serving. A switch fails, a fibre link is cut, a security group rule goes wrong, a data centre's uplink saturates — and suddenly the cluster splits into two or more groups that can each see themselves but not the others. Crucially, from inside one group you <em>cannot tell</em> whether the machines on the other side are dead or merely unreachable. The packets just stop arriving.</p>
+      <p>The single most common misreading of CAP is "you give up Partition tolerance." You don't, and you can't. In a system that spans more than one machine connected by a network, partitions <em>will</em> happen — they are a property of the universe, not a checkbox. So <strong>partition tolerance is not negotiable</strong> for any real distributed datastore. The genuine choice CAP forces is what to do <em>during</em> a partition, and that choice is between consistency and availability. We'll make that precise in the next section.</p>
+
+      <h3>Partition vs a dead node — why it matters</h3>
+      <p>A dead node is easy: the others notice the missing heartbeats, route around it, and carry on. A partition is harder precisely because both sides are still up and still receiving client traffic. Imagine Shopee's order service replicated across two availability zones in Singapore. The link between the zones drops for 40 seconds. Zone 1 still serves shoppers; Zone 2 still serves shoppers. Each zone has live customers writing data. The question — should each zone keep accepting writes it can't share with the other? — has no free answer.</p>
+      <div class="callout">
+        <span class="k">Why "C" here is not the ACID "C"</span>
+        <p>The <strong>C</strong> in CAP means <strong>linearizability</strong> — every read returns the most recent completed write, as if there were a single copy. It is <em>not</em> the <strong>C</strong> in ACID (which is about preserving database invariants like foreign keys). Conflating the two is a classic interview slip. When we say "strong consistency" in this lesson, we mean CAP's C: the system behaves as though there is exactly one up-to-date copy.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The theorem</div>
+      <h2>CAP: the forced choice</h2>
+      <p>The <strong>CAP theorem</strong> states that a distributed datastore can offer at most two of three properties at the same time:</p>
+      <ul>
+        <li><strong>Consistency (C)</strong> — every read sees the most recent write, or an error. There is one logical truth and reads never contradict it.</li>
+        <li><strong>Availability (A)</strong> — every request to a non-failing node gets a non-error response, even if that response might be stale.</li>
+        <li><strong>Partition tolerance (P)</strong> — the system keeps operating even when the network drops or delays messages between nodes.</li>
+      </ul>
+      <p>The "pick two" framing is famous but a little misleading. The honest way to read it: <strong>since P is mandatory, your real decision is C vs A, and you only have to make that decision while a partition is actually happening.</strong> When the network is healthy, a well-built system can give you both C and A. CAP is a statement about the bad moments, not the good ones.</p>
+
+      <h3>The mechanism — what actually forces the choice</h3>
+      <p>Walk through it concretely. A network partition splits replicas into two groups, G1 and G2, that can't reach each other. A client sends a write to G1: set a SeaMoney wallet balance to <code>S$120</code>. A moment later another client reads the same balance from G2. G2 has not heard about the new write — the partition blocks the propagation. Now the system must do one of exactly two things:</p>
+      <ul>
+        <li><strong>Answer with the old value (S$100).</strong> That keeps it <em>available</em> but breaks <em>consistency</em> — the read is stale.</li>
+        <li><strong>Refuse to answer (return an error or block) until the partition heals.</strong> That keeps it <em>consistent</em> but breaks <em>availability</em> — the client got no answer.</li>
+      </ul>
+      <p>There is no third door. G2 physically cannot know about a write it never received. So during a partition you are choosing, for each request, between a possibly-wrong answer and no answer. That is the entire content of CAP.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 300" role="img" aria-label="CAP triangle: consistency, availability, partition tolerance, with the C-vs-A edge highlighted during a partition">
+            <polygon points="320,40 70,250 570,250" fill="none" stroke="#4A7BA6" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <circle cx="320" cy="40" r="9" class="node-b"/>
+            <text class="lbl" x="320" y="26" text-anchor="middle">Consistency</text>
+            <text class="lbl-sm" x="320" y="62" text-anchor="middle">reads see latest write</text>
+            <circle cx="70" cy="250" r="9" class="node-b"/>
+            <text class="lbl" x="70" y="276" text-anchor="middle">Availability</text>
+            <text class="lbl-sm" x="70" y="294" text-anchor="middle">always answers</text>
+            <circle cx="570" cy="250" r="9" class="node-r"/>
+            <text class="lbl" x="570" y="276" text-anchor="middle">Partition tol.</text>
+            <text class="lbl-sm" x="570" y="294" text-anchor="middle">mandatory</text>
+            <text class="lbl-sm" x="170" y="150" text-anchor="middle" transform="rotate(-40 170 150)" fill="#B0532F">the real choice →</text>
+            <text class="lbl-sm" x="470" y="150" text-anchor="middle" transform="rotate(40 470 150)" fill="#9a927f">free when healthy</text>
+            <text class="lbl-sm" x="320" y="270" text-anchor="middle" fill="#9a927f">free when healthy</text>
+            <rect x="240" y="118" width="160" height="52" rx="8" fill="rgba(176,83,47,.07)" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="320" y="140" text-anchor="middle" fill="#B0532F">during a partition</text>
+            <text class="lbl-sm" x="320" y="157" text-anchor="middle" fill="#B0532F">you trade C for A</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — P is mandatory, so the genuine trade is the C–A edge, and only during a partition</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>If you say "we sacrifice partition tolerance for consistency," you've already lost points. The phrase that lands is: <em>"partitions are unavoidable, so the only question is whether, during a partition, this data should fail closed for consistency or stay up and accept staleness."</em></p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Two camps</div>
+      <h2>CP vs AP, with real systems</h2>
+      <p>Systems are loosely sorted into two camps by which side of the C–A edge they default to during a partition.</p>
+
+      <h3>CP systems — consistency first, refuse if unsure</h3>
+      <p>A <strong>CP system</strong> keeps data consistent even if that means becoming unavailable to part of the cluster during a partition. The usual mechanism is a <strong>majority quorum</strong> run by a consensus protocol such as <strong>Raft</strong> or <strong>Paxos</strong>. The cluster elects a leader; writes must be acknowledged by a majority of nodes before they commit. When a partition splits the cluster, only the side that still holds a majority can elect or keep a leader and serve writes. The minority side, knowing it might be stale and can't form a quorum, <strong>steps down and refuses</strong> rather than risk lying.</p>
+      <p>Real examples: <strong>ZooKeeper</strong>, <strong>etcd</strong> (the brain behind Kubernetes), <strong>HBase</strong>, and <strong>Google Spanner</strong>. These are the systems you reach for when being wrong is worse than being briefly unavailable — service discovery, leader election, configuration, distributed locks, financial ledgers. If etcd loses quorum, the minority nodes return errors; Kubernetes would rather pause than schedule pods against stale state.</p>
+
+      <h3>AP systems — availability first, reconcile later</h3>
+      <p>An <strong>AP system</strong> keeps answering on every reachable node during a partition, accepting that different sides may temporarily diverge, then reconciles once the network heals. The mechanism is usually <strong>leaderless replication</strong>: any replica can take a write, writes spread gossip-style, and conflicts are resolved afterward with version metadata (vector clocks, last-write-wins timestamps) — the subject of the next lesson.</p>
+      <p>Real examples: Amazon <strong>DynamoDB</strong> (in its eventually-consistent mode), Apache <strong>Cassandra</strong>, <strong>Riak</strong>, and <strong>Amazon S3</strong>. These power shopping carts, social feeds, product catalogues, view counts — data where serving a slightly-old answer is far better than serving no answer. During a partition, both sides of a Cassandra cluster keep taking writes; afterward, the divergent copies are merged.</p>
+
+      <div class="vs">
+        <div class="col"><h4>CP — choose consistency</h4><ul>
+          <li>During a partition the minority side rejects requests (errors / timeouts)</li>
+          <li>Reads never return stale data — there is one truth</li>
+          <li>Built on majority quorum + consensus (Raft/Paxos)</li>
+          <li>Best for: locks, config, leader election, ledgers, balances</li>
+          <li>Cost: lower availability; a quorum loss takes the service down</li>
+          <li>Systems: ZooKeeper, etcd, HBase, Spanner</li>
+        </ul></div>
+        <div class="col"><h4>AP — choose availability</h4><ul>
+          <li>During a partition every reachable node still answers</li>
+          <li>Reads may be stale; sides diverge and reconcile after healing</li>
+          <li>Built on leaderless replication + conflict resolution</li>
+          <li>Best for: carts, feeds, catalogues, counters, sessions</li>
+          <li>Cost: you must design for conflicts and stale reads</li>
+          <li>Systems: Dynamo, Cassandra, Riak, S3</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">The follow-up they always ask</span>
+        <p>"Is <em>your</em> system CP or AP?" The strong answer refuses the binary: <em>"It depends on the data. We run the wallet ledger on a CP store so balances never lie, and the activity feed on an AP store so it never goes dark. CAP applies per datastore, and increasingly per request."</em> That last clause is PACELC and tunable consistency — exactly where we're headed.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The fuller rule</div>
+      <h2>PACELC: the fuller rule</h2>
+      <p>CAP only talks about the rare moments when the network is broken. But most of a system's life is spent with a perfectly healthy network — and even then, consistency isn't free. To make a read see the absolute latest write, you have to contact enough replicas to be sure, and contacting more replicas (especially across regions) costs <strong>latency</strong>. <strong>PACELC</strong> captures both halves of the story in one line:</p>
+      <p style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--blueprint);">if (P)artition → trade (A)vailability vs (C)onsistency · (E)lse → trade (L)atency vs (C)onsistency</p>
+      <p>Read it as two clauses. The <strong>P</strong> clause is just CAP: under a partition, pick A or C. The new and arguably more practical clause is <strong>E</strong> (else): in normal operation, you still pick — between low latency and strong consistency. A store that always waits for all replicas to agree is consistent but slow; a store that answers from the nearest replica is fast but may be stale. Every replicated system sits somewhere on this dial even when nothing is broken.</p>
+
+      <h3>How real systems classify</h3>
+      <p>PACELC gives a two-letter tag of the form <strong>PA/EL</strong>, <strong>PC/EC</strong>, etc. A few honest labels:</p>
+      <ul>
+        <li><strong>Cassandra / DynamoDB → PA/EL.</strong> Available under partition, and tuned for low latency in normal times — both clauses lean away from strong consistency (though both are tunable).</li>
+        <li><strong>etcd / ZooKeeper / HBase → PC/EC.</strong> Consistent under partition, and consistent in normal times too — they always pay the latency to be correct.</li>
+        <li><strong>Google Spanner → PC/EC.</strong> Consistent on both clauses; it pays for it with TrueTime (GPS + atomic clocks) and commit-wait latency.</li>
+        <li><strong>MongoDB → PA/EC (roughly).</strong> The defaults and write/read concerns let you slide this around.</li>
+      </ul>
+      <p>The big upgrade PACELC gives you over CAP: it explains why two "AP" systems can feel completely different day to day. The partition behaviour is identical, but their normal-operation latency-vs-consistency stance is what you actually experience 99.99% of the time.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 260" role="img" aria-label="PACELC decision sketch: a partition branch trading A vs C, and an else branch trading L vs C">
+            <rect class="node-b" x="250" y="20" width="140" height="44" rx="9"/>
+            <text class="lbl" x="320" y="40" text-anchor="middle">Is the network</text>
+            <text class="lbl" x="320" y="57" text-anchor="middle">partitioned?</text>
+            <path class="flow-r" d="M250 48 C 170 60, 130 80, 120 104" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="150" y="80" text-anchor="middle" fill="#B0532F">yes (P)</text>
+            <path class="flow" d="M390 48 C 470 60, 510 80, 520 104" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="492" y="80" text-anchor="middle">no (E = else)</text>
+            <rect class="node-r" x="40" y="108" width="160" height="44" rx="9"/>
+            <text class="lbl" x="120" y="135" text-anchor="middle">choose A or C</text>
+            <rect class="node" x="440" y="108" width="160" height="44" rx="9"/>
+            <text class="lbl" x="520" y="135" text-anchor="middle">choose L or C</text>
+            <rect class="node" x="40" y="186" width="74" height="40" rx="7"/>
+            <text class="lbl-sm" x="77" y="210" text-anchor="middle">Available</text>
+            <rect class="node" x="126" y="186" width="74" height="40" rx="7"/>
+            <text class="lbl-sm" x="163" y="210" text-anchor="middle">Consistent</text>
+            <rect class="node" x="440" y="186" width="74" height="40" rx="7"/>
+            <text class="lbl-sm" x="477" y="210" text-anchor="middle">Low latency</text>
+            <rect class="node" x="526" y="186" width="74" height="40" rx="7"/>
+            <text class="lbl-sm" x="563" y="210" text-anchor="middle">Consistent</text>
+            <path class="flow-d" d="M120 152 V 184" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M520 152 V 184" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="320" y="248" text-anchor="middle" fill="#9a927f">e.g. Cassandra = PA/EL · etcd = PC/EC · Spanner = PC/EC</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — PACELC: a partition branch (A vs C) and an everyday branch (L vs C)</figcaption>
+      </figure>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Not binary</div>
+      <h2>The consistency spectrum</h2>
+      <p>"Consistent vs eventual" is a useful headline, but consistency is really a spectrum of guarantees, each stronger than the last and each more expensive. Knowing the rungs lets you ask for the <em>weakest</em> guarantee that still keeps your feature correct — which is the cheapest one. From strongest to weakest:</p>
+
+      <h3>Strong / linearizable</h3>
+      <p><strong>Linearizability</strong> is the gold standard: the system behaves as if there is a single copy of the data and every operation takes effect at one instant between its call and its return. Once a write completes, <em>every</em> subsequent read — from any client, anywhere — sees it. This is what a single-machine database feels like, recreated across many machines. It requires coordination (a leader or a quorum) on the critical path, so it is the slowest. Use it for money and locks.</p>
+
+      <h3>Sequential consistency</h3>
+      <p><strong>Sequential consistency</strong> is slightly weaker: all clients agree on <em>one</em> global order of operations, and each client's own operations appear in the order it issued them — but that global order need not match real-time (wall-clock) order. Two clients can see the same sequence even if it lags reality. It's rarely the explicit target in product systems but is a useful theoretical rung between linearizable and causal.</p>
+
+      <h3>Causal consistency</h3>
+      <p><strong>Causal consistency</strong> preserves cause-and-effect: if operation B could have been influenced by operation A (you read A, then wrote B), everyone sees A before B. Operations with no causal link can be seen in any order. This is exactly what you want for a comment thread — a reply must never appear before the comment it answers — while unrelated posts can arrive in any order. It's much cheaper than linearizability because only causally-related operations need ordering.</p>
+
+      <h3>Read-your-writes</h3>
+      <p><strong>Read-your-writes consistency</strong> guarantees that after <em>you</em> write something, <em>you</em> will see it in your own subsequent reads — even if other users don't yet. A shopper who edits their Shopee delivery address must see the new address immediately on refresh, or they'll think the save failed. A common cheap implementation: route a user's reads to the same replica (or the primary) for a short sticky window after they write.</p>
+
+      <h3>Monotonic reads</h3>
+      <p><strong>Monotonic reads</strong> guarantee you never move <em>backward</em> in time: if you've seen a value, later reads return that value or a newer one, never an older one. Without it, two reads that hit different replicas can show a like count of 50, then 48 — data appearing to "rewind," which feels broken. Sticky routing to one replica per session gives you this too.</p>
+
+      <h3>Eventual consistency</h3>
+      <p><strong>Eventual consistency</strong> is the weakest useful guarantee: if writes stop, all replicas <em>eventually</em> converge to the same value. It says nothing about <em>when</em>, or about the order reads see in the meantime — only that you won't diverge forever. It's cheap and highly available, and perfectly fine for a view counter or a trending list, where being a few seconds behind harms nobody.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Consistency spectrum from strong/linearizable to eventual, with cost decreasing left to right">
+            <defs></defs>
+            <line x1="40" y1="70" x2="600" y2="70" stroke="#4A7BA6" stroke-width="2" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="40" y="48" text-anchor="start" fill="#1F4E79">stronger · slower · more coordination</text>
+            <text class="lbl-sm" x="600" y="48" text-anchor="end" fill="#B0532F">weaker · faster · more available</text>
+            <g><circle cx="70" cy="70" r="6" fill="#1F4E79"/><text class="lbl-sm" x="70" y="100" text-anchor="middle">Linearizable</text></g>
+            <g><circle cx="180" cy="70" r="6" fill="#1F4E79"/><text class="lbl-sm" x="180" y="100" text-anchor="middle">Sequential</text></g>
+            <g><circle cx="290" cy="70" r="6" fill="#4A7BA6"/><text class="lbl-sm" x="290" y="100" text-anchor="middle">Causal</text></g>
+            <g><circle cx="400" cy="70" r="6" fill="#4A7BA6"/><text class="lbl-sm" x="400" y="118" text-anchor="middle">Read-your-writes</text></g>
+            <g><circle cx="500" cy="70" r="6" fill="#B0532F"/><text class="lbl-sm" x="500" y="100" text-anchor="middle">Monotonic reads</text></g>
+            <g><circle cx="590" cy="70" r="6" fill="#B0532F"/><text class="lbl-sm" x="590" y="118" text-anchor="middle">Eventual</text></g>
+            <text class="lbl-sm" x="155" y="165" text-anchor="middle">balances, locks</text>
+            <text class="lbl-sm" x="345" y="165" text-anchor="middle">comments, your own edits</text>
+            <text class="lbl-sm" x="545" y="165" text-anchor="middle">counts, feeds</text>
+            <line x1="60" y1="148" x2="250" y2="148" stroke="#1F4E79" stroke-width="1.5"/>
+            <line x1="260" y1="148" x2="440" y2="148" stroke="#4A7BA6" stroke-width="1.5"/>
+            <line x1="450" y1="148" x2="610" y2="148" stroke="#B0532F" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — the consistency spectrum: ask for the weakest rung that keeps your feature correct</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Client-centric vs data-centric</span>
+        <p>Read-your-writes and monotonic reads are <strong>client-centric</strong> guarantees — they're promises to one session, not about the global state of the data. That's why they're cheap: you often get them just by pinning a session to one replica, without any cluster-wide coordination. A great move in an interview is to reach for these instead of full linearizability when a feature only needs to look right to the user who acted.</p>
+      </div>
+    </section>
+
+    <!-- 6 — INTERACTIVE -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The tuning dial</div>
+      <h2>Quorums: how you actually tune it</h2>
+      <p>So far the spectrum is abstract. <strong>Quorums</strong> are the concrete knob that lets a single AP-style store (Cassandra, DynamoDB, Riak) be dialed from eventual all the way up to strong, per request. Three numbers define it:</p>
+      <ul>
+        <li><strong>N</strong> — the <em>replication factor</em>: how many copies of each key exist. Say N = 3.</li>
+        <li><strong>W</strong> — the <em>write quorum</em>: how many replicas must acknowledge a write before the client is told "OK."</li>
+        <li><strong>R</strong> — the <em>read quorum</em>: how many replicas must respond to a read before the client gets an answer.</li>
+      </ul>
+      <p>The whole trick is one inequality:</p>
+      <p style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:17px;color:var(--blueprint);">W + R &gt; N&nbsp;&nbsp;⟹&nbsp;&nbsp;the read set overlaps the latest write set</p>
+      <p>Here's the mechanism. A write is durably recorded on at least W replicas before it's acknowledged. A read collects responses from at least R replicas. If <code>W + R &gt; N</code>, then by the pigeonhole principle the R replicas you read from and the W replicas that hold the newest write <em>must share at least one node</em> — they can't fit into N slots without overlapping. That shared node holds the latest value, the read includes it, and the client picks the freshest version (using a version number or timestamp attached to each value). That overlap is what turns "eventual" into "strong" on demand. Step through it:</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-quorum">
+          <svg viewBox="0 0 640 260" role="img" aria-label="Interactive quorum animation: a write to W replicas and a read from R replicas overlap when W plus R exceeds N">
+            <g class="st" id="q-client"><rect class="node" x="20" y="106" width="92" height="46" rx="8"/><text class="lbl" x="66" y="134" text-anchor="middle">Client</text></g>
+            <g class="st" id="q-coord"><rect class="node-b" x="160" y="100" width="118" height="58" rx="9"/><text class="lbl" x="219" y="124" text-anchor="middle">Coordinator</text><text class="lbl-sm" x="219" y="142" text-anchor="middle">N=3 W=2 R=2</text></g>
+            <g class="st" id="q-r1"><rect class="node" x="430" y="20" width="160" height="48" rx="8"/><text class="lbl" x="510" y="40" text-anchor="middle">Replica 1</text><text class="lbl-sm" x="510" y="57" text-anchor="middle">x=9 (v7)</text></g>
+            <g class="st" id="q-r2"><rect class="node" x="430" y="106" width="160" height="48" rx="8"/><text class="lbl" x="510" y="126" text-anchor="middle">Replica 2</text><text class="lbl-sm" x="510" y="143" text-anchor="middle">x=9 (v7)</text></g>
+            <g class="st" id="q-r3"><rect class="node" x="430" y="192" width="160" height="48" rx="8"/><text class="lbl" x="510" y="212" text-anchor="middle">Replica 3</text><text class="lbl-sm" x="510" y="229" text-anchor="middle">x=5 (v6)</text></g>
+            <path id="q-in" class="flow" d="M112 129 H 158" marker-end="url(#arrow)"/>
+            <path id="q-w1" class="flow" d="M278 116 C 350 80, 380 60, 428 48" marker-end="url(#arrow)"/>
+            <path id="q-w2" class="flow" d="M278 129 H 428" marker-end="url(#arrow)"/>
+            <path id="q-r1p" class="flow-r" d="M278 142 H 428" marker-end="url(#arrow-r)"/>
+            <path id="q-r3p" class="flow-r" d="M278 145 C 350 200, 380 215, 428 216" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="340" y="68" text-anchor="middle">write W=2</text>
+            <text class="lbl-sm" x="320" y="170" text-anchor="middle" fill="#B0532F">read R=2</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: with N=3, W=2, R=2, the read set must overlap the latest write set</figcaption>
+      </figure>
+      <p>Notice what <code>W + R &gt; N</code> buys you: <strong>strong (linearizable-flavoured) reads on a store that's otherwise eventually consistent</strong>, chosen per request. Want speed instead? Drop below the threshold and accept staleness. The same cluster serves both.</p>
+      <div class="callout">
+        <span class="k">Under the hood — sloppy quorums and hinted handoff</span>
+        <p>During a partition, Dynamo-style systems can use a <strong>sloppy quorum</strong>: if the "home" replicas for a key are unreachable, the write still goes to the first W <em>reachable</em> nodes, which stash it as a <strong>hint</strong> and replay it to the rightful owners once they return (hinted handoff). This keeps writes available during a partition — but it also means <code>W + R &gt; N</code> no longer strictly guarantees overlap, so you can still read stale data. It's the AP camp choosing availability even while pretending to honour a quorum.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Setting the knobs</div>
+      <h2>Tuning W and R in practice</h2>
+      <p>Once you accept that W and R are dials, the design question becomes: which way do I turn them? The trade is between write latency, read latency, and consistency, and it depends on your read/write mix.</p>
+
+      <h3>Read-heavy: push the cost onto writes</h3>
+      <p>Most product systems read far more than they write — a Shopee product page might be read thousands of times for every price update. Set <strong>W = N and R = 1</strong>. Every write must reach all replicas (slow, but rare), while reads hit just one (fast, and frequent). Because the write touched every replica, any single replica you read is current, so you still get fresh reads. The failure cost: if even one replica is down, writes block, so availability of writes suffers.</p>
+
+      <h3>Write-heavy: push the cost onto reads</h3>
+      <p>For a write-heavy workload — say an event-ingestion or metrics pipeline — flip it: <strong>W = 1 and R = N</strong>. Writes ack from a single replica (fast), reads must consult all of them and pick the newest (slower, rarer). Now a single down replica blocks reads instead of writes.</p>
+
+      <h3>Balanced: the quorum sweet spot</h3>
+      <p>When you don't know the mix, the standard default is <strong>W = R = ⌊N/2⌋ + 1</strong> — a strict majority on both. With N = 3 that's W = R = 2; with N = 5 it's W = R = 3. This keeps <code>W + R &gt; N</code> (so reads are fresh) while tolerating the failure of one node (N=3) or two nodes (N=5) without losing the ability to reach quorum. It's the same majority idea CP systems use for consensus, applied as a per-request setting.</p>
+
+      <div class="vs">
+        <div class="col"><h4>R = 1, W = N (read-optimized)</h4><ul>
+          <li>+ Reads are fast and always fresh (every replica is current)</li>
+          <li>+ Great when reads vastly outnumber writes</li>
+          <li>− Writes are slow; one dead replica blocks all writes</li>
+          <li>− Poor write availability during any node failure</li>
+        </ul></div>
+        <div class="col"><h4>R = N, W = 1 (write-optimized)</h4><ul>
+          <li>+ Writes are fast and highly available</li>
+          <li>+ Great for ingestion / append-heavy workloads</li>
+          <li>− Reads are slow and one dead replica blocks all reads</li>
+          <li>− Easy to read stale data if you accidentally drop R</li>
+        </ul></div>
+      </div>
+
+      <h3>A concrete config — Cassandra</h3>
+      <p>In Cassandra these dials are the per-statement <strong>consistency level (CL)</strong>. With a keyspace at replication factor 3:</p>
+      <pre><code>-- read-heavy catalogue: fast, fresh reads
+SELECT price FROM products WHERE id = ?
+  USING CONSISTENCY ONE;        -- R = 1
+
+UPDATE products SET price = ? WHERE id = ?
+  USING CONSISTENCY ALL;        -- W = N = 3
+
+-- a balance check that must be correct: majority on both
+SELECT balance FROM wallets WHERE user_id = ?
+  USING CONSISTENCY QUORUM;     -- R = 2 of 3
+
+UPDATE wallets SET balance = ? WHERE user_id = ?
+  USING CONSISTENCY QUORUM;     -- W = 2 of 3  →  W+R = 4 > 3</code></pre>
+      <p>DynamoDB exposes the same idea more coarsely: a flag <code>ConsistentRead=true</code> forces a strongly-consistent read (it reads from enough replicas to be current) at extra cost and latency, while the default eventually-consistent read is cheaper and faster.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up they always ask</span>
+        <p>"This store is read-heavy — set W and R." The crisp answer: <em>"N=3, W=3, R=1 so reads are single-replica-fast and always fresh, accepting that writes block if a replica is down. If write availability matters more than always-fresh reads, I'd move to W=R=2 — majority quorum — which still satisfies W+R&gt;N but survives one node failure on both paths."</em></p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Matching data to model</div>
+      <h2>Picking consistency per use case</h2>
+      <p>The senior move is to refuse to pick one consistency level for the whole product. Different data has different tolerance for being wrong, and each tolerance maps to a rung on the spectrum. Walk a real super-app:</p>
+      <ul>
+        <li><strong>Wallet balance / payment ledger (GrabPay, SeaMoney)</strong> → <strong>strong / linearizable</strong>. A double-spend or a balance that briefly shows the wrong number is a financial and regulatory incident. Use a CP store or W+R&gt;N quorum, and accept the latency. This is non-negotiable.</li>
+        <li><strong>Order placement &amp; inventory decrement</strong> → <strong>strong</strong> for the "is this item still in stock" check, so you don't oversell the last unit during a flash sale. Often backed by a transactional store or conditional writes.</li>
+        <li><strong>Your own profile / address edits</strong> → <strong>read-your-writes</strong>. You must see your change immediately; other users seeing it a second late is harmless.</li>
+        <li><strong>Comment threads / chat ordering</strong> → <strong>causal</strong>. Replies must follow what they reply to; unrelated messages can arrive in any order.</li>
+        <li><strong>Like counts, view counts, "X people are looking at this"</strong> → <strong>eventual</strong>. Off by a few for a few seconds? Nobody cares, and the availability and speed are worth it.</li>
+        <li><strong>Activity feed / recommendations</strong> → <strong>eventual</strong>. Freshness is nice, correctness-to-the-millisecond is irrelevant.</li>
+      </ul>
+      <p>The reasoning pattern to verbalize: <em>"What goes wrong if a reader sees a value that's a few seconds stale?"</em> If the answer is "money moves incorrectly" or "we sell something twice," you need strong. If it's "a number is briefly a little off," eventual is not just acceptable — it's the <em>right</em> choice, because paying for strong consistency you don't need just buys latency and fragility.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Decision sketch mapping different super-app data types to consistency levels by cost of staleness">
+            <text class="lbl" x="320" y="24" text-anchor="middle">Cost of a stale read?</text>
+            <rect class="node-r" x="40" y="56" width="170" height="120" rx="10"/>
+            <text class="lbl" x="125" y="80" text-anchor="middle" fill="#B0532F">high → STRONG</text>
+            <text class="lbl-sm" x="125" y="104" text-anchor="middle">wallet balance</text>
+            <text class="lbl-sm" x="125" y="122" text-anchor="middle">payment ledger</text>
+            <text class="lbl-sm" x="125" y="140" text-anchor="middle">stock decrement</text>
+            <text class="lbl-sm" x="125" y="158" text-anchor="middle">distributed lock</text>
+            <rect class="node-b" x="235" y="56" width="170" height="120" rx="10"/>
+            <text class="lbl" x="320" y="80" text-anchor="middle">medium → CAUSAL /</text>
+            <text class="lbl" x="320" y="97" text-anchor="middle">READ-YOUR-WRITES</text>
+            <text class="lbl-sm" x="320" y="122" text-anchor="middle">your profile edit</text>
+            <text class="lbl-sm" x="320" y="140" text-anchor="middle">comment thread</text>
+            <text class="lbl-sm" x="320" y="158" text-anchor="middle">chat ordering</text>
+            <rect class="node" x="430" y="56" width="170" height="120" rx="10"/>
+            <text class="lbl" x="515" y="80" text-anchor="middle">low → EVENTUAL</text>
+            <text class="lbl-sm" x="515" y="104" text-anchor="middle">like / view counts</text>
+            <text class="lbl-sm" x="515" y="122" text-anchor="middle">activity feed</text>
+            <text class="lbl-sm" x="515" y="140" text-anchor="middle">recommendations</text>
+            <text class="lbl-sm" x="515" y="158" text-anchor="middle">"N people viewing"</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — match each data type to the weakest model that keeps it correct</figcaption>
+      </figure>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> When it breaks</div>
+      <h2>Failure modes &amp; conflicts</h2>
+      <p>Weak consistency isn't free — it shifts work onto you. Here are the three failures it introduces, and how systems cope. Each is a likely interview probe.</p>
+
+      <h3>Stale reads</h3>
+      <p>The mildest: a read returns a value that was true a moment ago. With <code>W + R ≤ N</code> (or a sloppy quorum during a partition) the read set may miss the newest write. Mitigation: raise R, raise W, or for one session use read-your-writes / monotonic-reads stickiness. Detection: many stores tag values with versions, and <strong>read repair</strong> notices when replicas disagree on a read and quietly pushes the newest version to the laggards.</p>
+
+      <h3>Lost updates</h3>
+      <p>The dangerous one for counters and balances: two clients both read <code>balance = 100</code>, both add 50, both write <code>150</code>. One increment vanishes; the balance should be 200. This is the same race a single-machine database prevents with a transaction, now multiplied across replicas. Fixes: <strong>atomic read-modify-write</strong> server-side (Cassandra/DynamoDB counters, conditional/compare-and-set writes), <strong>optimistic concurrency</strong> with a version check (write only if the version still matches what you read), or routing these operations to a CP store. Never do read-then-write of a balance over an eventually-consistent path.</p>
+
+      <h3>Conflicting concurrent writes</h3>
+      <p>The hardest: during a partition, two sides each accept a write to the same key with no causal link between them. When the partition heals, the system holds two equally-valid versions and must reconcile. The blunt option is <strong>last-write-wins (LWW)</strong> by timestamp — simple, but it silently throws away one user's write and is sensitive to clock skew. Smarter options track causality with <strong>vector clocks</strong> (or version vectors) so the system can tell a true conflict from a stale overwrite, and either auto-merge or hand both versions ("siblings") to the application to resolve. CRDTs — data types mathematically designed to merge without conflict — are the cleanest answer where they fit.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Lost update race: two clients read 100, both add 50, and one update is lost">
+            <rect class="node" x="40" y="40" width="120" height="44" rx="8"/>
+            <text class="lbl" x="100" y="67" text-anchor="middle">Client A</text>
+            <rect class="node" x="40" y="136" width="120" height="44" rx="8"/>
+            <text class="lbl" x="100" y="163" text-anchor="middle">Client B</text>
+            <rect class="node-b" x="430" y="88" width="170" height="48" rx="8"/>
+            <text class="lbl" x="515" y="108" text-anchor="middle">balance</text>
+            <text class="lbl-sm" x="515" y="126" text-anchor="middle">100 → should be 200</text>
+            <path class="flow" d="M160 56 C 300 64, 360 90, 428 100" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="300" y="58" text-anchor="middle">read 100, write 150</text>
+            <path class="flow-r" d="M160 164 C 300 156, 360 130, 428 122" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="300" y="182" text-anchor="middle" fill="#B0532F">read 100, write 150 (overwrites!)</text>
+            <text class="lbl-sm" x="515" y="160" text-anchor="middle" fill="#B0532F">one +50 lost</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — the lost-update race: concurrent read-modify-write silently drops one change</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">The bridge to Lesson 13</span>
+        <p>Conflict resolution — vector clocks, last-write-wins, sibling values, CRDTs, and read repair / anti-entropy — is a whole topic of its own, and the natural next question after "what happens to the writes that diverged during a partition?" If an interviewer pushes there, name vector clocks for detecting concurrency and CRDTs for conflict-free merging, and note that the right answer is usually to keep the data that <em>can</em> conflict (balances) on a strongly-consistent path in the first place, so you never have to merge it.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>partitions are inevitable, so during one you trade consistency for availability; and even when the network is healthy you trade latency for consistency — quorums and consistency levels let you make that trade per request, per data type.</em> If you can place each data type on the spectrum and set W and R to match, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Replication creates the gap</b><span>More than one copy means copies can disagree until a write propagates.</span></div>
+        <div class="tk"><span class="num">02</span><b>P is mandatory</b><span>Partitions are physics, not a choice. You never trade away P.</span></div>
+        <div class="tk"><span class="num">03</span><b>CAP = C vs A in a split</b><span>During a partition: stale answer (A) or no answer (C). No third door.</span></div>
+        <div class="tk"><span class="num">04</span><b>CP vs AP camps</b><span>CP (etcd, ZooKeeper, Spanner) refuses; AP (Cassandra, Dynamo) stays up.</span></div>
+        <div class="tk"><span class="num">05</span><b>PACELC adds the else</b><span>Even healthy, you trade latency vs consistency on every request.</span></div>
+        <div class="tk"><span class="num">06</span><b>Consistency is a spectrum</b><span>Linearizable → causal → read-your-writes → eventual; pick the weakest that works.</span></div>
+        <div class="tk"><span class="num">07</span><b>W + R &gt; N = fresh reads</b><span>The read set must overlap the latest write set, so you read the newest value.</span></div>
+        <div class="tk"><span class="num">08</span><b>Tune to the mix</b><span>Read-heavy: W=N,R=1. Write-heavy: W=1,R=N. Unsure: majority on both.</span></div>
+        <div class="tk"><span class="num">09</span><b>Match data to model</b><span>Balances = strong; counts &amp; feeds = eventual. Cost of staleness decides.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why is it wrong to say "we sacrifice partition tolerance," and what is the choice CAP really forces?<br>(2) What does a CP system do during a partition, and what does an AP system do — name one real system for each.<br>(3) What does the "ELC" half of PACELC add that CAP misses, and why does it matter most of the time?<br>(4) Define read-your-writes and monotonic reads, and explain why they're cheap to provide.<br>(5) Why does <code>W + R &gt; N</code> guarantee a fresh read, and how would you set W and R for a read-heavy store?<br>(6) Name the three failure modes of weak consistency and one fix for each — especially the lost-update race.<br>Any fuzzy answer → re-read that section, then replay the quorum diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 12 · CAP, PACELC &amp; CONSISTENCY MODELS · interactive edition<br>
+      Original study notes on standard distributed-systems fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* quorum: N=3, W=2, R=2 — show the overlap that guarantees a fresh read */
+  makeStepper(document.getElementById('fig-quorum'), [
+    {text:"Setup: N=3 copies of key x. The newest write is x=9 (version 7). We use W=2 and R=2, so W+R=4 > N=3.", active:["q-client","q-coord"]},
+    {text:"A read request arrives at the coordinator, which will gather R=2 responses before answering.", active:["q-client","q-coord"], path:"q-in"},
+    {text:"The latest write x=9 (v7) was acknowledged by W=2 replicas — here, Replica 1 and Replica 2.", active:["q-coord","q-r1","q-r2"], path:"q-w1"},
+    {text:"...both holding v7 (Replica 2 too). Replica 3 missed it and still has the stale x=5 (v6).", active:["q-coord","q-r2","q-r3"], path:"q-w2"},
+    {text:"The read contacts R=2 replicas. Suppose it reaches Replica 2 (fresh, v7) and Replica 3 (stale, v6).", active:["q-coord","q-r2","q-r3"], path:"q-r3p", reject:true},
+    {text:"Because W+R > N, the read set MUST overlap the write set — Replica 2 is in both. The coordinator sees v7 > v6 and returns x=9. Fresh read guaranteed.", active:["q-coord","q-r2"], path:"q-r1p"}
+  ]);
+</script>
+</body>
+</html>

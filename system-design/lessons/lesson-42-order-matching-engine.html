@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 42 — Design an Order Matching Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{background:#1c2b38;color:#e8eef4;border-radius:10px;padding:18px 20px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;margin:24px 0;border:1px solid #14202b;}
+  pre .c{color:#7fa6c4;} pre .k{color:#e0a96d;} pre .s{color:#9fcf8f;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Order Matching<br>Engine</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>What is a matching engine?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify &amp; scope</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimate</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The order book ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The matching algorithm ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Deterministic sequencing</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Single-threaded &amp; sharded</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Durability &amp; replay ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Risk checks &amp; market data ▸</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Scaling &amp; what breaks at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">42</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design an Order Matching Engine</h1>
+      <p class="lede">A matching engine pairs incoming buy and sell orders against a live order book — with single-digit-microsecond latency, perfectly reproducible results, and strict fairness. It's a stretch drill straight out of crypto and trading-platform fintech, and it rewards three ideas you rarely get to combine elsewhere: an in-memory order book, one sequencer that imposes a total order on every event, and a durable log you can replay to rebuild state from scratch.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on matching-engine design — a well-documented topic in market-microstructure and exchange engineering. The explanations, numbers, schemas, and diagrams here are my own; nothing is copied from any paid course or book. Four diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow. Reference tag: <strong>BBG V2·C13</strong>.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>What is a matching engine?</h2>
+      <p>Imagine a Singapore crypto exchange — think a Coinhako- or Independent-Reserve-style platform — listing the <code>BTC/SGD</code> pair. Thousands of traders are sending buy and sell orders every second. Someone wants to buy 0.5 BTC at no more than S$92,000; someone else is willing to sell 0.2 BTC at S$91,980. A <strong>matching engine</strong> is the component that decides, instant by instant, which of these orders trade against each other, at what price, and in what order — then records the resulting <strong>trades</strong> (also called fills or executions).</p>
+      <p>It sits at the dead center of the exchange. Everything upstream (web, mobile, API gateways, authentication, wallets) exists to feed it orders; everything downstream (clearing, settlement, ledgers, charts, the trader's screen) exists to consume what it produces. Because it is the single arbiter of who trades with whom, it carries an unusually demanding set of guarantees:</p>
+      <ul>
+        <li><strong>Low latency.</strong> Serious traders measure round-trips in microseconds. A slow engine loses the venue its professional flow.</li>
+        <li><strong>Determinism.</strong> Given the same sequence of input orders, the engine must produce <em>exactly</em> the same trades, every time, on any machine. This is non-negotiable for fairness, auditing, and recovery.</li>
+        <li><strong>Fairness.</strong> Orders are matched by <strong>price-time priority</strong>: the best price wins, and among equal prices, whoever arrived first trades first. No queue-jumping.</li>
+        <li><strong>Durability.</strong> A confirmed trade is money changing hands. It can never silently vanish, even if a server dies mid-match.</li>
+        <li><strong>Market-data fan-out.</strong> Every trade and every change to the book must be published to potentially tens of thousands of subscribers in near-real-time.</li>
+      </ul>
+      <p>That combination — fast <em>and</em> deterministic <em>and</em> durable — is what makes this a hard, stretch-level design. The whole lesson is the story of reconciling those goals one bottleneck at a time.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Buy and sell orders flowing into a central matching engine that emits trades and market data">
+            <rect class="node" x="20" y="40" width="120" height="46" rx="8"/>
+            <text class="lbl" x="80" y="68" text-anchor="middle">Buy orders</text>
+            <rect class="node" x="20" y="150" width="120" height="46" rx="8"/>
+            <text class="lbl" x="80" y="178" text-anchor="middle">Sell orders</text>
+            <rect class="node-b" x="245" y="84" width="160" height="68" rx="11"/>
+            <text class="lbl" x="325" y="113" text-anchor="middle">Matching</text>
+            <text class="lbl" x="325" y="131" text-anchor="middle">engine</text>
+            <rect class="node-r" x="500" y="40" width="120" height="46" rx="8"/>
+            <text class="lbl" x="560" y="68" text-anchor="middle">Trades</text>
+            <rect class="node" x="500" y="150" width="120" height="46" rx="8"/>
+            <text class="lbl" x="560" y="172" text-anchor="middle">Market</text>
+            <text class="lbl" x="560" y="188" text-anchor="middle">data</text>
+            <path class="flow" d="M140 66 C 190 80, 200 96, 243 106" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 170 C 190 156, 200 140, 243 130" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M405 110 C 450 92, 460 78, 498 66" marker-end="url(#arrow-r)"/>
+            <path class="flow" d="M405 128 C 450 142, 460 156, 498 170" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the engine is the single arbiter: orders in, trades and market data out</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify &amp; scope</h2>
+      <p>The fastest way to lose this interview is to start drawing before you know what you're building. "Trading system" spans risk, clearing, custody, and the engine itself — clarify which slice you own. State the slice as <strong>the matching engine for a central limit order book (CLOB) exchange</strong>, then nail down the requirements.</p>
+
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Accept orders:</strong> place a new order, cancel an existing order, and (often) modify/replace one.</li>
+        <li><strong>Support order types:</strong> at minimum <code>LIMIT</code> (trade only at a price or better) and <code>MARKET</code> (trade immediately at whatever price is available). Mention you'd defer stop, iceberg, and FOK/IOC variants.</li>
+        <li><strong>Maintain an order book</strong> per trading symbol, with resting (unfilled) orders organized by price.</li>
+        <li><strong>Match</strong> incoming orders against the book by <strong>price-time priority</strong>, producing trades, including <strong>partial fills</strong>.</li>
+        <li><strong>Publish market data:</strong> a trade feed and an order-book-update feed.</li>
+        <li><strong>Persist</strong> every accepted event and every resulting trade durably.</li>
+      </ul>
+
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Determinism / reproducibility.</strong> The single most important property. Replaying the same ordered input must reproduce the same book and trades bit-for-bit.</li>
+        <li><strong>Latency.</strong> Target a P99 matching latency in the tens of microseconds inside the engine, low-millisecond end-to-end including the network.</li>
+        <li><strong>Throughput.</strong> Hundreds of thousands of orders per second per symbol on a hot pair, aggregated across symbols into the millions.</li>
+        <li><strong>Durability &amp; recoverability.</strong> No acknowledged order or trade is ever lost; the book is rebuildable after a crash.</li>
+        <li><strong>Availability.</strong> Sub-second failover to a standby so a crash doesn't halt trading for long.</li>
+        <li><strong>Fairness &amp; auditability.</strong> A regulator (in Singapore, MAS) can demand a full reconstruction of any historical book state.</li>
+      </ul>
+
+      <h3>Assumptions to state out loud</h3>
+      <p>Make your boundaries explicit so the interviewer can redirect you: the engine matches but does <em>not</em> settle (a downstream clearing/ledger system moves the actual coins and fiat); each symbol's book is independent, so we can shard per symbol; and pre-trade balance/risk checks happen at the edge before an order reaches the engine. We'll revisit each of these.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>Lead with the line that frames the entire design: <em>"This is a low-latency, deterministic, single-writer system, not a typical scale-out web service — so my instincts about adding more replicas and eventual consistency are mostly inverted here."</em> Saying that early signals you understand <em>why</em> a matching engine looks so different from a CRUD app.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-the-envelope estimate</h2>
+      <p>A quick sizing pass tells you where the pressure is. Pretend we're running a mid-size regional venue with one very hot pair (<code>BTC/SGD</code>) and a long tail of quieter ones.</p>
+
+      <h3>Order throughput</h3>
+      <ul>
+        <li>Hot pair peak: <strong>100,000 orders/sec</strong> (placements + cancels; in real markets, cancels often outnumber trades 10:1 because of high-frequency quoting).</li>
+        <li>All symbols combined at peak: <strong>~1,000,000 events/sec</strong> across, say, 200 active pairs.</li>
+        <li>Trades are a fraction of order events — perhaps <strong>5–10%</strong> result in a fill — so ~50k–100k trades/sec at the very peak.</li>
+      </ul>
+
+      <h3>Memory for the book</h3>
+      <p>Each resting order is small: an ID, price, remaining quantity, side, account, timestamps — call it <strong>~100 bytes</strong> packed. A deep, busy book might hold <strong>1 million resting orders</strong>, so <code>1M × 100B = 100 MB</code> per hot symbol. Even 200 symbols at that depth is ~20 GB — comfortably in RAM on a modern server. <strong>Conclusion: the entire live order book fits in memory.</strong> This single fact drives the whole architecture.</p>
+
+      <h3>Event log volume</h3>
+      <p>We persist every accepted event. At 1M events/sec and ~100 bytes each, that's <code>100 MB/sec ≈ 360 GB/hour ≈ 8.6 TB/day</code> of raw event log at sustained peak. Real average rates are far lower, but plan storage and retention (tiered to object storage like S3) for the worst case.</p>
+
+      <h3>Market-data fan-out bandwidth</h3>
+      <p>This is the sleeper bottleneck. Suppose 100k trades/sec, each serialized to ~150 bytes, fanned out to 20,000 subscribers. Naive unicast would be <code>100k × 150B × 20k = 300 TB/sec</code> — absurd. That number alone justifies <strong>multicast</strong> (publish once, the network replicates) for the fan-out path, which we'll get to in Step 09.</p>
+      <div class="callout">
+        <span class="k">Why these numbers matter</span>
+        <p>Three takeaways fall straight out of the math:<br>(1) the book lives in <strong>RAM</strong>, so matching is a memory-speed operation, not a database one;<br>(2) the <strong>event log</strong> is high-volume sequential writes, perfect for an append-only log like Kafka or a raw file;<br>(3) <strong>fan-out</strong> dwarfs everything in bandwidth, so it gets its own dedicated path. Quote these and the interviewer knows you've found the real constraints.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Define the interface before the internals. Clients never speak to the engine directly; they hit a <strong>gateway</strong> that authenticates, runs pre-trade checks, and forwards a normalized message. Still, sketch the logical API the engine honors.</p>
+
+      <h3>The order API</h3>
+      <p>Three commands cover the core. Keep them tiny — every byte is on the hot path.</p>
+      <pre><span class="c">// Place a new order (gateway -&gt; engine)</span>
+POST /orders
+{
+  <span class="k">"client_order_id"</span>: <span class="s">"a1f9-7c"</span>,   <span class="c">// idempotency key from the client</span>
+  <span class="k">"account_id"</span>:      <span class="s">"acct_8821"</span>,
+  <span class="k">"symbol"</span>:          <span class="s">"BTC-SGD"</span>,
+  <span class="k">"side"</span>:            <span class="s">"BUY"</span>,        <span class="c">// BUY | SELL</span>
+  <span class="k">"type"</span>:            <span class="s">"LIMIT"</span>,      <span class="c">// LIMIT | MARKET</span>
+  <span class="k">"price"</span>:           <span class="s">"92000.00"</span>,   <span class="c">// integer ticks internally; omit for MARKET</span>
+  <span class="k">"quantity"</span>:        <span class="s">"0.50"</span>,       <span class="c">// integer lots internally</span>
+  <span class="k">"tif"</span>:             <span class="s">"GTC"</span>         <span class="c">// GTC | IOC | FOK</span>
+}
+
+<span class="c">// Cancel a resting order</span>
+DELETE /orders/{exchange_order_id}
+
+<span class="c">// Acknowledgement carries the engine's authoritative IDs</span>
+{ <span class="k">"exchange_order_id"</span>: <span class="s">"o_5562001"</span>, <span class="k">"seq"</span>: 880142, <span class="k">"status"</span>: <span class="s">"ACCEPTED"</span> }</pre>
+      <p>Two design choices to call out. First, <strong>idempotency</strong>: the <code>client_order_id</code> lets the gateway dedupe retries so a flaky network can't accidentally place an order twice. Second — go past the book here — <strong>integerize everything</strong>. Prices become integer multiples of a <strong>tick size</strong> and quantities integer multiples of a <strong>lot size</strong>. Floating-point arithmetic is non-deterministic across compilers and CPUs and would silently break reproducibility; integers are exact and fast.</p>
+
+      <h3>The event log (the source of truth)</h3>
+      <p>The engine's real persistent state is not a table of orders — it's an append-only, totally ordered stream of events. Everything else is a derived projection of this log.</p>
+      <pre><span class="c">// One immutable record per accepted event, in sequence order</span>
+Event {
+  seq:        uint64    <span class="c">// global, gap-free, assigned by the sequencer</span>
+  ts_recv:    uint64    <span class="c">// nanoseconds, set once at ingress</span>
+  type:       enum      <span class="c">// NEW | CANCEL | TRADE | REJECT</span>
+  symbol:     string
+  payload:    bytes     <span class="c">// the order or trade body</span>
+}</pre>
+
+      <h3>Derived state: the order and trade tables</h3>
+      <p>Downstream consumers materialize the log into queryable stores. These are projections — losing them is survivable because they can be rebuilt by replaying the log.</p>
+      <pre>orders(exchange_order_id PK, account_id, symbol, side, type,
+       price, orig_qty, remaining_qty, status, seq_created, seq_updated)
+
+trades(trade_id PK, symbol, price, quantity, seq,
+       taker_order_id, maker_order_id, taker_side, ts)</pre>
+      <p>Note the <strong>maker/taker</strong> split on a trade. The <strong>maker</strong> is the resting order that was already on the book providing liquidity; the <strong>taker</strong> is the incoming order that removed it. Exchanges price these differently (maker rebates, taker fees), so the engine records which is which on every fill.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>If you say "we'll store prices as floats," expect an immediate pushback. Pre-empt it: <em>"Prices and quantities are fixed-point integers in ticks and lots — floats would break determinism and introduce rounding bugs in money."</em> That one sentence shows real domain awareness.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The data structure</div>
+      <h2>The order book</h2>
+      <p>The <strong>order book</strong> is the heart of the engine: the live record of all resting orders for one symbol. It has two sides. The <strong>bids</strong> are buy orders (people willing to pay <em>up to</em> some price); the <strong>asks</strong> (or offers) are sell orders (people willing to sell <em>down to</em> some price). The highest bid is the <strong>best bid</strong>; the lowest ask is the <strong>best ask</strong>; the gap between them is the <strong>spread</strong>.</p>
+
+      <h3>Price levels and FIFO queues</h3>
+      <p>Orders are not stored as a flat list. They're grouped into <strong>price levels</strong> — one bucket per distinct price — and within each level, orders sit in a <strong>FIFO queue</strong> ordered by arrival time. This structure <em>is</em> price-time priority made concrete: to match, you always take the best-priced level first, and within it, the order that has waited longest. A new order joining a level always goes to the back of that queue.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 300" role="img" aria-label="Order book with bid and ask price levels, each level a FIFO queue of orders">
+            <text class="lbl" x="160" y="28" text-anchor="middle" fill="#1F4E79">BIDS (buy)</text>
+            <text class="lbl" x="480" y="28" text-anchor="middle" fill="#B0532F">ASKS (sell)</text>
+            <!-- bids: price label rects (narrow) + order squares placed to the right, outside the rect -->
+            <rect class="node-b" x="40" y="44" width="90" height="40" rx="6"/>
+            <text class="lbl-sm" x="85" y="69" text-anchor="middle">91,990</text>
+            <rect x="140" y="54" width="20" height="20" rx="3" fill="#4A7BA6"/>
+            <rect x="166" y="54" width="20" height="20" rx="3" fill="#4A7BA6"/>
+            <text class="lbl-sm" x="275" y="69" text-anchor="end">best bid</text>
+            <rect class="node-b" x="40" y="92" width="90" height="40" rx="6"/>
+            <text class="lbl-sm" x="85" y="117" text-anchor="middle">91,985</text>
+            <rect x="140" y="102" width="20" height="20" rx="3" fill="#4A7BA6"/>
+            <rect x="166" y="102" width="20" height="20" rx="3" fill="#4A7BA6"/>
+            <rect x="192" y="102" width="20" height="20" rx="3" fill="#4A7BA6"/>
+            <rect class="node-b" x="40" y="140" width="90" height="40" rx="6"/>
+            <text class="lbl-sm" x="85" y="165" text-anchor="middle">91,980</text>
+            <rect x="140" y="150" width="20" height="20" rx="3" fill="#4A7BA6"/>
+            <!-- asks: price label rects (narrow) + order squares placed to the right, outside the rect -->
+            <rect class="node-r" x="360" y="44" width="90" height="40" rx="6"/>
+            <text class="lbl-sm" x="405" y="69" text-anchor="middle">92,000</text>
+            <rect x="460" y="54" width="20" height="20" rx="3" fill="#C77B53"/>
+            <text class="lbl-sm" x="600" y="69" text-anchor="end">best ask</text>
+            <rect class="node-r" x="360" y="92" width="90" height="40" rx="6"/>
+            <text class="lbl-sm" x="405" y="117" text-anchor="middle">92,010</text>
+            <rect x="460" y="102" width="20" height="20" rx="3" fill="#C77B53"/>
+            <rect x="486" y="102" width="20" height="20" rx="3" fill="#C77B53"/>
+            <rect class="node-r" x="360" y="140" width="90" height="40" rx="6"/>
+            <text class="lbl-sm" x="405" y="165" text-anchor="middle">92,025</text>
+            <rect x="460" y="150" width="20" height="20" rx="3" fill="#C77B53"/>
+            <rect x="486" y="150" width="20" height="20" rx="3" fill="#C77B53"/>
+            <rect x="512" y="150" width="20" height="20" rx="3" fill="#C77B53"/>
+            <!-- spread -->
+            <line x1="40" y1="206" x2="600" y2="206" stroke="#999" stroke-width="1.2" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="320" y="230" text-anchor="middle">spread = 92,000 − 91,990 = 10 ticks</text>
+            <text class="lbl-sm" x="320" y="258" text-anchor="middle">each square = one resting order, queued FIFO (oldest at left)</text>
+            <text class="lbl-sm" x="320" y="280" text-anchor="middle">best bid &amp; best ask are the two prices a new order matches against first</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — bids descend, asks ascend; each price level is a FIFO queue (oldest order trades first)</figcaption>
+      </figure>
+
+      <h3>Choosing the data structure</h3>
+      <p>What operations must be fast? On <em>every</em> incoming order we need: find best bid / best ask (very frequent), insert at a price level, remove from the front of a level (a fill), and cancel an arbitrary order (frequent). A naive sorted array makes inserts O(n); a single balanced tree makes best-price lookups log(n) but cancels awkward. The production pattern combines structures:</p>
+      <ul>
+        <li>A <strong>price-indexed map</strong> from price level to that level's FIFO queue. Because tick sizes bound the number of realistic prices, many engines use a <strong>flat array indexed by tick</strong> (a "price ladder") for O(1) access near the touch, falling back to a tree for far-out prices.</li>
+        <li>Each <strong>price level</strong> holds an intrusive <strong>doubly linked list</strong> of orders, so appending to the back and removing from the front are O(1).</li>
+        <li>A <strong>hash map</strong> from <code>exchange_order_id</code> to the order's node, so a cancel is an O(1) lookup-then-unlink — no scanning.</li>
+        <li>The best bid and best ask are cached as pointers and updated as levels empty and fill, so reading "the touch" is O(1).</li>
+      </ul>
+      <p>The net result: place, cancel, and best-price reads are all effectively O(1) in the common case. That's what lets a single core chew through 100k+ orders/sec.</p>
+      <div class="callout">
+        <span class="k">Under the hood: memory layout</span>
+        <p>The fastest engines obsess over <strong>cache locality</strong>. Orders and price levels are pooled in pre-allocated arrays (no per-order <code>malloc</code> on the hot path, which would cause unpredictable latency spikes and GC pauses). The "linked list" is built from array indices, not pointers, so hot levels stay in L1/L2 cache. In garbage-collected languages (Java engines are common), teams go to extremes to produce <strong>zero garbage</strong> per order so the GC never pauses mid-match.</p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The core loop</div>
+      <h2>The matching algorithm</h2>
+      <p>Now the algorithm itself. When an order arrives, the engine asks a single question: <em>does this order cross the book?</em> A buy order crosses if its limit price is at least the best ask; a sell crosses if its limit price is at most the best bid. If it crosses, it matches; if not, it rests.</p>
+
+      <h3>Step by step</h3>
+      <p>For a crossing incoming order (the <strong>taker</strong>), the loop is:</p>
+      <ul>
+        <li>Look at the best opposite price level (best ask for a buy, best bid for a sell).</li>
+        <li>Take the order at the front of that level's FIFO queue (the oldest <strong>maker</strong>) and trade as much as possible: <code>fill = min(taker_remaining, maker_remaining)</code>.</li>
+        <li>The trade prints at the <strong>maker's resting price</strong> — the price that was already on the book — not the taker's. This is the <strong>price-improvement</strong> rule and it's a classic gotcha.</li>
+        <li>Decrement both sides. If the maker is fully filled, remove it and advance to the next order in the queue (or the next price level). If the maker has quantity left, the taker is exhausted.</li>
+        <li>Repeat until the taker is fully filled or the book no longer crosses its limit price.</li>
+        <li>Any unfilled remainder of a <code>LIMIT</code> order <strong>rests</strong> on the book at its own price, becoming a maker for future orders.</li>
+      </ul>
+
+      <h3>Partial fills, limit vs market</h3>
+      <p>A <strong>partial fill</strong> happens whenever the taker is larger than the order it hits — it trades against several makers, possibly walking up multiple price levels, generating several trades from one incoming order. A <strong>LIMIT</strong> order will never trade worse than its price; leftover quantity rests. A <strong>MARKET</strong> order has no price limit — it sweeps the book until filled or the book is empty (at which point a sensible engine rejects or cancels the remainder rather than resting it, since a market order has no price to rest at).</p>
+
+      <h3>Worked example</h3>
+      <p>The best ask is 92,000 with 0.2 BTC resting (a maker that arrived at 10:00:01). A taker arrives: <strong>BUY 0.5 BTC @ limit 92,010</strong>. It crosses (92,010 ≥ 92,000). Trade 1: 0.2 BTC @ <strong>92,000</strong> (the maker's price), filling that maker completely. The taker still wants 0.3 BTC and its limit (92,010) still crosses the next ask level at 92,010 holding 1.0 BTC. Trade 2: 0.3 BTC @ 92,010, filling the taker. Result: one incoming order, two trades, two price levels touched, taker done. Had the taker been a LIMIT @ 92,005, it would have filled 0.2 @ 92,000 then <em>rested</em> the remaining 0.3 at 92,005 (the 92,010 level is above its limit).</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-match">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive matching: a buy order crosses the best ask, partially fills, the book updates, and a trade is published">
+            <g class="st" id="m-in"><rect class="node" x="20" y="110" width="120" height="56" rx="9"/><text class="lbl" x="80" y="133" text-anchor="middle">BUY 0.5</text><text class="lbl-sm" x="80" y="151" text-anchor="middle">@ 92,010</text></g>
+            <g class="st" id="m-seq"><rect class="node-b" x="180" y="112" width="100" height="52" rx="9"/><text class="lbl-sm" x="230" y="135" text-anchor="middle">sequencer</text><text class="lbl-sm" x="230" y="152" text-anchor="middle">seq=441</text></g>
+            <g class="st" id="m-ask"><rect class="node-r" x="330" y="40" width="160" height="44" rx="7"/><text class="lbl-sm" x="410" y="59" text-anchor="middle">best ask 92,000</text><text class="lbl-sm" x="410" y="75" text-anchor="middle">maker 0.2</text></g>
+            <g class="st" id="m-book"><rect class="node-r" x="330" y="100" width="160" height="44" rx="7"/><text class="lbl-sm" x="410" y="119" text-anchor="middle">ask 92,010</text><text class="lbl-sm" x="410" y="135" text-anchor="middle">maker 1.0</text></g>
+            <g class="st" id="m-trade"><rect class="node-b" x="330" y="185" width="160" height="60" rx="9"/><text class="lbl-sm" x="410" y="207" text-anchor="middle">TRADE 0.2 @ 92,000</text><text class="lbl-sm" x="410" y="225" text-anchor="middle">+ book delta</text></g>
+            <g class="st" id="m-feed"><rect class="node" x="520" y="185" width="100" height="60" rx="9"/><text class="lbl-sm" x="570" y="210" text-anchor="middle">market</text><text class="lbl-sm" x="570" y="227" text-anchor="middle">data feed</text></g>
+            <path id="mm-1" class="flow" d="M140 138 H 178" marker-end="url(#arrow)"/>
+            <path id="mm-2" class="flow" d="M280 130 C 310 110, 320 90, 328 76" marker-end="url(#arrow)"/>
+            <path id="mm-3" class="flow-r" d="M410 84 V 98" marker-end="url(#arrow-r)"/>
+            <path id="mm-4" class="flow" d="M410 144 V 183" marker-end="url(#arrow)"/>
+            <path id="mm-5" class="flow" d="M490 215 H 518" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: an order is sequenced, crosses the best ask, partially fills, and the trade fans out</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"At what price does a trade execute — the buyer's or the seller's?" Answer: <em>the resting (maker) order's price</em>. The incoming taker gets price improvement if its limit was more aggressive. Follow that with the fairness rule: within a price level, the maker that arrived first is filled first — strict price-time priority — which is exactly why each level is a FIFO queue.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Determinism</div>
+      <h2>Deterministic sequencing</h2>
+      <p>Here is the bottleneck that separates a matching engine from any ordinary service. Orders arrive concurrently from many gateways over many network connections. The instant two orders compete for the same liquidity, <em>which one wins?</em> If the answer depends on thread scheduling, network jitter, or which CPU happened to be free, the system is neither fair nor reproducible — and you can never prove to a regulator what "should" have happened.</p>
+
+      <h3>The single sequencer</h3>
+      <p>The fix is a <strong>sequencer</strong>: a single logical component that all orders funnel through, which stamps each one with a strictly increasing, gap-free <strong>sequence number</strong> (<code>seq</code>). That number defines the one and only <strong>total order</strong> of events. Everything after the sequencer — the matching itself — is a pure, deterministic function of that ordered stream. Same input order, same output, always.</p>
+      <p>This is <strong>event sourcing</strong> applied to trading: the sequenced event log is the source of truth, and the order book is just a <em>fold</em> (a left-to-right reduction) over that log. Two consequences follow immediately, and both are gold in the interview:</p>
+      <ul>
+        <li><strong>Fairness becomes well-defined.</strong> "First" means "lower sequence number," full stop. No ambiguity, no race.</li>
+        <li><strong>Recovery becomes trivial in concept.</strong> To rebuild the book, replay the log from seq 0. You'll get the identical book, because matching is deterministic. (Step 08 makes this concrete.)</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Concurrent orders from many gateways funnel through one sequencer that imposes a total order, then feed the deterministic matcher">
+            <rect class="node" x="20" y="34" width="120" height="38" rx="7"/>
+            <text class="lbl-sm" x="80" y="58" text-anchor="middle">gateway A</text>
+            <rect class="node" x="20" y="100" width="120" height="38" rx="7"/>
+            <text class="lbl-sm" x="80" y="124" text-anchor="middle">gateway B</text>
+            <rect class="node" x="20" y="166" width="120" height="38" rx="7"/>
+            <text class="lbl-sm" x="80" y="190" text-anchor="middle">gateway C</text>
+            <rect class="node-r" x="230" y="86" width="130" height="66" rx="10"/>
+            <text class="lbl" x="295" y="113" text-anchor="middle">Sequencer</text>
+            <text class="lbl-sm" x="295" y="132" text-anchor="middle">stamps seq</text>
+            <rect class="node-b" x="430" y="86" width="180" height="66" rx="10"/>
+            <text class="lbl" x="520" y="113" text-anchor="middle">Matcher</text>
+            <text class="lbl-sm" x="520" y="132" text-anchor="middle">pure fn(ordered log)</text>
+            <path class="flow-d" d="M140 53 C 190 60, 200 80, 228 100" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M140 119 H 228" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M140 185 C 190 178, 200 158, 228 138" marker-end="url(#arrow-s)"/>
+            <path class="flow" d="M360 119 H 428" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="394" y="108" text-anchor="middle">seq 439,440,441…</text>
+            <text class="lbl-sm" x="320" y="230" text-anchor="middle">many concurrent inputs → one total order → one deterministic result</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — the sequencer collapses concurrency into a single total order; matching is then a pure function of it</figcaption>
+      </figure>
+
+      <h3>How real systems do it</h3>
+      <p>Two well-known patterns. The <strong>LMAX Disruptor</strong> popularized a lock-free ring buffer where a single producer claims slots and assigns sequence numbers, and downstream consumers (journaller, matcher, publisher) read from the same buffer — millions of events per second on one thread. In Kafka-based designs, a single <strong>partition</strong> per symbol provides the total order for free: Kafka offsets <em>are</em> the sequence numbers, and the matcher consumes that partition in order. NASDAQ's classic ITCH/OUCH protocols and the open-source <strong>Chronicle Queue</strong> sit in the same family.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "Why deterministic sequencing?"</span>
+        <p>Three reasons, and you should fire all three: <strong>fairness</strong> (a single, defensible definition of who was first), <strong>recoverability</strong> (replay the log to rebuild exact state after a crash), and <strong>auditability/regulation</strong> (you can prove to MAS what the book looked like at any historical sequence number). The follow-on trap: "doesn't a single sequencer cap your throughput?" — yes, and that's why we shard by symbol so each shard has its own sequencer (Step 07).</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Latency &amp; parallelism</div>
+      <h2>Single-threaded per symbol, sharded across symbols</h2>
+      <p>We have determinism. Now reconcile it with <em>speed</em>. The instinct of a web engineer is "throw threads at it" — but a multithreaded matcher needs locks around the shared book, and locks bring two killers: <strong>contention</strong> (threads waiting on each other, destroying latency predictability) and <strong>nondeterminism</strong> (lock acquisition order depends on the scheduler, which breaks reproducibility). For a matching engine, both are unacceptable.</p>
+
+      <h3>One thread, no locks</h3>
+      <p>So the matcher for a given symbol runs <strong>single-threaded</strong>. One core owns one book and processes its sequenced events one at a time. There is no lock because there is nothing to contend over — a single thread can't race itself. Counter-intuitively, this is also the <em>fastest</em> design: the whole hot book stays warm in that core's cache, there are no atomic-instruction stalls, no cache-line ping-pong between cores, and latency is beautifully predictable. A single modern core can match well over a million simple orders per second.</p>
+
+      <h3>Shard by symbol to scale out</h3>
+      <p>One thread can't serve every symbol on a busy exchange, so we <strong>shard by symbol</strong>. Each trading pair (or a small group of pairs) is assigned to one engine instance running its own single-threaded matcher and its own sequencer. <code>BTC-SGD</code> lives on engine 1, <code>ETH-SGD</code> on engine 2, and so on. Crucially, <strong>order books for different symbols never interact</strong> — you can't trade BTC against ETH directly — so this partitioning is clean and embarrassingly parallel. Add capacity by adding shards and rebalancing symbols.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Order router fans symbols to independent single-threaded engine shards, each owning one symbol's book">
+            <rect class="node-b" x="20" y="86" width="120" height="56" rx="10"/>
+            <text class="lbl" x="80" y="110" text-anchor="middle">Order</text>
+            <text class="lbl" x="80" y="128" text-anchor="middle">router</text>
+            <rect class="node" x="230" y="20" width="200" height="46" rx="8"/>
+            <text class="lbl-sm" x="330" y="40" text-anchor="middle">Engine 1 · BTC-SGD</text>
+            <text class="lbl-sm" x="330" y="56" text-anchor="middle">1 thread, no locks</text>
+            <rect class="node" x="230" y="86" width="200" height="46" rx="8"/>
+            <text class="lbl-sm" x="330" y="106" text-anchor="middle">Engine 2 · ETH-SGD</text>
+            <text class="lbl-sm" x="330" y="122" text-anchor="middle">1 thread, no locks</text>
+            <rect class="node" x="230" y="152" width="200" height="46" rx="8"/>
+            <text class="lbl-sm" x="330" y="172" text-anchor="middle">Engine 3 · SOL-SGD</text>
+            <text class="lbl-sm" x="330" y="188" text-anchor="middle">1 thread, no locks</text>
+            <path class="flow" d="M140 104 C 180 80, 200 56, 228 44" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 114 H 228" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 124 C 180 148, 200 168, 228 176" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="540" y="110" text-anchor="middle">books never</text>
+            <text class="lbl-sm" x="540" y="126" text-anchor="middle">interact across</text>
+            <text class="lbl-sm" x="540" y="142" text-anchor="middle">symbols</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — route by symbol to independent single-threaded shards: deterministic per book, parallel across books</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Single-threaded per symbol</h4><ul>
+          <li>No locks → no contention, no scheduler nondeterminism</li>
+          <li>Hot book stays in CPU cache → lowest, most predictable latency</li>
+          <li>Trivially deterministic and easy to reason about</li>
+          <li>Ceiling: one symbol can't exceed one core's throughput</li>
+        </ul></div>
+        <div class="col"><h4>Multithreaded shared book</h4><ul>
+          <li>Could in theory use many cores on one hot symbol</li>
+          <li>Locks add latency spikes and unpredictable tail behavior</li>
+          <li>Lock order depends on scheduler → breaks determinism</li>
+          <li>Far harder to test, audit, and recover correctly</li>
+        </ul></div>
+      </div>
+
+      <h3>An aside: kernel-bypass networking</h3>
+      <p>If the matcher is microseconds and the network is milliseconds, the network dominates. The lowest-latency venues bypass the OS kernel's network stack entirely with technologies like <strong>DPDK</strong>, <strong>Solarflare/OpenOnload</strong>, or <strong>RDMA</strong>, reading packets straight from the NIC into user space. That's beyond scope for a typical interview, but mentioning it signals you know where the remaining latency actually hides once the algorithm is fast.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "Why single-threaded?"</span>
+        <p>"Because locks would add nondeterminism and tail-latency, and a matching engine cannot tolerate either. A single thread on a cache-resident in-memory book is both the most deterministic <em>and</em> the lowest-latency option; I scale across symbols by sharding, not across cores within a symbol." If they push on the hot-symbol ceiling, talk about splitting by region/segment or pre-aggregating — but never sacrifice the single-writer property of one book.</p>
+      </div>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Don't lose money</div>
+      <h2>Durability &amp; replay</h2>
+      <p>The book lives in RAM. RAM is volatile. If the engine process crashes, the entire book — every resting order — is gone from memory. For a system whose output is money, "we lost the book" is catastrophic. So how do we make an in-memory system durable? The answer is the same insight as sequencing, used a second time: <strong>persist the ordered event log, not the book.</strong></p>
+
+      <h3>Journal first, then match</h3>
+      <p>Every event, the moment the sequencer stamps it, is <strong>appended to a durable log</strong> (the <em>journal</em>) <strong>before</strong> the matcher acts on it and before the client is acknowledged. This is write-ahead logging: the durable record exists first. Because the log is append-only and sequential, writing it is extremely fast — sequential disk and modern NVMe sustain enormous write throughput, which is exactly the access pattern from our estimate in Step 02.</p>
+
+      <h3>Recovery = replay</h3>
+      <p>To recover a crashed engine, you start a fresh process with an empty book and <strong>replay the journal from the beginning</strong> (or from the last snapshot). Because matching is a deterministic function of the ordered log, replaying the same events reconstructs the <em>exact</em> same book and the exact same trades — bit-for-bit. The recovered engine is indistinguishable from the one that died.</p>
+
+      <h3>Snapshots to bound recovery time</h3>
+      <p>Replaying billions of events from genesis would take far too long. So the engine periodically writes a <strong>snapshot</strong>: the full serialized book state tagged with the sequence number it reflects (e.g. "book as of seq 9,000,000"). Recovery then loads the latest snapshot and replays only the events <em>after</em> it. Snapshot every few minutes and recovery replays only a few minutes of log.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-replay">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive recovery: load latest snapshot, then replay journal events after it to rebuild the exact book">
+            <g class="st" id="r-log"><rect class="node-b" x="20" y="40" width="160" height="170" rx="10"/><text class="lbl-sm" x="100" y="36" text-anchor="middle">event journal</text>
+              <rect x="40" y="56" width="120" height="22" rx="4" fill="#E9EFF5" stroke="#1F4E79"/><text class="lbl-sm" x="100" y="71" text-anchor="middle">seq 8.99M</text>
+              <rect x="40" y="84" width="120" height="22" rx="4" fill="#E9EFF5" stroke="#1F4E79"/><text class="lbl-sm" x="100" y="99" text-anchor="middle">seq 9.00M ◀snap</text>
+              <rect x="40" y="112" width="120" height="22" rx="4" fill="#FDFBF6" stroke="#1F4E79"/><text class="lbl-sm" x="100" y="127" text-anchor="middle">seq 9.00M+1</text>
+              <rect x="40" y="140" width="120" height="22" rx="4" fill="#FDFBF6" stroke="#1F4E79"/><text class="lbl-sm" x="100" y="155" text-anchor="middle">seq 9.00M+2</text>
+              <rect x="40" y="168" width="120" height="22" rx="4" fill="#FDFBF6" stroke="#1F4E79"/><text class="lbl-sm" x="100" y="183" text-anchor="middle">seq 9.00M+3</text>
+            </g>
+            <g class="st" id="r-snap"><rect class="node-r" x="240" y="40" width="150" height="56" rx="10"/><text class="lbl-sm" x="315" y="63" text-anchor="middle">snapshot</text><text class="lbl-sm" x="315" y="80" text-anchor="middle">@ seq 9.00M</text></g>
+            <g class="st" id="r-book"><rect class="node" x="240" y="150" width="150" height="60" rx="10"/><text class="lbl" x="315" y="175" text-anchor="middle">rebuilt</text><text class="lbl" x="315" y="193" text-anchor="middle">book (RAM)</text></g>
+            <g class="st" id="r-live"><rect class="node-b" x="450" y="150" width="160" height="60" rx="10"/><text class="lbl-sm" x="530" y="175" text-anchor="middle">caught up =</text><text class="lbl-sm" x="530" y="193" text-anchor="middle">resume trading</text></g>
+            <path id="rp-1" class="flow" d="M180 68 H 238" marker-end="url(#arrow)"/>
+            <path id="rp-2" class="flow" d="M315 96 V 148" marker-end="url(#arrow)"/>
+            <path id="rp-3" class="flow" d="M180 124 C 210 130, 220 150, 238 172" marker-end="url(#arrow)"/>
+            <path id="rp-4" class="flow" d="M390 180 H 448" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 6 — interactive: load the latest snapshot, replay only the events after it, rebuild the exact book, resume</figcaption>
+      </figure>
+
+      <h3>Failure mode: sequencer / engine death and failover</h3>
+      <p>What happens when the active engine node dies mid-match? You run a <strong>hot standby</strong> consuming the very same journal in lockstep — it replays every event the primary does and holds an identical book in memory. A <strong>leader election</strong> (via a coordinator like ZooKeeper, etcd, or Raft) detects the primary's failure and promotes the standby, which is already caught up and can take over in well under a second. Because both fed off the one ordered log, the standby's book is provably identical — there is no "split brain" about what trades happened, since the log is the single source of truth. The journal itself is replicated (e.g. Kafka with <code>acks=all</code> and replication factor 3, or synchronous disk replication) so the log survives a disk failure too.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "How do you recover the book after a crash?"</span>
+        <p>Crisp answer: <em>"The book is a deterministic fold over the ordered event log. I journal every event before matching, snapshot the book periodically, and on recovery I load the latest snapshot and replay the tail of the log. A hot standby does this continuously, so failover is a sub-second promotion of an already-warm node."</em> If asked about exactly-once: idempotent <code>client_order_id</code> plus gap-free <code>seq</code> means a replayed or duplicated event is detected and ignored.</p>
+      </div>
+    </section>
+
+    <!-- 9 — INTERACTIVE -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Edges &amp; outputs</div>
+      <h2>Pre-trade risk checks &amp; market-data fan-out</h2>
+      <p>Two things bracket the matcher: what guards orders <em>before</em> they reach it, and how its results reach the world <em>after</em>.</p>
+
+      <h3>Pre-trade risk checks</h3>
+      <p><strong>Pre-trade risk checks</strong> validate an order before it can touch the book. Does the account have enough SGD (for a buy) or enough BTC (for a sell)? Is the price within sane bounds (a "fat-finger" check — reject a buy 1000% above the market)? Is the account allowed to trade this symbol? These run at the <strong>gateway / risk service</strong>, on the edge, deliberately <em>outside</em> the single-threaded matcher — because they require account-balance lookups that would pollute the matcher's tight, deterministic loop with I/O. The matcher trusts that anything reaching it has already passed risk. This keeps the hot path pure and fast, and it's the reason we listed "risk happens at the edge" as an assumption back in Step 01.</p>
+
+      <h3>Persisting fills</h3>
+      <p>When the matcher produces a trade, that trade is part of the same ordered event stream and is therefore already journaled (Step 08). Downstream, a consumer reads the <code>TRADE</code> events and writes them into the queryable <code>trades</code> store and forwards them to <strong>clearing &amp; settlement</strong>, which actually moves the coins and fiat between accounts. The matcher never blocks on settlement — it emits the trade event and moves on, keeping latency low. Settlement is asynchronous and idempotent off the durable log.</p>
+
+      <h3>Market-data fan-out</h3>
+      <p><strong>Market data</strong> is the public output: a stream of <strong>trade prints</strong> (someone traded X at price P) and <strong>order-book deltas</strong> (level 92,000 now has 0.2 BTC; level 91,980 is gone). Charts, trading bots, mobile apps, and other venues all subscribe. Recall the estimate: unicasting to tens of thousands of subscribers is bandwidth-impossible. The classic solution is <strong>multicast</strong> — the engine publishes each update <em>once</em>, and the network fabric replicates it to all subscribers, so the publisher's cost is independent of subscriber count. Public internet clients, which can't receive raw multicast, are served via fan-out gateways using WebSockets, fed from the same multicast feed. Subscribers reconstruct the book locally by applying deltas in <code>seq</code> order, and use periodic full snapshots to recover from any gap.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-mdata">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive market-data fan-out: the matcher publishes a trade and book delta once to a multicast feed which reaches many subscribers">
+            <g class="st" id="md-engine"><rect class="node-b" x="20" y="96" width="130" height="58" rx="10"/><text class="lbl" x="85" y="120" text-anchor="middle">Matcher</text><text class="lbl-sm" x="85" y="138" text-anchor="middle">emits update</text></g>
+            <g class="st" id="md-pub"><rect class="node-r" x="210" y="96" width="150" height="58" rx="10"/><text class="lbl-sm" x="285" y="120" text-anchor="middle">multicast</text><text class="lbl-sm" x="285" y="138" text-anchor="middle">publish ONCE</text></g>
+            <g class="st" id="md-s1"><rect class="node" x="450" y="20" width="170" height="40" rx="8"/><text class="lbl-sm" x="535" y="45" text-anchor="middle">charts / UI</text></g>
+            <g class="st" id="md-s2"><rect class="node" x="450" y="84" width="170" height="40" rx="8"/><text class="lbl-sm" x="535" y="109" text-anchor="middle">trading bots</text></g>
+            <g class="st" id="md-s3"><rect class="node" x="450" y="148" width="170" height="40" rx="8"/><text class="lbl-sm" x="535" y="173" text-anchor="middle">WS fan-out gw</text></g>
+            <path id="mdp-1" class="flow" d="M150 125 H 208" marker-end="url(#arrow)"/>
+            <path id="mdp-2" class="flow-d" d="M360 116 C 400 80, 420 50, 448 42" marker-end="url(#arrow-s)"/>
+            <path id="mdp-3" class="flow-d" d="M360 125 C 400 118, 420 108, 448 104" marker-end="url(#arrow-s)"/>
+            <path id="mdp-4" class="flow-d" d="M360 134 C 400 168, 420 188, 448 170" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="285" y="218" text-anchor="middle">publisher cost is independent of subscriber count</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 4</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 7 — interactive: publish once, the network replicates; subscribers rebuild the book from ordered deltas</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood: sequenced deltas</span>
+        <p>Every market-data message carries the same <code>seq</code> as the event that produced it. A subscriber that sees seq jump from 441 to 443 knows it dropped 442 and requests a re-sync or applies the next snapshot. Tagging market data with the engine's sequence numbers is what lets thousands of independent consumers stay perfectly consistent with the authoritative book without ever talking to the engine directly.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How do you keep market data consistent with the book, and why not just query the engine?" Answer: the engine is single-threaded and on the critical path — letting subscribers query it would destroy its latency. Instead it <em>pushes</em> sequenced deltas; consumers maintain their own copy and self-heal from snapshots on gaps. This decouples read load from the matcher entirely.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Wrap-up</div>
+      <h2>Scaling &amp; what breaks at 10x</h2>
+      <p>Step back and assemble the whole system, then stress it. End to end: clients hit <strong>gateways</strong> (auth + pre-trade risk + idempotency); accepted orders go to the <strong>sequencer</strong> for the target symbol, which stamps <code>seq</code> and <strong>journals</strong> the event durably; the <strong>single-threaded matcher</strong> for that symbol folds the event into its in-memory <strong>order book</strong>, producing trades; trades and book deltas flow out via <strong>market-data fan-out</strong> and to <strong>clearing/settlement</strong>; a <strong>hot standby</strong> shadows the journal for failover.</p>
+
+      <h3>Where 10x hurts first</h3>
+      <ul>
+        <li><strong>A single hot symbol outgrows one core.</strong> This is the hardest limit, because you can't shard a symbol's book without breaking the single-writer guarantee. Mitigations: a faster core and tighter code, splitting an instrument into independent micro-markets where the product allows, or accepting the core's ceiling as the venue's true capacity for that pair. Be honest that this is a real wall.</li>
+        <li><strong>Journal write throughput.</strong> At 10x event volume the durable log becomes a bottleneck. Use NVMe, batch fsyncs (group commit), and partition the journal per symbol so each shard writes independently.</li>
+        <li><strong>Market-data fan-out.</strong> 10x subscribers is exactly why multicast exists — publisher cost stays flat. The pressure moves to the WebSocket fan-out gateways for internet clients, which scale out horizontally and stateless-ly.</li>
+        <li><strong>Recovery time.</strong> A 10x-bigger log means longer replays — counter it with more frequent snapshots and parallel snapshot loading, not by replaying from genesis.</li>
+        <li><strong>Cross-symbol fairness during failover.</strong> When a shard fails over, its symbol pauses briefly. Keep the standby hot and the snapshot recent so the pause is sub-second.</li>
+      </ul>
+
+      <h3>Failure modes, summarized</h3>
+      <ul>
+        <li><strong>Matcher process crash:</strong> standby promoted, book rebuilt from snapshot + journal tail. No trades lost (journal-before-match).</li>
+        <li><strong>Journal disk failure:</strong> replicated log (RF=3, <code>acks=all</code>) survives a node loss.</li>
+        <li><strong>Sequencer failure:</strong> the sequencer <em>is</em> the single writer; its journal is the recovery anchor, and election promotes a replica that resumes numbering from the last persisted <code>seq</code> with no gaps or reuse.</li>
+        <li><strong>Subscriber falls behind:</strong> detected via the <code>seq</code> gap; the subscriber re-syncs from a snapshot — the engine is never affected.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 290" role="img" aria-label="Full architecture: gateways with risk feed the sequencer and journal, the single-threaded matcher folds events into the in-memory book, outputs fan out to market data and settlement, a standby shadows the journal">
+            <rect class="node" x="20" y="120" width="110" height="50" rx="9"/>
+            <text class="lbl-sm" x="75" y="140" text-anchor="middle">gateway</text>
+            <text class="lbl-sm" x="75" y="156" text-anchor="middle">+ risk</text>
+            <rect class="node-r" x="170" y="120" width="110" height="50" rx="9"/>
+            <text class="lbl-sm" x="225" y="140" text-anchor="middle">sequencer</text>
+            <text class="lbl-sm" x="225" y="156" text-anchor="middle">+ journal</text>
+            <rect class="node-b" x="320" y="116" width="130" height="58" rx="10"/>
+            <text class="lbl" x="385" y="140" text-anchor="middle">matcher</text>
+            <text class="lbl-sm" x="385" y="158" text-anchor="middle">in-mem book</text>
+            <rect class="node" x="500" y="40" width="120" height="46" rx="8"/>
+            <text class="lbl-sm" x="560" y="60" text-anchor="middle">market data</text>
+            <text class="lbl-sm" x="560" y="76" text-anchor="middle">(multicast)</text>
+            <rect class="node" x="500" y="120" width="120" height="46" rx="8"/>
+            <text class="lbl-sm" x="560" y="140" text-anchor="middle">clearing /</text>
+            <text class="lbl-sm" x="560" y="156" text-anchor="middle">settlement</text>
+            <rect class="node" x="320" y="220" width="130" height="46" rx="8"/>
+            <text class="lbl-sm" x="385" y="240" text-anchor="middle">hot standby</text>
+            <text class="lbl-sm" x="385" y="256" text-anchor="middle">(shadows log)</text>
+            <path class="flow" d="M130 145 H 168" marker-end="url(#arrow)"/>
+            <path class="flow" d="M280 145 H 318" marker-end="url(#arrow)"/>
+            <path class="flow" d="M450 132 C 470 90, 480 72, 498 64" marker-end="url(#arrow)"/>
+            <path class="flow" d="M450 150 C 470 146, 480 144, 498 143" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M225 170 C 225 230, 280 243, 318 243" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="110" y="245" text-anchor="middle">replicated log</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 8 — the assembled system: edge risk, one sequencer+journal, single-threaded matcher, fan-out, and a hot standby</figcaption>
+      </figure>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole design compresses to one sentence: <em>funnel every order through one sequencer to get a total order, fold that ordered log into an in-memory book with a single lock-free thread per symbol, journal the log so you can replay it to recover, and fan trades out cheaply with multicast.</em> Determinism is the thread that ties fairness, recovery, and auditing together — keep returning to it.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Fast + deterministic + durable</b><span>The three goals that make this hard; the design reconciles them one bottleneck at a time.</span></div>
+        <div class="tk"><span class="num">02</span><b>Book fits in RAM</b><span>~100B per resting order means matching is a memory-speed operation, not a DB one.</span></div>
+        <div class="tk"><span class="num">03</span><b>Integers, not floats</b><span>Prices in ticks, quantities in lots — floats break determinism and money math.</span></div>
+        <div class="tk"><span class="num">04</span><b>Price levels + FIFO</b><span>The book is price-indexed levels, each a FIFO queue — price-time priority made concrete.</span></div>
+        <div class="tk"><span class="num">05</span><b>Match at the maker's price</b><span>Cross the best opposite level; trade at the resting price; partial fills walk the book.</span></div>
+        <div class="tk"><span class="num">06</span><b>One sequencer = total order</b><span>Event sourcing: the book is a pure fold over the ordered log. Fairness and replay fall out.</span></div>
+        <div class="tk"><span class="num">07</span><b>Single thread per symbol</b><span>No locks → no contention, no nondeterminism, cache-warm and fastest. Shard by symbol.</span></div>
+        <div class="tk"><span class="num">08</span><b>Journal then replay</b><span>Write the log before matching; snapshot periodically; recover by replaying the tail.</span></div>
+        <div class="tk"><span class="num">09</span><b>Multicast the market data</b><span>Publish once; the network replicates. Risk checks stay at the edge, off the hot path.</span></div>
+        <div class="tk"><span class="num">10</span><b>The hot-symbol wall</b><span>A single book can't exceed one core; be honest that this is the real 10x limit.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) What three properties make a matching engine hard, and why do they tend to pull against each other?<br>(2) Describe the order book's data structure and explain how it encodes price-time priority.<br>(3) Walk a crossing BUY through a partial fill across two price levels — at which prices do the trades print, and why?<br>(4) Why does deterministic sequencing matter — give the three benefits an interviewer wants to hear?<br>(5) Why single-threaded per symbol instead of a multithreaded shared book?<br>(6) The engine just crashed and the book was only in RAM — exactly how do you recover it, and how does a hot standby make failover sub-second?<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 42 · DESIGN AN ORDER MATCHING ENGINE · interactive edition · ref BBG V2·C13<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* matching flow */
+  makeStepper(document.getElementById('fig-match'), [
+    {text:"A taker order arrives: BUY 0.5 BTC limited at 92,010.", active:["m-in"]},
+    {text:"It funnels through the sequencer, which stamps it seq = 441.", active:["m-in","m-seq"], path:"mm-1"},
+    {text:"The matcher checks the best ask: 92,000 with 0.2 BTC resting. 92,010 ≥ 92,000, so it crosses.", active:["m-seq","m-ask"], path:"mm-2"},
+    {text:"Partial fill: trade 0.2 BTC at the maker's price 92,000. That maker is fully filled and removed; the taker still wants 0.3.", active:["m-ask","m-book"], path:"mm-3"},
+    {text:"The book updates — the 92,000 level is gone, the touch moves to 92,010 — and a TRADE + book delta are formed.", active:["m-book","m-trade"], path:"mm-4"},
+    {text:"The trade and the book delta are published to the market-data feed, tagged with seq 441.", active:["m-trade","m-feed"], path:"mm-5"}
+  ]);
+
+  /* recovery / replay */
+  makeStepper(document.getElementById('fig-replay'), [
+    {text:"The engine crashed; the in-memory book is gone. The durable journal survives, with a snapshot taken at seq 9.00M.", active:["r-log"]},
+    {text:"Recovery starts by loading the most recent snapshot — the full book serialized as of seq 9.00M.", active:["r-log","r-snap"], path:"rp-1"},
+    {text:"That snapshot is loaded into a fresh in-memory book, instantly restoring state up to seq 9.00M.", active:["r-snap","r-book"], path:"rp-2"},
+    {text:"Then replay only the journal events after the snapshot (9.00M+1, +2, +3) — deterministic matching rebuilds the exact book.", active:["r-log","r-book"], path:"rp-3"},
+    {text:"Once caught up to the latest seq, the book is identical to before the crash and trading resumes.", active:["r-book","r-live"], path:"rp-4"}
+  ]);
+
+  /* market-data fan-out */
+  makeStepper(document.getElementById('fig-mdata'), [
+    {text:"The matcher produces a trade print and a book delta, each tagged with its sequence number.", active:["md-engine"]},
+    {text:"It publishes the update ONCE to the multicast feed — the publisher's cost doesn't grow with subscribers.", active:["md-engine","md-pub"], path:"mdp-1"},
+    {text:"The network fabric replicates the single message to every subscriber: charts, bots, and gateways.", active:["md-pub","md-s1","md-s2","md-s3"], path:"mdp-2"},
+    {text:"Each subscriber applies deltas in seq order to keep its own copy of the book consistent with the engine.", active:["md-s1","md-s2","md-s3"], path:"mdp-4"}
+  ]);
+</script>
+</body>
+</html>

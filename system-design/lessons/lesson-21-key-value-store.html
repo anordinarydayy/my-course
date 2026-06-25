@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 21 — Design a Key-Value Store</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1d2b38;color:#e8eef4;border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;}
+  pre .c{color:#7fa2bf;} pre .k{color:#e0a763;} pre .s{color:#9ecb8a;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Design a<br>Key-Value Store</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why a key-value store?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-the-envelope</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Partition the ring</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Replicate for durability</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Quorum consistency</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>The write path ▸</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Read + read-repair ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Versioning &amp; conflicts</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Failure &amp; anti-entropy</span></a></li>
+      <li><a href="#s11"><span class="n">11</span><span>The storage engine</span></a></li>
+      <li><a href="#s12"><span class="n">12</span><span>Scale &amp; what breaks at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">21</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Key-Value Store</h1>
+      <p class="lede">This is the fundamentals capstone. A single drill that bolts together everything from the earlier lessons — consistent hashing, replication, quorum consistency, version-based conflict resolution, and Merkle-tree anti-entropy — into one coherent box. What you'll build is, in effect, a miniature Dynamo: a store that survives nodes dying and networks splitting without ever going dark.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on building a distributed key-value store — a standard, widely-documented engineering topic. The explanations, examples, and diagrams are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the data flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why a key-value store?</h2>
+      <p>A <strong>key-value store</strong> is the simplest possible database: every record is just a unique <strong>key</strong> mapped to an opaque <strong>value</strong>, and the whole interface is two calls — <code>put(key, value)</code> to write and <code>get(key)</code> to read. There are no joins, no secondary indexes, no schema to migrate. That radical simplicity is exactly what lets it scale to volumes a relational database can never reach.</p>
+      <p>You meet these stores everywhere in a super-app stack. GrabPay holds a user's wallet-balance snapshot keyed by <code>user_id</code>. Shopee caches a product's price-and-stock blob keyed by <code>sku_id</code>. A ride-hailing service stores each driver's last-known location keyed by <code>driver_id</code>. Agoda keeps a session's search filters keyed by <code>session_token</code>. None of these need SQL; they need a single value, fetched in single-digit milliseconds, that never goes offline.</p>
+      <p>The interview question is not "can you write a hash map" — anyone can. The question is: <strong>what happens when one machine isn't enough, and machines start dying?</strong> A hash map on one box dies with the box. So this lesson is really about distributing that hash map across hundreds of machines while keeping it fast, durable, and always available. Every section that follows exists to repair a hole the previous one opened.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 200" role="img" aria-label="A single-node hash map versus a distributed key-value store">
+            <rect x="24" y="56" width="170" height="92" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="109" y="48" text-anchor="middle">one machine</text>
+            <rect class="node" x="48" y="76" width="122" height="52" rx="8"/>
+            <text class="lbl" x="109" y="98" text-anchor="middle">hash map</text>
+            <text class="lbl-sm" x="109" y="116" text-anchor="middle">key → value</text>
+            <text class="lbl-sm" x="109" y="168" text-anchor="middle" fill="#B0532F">dies with the box ✗</text>
+            <path class="flow" d="M205 102 H 268" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="236" y="92" text-anchor="middle">scale &amp;</text>
+            <text class="lbl-sm" x="236" y="124" text-anchor="middle">survive</text>
+            <g class="" >
+              <rect class="node-b" x="300" y="40" width="92" height="40" rx="7"/><text class="lbl" x="346" y="65" text-anchor="middle">Node A</text>
+              <rect class="node-b" x="408" y="40" width="92" height="40" rx="7"/><text class="lbl" x="454" y="65" text-anchor="middle">Node B</text>
+              <rect class="node-b" x="516" y="40" width="92" height="40" rx="7"/><text class="lbl" x="562" y="65" text-anchor="middle">Node C</text>
+              <rect class="node-b" x="300" y="100" width="92" height="40" rx="7"/><text class="lbl" x="346" y="125" text-anchor="middle">Node D</text>
+              <rect class="node-b" x="408" y="100" width="92" height="40" rx="7"/><text class="lbl" x="454" y="125" text-anchor="middle">Node E</text>
+              <rect class="node-b" x="516" y="100" width="92" height="40" rx="7"/><text class="lbl" x="562" y="125" text-anchor="middle">Node F</text>
+            </g>
+            <text class="lbl-sm" x="454" y="168" text-anchor="middle">distributed: data spread + copied across a cluster</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the whole lesson: turn a fragile single-node map into a resilient cluster</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Open by narrowing the problem out loud. A key-value store can be a single-box cache or a globally-replicated database, and the design diverges wildly depending on the answers. Distinguish the <strong>functional</strong> requirements (what it does) from the <strong>non-functional</strong> ones (the properties it must hold under load and failure).</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>get(key)</strong> — return the value for a key, or "not found."</li>
+        <li><strong>put(key, value)</strong> — write or overwrite a value for a key.</li>
+        <li>Keys are short strings; values are opaque blobs we treat as bytes — say up to ~10&nbsp;KB. We do not interpret value contents (no querying inside them).</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <p>This is where the real design lives. State each as a target, because each one forces a structural decision later:</p>
+      <ul>
+        <li><strong>Horizontally scalable</strong> — data must outgrow any single machine, so we add capacity by adding nodes, not by buying a bigger box.</li>
+        <li><strong>Highly available</strong> — a GrabPay wallet read cannot fail just because one server rebooted. Target "always writable, always readable," even during a partition.</li>
+        <li><strong>Tunable consistency</strong> — the operator should be able to trade freshness for speed per workload, rather than being locked into one global setting.</li>
+        <li><strong>Low latency</strong> — single-digit-millisecond reads and writes at the 99th percentile.</li>
+        <li><strong>Large data</strong> — petabyte-class total, far beyond one disk.</li>
+      </ul>
+      <h3>The CAP fork in the road</h3>
+      <p>The moment you say "highly available even during a network partition," you have made the central decision. The <strong>CAP theorem</strong> says that when the network splits, a system can preserve either consistency (every read sees the latest write) or availability (every request gets an answer) — not both. We choose <strong>availability</strong>. That makes this an <strong>AP, eventually-consistent</strong> design: nodes always answer, and any divergence between replicas is reconciled shortly after. If the question were "design a bank ledger," you would pick CP instead and the rest of the lesson would look very different.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>Naming the CAP trade-off early — and justifying it from the use case — is the single highest-leverage sentence in this interview. Say it plainly: <em>"a wallet-balance cache must always answer, so I'll build an AP store and reconcile replicas afterward; if it were the authoritative ledger I'd flip to CP."</em> Everything downstream (quorums, versioning, anti-entropy) follows from that one choice.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimate</div>
+      <h2>Back-of-the-envelope</h2>
+      <p>Before drawing boxes, size the system so the numbers justify them. Take a concrete workload: a regional super-app storing user wallet and session snapshots.</p>
+      <h3>Storage</h3>
+      <ul>
+        <li>Assume <strong>200 million</strong> users, each with a key whose value averages <strong>2&nbsp;KB</strong>.</li>
+        <li>Raw data: 200M × 2&nbsp;KB ≈ <strong>400&nbsp;GB</strong>. Small — but that is the <em>logical</em> size.</li>
+        <li>We will replicate every key <strong>N = 3</strong> times for durability, so physical data ≈ <strong>1.2&nbsp;TB</strong>.</li>
+        <li>Add room for the commit log, SSTable overhead, and headroom: budget roughly <strong>3–4&nbsp;TB</strong> of raw disk, spread across the cluster.</li>
+      </ul>
+      <h3>Throughput</h3>
+      <ul>
+        <li>Suppose <strong>5&nbsp;million daily active users</strong> generate, on average, <strong>20 key-value operations each</strong> per day → 100M ops/day.</li>
+        <li>100M ÷ 86,400&nbsp;s ≈ <strong>~1,160 ops/sec average</strong>. Peak is spikier — say <strong>10×</strong> at lunch-time order rush → <strong>~12,000 ops/sec</strong>.</li>
+        <li>Reads dominate writes here, roughly <strong>5:1</strong> (lots of balance checks, fewer top-ups), so ~10,000 reads/sec and ~2,000 writes/sec at peak.</li>
+      </ul>
+      <h3>What the numbers tell us</h3>
+      <p>One modern server could almost hold 1.2&nbsp;TB and serve 12K ops/sec. So why distribute? Because the requirements — not the raw size — force it. A single node cannot be <em>highly available</em> (it has a single failure domain) and cannot grow smoothly when the next region launches and the dataset 10×'s overnight. We distribute for <strong>availability and elastic growth</strong>, and the storage math just confirms a handful of nodes is plenty to start. Sizing also tells us replication factor 3 roughly triples disk — a cost worth naming aloud.</p>
+      <div class="callout">
+        <span class="k">Why estimate at all</span>
+        <p>The estimate is a sanity check, not the design. Its real value is exposing the binding constraint. Here the binding constraint is <em>availability and growth</em>, not bytes — which is why the rest of the lesson spends its time on replication and reconciliation rather than on storage capacity.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Pin down the contract before the architecture, so the diagrams have something concrete to serve. The external API is deliberately tiny.</p>
+      <pre><span class="c"># Write a value. Returns the version that was stored.</span>
+PUT  /v1/kv/{key}
+  body: { "value": &lt;bytes&gt; }
+  <span class="c"># client echoes back the version vector it last read,</span>
+  <span class="c"># so the server can detect concurrent writes (see step 09)</span>
+  header: X-Version-Vector: "A:3,B:1"
+  -> 200 { "version": "A:4,B:1" }
+
+<span class="c"># Read a value. Returns value(s) + the version vector.</span>
+GET  /v1/kv/{key}
+  -> 200 { "value": &lt;bytes&gt;, "version": "A:4,B:1" }
+  -> 200 { "siblings": [ ... ], "version": "A:4,B:2" }  <span class="c"># conflict!</span>
+  -> 404 if absent
+
+<span class="c"># Tunable knobs the caller may set per request:</span>
+  header: X-Consistency: "quorum" | "one" | "all"</pre>
+      <p>Two design choices in that contract are worth defending in the room. First, the value is <strong>opaque bytes</strong> — the store never parses it, which is what keeps the engine generic and fast. Second, the API surfaces a <strong>version vector</strong> (covered in step 09) on both read and write; this is how an AP store admits, rather than hides, the possibility of conflicting concurrent writes.</p>
+      <h3>The on-node data model</h3>
+      <p>Internally each node is not storing a plain map. Each key maps to a small record carrying the value plus the metadata needed to reconcile replicas:</p>
+      <pre><span class="k">Record</span> {
+  key:        string        <span class="c">// e.g. "wallet:u_88421"</span>
+  value:      bytes         <span class="c">// the opaque blob, ~2 KB</span>
+  version:    VersionVector <span class="c">// {"A":4,"B":1} — who wrote, how often</span>
+  timestamp:  int64         <span class="c">// last-write-wins tiebreaker (ms)</span>
+  tombstone:  bool          <span class="c">// true = logically deleted</span>
+}</pre>
+      <p>The <strong>tombstone</strong> deserves a note: in a distributed store you cannot simply erase a deleted key, because a replica that was offline during the delete would later "resurrect" the value via anti-entropy. Instead a delete writes a tombstone marker that propagates like any other write, and is garbage-collected only after enough time has passed that every replica has surely seen it.</p>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Partitioning</div>
+      <h2>Partition the ring</h2>
+      <p>First bottleneck: 1.2&nbsp;TB and 12K ops/sec must be split across many nodes, and we need a rule for <em>which node owns which key</em>. The naive rule — <code>node = hash(key) % N</code> — is a trap. The instant you add or remove a node, <code>N</code> changes and almost every key remaps to a different node, triggering a near-total data reshuffle. At our scale that is hours of downtime.</p>
+      <h3>Consistent hashing, recapped</h3>
+      <p>The fix is <strong>consistent hashing</strong> (built in Lesson 11). Imagine a circular hash space — a <strong>ring</strong> — running from 0 up to a large maximum (say 2<sup>128</sup>) and wrapping back to 0. Hash each node's id onto a position on the ring, and hash each key onto the ring too. A key is owned by the <strong>first node found walking clockwise</strong> from the key's position. That owner is the key's <strong>coordinator</strong> for storage purposes.</p>
+      <p>The magic property: when a node joins or leaves, only the keys in the arc it is responsible for move — roughly <strong>K/N keys</strong> for K keys and N nodes — not the whole dataset. Adding a 7th node to a 6-node ring relocates about 1/7 of the keys, and only between two neighbors. Everything else stays put.</p>
+      <h3>Virtual nodes fix the lumpiness</h3>
+      <p>Placing one point per physical node makes the ring lumpy: by chance, one node may own a huge arc and get overloaded while another owns a sliver. The standard remedy is <strong>virtual nodes</strong> (vnodes). Each physical node is hashed onto the ring many times — say 128 or 256 tokens — so its responsibility is the sum of many small arcs scattered around the circle. The law of large numbers smooths the load, and when a node dies its arcs are absorbed by many different neighbors rather than dumped onto one. Real systems such as <strong>Cassandra</strong> (the <code>num_tokens</code> setting) and <strong>Amazon DynamoDB / Riak</strong> use exactly this.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 300" role="img" aria-label="A consistent-hashing ring with nodes and a key mapped clockwise to its owner">
+            <path d="M 320,40 A 110,110 0 1,1 319.999,40 Z" fill="none" stroke="#4A7BA6" stroke-width="2" stroke-dasharray="2 4"/>
+            <!-- nodes around the ring -->
+            <circle cx="320" cy="40" r="15" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="320" y="44" text-anchor="middle">A</text>
+            <circle cx="415" cy="95" r="15" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="415" y="99" text-anchor="middle">B</text>
+            <circle cx="415" cy="205" r="15" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="415" y="209" text-anchor="middle">C</text>
+            <circle cx="320" cy="260" r="15" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="320" y="264" text-anchor="middle">D</text>
+            <circle cx="225" cy="205" r="15" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="225" y="209" text-anchor="middle">E</text>
+            <circle cx="225" cy="95" r="15" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="225" y="99" text-anchor="middle">F</text>
+            <!-- key position -->
+            <circle cx="375" cy="56" r="7" fill="#B0532F"/>
+            <text class="lbl-sm" x="378" y="40" text-anchor="middle" fill="#B0532F">hash(key)</text>
+            <!-- clockwise walk to owner B -->
+            <path class="flow-r" d="M384 60 C 405 68, 410 76, 412 82" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="463" y="120" text-anchor="middle" fill="#B0532F">clockwise →</text>
+            <text class="lbl-sm" x="463" y="136" text-anchor="middle" fill="#B0532F">owner = B</text>
+            <text class="lbl-sm" x="320" y="155" text-anchor="middle">ring</text>
+            <text class="lbl-sm" x="320" y="172" text-anchor="middle">0 … 2^128</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — a key hashes onto the ring; its owner is the next node clockwise</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Follow-up the interviewer will ask</span>
+        <p><em>"How does a new node learn the ring, and how do others learn about it?"</em> There is no central registrar in an AP design — that would be a single point of failure. Nodes exchange membership and token assignments through a <strong>gossip protocol</strong>: each node periodically picks a random peer and swaps its view of who is alive and what they own. Within a few rounds the whole cluster converges on the same ring. We return to gossip in step 12.</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Replication</div>
+      <h2>Replicate for durability</h2>
+      <p>Next bottleneck: if each key lives on exactly one node, that node is a single point of failure. When it dies — and at petabyte scale a disk dies every week — its keys are gone or unreadable. So no key may live on only one machine.</p>
+      <h3>The preference list</h3>
+      <p>The fix layers directly onto the ring. Instead of storing a key only on its owner, store it on the owner <strong>plus the next N−1 nodes walking clockwise</strong>. That ordered set of N nodes is the key's <strong>preference list</strong> (also called its replica set). With <strong>N = 3</strong>, a key landing on node B is replicated on B, C, and D. Any read or write can be served by any node on the list, so losing one or even two replicas does not lose the data.</p>
+      <p>One subtlety: when virtual nodes are in play, the preference list is built from <em>distinct physical</em> nodes. As you walk clockwise you skip vnodes that map back to a physical node already on the list, so the three replicas are genuinely three different machines — otherwise a single machine failure could take out two "copies."</p>
+      <h3>Rack and region awareness</h3>
+      <p>Three replicas in the same rack all die when the rack's top-of-rack switch fails. Production systems therefore make the preference list <strong>topology-aware</strong>: place the N replicas across distinct racks, and ideally distinct availability zones. For a Singapore deployment you might pin replicas across three AZs in <code>ap-southeast-1</code> so an entire datacenter can burn down and the wallet store keeps answering. Cassandra encodes this with its <code>NetworkTopologyStrategy</code> and a per-datacenter replication factor.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="A key replicated on N consecutive nodes clockwise, forming a preference list">
+            <line x1="60" y1="120" x2="600" y2="120" stroke="#999" stroke-width="1.5"/>
+            <text class="lbl-sm" x="60" y="148" text-anchor="middle" fill="#9a927f">…</text>
+            <circle cx="120" cy="120" r="16" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="120" y="124" text-anchor="middle">A</text>
+            <circle cx="230" cy="120" r="16" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2.5"/><text class="lbl-sm" x="230" y="124" text-anchor="middle">B</text>
+            <circle cx="340" cy="120" r="16" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2.5"/><text class="lbl-sm" x="340" y="124" text-anchor="middle">C</text>
+            <circle cx="450" cy="120" r="16" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2.5"/><text class="lbl-sm" x="450" y="124" text-anchor="middle">D</text>
+            <circle cx="560" cy="120" r="16" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/><text class="lbl-sm" x="560" y="124" text-anchor="middle">E</text>
+            <circle cx="205" cy="70" r="6" fill="#B0532F"/>
+            <text class="lbl-sm" x="205" y="56" text-anchor="middle" fill="#B0532F">hash(key)</text>
+            <path class="flow-r" d="M212 76 C 224 88, 228 96, 230 102" marker-end="url(#arrow-r)"/>
+            <rect x="206" y="158" width="270" height="40" rx="8" fill="rgba(31,78,121,.06)" stroke="#1F4E79" stroke-width="2" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="341" y="183" text-anchor="middle" fill="#1F4E79">preference list = { B, C, D }  (N = 3)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — the owner plus the next N−1 clockwise nodes form the replica set</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Higher N (e.g. 5)</h4><ul>
+          <li>More copies → survives more simultaneous failures</li>
+          <li>More read/write fan-out to reach a quorum</li>
+          <li>More disk and cross-node bandwidth</li>
+        </ul></div>
+        <div class="col"><h4>Lower N (e.g. 3)</h4><ul>
+          <li>Cheaper storage and less coordination traffic</li>
+          <li>The common default — survives 1–2 node losses</li>
+          <li>Less margin during a multi-node or AZ outage</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Consistency</div>
+      <h2>Quorum consistency</h2>
+      <p>Replication created a new bottleneck of its own: with N copies of a key, <em>how many must we touch on each operation?</em> Write to all N and one slow or dead replica stalls every write. Read from one and you might read a stale copy that missed the latest write. We want a tunable middle ground.</p>
+      <h3>The N / W / R quorum</h3>
+      <p>The answer is the <strong>quorum</strong> (the core of Lesson 12), governed by three numbers:</p>
+      <ul>
+        <li><strong>N</strong> — replicas per key (the preference-list size).</li>
+        <li><strong>W</strong> — the <strong>write quorum</strong>: a write is acknowledged to the client once <code>W</code> replicas confirm it.</li>
+        <li><strong>R</strong> — the <strong>read quorum</strong>: a read gathers responses from <code>R</code> replicas and returns the freshest.</li>
+      </ul>
+      <p>The whole scheme hinges on one inequality:</p>
+      <p style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--blueprint);">W + R &gt; N&nbsp;&nbsp;⟹&nbsp;&nbsp;strong consistency guarantee</p>
+      <p>Why does that work? If the write set (any W replicas) and the read set (any R replicas) must together exceed N, then by the pigeonhole principle the two sets <strong>always overlap by at least one replica</strong>. That overlapping replica has the latest write, so a read is guaranteed to see it. With N = 3, choosing W = 2 and R = 2 gives 2 + 2 = 4 &gt; 3 — every read overlaps every recent write.</p>
+      <h3>Tuning for the workload</h3>
+      <p>The point of exposing W and R is that you tune them per use case:</p>
+      <ul>
+        <li><strong>W=1, R=1</strong> (sum 2, not &gt; N): fastest possible, but reads can be stale. Good for a non-critical cache like recent search terms.</li>
+        <li><strong>W=2, R=2</strong>: the balanced default — strong-ish consistency with one replica of slack on each side. This is what you would pick for a GrabPay balance snapshot.</li>
+        <li><strong>W=3, R=1</strong>: reads are blazing and always fresh, but every write needs all three replicas up — slow, fragile writes. Suits write-rarely, read-constantly data.</li>
+        <li><strong>W=1, R=3</strong>: writes are instant and durable-enough, reads do the work of finding the latest. Good when writes must never block.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 200" role="img" aria-label="Write and read quorum sets overlapping when W plus R exceeds N">
+            <text class="lbl-sm" x="320" y="28" text-anchor="middle" fill="#1F4E79">N = 3   W = 2   R = 2   →   W + R = 4 &gt; 3</text>
+            <circle cx="200" cy="110" r="50" fill="rgba(31,78,121,.10)" stroke="#1F4E79" stroke-width="2"/>
+            <circle cx="300" cy="110" r="50" fill="rgba(176,83,47,.10)" stroke="#B0532F" stroke-width="2"/>
+            <text class="lbl-sm" x="165" y="115" text-anchor="middle" fill="#1F4E79">write</text>
+            <text class="lbl-sm" x="165" y="130" text-anchor="middle" fill="#1F4E79">W=2</text>
+            <text class="lbl-sm" x="335" y="115" text-anchor="middle" fill="#B0532F">read</text>
+            <text class="lbl-sm" x="335" y="130" text-anchor="middle" fill="#B0532F">R=2</text>
+            <text class="lbl-sm" x="250" y="100" text-anchor="middle">overlap</text>
+            <text class="lbl-sm" x="250" y="125" text-anchor="middle">≥ 1</text>
+            <rect x="430" y="74" width="38" height="28" rx="5" class="node-b"/><text class="lbl-sm" x="449" y="92" text-anchor="middle">B</text>
+            <rect x="478" y="74" width="38" height="28" rx="5" class="node-b"/><text class="lbl-sm" x="497" y="92" text-anchor="middle">C</text>
+            <rect x="526" y="74" width="38" height="28" rx="5" class="node"/><text class="lbl-sm" x="545" y="92" text-anchor="middle">D</text>
+            <text class="lbl-sm" x="497" y="128" text-anchor="middle">write hits B,C</text>
+            <text class="lbl-sm" x="497" y="144" text-anchor="middle">read hits C,D</text>
+            <text class="lbl-sm" x="497" y="160" text-anchor="middle" fill="#1F4E79">→ C carries latest</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — when W + R &gt; N the read and write sets must share a replica</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Follow-up: "Set N/W/R for high availability"</span>
+        <p>For maximum availability you want both reads and writes to succeed even when replicas are down, so keep W and R <em>small</em> — e.g. N=3, W=1, R=1. Now a single live replica can serve any operation, but you have given up the overlap guarantee, so reads may be stale and you lean on read-repair and anti-entropy (steps 08 and 10) to converge afterward. The honest one-liner: <em>"smaller W and R buy availability and latency; their sum exceeding N buys consistency — you cannot maximize all three at once."</em></p>
+      </div>
+    </section>
+
+    <!-- 7 — INTERACTIVE -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Write path</div>
+      <h2>The write path through a coordinator</h2>
+      <p>Now wire the pieces into an end-to-end write. A client may contact <em>any</em> node — there is no master. The node it hits becomes the <strong>coordinator</strong> for that request: it hashes the key to the ring, finds the preference list, forwards the write to those N replicas, and waits for <code>W</code> acknowledgements before replying success to the client. The remaining replicas are written too, just not waited on.</p>
+      <p>Walk the interactive figure below. A <code>put("wallet:u_88421", …)</code> arrives, the coordinator routes it to replicas B, C, D, and with W = 2 it answers the client the moment B and C confirm — D's slower disk does not hold up the user.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-write">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive write path: coordinator hashes key, writes N replicas, waits for W acks">
+            <g class="st" id="w-client"><rect class="node" x="18" y="100" width="92" height="46" rx="8"/><text class="lbl" x="64" y="121" text-anchor="middle">Client</text><text class="lbl-sm" x="64" y="137" text-anchor="middle">put(k,v)</text></g>
+            <g class="st" id="w-coord"><rect class="node-b" x="160" y="96" width="120" height="54" rx="9"/><text class="lbl" x="220" y="119" text-anchor="middle">Coordinator</text><text class="lbl-sm" x="220" y="137" text-anchor="middle">(any node)</text></g>
+            <g class="st" id="w-b"><rect class="node-b" x="360" y="20" width="120" height="42" rx="8"/><text class="lbl" x="420" y="46" text-anchor="middle">Replica B</text></g>
+            <g class="st" id="w-c"><rect class="node-b" x="360" y="100" width="120" height="42" rx="8"/><text class="lbl" x="420" y="126" text-anchor="middle">Replica C</text></g>
+            <g class="st" id="w-d"><rect class="node" x="360" y="180" width="120" height="42" rx="8"/><text class="lbl" x="420" y="206" text-anchor="middle">Replica D</text></g>
+            <g class="st" id="w-ack"><rect class="node-b" x="520" y="100" width="100" height="42" rx="8"/><text class="lbl-sm" x="570" y="121" text-anchor="middle">W=2 acks</text><text class="lbl-sm" x="570" y="136" text-anchor="middle">→ OK</text></g>
+            <path id="w-p1" class="flow" d="M110 122 H 158" marker-end="url(#arrow)"/>
+            <path id="w-p2" class="flow" d="M282 110 C 320 70, 340 50, 358 42" marker-end="url(#arrow)"/>
+            <path id="w-p3" class="flow" d="M282 123 H 358" marker-end="url(#arrow)"/>
+            <path id="w-p4" class="flow-d" d="M282 138 C 320 178, 340 192, 358 200" marker-end="url(#arrow-s)"/>
+            <path id="w-p5" class="flow" d="M482 121 H 518" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="328" y="166" text-anchor="middle" fill="#4A7BA6">D written, not waited on</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: the coordinator fans the write to N replicas, replies after W acks</figcaption>
+      </figure>
+      <h3>The commit log makes the ack safe</h3>
+      <p>When a replica "confirms," it does not mean the value is sorted into its main data file. It means the replica has appended the write to a durable, append-only <strong>commit log</strong> (write-ahead log) on disk and updated its in-memory table. If the replica crashes a millisecond later, it replays the commit log on restart and recovers the write. We unpack that machinery in step 11 — but it is why a W = 2 ack is a real durability promise, not just a memory poke.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up: "What if the coordinator dies mid-write?"</span>
+        <p>If it dies before sending to replicas, the client times out and retries against another node — at-least-once semantics, and the version vector lets duplicates de-duplicate. If it dies after some replicas got the write but before W acks, the client retries; the write may already be partially landed, but because writes are idempotent under their version, replaying is safe and anti-entropy heals the rest. The system never has a "the one machine that knew about this write is gone forever" moment — that is the entire point of N replicas.</p>
+      </div>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Read path</div>
+      <h2>Read &amp; read-repair</h2>
+      <p>Reads mirror writes. The coordinator asks <code>R</code> replicas for their copy, compares the versions they return, and serves the freshest. But this is where the AP design's chickens come home to roost: because writes only waited for W acks, a lagging replica may answer with a <strong>stale value</strong>. The read must detect and, ideally, fix that on the spot.</p>
+      <h3>How read-repair works</h3>
+      <p><strong>Read-repair</strong> is the cheap, opportunistic reconciliation that happens during a normal read. The mechanism, step by step:</p>
+      <ul>
+        <li>The coordinator collects values and versions from R replicas.</li>
+        <li>It compares version vectors. If they all agree, done — return the value.</li>
+        <li>If one replica's version is strictly older (it is missing a write the others have), the coordinator returns the newest value to the client <em>and</em> writes that newest value back to the stale replica in the background.</li>
+        <li>The next read of that key will find all replicas in agreement.</li>
+      </ul>
+      <p>The interactive figure traces it: a read for the wallet key gathers C and D, notices D is one version behind, serves C's fresh value, and quietly pushes the fix to D.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-read">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive read path with read-repair correcting a stale replica">
+            <g class="st" id="r-client"><rect class="node" x="18" y="100" width="92" height="46" rx="8"/><text class="lbl" x="64" y="121" text-anchor="middle">Client</text><text class="lbl-sm" x="64" y="137" text-anchor="middle">get(k)</text></g>
+            <g class="st" id="r-coord"><rect class="node-b" x="160" y="96" width="120" height="54" rx="9"/><text class="lbl" x="220" y="119" text-anchor="middle">Coordinator</text><text class="lbl-sm" x="220" y="137" text-anchor="middle">R=2</text></g>
+            <g class="st" id="r-c"><rect class="node-b" x="360" y="58" width="130" height="44" rx="8"/><text class="lbl" x="425" y="78" text-anchor="middle">Replica C</text><text class="lbl-sm" x="425" y="94" text-anchor="middle">ver A:4 (fresh)</text></g>
+            <g class="st" id="r-d"><rect class="node-r" x="360" y="150" width="130" height="44" rx="8"/><text class="lbl" x="425" y="170" text-anchor="middle">Replica D</text><text class="lbl-sm" x="425" y="186" text-anchor="middle">ver A:3 (stale)</text></g>
+            <path id="r-p1" class="flow" d="M110 122 H 158" marker-end="url(#arrow)"/>
+            <path id="r-p2" class="flow" d="M282 112 C 320 92, 340 84, 358 80" marker-end="url(#arrow)"/>
+            <path id="r-p3" class="flow" d="M282 134 C 320 156, 340 166, 358 172" marker-end="url(#arrow)"/>
+            <path id="r-p4" class="flow" d="M158 110 C 110 70, 90 64, 64 100" marker-end="url(#arrow)"/>
+            <path id="r-p5" class="flow-r" d="M358 178 C 330 210, 300 178, 282 150" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="220" y="62" text-anchor="middle">return fresh →</text>
+            <text class="lbl-sm" x="300" y="226" text-anchor="middle" fill="#B0532F">read-repair: push A:4 to D</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 6 — interactive: a read serves the freshest copy and repairs the stale replica</figcaption>
+      </figure>
+      <p>Read-repair is elegant but only fixes keys that happen to be read. A key that is written, then never read for a month, can stay divergent on a replica the whole time. Hot keys self-heal; cold keys do not — which is precisely the gap that anti-entropy (step 10) closes.</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Versioning</div>
+      <h2>Versioning &amp; conflict resolution</h2>
+      <p>The deepest bottleneck in any AP store: <strong>two clients write the same key concurrently on different replicas</strong>. With no single master to serialize them, both writes are "valid." A wall-clock timestamp cannot reliably decide which came first — clocks drift between machines, and the later write may carry stale data. We need a way to tell <em>"B happened after A"</em> apart from <em>"B and A happened concurrently."</em></p>
+      <h3>Version vectors</h3>
+      <p>The tool is the <strong>version vector</strong> (a vector clock, from Lesson 13). Each value carries a small map of <code>{node_id → counter}</code> recording how many times each coordinating node has updated it. When a node coordinates a write, it increments its own entry. Comparing two version vectors yields one of three verdicts:</p>
+      <ul>
+        <li><strong>A descends from B</strong> (every counter in B ≤ the matching counter in A, and A is larger somewhere) → A is strictly newer; keep A, discard B.</li>
+        <li><strong>B descends from A</strong> → the mirror case; keep B.</li>
+        <li><strong>Neither descends from the other</strong> → the writes are <strong>concurrent</strong>; they conflict and both must be preserved as <strong>siblings</strong>.</li>
+      </ul>
+      <h3>A worked GrabPay scenario</h3>
+      <p>Suppose a user's wallet value is replicated on B and C with version <code>{A:1}</code>. The network partitions. The user's phone tops up S$10 via a coordinator that writes to B, producing <code>{A:1, B:1}</code>. Simultaneously a merchant refund of S$5 is processed via a coordinator that writes to C, producing <code>{A:1, C:1}</code>. When the partition heals, a read fetches both. Neither vector descends from the other — they are concurrent. The store cannot silently pick one without losing money, so it returns <strong>both siblings</strong> and lets the application decide.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Two concurrent writes to one key produce divergent version vectors that must be merged">
+            <rect class="node" x="250" y="14" width="140" height="40" rx="8"/><text class="lbl-sm" x="320" y="38" text-anchor="middle">{A:1}  base</text>
+            <path class="flow" d="M300 56 C 240 80, 200 90, 170 104" marker-end="url(#arrow)"/>
+            <path class="flow" d="M340 56 C 400 80, 440 90, 470 104" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="60" y="106" width="210" height="56" rx="8"/>
+            <text class="lbl-sm" x="165" y="130" text-anchor="middle">top-up via B</text>
+            <text class="lbl" x="165" y="150" text-anchor="middle">{A:1, B:1}</text>
+            <rect class="node-r" x="370" y="106" width="210" height="56" rx="8"/>
+            <text class="lbl-sm" x="475" y="130" text-anchor="middle">refund via C</text>
+            <text class="lbl" x="475" y="150" text-anchor="middle">{A:1, C:1}</text>
+            <path class="flow-d" d="M170 164 C 230 180, 270 182, 300 184" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M470 164 C 410 180, 370 182, 340 184" marker-end="url(#arrow-s)"/>
+            <rect x="225" y="186" width="190" height="44" rx="8" fill="rgba(176,83,47,.08)" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="320" y="206" text-anchor="middle" fill="#B0532F">concurrent → siblings</text>
+            <text class="lbl-sm" x="320" y="222" text-anchor="middle" fill="#B0532F">app merges (S$10 + S$5)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — divergent version vectors signal a concurrent write the app must reconcile</figcaption>
+      </figure>
+      <h3>Who resolves the conflict?</h3>
+      <p>Two strategies, and the interviewer wants you to weigh them:</p>
+      <div class="vs">
+        <div class="col"><h4>Last-write-wins (LWW)</h4><ul>
+          <li>Pick the value with the highest timestamp; discard the rest</li>
+          <li>Dead simple, no app logic, no siblings to manage</li>
+          <li>Silently loses data — fatal for a wallet (the refund vanishes)</li>
+          <li>Used by Cassandra by default; fine for caches and idempotent overwrites</li>
+        </ul></div>
+        <div class="col"><h4>Client-side merge</h4><ul>
+          <li>Store returns siblings; the app combines them by domain rules</li>
+          <li>No data lost — a shopping cart unions items; a wallet sums deltas</li>
+          <li>Pushes complexity onto every reader of that key</li>
+          <li>The DynamoDB / Riak "semantic reconciliation" approach</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Follow-up: "Two concurrent writes to one key — what happens?"</span>
+        <p>The crisp answer: <em>"version vectors let the store detect that the two writes are causally concurrent rather than one superseding the other. It cannot safely auto-pick a winner, so it keeps both as siblings and surfaces them on the next read. The application merges them with domain logic — sum the wallet deltas, union the cart — or, if loss is acceptable, the store falls back to last-write-wins by timestamp."</em> The trap to avoid is claiming a timestamp alone resolves it; clock skew makes that lossy.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Failure handling</div>
+      <h2>Failure handling &amp; anti-entropy</h2>
+      <p>So far we have handled the happy path and stale reads. Now the hard cases: a replica is <em>down</em> when a write arrives, or two replicas silently drift apart over time. AP means the system must keep accepting writes through both.</p>
+      <h3>Hinted handoff for temporary failures</h3>
+      <p>Suppose a write should go to B, C, D but D is rebooting. We refuse to block the write — that would violate availability. Instead the coordinator sends D's copy to a healthy substitute node, say E, tagged with a <strong>hint</strong>: "this really belongs to D; hold it." E stores it in a separate hinted area and keeps trying to deliver it. When D comes back, E hands the data off and deletes its hint. This is <strong>hinted handoff</strong>, and it is what lets writes succeed at full N-durability even while a replica is briefly offline. It handles <em>transient</em> failures — a reboot, a 30-second network blip.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Hinted handoff: a stand-in node holds a write for a temporarily down replica">
+            <rect class="node-b" x="40" y="80" width="110" height="50" rx="8"/><text class="lbl" x="95" y="110" text-anchor="middle">Coordinator</text>
+            <rect class="node-r" x="260" y="20" width="110" height="46" rx="8"/><text class="lbl" x="315" y="40" text-anchor="middle">Replica D</text><text class="lbl-sm" x="315" y="56" text-anchor="middle">DOWN</text>
+            <rect class="node" x="260" y="130" width="110" height="46" rx="8"/><text class="lbl" x="315" y="150" text-anchor="middle">Node E</text><text class="lbl-sm" x="315" y="166" text-anchor="middle">holds hint</text>
+            <rect class="node-r" x="470" y="20" width="130" height="46" rx="8"/><text class="lbl-sm" x="535" y="40" text-anchor="middle">D returns →</text><text class="lbl-sm" x="535" y="56" text-anchor="middle">E hands off</text>
+            <path class="flow-r" d="M150 95 C 200 70, 220 50, 258 44" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="200" y="92" text-anchor="middle" fill="#B0532F">✗ blocked</text>
+            <path class="flow" d="M150 110 C 200 135, 220 150, 258 152" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="205" y="138" text-anchor="middle">store w/ hint</text>
+            <path class="flow-d" d="M372 150 C 420 110, 440 70, 468 52" marker-end="url(#arrow-s)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 8 — a stand-in node accepts the write with a hint and delivers it when D recovers</figcaption>
+      </figure>
+      <h3>Merkle trees for permanent reconciliation</h3>
+      <p>Hinted handoff covers brief outages, but what about a replica that was down for hours, or two replicas that drifted apart because some hints were lost or read-repair never touched a cold key? Comparing two replicas' entire datasets key-by-key would move terabytes across the network — absurd. The efficient solution is <strong>anti-entropy via Merkle trees</strong>.</p>
+      <p>A <strong>Merkle tree</strong> is a tree of hashes. Each leaf hashes a small range of keys; each parent hashes its children; the single root hash summarizes the whole dataset. To compare two replicas, the nodes exchange just their root hashes. If the roots match, the replicas are identical and <em>zero</em> data moves. If they differ, the nodes descend the tree, comparing child hashes, and recurse only into the subtrees that disagree. The cost is proportional to the <em>amount of divergence</em>, not the size of the data — you walk down to exactly the leaf ranges that differ and sync only those keys.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Merkle tree comparison: matching root means no sync, mismatched path narrows to the divergent leaf">
+            <rect class="node-b" x="270" y="14" width="100" height="34" rx="7"/><text class="lbl-sm" x="320" y="35" text-anchor="middle">root H(·)</text>
+            <rect class="node-b" x="150" y="84" width="90" height="34" rx="7"/><text class="lbl-sm" x="195" y="105" text-anchor="middle">H(L0–7)</text>
+            <rect class="node-r" x="400" y="84" width="90" height="34" rx="7"/><text class="lbl-sm" x="445" y="105" text-anchor="middle">H(L8–15) ≠</text>
+            <rect class="node" x="360" y="154" width="80" height="34" rx="7"/><text class="lbl-sm" x="400" y="175" text-anchor="middle">H(L8–11)</text>
+            <rect class="node-r" x="460" y="154" width="80" height="34" rx="7"/><text class="lbl-sm" x="500" y="175" text-anchor="middle">H(L12–15) ≠</text>
+            <path class="flow" d="M300 48 C 250 60, 220 70, 200 82" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M340 48 C 400 60, 430 70, 448 82" marker-end="url(#arrow-r)"/>
+            <path class="flow" d="M430 118 C 415 130, 405 140, 400 152" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M460 118 C 480 130, 492 140, 498 152" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="500" y="208" text-anchor="middle" fill="#B0532F">sync only keys L12–15</text>
+            <text class="lbl-sm" x="150" y="208" text-anchor="middle">matching subtree → skip</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 9 — descend only the mismatched branches; cost scales with divergence, not data size</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Follow-up: "How do replicas reconcile after a partition?"</span>
+        <p>Lead with the layered answer: <em>"Three mechanisms, increasingly heavyweight. During the partition, hinted handoff keeps writes durable on stand-ins. Right after, ordinary reads trigger read-repair on hot keys. For everything else — cold keys, long outages — a periodic Merkle-tree anti-entropy pass compares replicas and syncs only the diverged ranges. Together they drive the cluster back to convergence without ever shipping the whole dataset."</em> Naming all three, in that order, is what separates a strong answer from a vague "they sync eventually."</p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <div class="steptag"><b>11</b> Storage engine</div>
+      <h2>The per-node storage engine</h2>
+      <p>Zoom into a single node. Each one is itself a small, write-optimized database, and the interviewer often probes here to see if you understand what happens <em>on disk</em>. The dominant design — used by Cassandra, RocksDB, LevelDB, ScyllaDB, and HBase — is the <strong>LSM-tree</strong> (Log-Structured Merge-tree, from Lesson 05). It exists to solve one bottleneck: <strong>random disk writes are slow</strong>, but our store must absorb thousands of writes per second.</p>
+      <h3>How a write flows through the LSM-tree</h3>
+      <p>An LSM-tree turns random writes into sequential ones. The path of a single <code>put</code>:</p>
+      <ul>
+        <li><strong>1. Commit log.</strong> The write is appended to an on-disk <strong>commit log</strong> (write-ahead log). Appends are sequential and therefore fast, and this is the durability anchor — if the node crashes, the log is replayed on restart.</li>
+        <li><strong>2. Memtable.</strong> The write also lands in the <strong>memtable</strong>, a sorted in-memory structure (a balanced tree or skip list). Reads and writes here are RAM-fast. Because we wrote the log first, losing the memtable to a crash is recoverable.</li>
+        <li><strong>3. Flush to SSTable.</strong> When the memtable fills past a threshold, it is flushed to disk as an immutable, sorted file called an <strong>SSTable</strong> (Sorted String Table) in one big sequential write. The memtable is then cleared and the corresponding commit-log segment can be discarded.</li>
+        <li><strong>4. Compaction.</strong> Over time many SSTables accumulate. A background <strong>compaction</strong> process merges them, discarding superseded values and tombstones, keeping read cost bounded.</li>
+      </ul>
+      <h3>How a read finds the value</h3>
+      <p>A read checks the memtable first, then the SSTables newest-to-oldest. To avoid touching every file, each SSTable has a <strong>Bloom filter</strong> — a compact probabilistic structure that answers "this key is definitely not here" cheaply, so the reader skips files that cannot contain the key. A sparse index points near the key's offset within a file. This is the classic LSM trade: writes are cheap (sequential), reads pay a little more (possibly several files), and the Bloom filter keeps that "little more" small.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="LSM storage engine: writes hit the commit log and memtable, then flush to immutable SSTables">
+            <rect class="node" x="20" y="100" width="80" height="44" rx="8"/><text class="lbl-sm" x="60" y="126" text-anchor="middle">put(k,v)</text>
+            <rect class="node-r" x="150" y="30" width="150" height="44" rx="8"/><text class="lbl-sm" x="225" y="50" text-anchor="middle">commit log</text><text class="lbl-sm" x="225" y="66" text-anchor="middle">(append-only, WAL)</text>
+            <rect x="140" y="92" width="170" height="60" rx="9" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="225" y="118" text-anchor="middle">memtable</text>
+            <text class="lbl-sm" x="225" y="136" text-anchor="middle">(sorted, in RAM)</text>
+            <rect class="node-b" x="400" y="40" width="200" height="36" rx="7"/><text class="lbl-sm" x="500" y="63" text-anchor="middle">SSTable 1 (immutable)</text>
+            <rect class="node-b" x="400" y="92" width="200" height="36" rx="7"/><text class="lbl-sm" x="500" y="115" text-anchor="middle">SSTable 2</text>
+            <rect class="node-b" x="400" y="144" width="200" height="36" rx="7"/><text class="lbl-sm" x="500" y="167" text-anchor="middle">SSTable 3</text>
+            <path class="flow" d="M100 116 C 120 80, 130 60, 148 52" marker-end="url(#arrow)"/>
+            <path class="flow" d="M100 126 H 138" marker-end="url(#arrow)"/>
+            <path class="flow" d="M310 122 C 350 100, 370 70, 398 60" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="356" y="92" text-anchor="middle">flush when full</text>
+            <path class="flow-d" d="M500 180 C 540 200, 540 200, 540 200" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="500" y="210" text-anchor="middle">compaction merges &amp; drops tombstones</text>
+            <text class="lbl-sm" x="500" y="226" text-anchor="middle" fill="#1F4E79">reads use Bloom filters to skip files</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 10 — sequential log + RAM memtable + immutable SSTables turn random writes fast</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>LSM-tree (write-optimized)</h4><ul>
+          <li>Sequential writes → very high write throughput</li>
+          <li>Cheap appends; compaction runs in the background</li>
+          <li>Reads may hit several SSTables (Bloom filters mitigate)</li>
+          <li>Best for write-heavy KV stores: Cassandra, RocksDB</li>
+        </ul></div>
+        <div class="col"><h4>B-tree (read-optimized)</h4><ul>
+          <li>Updates in place → fast point reads</li>
+          <li>Random writes and page splits are slower</li>
+          <li>Write amplification under heavy insert load</li>
+          <li>Best for read-heavy relational engines: PostgreSQL, MySQL InnoDB</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Under the hood: why immutability helps</span>
+        <p>SSTables are never modified after they are written. That immutability is what makes the engine safe under concurrency and crashes: there is no in-place update to corrupt, no lock to hold during a flush, and a half-written SSTable from a crash is simply ignored on restart in favor of replaying the commit log. The cost — stale, superseded copies piling up — is paid lazily by compaction, off the hot path.</p>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section id="s12">
+      <div class="steptag"><b>12</b> Scale &amp; failure</div>
+      <h2>Membership, scaling &amp; what breaks at 10x</h2>
+      <p>The final piece: how the cluster grows, shrinks, and keeps a shared view of itself — and where this design strains when traffic 10×'s.</p>
+      <h3>Gossip-based membership</h3>
+      <p>An AP store cannot lean on a central coordinator to track who is alive — that node would be a single point of failure and a CP-style bottleneck. Instead nodes run a <strong>gossip protocol</strong>: every second or so, each node picks a random peer and exchanges its view of the cluster — which nodes exist, their ring tokens, and a per-node heartbeat counter. Information spreads epidemically; a fact known to one node reaches the whole cluster in <code>O(log N)</code> rounds. Failure detection rides on the same channel: if a node's heartbeat stops advancing in everyone's gossip state, its peers mark it down and route around it.</p>
+      <h3>Adding and removing nodes</h3>
+      <p>Because of consistent hashing, scaling is cheap. When a new node joins, it claims a set of token ranges and only the keys in those ranges stream over from their current owners — roughly <strong>K/N keys</strong>, not the whole dataset. Neighbors hand off the relevant arcs; everything else is untouched, and the cluster keeps serving throughout. Removing a node is the reverse: its ranges are absorbed by the next nodes clockwise, which already held replicas of much of that data thanks to the preference list. This is the elastic-growth property we promised back in step 02.</p>
+      <h3>What breaks at 10x</h3>
+      <ul>
+        <li><strong>Hot keys / hot partitions.</strong> A single viral key — say a flash-sale SKU during a Shopee 12.12 campaign — funnels all its traffic to one preference list of N nodes, which consistent hashing alone cannot spread. Fixes: add a caching layer in front, or split the hot key (append a shard suffix) so it spans multiple preference lists.</li>
+        <li><strong>Compaction storms.</strong> 10× the write rate means 10× the SSTables and far more background compaction, which competes with live traffic for disk I/O and can spike read latency. You tune compaction strategy (size-tiered vs leveled) and throttle it.</li>
+        <li><strong>Anti-entropy cost.</strong> Bigger datasets make Merkle trees deeper and repair passes longer; you schedule them off-peak and bound their bandwidth.</li>
+        <li><strong>Gossip overhead.</strong> Gossip traffic grows with cluster size; at thousands of nodes you partition the gossip groups or move to a more hierarchical membership scheme.</li>
+        <li><strong>Wide rows / large values.</strong> If values creep past the ~10&nbsp;KB assumption, single-node memory and network buffers strain; you cap value size and push large blobs to an object store like S3, keeping only a pointer in the KV store.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Real systems that are this design</span>
+        <p>You have essentially re-derived <strong>Amazon Dynamo</strong> — consistent hashing, preference lists, N/W/R quorums, vector clocks, hinted handoff, Merkle anti-entropy, and gossip. <strong>Apache Cassandra</strong> and <strong>Riak</strong> are open-source descendants; <strong>DynamoDB</strong> is the managed evolution (it leans more toward configurable strong consistency). Cassandra's knobs map one-to-one: <code>replication_factor</code> = N, <code>consistency_level</code> = the W/R you pick per query, <code>num_tokens</code> = virtual nodes.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole design compresses to one sentence: <em>spread keys around a hash ring, copy each onto the next N nodes, let the operator tune how many of those N a read and write must touch, detect concurrent writes with version vectors, and heal divergence with read-repair, hinted handoff, and Merkle anti-entropy.</em> If you can draw the ring, the preference list, and the W + R &gt; N inequality from memory and explain why each failure mechanism exists, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Pick AP first</b><span>Highly available + partition-tolerant ⟹ eventual consistency; name the CAP choice up front.</span></div>
+        <div class="tk"><span class="num">02</span><b>Size for the real constraint</b><span>Here it's availability and growth, not bytes — replication triples the disk.</span></div>
+        <div class="tk"><span class="num">03</span><b>Opaque values, tiny API</b><span>get / put over byte blobs; surface the version vector in the contract.</span></div>
+        <div class="tk"><span class="num">04</span><b>Ring partitioning</b><span>Consistent hashing + vnodes; adding a node moves only ~K/N keys.</span></div>
+        <div class="tk"><span class="num">05</span><b>Preference list = N replicas</b><span>Owner plus next N−1 clockwise, across racks/AZs for durability.</span></div>
+        <div class="tk"><span class="num">06</span><b>Quorums tune consistency</b><span>W + R &gt; N forces read/write overlap; shrink them for availability.</span></div>
+        <div class="tk"><span class="num">07</span><b>Coordinator fans out</b><span>Any node coordinates: writes N, waits for W; reads R, returns freshest.</span></div>
+        <div class="tk"><span class="num">08</span><b>Read-repair heals hot keys</b><span>Detect a stale replica on read and push the fresh value back.</span></div>
+        <div class="tk"><span class="num">09</span><b>Version vectors</b><span>Distinguish newer-than from concurrent; keep siblings or LWW.</span></div>
+        <div class="tk"><span class="num">10</span><b>Three repair layers</b><span>Hinted handoff, read-repair, Merkle anti-entropy — in that order.</span></div>
+        <div class="tk"><span class="num">11</span><b>LSM storage engine</b><span>Commit log + memtable + SSTables make random writes sequential.</span></div>
+        <div class="tk"><span class="num">12</span><b>Gossip + elastic scale</b><span>No central registrar; nodes join/leave moving only their arcs.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why does choosing high availability under a partition force an eventually-consistent design, and what would change if you needed strong consistency instead?<br>(2) On the ring, how is a key's owner found, and why does adding a node move only ~K/N keys rather than nearly all of them?<br>(3) State the W + R &gt; N inequality and explain <em>why</em> it guarantees a read overlaps the latest write — then set N/W/R for maximum availability and say what you give up.<br>(4) Two clients write the same wallet key during a partition; walk through what version vectors record and what the store returns on the next read.<br>(5) Name the three reconciliation mechanisms in order of weight and say which failure each one handles.<br>(6) Trace a single put through the LSM storage engine, and explain why the commit-log append is what makes a W-ack a real durability promise.<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 21 · DESIGN A KEY-VALUE STORE · interactive edition · ref BBG V1·C6<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* write path */
+  makeStepper(document.getElementById('fig-write'), [
+    {text:"A client sends put(key, value) to any node in the cluster.", active:["w-client","w-coord"], path:"w-p1"},
+    {text:"That node becomes the coordinator: it hashes the key to the ring and forwards the write to replica B.", active:["w-coord","w-b"], path:"w-p2"},
+    {text:"It also writes to replica C — the next node on the preference list.", active:["w-coord","w-c"], path:"w-p3"},
+    {text:"Replica D is written too, but the coordinator won't wait on it (D's disk is slow).", active:["w-coord","w-d"], path:"w-p4"},
+    {text:"Once W=2 replicas (B and C) acknowledge, the coordinator returns OK — D finishes in the background.", active:["w-coord","w-ack"], path:"w-p5"}
+  ]);
+
+  /* read path + read-repair */
+  makeStepper(document.getElementById('fig-read'), [
+    {text:"A client sends get(key) to a coordinator node.", active:["r-client","r-coord"], path:"r-p1"},
+    {text:"With R=2, the coordinator asks replica C for its copy — version A:4, the fresh one.", active:["r-coord","r-c"], path:"r-p2"},
+    {text:"It also asks replica D, which returns the stale version A:3 (it missed the last write).", active:["r-coord","r-d"], path:"r-p3"},
+    {text:"The coordinator compares versions, picks A:4 as newest, and returns it to the client.", active:["r-coord","r-client"], path:"r-p4"},
+    {text:"Read-repair: in the background it pushes the fresh A:4 back to the stale replica D.", active:["r-coord","r-d"], path:"r-p5", reject:true}
+  ]);
+</script>
+</body>
+</html>

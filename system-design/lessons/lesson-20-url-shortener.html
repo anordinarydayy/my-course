@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 20 — Design a URL Shortener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;color:var(--ink);
+    margin:22px 0;}
+  pre .c{color:var(--ink-soft);} pre .k{color:var(--rust);} pre .b{color:var(--blueprint);font-weight:600;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Design a<br>URL Shortener</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why a URL shortener?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-the-envelope</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Key generation: hash vs counter</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Base62 &amp; the keyspace</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>The read path &amp; caching</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>301 vs 302 redirect</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Scale, failure &amp; 10x</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">20</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a URL Shortener</h1>
+      <p class="lede">A URL shortener turns a long, ugly link into a tiny alias, then redirects anyone who follows that alias back to the original. It is the cleanest first end-to-end interview drill: a tiny surface area, but hugely read-heavy, and it exercises every framework muscle in one sitting — clarifying scope, estimation, API design, key generation, caching, and a genuinely interesting 301-versus-302 trade-off.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on a standard, widely-documented system-design exercise. The explanations, numbers, diagrams, and code sketches here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow. Companion reference for the course: <strong>BBG V1&middot;C8</strong>.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why a URL shortener?</h2>
+      <p>A <strong>URL shortener</strong> is a service that takes a long web address and returns a much shorter alias that redirects to it. Type the short link into a browser and you land on the original page. That is the entire user-facing contract — yet it is one of the most popular warm-up questions in a system-design interview precisely because it is small enough to finish in 35 minutes and rich enough to test whether you can reason about scale.</p>
+      <p>Why would anyone want one in the first place? Long URLs are clumsy and break in places with hard character limits or visual constraints:</p>
+      <ul>
+        <li><strong>Sharing.</strong> A Shopee campaign link can run to 200+ characters of UTM tags and product IDs. A short alias is cleaner in an SMS blast, a push notification, or a printed QR code.</li>
+        <li><strong>Tracking.</strong> Because every click flows through your redirect, you can count clicks, geographies, and devices — invaluable for a Grab marketing team measuring a promo.</li>
+        <li><strong>Branding &amp; trust.</strong> A consistent short domain (say <code>grb.sg</code>) is more recognizable and harder to spoof than a sprawling third-party URL.</li>
+        <li><strong>Fixed-length channels.</strong> QR codes, receipts, and physical signage all favour a compact, predictable string.</li>
+      </ul>
+      <p>The decisive property — the one that shapes every later decision — is that this system is <strong>extraordinarily read-heavy</strong>. You create a short link once; it can then be clicked thousands or millions of times. That single sentence is why caching and read replicas dominate the design and why sharding-the-database-first is usually the wrong instinct.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 200" role="img" aria-label="A long URL being collapsed into a short alias that redirects back to it">
+            <rect class="node" x="20" y="40" width="250" height="48" rx="8"/>
+            <text class="lbl-sm" x="145" y="60" text-anchor="middle">https://shopee.sg/promo?campaign=</text>
+            <text class="lbl-sm" x="145" y="76" text-anchor="middle">2026&amp;utm_source=push&amp;id=88241</text>
+            <text class="lbl-sm" x="145" y="112" text-anchor="middle" fill="#1F4E79">long original URL</text>
+            <path class="flow" d="M275 64 H 372" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="323" y="54" text-anchor="middle">shorten</text>
+            <rect class="node-b" x="376" y="40" width="170" height="48" rx="8"/>
+            <text class="lbl" x="461" y="69" text-anchor="middle">grb.sg/4Gx9Qa</text>
+            <text class="lbl-sm" x="461" y="112" text-anchor="middle" fill="#1F4E79">short alias</text>
+            <path class="flow-r" d="M461 150 C 461 175, 300 178, 145 150 C 110 142, 120 100, 145 92" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="300" y="190" text-anchor="middle" fill="#B0532F">click the alias &rarr; redirect back to the original</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — shorten once, redirect on every click; the read path is what dominates</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>The interviewer is watching whether you scope before you build. A URL shortener has obvious surface area but several hidden decisions. Spend the first few minutes pinning these down out loud, then write them on the board so the rest of the conversation has a contract.</p>
+
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Shorten.</strong> Given a long URL, return a unique short alias on our domain.</li>
+        <li><strong>Redirect.</strong> Given a short alias, redirect the caller to the original long URL.</li>
+        <li><strong>Custom alias (optional).</strong> Let a user request a vanity key like <code>grb.sg/ramadan</code> instead of a random string — if it is still free.</li>
+        <li><strong>Expiry (optional).</strong> Allow a link to expire after a date, useful for a time-boxed GrabPay promo.</li>
+        <li><strong>Analytics (optional).</strong> Count clicks and capture coarse metadata per alias.</li>
+      </ul>
+
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>High availability.</strong> If the redirect service is down, every shared link in the wild is dead. Availability matters more than perfect consistency here.</li>
+        <li><strong>Low-latency redirects.</strong> The redirect is on the hot path of every click; aim for low tens of milliseconds at the edge.</li>
+        <li><strong>Read-heavy at scale.</strong> Reads dwarf writes — frequently a ratio of 100:1 or more. The architecture must absorb a flood of lookups cheaply.</li>
+        <li><strong>Non-guessable keys (often).</strong> Sequential, predictable keys leak how many links exist and let a scraper walk every URL. Many designs want unpredictability.</li>
+        <li><strong>No collisions.</strong> Two different long URLs must never share one alias, or a click sends a user to the wrong place.</li>
+      </ul>
+
+      <h3>Assumptions to state</h3>
+      <p>Make your numbers explicit so estimation has inputs. A reasonable set: aliases never need to be human-readable unless custom; a short key of 7 characters is acceptable; links are retained for several years; and we are at the scale of a regional super-app feature, not a global giant — say on the order of tens of millions of new links per month.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design is: <em>"this is a read-heavy redirect service, so I'll optimize the read path with caching and replicas, and keep writes simple."</em> Say it early — it tells the interviewer you've spotted the load profile, and it justifies every later choice.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-the-envelope</h2>
+      <p>A quick estimate is not busywork — it decides whether you need one database or a hundred, and whether a cache is optional or mandatory. Pick round numbers and reason in orders of magnitude. The interviewer cares about the method, not the third decimal.</p>
+
+      <h3>Writes (new links)</h3>
+      <p>Assume <strong>30 million new short links per month</strong>. Spread over a month of about 2.6 million seconds:</p>
+      <pre>30,000,000 / (30 &times; 24 &times; 3600)
+  = 30,000,000 / 2,592,000
+  &asymp; <span class="b">~12 writes per second</span>  (call it ~12 QPS, peak ~5&times; &rarr; ~60 QPS)</pre>
+      <p>That write rate is tiny. A single modest database node handles it without breaking a sweat. This is the first clue that sharding-first is premature.</p>
+
+      <h3>Reads (redirects)</h3>
+      <p>Apply the read-heavy assumption — say a <strong>100:1 read-to-write ratio</strong>, because each link is clicked many times over its life:</p>
+      <pre>12 writes/s &times; 100 = <span class="b">~1,200 reads per second</span>
+peak (~5&times;) &asymp; <span class="b">~6,000 reads per second</span></pre>
+      <p>Now the read path is the story. A 301-cacheable redirect plus an in-memory cache means most of those 6,000 reads/s never touch the database at all.</p>
+
+      <h3>Storage growth</h3>
+      <p>Estimate the size of one record. A long URL averages maybe 100 bytes; the short key 7 bytes; timestamps, owner id, and click counters add another ~100 bytes of overhead. Round to <strong>~500 bytes per row</strong> to be safe.</p>
+      <pre>30M links/month &times; 12 months = 360M links/year
+360,000,000 &times; 500 bytes &asymp; <span class="b">~180 GB / year</span>
+over 5 years &asymp; ~0.9 TB</pre>
+      <p>Under a terabyte across five years. A single well-provisioned relational instance — or a managed store like Amazon DynamoDB or PostgreSQL on RDS — holds this comfortably. You do <em>not</em> need to shard on day one.</p>
+
+      <h3>Bandwidth</h3>
+      <p>Writes at ~12/s &times; ~600 bytes of request body is a trickle (single-digit KB/s). Reads return only a small redirect response (headers, no body), so even at 6,000/s the egress is modest. Bandwidth is never the bottleneck here; <em>request rate and latency</em> are.</p>
+      <div class="callout">
+        <span class="k">Why this matters</span>
+        <p>The numbers point in one direction: <strong>writes are trivial, reads are heavy, storage is small.</strong> So the design should lean on a cache and read replicas, keep a simple single-master write path, and treat sharding as a later "what breaks at 10x" answer rather than a day-one decision. Estimation just earned you the right to make those choices defensibly.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>With scope and scale fixed, define the interface and the storage shape. Keep the public API minimal — two endpoints carry the whole product.</p>
+
+      <h3>The create endpoint</h3>
+      <p>A client posts a long URL and gets back a short one. Authenticate this call (it is a write, and you want an <code>owner_id</code> for analytics and abuse control):</p>
+      <pre><span class="k">POST</span> /api/v1/urls
+Authorization: Bearer &lt;token&gt;
+{
+  <span class="b">"long_url"</span>: "https://shopee.sg/promo?id=88241",
+  <span class="b">"custom_alias"</span>: "ramadan",      <span class="c">// optional</span>
+  <span class="b">"expires_at"</span>:  "2026-12-31T00:00:00Z" <span class="c">// optional</span>
+}
+
+<span class="c">// 201 Created</span>
+{
+  <span class="b">"short_url"</span>: "https://grb.sg/4Gx9Qa",
+  <span class="b">"alias"</span>:     "4Gx9Qa",
+  <span class="b">"long_url"</span>:  "https://shopee.sg/promo?id=88241"
+}</pre>
+      <p>Failure responses matter too: <code>409 Conflict</code> if a requested <code>custom_alias</code> is already taken, and <code>400</code> for a malformed or disallowed URL.</p>
+
+      <h3>The redirect endpoint</h3>
+      <p>This is the one that runs millions of times. It takes the alias as a path segment and answers with an HTTP redirect — no JSON body, just a status code and a <code>Location</code> header:</p>
+      <pre><span class="k">GET</span> /{alias}          <span class="c">// e.g. GET /4Gx9Qa</span>
+
+<span class="c">// 302 Found  (or 301 Moved Permanently — see step 08)</span>
+Location: https://shopee.sg/promo?id=88241
+</pre>
+      <p>If the alias does not exist or has expired, return <code>404 Not Found</code>.</p>
+
+      <h3>The data model</h3>
+      <p>The core entity is a single mapping table. The <strong>short key is the primary key</strong>, which is what makes the redirect lookup a single fast point query:</p>
+      <pre><span class="b">Table: urls</span>
+  short_key    VARCHAR(8)   <span class="k">PRIMARY KEY</span>   <span class="c">// "4Gx9Qa"</span>
+  long_url     TEXT         NOT NULL
+  owner_id     BIGINT                       <span class="c">// who created it</span>
+  created_at   TIMESTAMP    NOT NULL
+  expires_at   TIMESTAMP    NULL            <span class="c">// optional TTL</span>
+  click_count  BIGINT       DEFAULT 0       <span class="c">// coarse analytics</span></pre>
+      <p>Two design notes that go past the textbook:</p>
+      <ul>
+        <li><strong>Index the alias, not the URL.</strong> Redirects look up by <code>short_key</code>, so the PK on it is exactly the access pattern. You generally do <em>not</em> index <code>long_url</code> unless you want to deduplicate identical long URLs — and dedup has its own trap (custom aliases and per-owner links mean "same URL" shouldn't always collapse).</li>
+        <li><strong>Keep analytics out of the hot row.</strong> Incrementing <code>click_count</code> on every redirect turns a read-only lookup into a write and serializes on that one row. At scale, push click events to a message queue (Kafka) and aggregate them offline instead — the redirect path stays read-only and cache-friendly.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Common follow-up</span>
+        <p>"Why is <code>short_key</code> the primary key and not an auto-increment <code>id</code>?" Because the only high-volume access pattern is <em>lookup by alias</em>. Making the alias the PK means the redirect is a single indexed point read with no join and no secondary lookup — the cheapest possible operation on the hottest path.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The shape</div>
+      <h2>High-level architecture</h2>
+      <p>Now assemble the components and walk the two flows. The system splits cleanly into a <strong>write path</strong> (create a link, rare) and a <strong>read path</strong> (redirect, constant). Both go through a load balancer to a fleet of stateless app servers; the write path generates a key and stores the mapping, while the read path checks a cache first and falls back to the database.</p>
+      <p>Walk through the interactive diagram below. The first half is CREATE — take the next number from a counter service, encode it to a short string, and store the row. The second half is RESOLVE — a redirect that checks the cache, reads the database on a miss, populates the cache, and issues the redirect.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-arch">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive URL shortener architecture: create path and resolve path">
+            <g class="st" id="a-client"><rect class="node" x="16" y="112" width="92" height="46" rx="8"/><text class="lbl" x="62" y="140" text-anchor="middle">Client</text></g>
+            <g class="st" id="a-lb"><rect class="node-b" x="140" y="108" width="96" height="54" rx="9"/><text class="lbl" x="188" y="132" text-anchor="middle">Load</text><text class="lbl" x="188" y="150" text-anchor="middle">balancer</text></g>
+            <g class="st" id="a-app"><rect class="node" x="270" y="108" width="110" height="54" rx="9"/><text class="lbl" x="325" y="132" text-anchor="middle">App</text><text class="lbl" x="325" y="150" text-anchor="middle">servers</text></g>
+            <g class="st" id="a-ctr"><rect class="node-b" x="270" y="24" width="110" height="46" rx="9"/><text class="lbl-sm" x="325" y="44" text-anchor="middle">Counter /</text><text class="lbl-sm" x="325" y="60" text-anchor="middle">ID service</text></g>
+            <g class="st" id="a-cache"><rect x="430" y="32" width="180" height="48" rx="10" fill="#F6EAD2" stroke="#C98A2B" stroke-width="2"/><text class="lbl" x="520" y="61" text-anchor="middle">Cache (alias&rarr;url)</text></g>
+            <g class="st" id="a-db"><rect class="node-r" x="448" y="180" width="150" height="58" rx="10"/><text class="lbl" x="523" y="206" text-anchor="middle">Database</text><text class="lbl-sm" x="523" y="224" text-anchor="middle">urls table + replicas</text></g>
+            <path id="a-p1" class="flow" d="M108 135 H 138" marker-end="url(#arrow)"/>
+            <path id="a-p2" class="flow" d="M236 135 H 268" marker-end="url(#arrow)"/>
+            <path id="a-p3" class="flow" d="M325 108 V 72" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="392" y="92" text-anchor="start">next id</text>
+            <path id="a-p4" class="flow" d="M380 140 C 430 150, 440 165, 460 178" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="404" y="168" text-anchor="middle">store row</text>
+            <path id="a-p5" class="flow" d="M380 122 C 410 90, 420 78, 440 66" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="362" y="100" text-anchor="end">check</text>
+            <path id="a-p6" class="flow-d" d="M523 178 C 523 130, 560 110, 590 82" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="600" y="140" text-anchor="middle" fill="#4A7BA6">miss&rarr;fill</text>
+            <path id="a-p7" class="flow-r" d="M268 150 C 180 200, 120 185, 108 158" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="175" y="216" text-anchor="middle" fill="#B0532F">301/302 redirect</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: the create path (top) writes a row; the resolve path (bottom) reads through the cache</figcaption>
+      </figure>
+      <p>Notice what is and isn't here. There is no exotic component — a load balancer, stateless app tier, a cache, a database with replicas, and a small counter service. The cleverness lives in <em>how the key is generated</em> and <em>how the read path is made cheap</em>, which are the next deep dives.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Deep dive · the key</div>
+      <h2>Key generation: hash vs counter</h2>
+      <p>The heart of the design is: <em>how do we produce a short, unique alias for each long URL?</em> There are two schools, and the interviewer wants you to weigh them.</p>
+
+      <h3>Approach A — hash-based</h3>
+      <p>Run the long URL through a hash function (such as <strong>MD5</strong> or <strong>SHA-256</strong>), take the digest, <strong>Base62-encode</strong> it, and <strong>truncate</strong> to the first few characters — say 7. The appeal is statelessness: the same input deterministically yields the same output, and you need no central counter.</p>
+      <p>The problem is <strong>collisions</strong>. Truncating a hash throws away bits, so two different URLs can map to the same 7-character prefix. You must check the database for an existing row with that key; if it's taken by a <em>different</em> URL, you perturb the input (append a salt, or take the next slice of the digest) and try again. Under high write volume this means extra read-before-write round trips, and the logic gets fiddly.</p>
+      <pre><span class="c">// hash-based, with collision resolution</span>
+key = base62(md5(long_url))[0:7]
+<span class="k">while</span> exists(key) <span class="k">and</span> stored_url(key) != long_url:
+    key = base62(md5(long_url + <span class="b">salt++</span>))[0:7]
+store(key, long_url)</pre>
+
+      <h3>Approach B — counter + Base62</h3>
+      <p>Maintain a single global <strong>monotonic counter</strong> — every new link takes the next integer. Then <strong>Base62-encode that integer</strong> into a short string. Because each counter value is unique by construction, the resulting alias is unique by construction: <em>no collisions, no read-before-write, ever.</em></p>
+      <p>The only hard part is producing unique increasing numbers across many app servers without a single bottleneck. That is exactly the job of a distributed ID service — a <strong>Snowflake-style generator</strong> or a <strong>ticket/range-allocation server</strong> (tie this back to Lesson 19 on unique ID generation). A common cheap variant: each app server reserves a <em>range</em> of, say, 1,000 ids from a central allocator and hands them out locally, refilling when it runs low. That removes the per-request hop almost entirely.</p>
+      <pre><span class="c">// counter-based, collision-free by construction</span>
+n   = id_service.next()        <span class="c">// e.g. 125,012,003 (globally unique)</span>
+key = base62(n)                <span class="c">// "8gT2b" — no DB check needed</span>
+store(key, long_url)</pre>
+
+      <div class="vs">
+        <div class="col"><h4>Hash-based</h4><ul>
+          <li>Stateless — no central counter to coordinate</li>
+          <li>Same URL &rarr; same key (natural dedup) if you want it</li>
+          <li>Collisions are real: needs a DB existence check + retry</li>
+          <li>Read-before-write adds latency under load</li>
+          <li>Keys are essentially random &rarr; non-guessable (a plus)</li>
+        </ul></div>
+        <div class="col"><h4>Counter + Base62</h4><ul>
+          <li>Unique by construction &rarr; no collisions, no DB check</li>
+          <li>Keys stay short and grow only as the counter grows</li>
+          <li>Needs a distributed ID service (Snowflake / ticket server)</li>
+          <li>Sequential keys are guessable &rarr; obfuscate if that matters</li>
+          <li>Simple, fast write path — the usual production default</li>
+        </ul></div>
+      </div>
+
+      <h3>Failure modes</h3>
+      <p><strong>Hash path:</strong> under a write spike, collision retries multiply DB reads and can stall writes. <strong>Counter path:</strong> if the ID service is a single node and it dies, no new links can be created — so it must be replicated, or the range-allocation cache on each app server must hold enough headroom to ride out a brief outage. Note that in both cases the <em>read</em> path is unaffected: existing links keep redirecting because resolution never touches the key generator.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up to nail</span>
+        <p>"Hash or counter?" The strong answer: <em>"I'd default to a counter encoded in Base62 because it's collision-free and keeps the write path a single insert with no read-before-write. If non-guessable keys are a hard requirement, I'd either hash, or run the counter through a reversible obfuscation (like a bijective permutation) before encoding — keeping uniqueness while breaking the visible sequence."</em></p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Deep dive · encoding</div>
+      <h2>Base62 &amp; the keyspace</h2>
+      <p><strong>Base62</strong> is a positional number system using 62 symbols: the digits <code>0-9</code>, the lowercase letters <code>a-z</code>, and the uppercase letters <code>A-Z</code>. It is the natural alphabet for short links because every symbol is URL-safe (no escaping needed) and case-sensitivity buys you a far larger keyspace than Base10 or Base16 for the same length.</p>
+
+      <h3>How the encoding works</h3>
+      <p>Encoding an integer to Base62 is exactly long division: repeatedly divide by 62, and the remainders — read bottom-up — are the digit indices into the alphabet. Decoding reverses it. Walk a small example with the integer <strong>125</strong>:</p>
+      <pre>125 / 62 = 2  remainder <span class="b">1</span>     <span class="c">// alphabet[1]  = '1'</span>
+  2 / 62 = 0  remainder <span class="b">2</span>     <span class="c">// alphabet[2]  = '2'</span>
+read remainders bottom &rarr; top:  <span class="b">"21"</span></pre>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Base62 encoding of an integer counter value into a short alias">
+            <rect class="node-b" x="40" y="30" width="150" height="46" rx="8"/>
+            <text class="lbl-sm" x="115" y="50" text-anchor="middle">counter value</text>
+            <text class="lbl" x="115" y="68" text-anchor="middle">125,012,003</text>
+            <path class="flow" d="M192 53 H 250" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="221" y="43" text-anchor="middle">base62</text>
+            <rect class="node" x="254" y="30" width="150" height="46" rx="8"/>
+            <text class="lbl-sm" x="329" y="50" text-anchor="middle">short key</text>
+            <text class="lbl" x="329" y="68" text-anchor="middle">8gT2b</text>
+            <text class="lbl-sm" x="40" y="118" text-anchor="start" fill="#1F4E79">alphabet (62 symbols):</text>
+            <text class="lbl-sm" x="40" y="140" text-anchor="start">0 1 2 ... 9  a b c ... z  A B C ... Z</text>
+            <text class="lbl-sm" x="40" y="160" text-anchor="start">index 0      10           36          61</text>
+            <line x1="40" y1="178" x2="600" y2="178" stroke="#D2C7B0" stroke-width="1"/>
+            <text class="lbl-sm" x="40" y="198" text-anchor="start" fill="#B0532F">62&#8311; &asymp; 3.5 trillion keys &mdash; enough for ~3.5T links in 7 chars</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — a counter value becomes a compact, URL-safe alias via Base62</figcaption>
+      </figure>
+
+      <h3>How long should a key be?</h3>
+      <p>Each character multiplies the space by 62. So the keyspace for a key of length <em>L</em> is 62<sup>L</sup>:</p>
+      <ul>
+        <li>62<sup>5</sup> &asymp; 916 million</li>
+        <li>62<sup>6</sup> &asymp; 56.8 billion</li>
+        <li><strong>62<sup>7</sup> &asymp; 3.5 trillion</strong></li>
+      </ul>
+      <p>From step 02 we add ~360 million links a year. A <strong>7-character key</strong> (3.5 trillion slots) covers thousands of years at that rate, so 7 is a comfortable, conventional choice. Picking the length is itself an estimation answer: choose <em>L</em> so that 62<sup>L</sup> is comfortably larger than the total number of links you expect over the system's life.</p>
+      <div class="callout">
+        <span class="k">Under the hood</span>
+        <p>With the counter approach, early keys are short (an id of 125 encodes to just <code>"21"</code>) and lengthen naturally as the counter grows. If you dislike variable length or want non-sequential-looking keys, seed the counter at a large offset (so keys start at a fixed length) and/or run the integer through a reversible bijection before encoding. Both keep collision-freedom intact because the mapping stays one-to-one.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Deep dive · the read flood</div>
+      <h2>The read path &amp; caching</h2>
+      <p>Recall the load profile: ~6,000 redirects/second at peak versus a trickle of writes. If every redirect hit the database, you'd be paying for a single point query 6,000 times a second forever — wasteful, and a fragile dependency. The fix is the classic read-heavy pattern: <strong>put a cache in front of the database</strong>.</p>
+
+      <h3>What the cache stores and why it works</h3>
+      <p>The cache holds the exact thing the redirect needs: <code>alias &rarr; long_url</code>. Use an in-memory store like <strong>Redis</strong> or <strong>Memcached</strong>. Two properties make this a near-perfect cache target:</p>
+      <ul>
+        <li><strong>Tiny values.</strong> A key plus a URL is a few hundred bytes. Even tens of millions of hot entries fit in a few GB of RAM, so a high hit rate is cheap to buy.</li>
+        <li><strong>Read-mostly, rarely changing.</strong> A mapping almost never changes after creation, so cached entries stay valid — no tricky invalidation. Eviction is driven by a <strong>least-recently-used (LRU)</strong> policy plus an optional <code>TTL</code>, and the access pattern is heavily skewed: a small set of viral links generates most of the traffic, so they live permanently in cache.</li>
+      </ul>
+
+      <h3>The cache-aside flow</h3>
+      <p>This system uses <strong>cache-aside</strong> (lazy loading): the application checks the cache, and only on a miss does it read the database and then populate the cache. Step by step for a redirect:</p>
+      <ul>
+        <li>Look up <code>alias</code> in Redis.</li>
+        <li><strong>Hit:</strong> return the long URL immediately and issue the redirect. No DB touch.</li>
+        <li><strong>Miss:</strong> read the row from the database, write <code>alias &rarr; long_url</code> back to Redis (with a TTL), then redirect. The next click for that alias is a hit.</li>
+      </ul>
+
+      <h3>Read replicas behind the cache</h3>
+      <p>The cache absorbs the bulk of reads, but misses (and cold links) still hit the database. Because the workload is read-heavy and reads tolerate slight staleness, add <strong>read replicas</strong>: the single primary takes writes and asynchronously replicates to several read-only copies that serve lookups. This spreads the residual read load and gives you redundancy if the primary fails. Tools: PostgreSQL/MySQL read replicas, or a managed store like DynamoDB whose read throughput scales horizontally on its own.</p>
+
+      <h3>Optional: redirect at the edge</h3>
+      <p>For a global audience you can push the hottest mappings to a <strong>CDN / edge</strong> layer (Cloudflare Workers, Lambda@Edge) so a redirect for a viral link is served from a point of presence near the user — shaving the round trip to your region entirely. For a Singapore-centric super-app this is often unnecessary, but it's a good "what if traffic globalizes" answer.</p>
+
+      <h3>Failure mode: cache down or cold</h3>
+      <p>If Redis dies or restarts cold, every redirect becomes a database read. With replicas this is survivable but slower and more expensive — latency rises and DB CPU climbs. Mitigations: run Redis in a replicated/clustered mode so a node loss doesn't wipe the cache; warm the cache on startup with the top-N hottest aliases; and ensure the replica tier has enough headroom to take the full read load briefly. Critically, a cache miss is never <em>wrong</em> — it just falls through to the database — so correctness is never at risk, only latency.</p>
+      <div class="callout tip">
+        <span class="k">Common follow-up</span>
+        <p>"What happens on a cache miss?" Answer the mechanism, not just the word: <em>"the app reads the row from a database replica, returns the redirect, and writes the mapping back into the cache with a TTL so the next click is a hit. A miss costs one extra point query; it never returns the wrong URL."</em> Then mention the <strong>thundering herd</strong> risk — if a viral link expires from cache, thousands of simultaneous misses can stampede the DB; guard it with a short per-key lock or request coalescing.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Deep dive · the redirect code</div>
+      <h2>301 vs 302 redirect</h2>
+      <p>When the service answers a redirect, which HTTP status it returns is a real trade-off — and a favourite interviewer probe because it pits performance against analytics. Both send the browser to the long URL; the difference is whether the browser is told it may <em>cache</em> the redirect.</p>
+
+      <h3>301 Moved Permanently</h3>
+      <p>A <strong>301</strong> tells the client "this alias permanently maps to that URL." Browsers and intermediaries are then free to <strong>cache the redirect</strong> and, on future clicks, jump straight to the long URL <em>without ever contacting your server</em>. That's wonderful for load and latency — your servers see far less traffic — but it means most clicks become invisible to you, so analytics undercount badly.</p>
+
+      <h3>302 Found</h3>
+      <p>A <strong>302</strong> (or 307) says "temporary redirect — don't cache this." Every click therefore comes back to your server, where you can count it, apply expiry checks, rate-limit abuse, or even change the destination later. The cost is that your servers handle every single click, so the read load is higher and you lean harder on your cache and replicas.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Comparison of 301 permanent versus 302 temporary redirect behaviour">
+            <text class="lbl" x="160" y="28" text-anchor="middle" fill="#1F4E79">301 — Permanent</text>
+            <rect class="node" x="40" y="46" width="80" height="40" rx="7"/>
+            <text class="lbl-sm" x="80" y="71" text-anchor="middle">browser</text>
+            <rect class="node-b" x="220" y="46" width="80" height="40" rx="7"/>
+            <text class="lbl-sm" x="260" y="71" text-anchor="middle">our server</text>
+            <path class="flow" d="M120 60 H 218" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="170" y="50" text-anchor="middle">1st click</text>
+            <path class="flow-d" d="M120 100 H 300" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="200" y="120" text-anchor="middle" fill="#4A7BA6">later clicks: cached &mdash; skip our server</text>
+            <text class="lbl-sm" x="110" y="150" text-anchor="middle">&rarr; low load, weak analytics</text>
+
+            <text class="lbl" x="470" y="28" text-anchor="middle" fill="#B0532F">302 — Temporary</text>
+            <rect class="node" x="350" y="46" width="80" height="40" rx="7"/>
+            <text class="lbl-sm" x="390" y="71" text-anchor="middle">browser</text>
+            <rect class="node-r" x="530" y="46" width="80" height="40" rx="7"/>
+            <text class="lbl-sm" x="570" y="71" text-anchor="middle">our server</text>
+            <path class="flow-r" d="M430 56 H 528" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M430 70 H 528" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M430 84 H 528" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="480" y="120" text-anchor="middle" fill="#B0532F">every click hits our server</text>
+            <text class="lbl-sm" x="470" y="150" text-anchor="middle">&rarr; full analytics, higher load</text>
+
+            <line x1="40" y1="178" x2="610" y2="178" stroke="#D2C7B0" stroke-width="1"/>
+            <text class="lbl-sm" x="325" y="202" text-anchor="middle">choose by what you value: server savings vs per-click control</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — 301 lets the browser shortcut your server; 302 routes every click through you</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>301 Permanent</h4><ul>
+          <li>Browser caches it &rarr; far fewer requests reach you</li>
+          <li>Lowest latency on repeat clicks (no server round trip)</li>
+          <li>Analytics undercount — most clicks are invisible</li>
+          <li>Hard to change the destination later (cached everywhere)</li>
+          <li>Best when the mapping is truly fixed and load is the worry</li>
+        </ul></div>
+        <div class="col"><h4>302 Temporary</h4><ul>
+          <li>Every click returns &rarr; accurate analytics</li>
+          <li>Lets you enforce expiry, rate-limit, or re-target the link</li>
+          <li>Higher server load — you handle all traffic</li>
+          <li>Relies on your cache/replicas to stay fast under that load</li>
+          <li>The usual default for a product that wants click data</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">The follow-up to nail</span>
+        <p>"301 or 302?" Don't pick blindly — state the trade-off: <em>"302 by default, because a marketing-driven shortener at Grab or Shopee lives on click analytics and the ability to expire or re-target a link, and our cache makes the extra load cheap. I'd only use 301 for stable, high-volume links where shedding server load matters more than counting clicks."</em></p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Wrap-up</div>
+      <h2>Scale, failure &amp; what breaks at 10x</h2>
+      <p>You've got a working design. Close the interview by stress-testing it: where does each piece bend, and what do you add when traffic grows 10x to ~60,000 reads/second?</p>
+
+      <h3>Scaling the read path (the easy 10x)</h3>
+      <p>Reads scale almost for free here. Add cache capacity and more read replicas, and push hot links to the edge. Because the data is small and rarely changes, a 90%+ cache hit rate is realistic, so even a 10x read increase mostly lands on Redis, not the database. This is the payoff of having called the workload read-heavy at the very start.</p>
+
+      <h3>Scaling the write path &amp; storage (when you finally shard)</h3>
+      <p>Writes were ~12/s; at 10x they're ~120/s — still trivial for one primary. Storage was under a TB over five years; at 10x it approaches several TB, which is when a single node starts to strain. <em>That</em> is the moment to shard, and the natural shard key is the <strong>short_key</strong>: hash the alias to pick a partition. Because every redirect already knows the alias, routing a lookup to the right shard is a pure function of the key — no cross-shard fan-out, no joins. Tools that shard this transparently: DynamoDB (partition key = short_key), Cassandra, or Vitess over MySQL.</p>
+
+      <h3>Failure modes, named</h3>
+      <ul>
+        <li><strong>Cache node dies.</strong> Misses fall through to replicas — slower, not wrong. Run Redis clustered and warm the top-N keys on restart.</li>
+        <li><strong>Database primary dies.</strong> Writes pause until a replica is promoted (failover); reads continue from the other replicas the whole time. Existing links keep redirecting — the read path doesn't depend on the primary.</li>
+        <li><strong>ID/counter service dies.</strong> No new links can be created. Mitigate by replicating it and having each app server pre-allocate a range of ids, so it can keep minting locally through a brief outage.</li>
+        <li><strong>A link goes viral.</strong> A single alias can dominate traffic; it lives permanently in cache, so it's cheap — but guard the cache-miss stampede with request coalescing so an expiry doesn't dump thousands of simultaneous DB reads.</li>
+      </ul>
+
+      <h3>Analytics without poisoning the hot path</h3>
+      <p>If you went with 302 and want real click analytics, do <em>not</em> increment a counter row on every redirect — that turns a read into a write and creates a hot row. Instead, emit a lightweight click event to a <strong>message queue (Kafka)</strong> and let a stream processor (Flink, or a batch job) aggregate clicks by alias, geography, and device offline. The redirect path stays read-only and cache-friendly; analytics becomes an independent, horizontally-scalable pipeline.</p>
+      <div class="callout tip">
+        <span class="k">Deep-dive the interviewer may push for</span>
+        <p><strong>Custom aliases &amp; collisions:</strong> a vanity request like <code>grb.sg/ramadan</code> bypasses the counter, so you must check the table and return <code>409</code> if taken — and reserve a namespace so user-chosen aliases can never collide with machine-generated ones (e.g. machine keys are always length-7 from the counter; custom aliases live in a separate length band or a reserved prefix). <strong>Also be ready for:</strong> link expiry (a TTL check on read, plus a sweeper job), abuse/malware links (scan on create, allow takedown), and whether to deduplicate identical long URLs (usually no, because owners, custom aliases, and analytics differ per link).</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole design compresses to one sentence: <em>generate a short unique key (counter + Base62), store one mapping row, and serve a read-heavy redirect through a cache and replicas — choosing 301 or 302 by whether you value server savings or click analytics.</em> If you can sketch the create and resolve paths and defend the key-generation and redirect-code choices, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Read-heavy is the lens</b><span>Create once, redirect millions of times — optimize the read path first.</span></div>
+        <div class="tk"><span class="num">02</span><b>Estimate before building</b><span>~12 writes/s, ~6k reads/s, &lt;1 TB/5yr &rarr; cache + replicas, not shard-first.</span></div>
+        <div class="tk"><span class="num">03</span><b>Alias is the primary key</b><span>Redirect = one indexed point read on short_key; no joins.</span></div>
+        <div class="tk"><span class="num">04</span><b>Counter beats hash</b><span>Counter + Base62 is collision-free; hash needs a DB check and retries.</span></div>
+        <div class="tk"><span class="num">05</span><b>Base62, 7 chars</b><span>62&#8311; &asymp; 3.5T keys — URL-safe and far more than you'll ever need.</span></div>
+        <div class="tk"><span class="num">06</span><b>Cache the mapping</b><span>alias&rarr;url in Redis, cache-aside; misses fall through, never go wrong.</span></div>
+        <div class="tk"><span class="num">07</span><b>301 vs 302</b><span>301 = browser caches, low load, weak analytics; 302 = every click counts.</span></div>
+        <div class="tk"><span class="num">08</span><b>Shard by short_key (later)</b><span>Reads scale on cache+replicas; shard only when storage forces it.</span></div>
+        <div class="tk"><span class="num">09</span><b>Analytics off the hot path</b><span>Emit click events to Kafka; aggregate offline so reads stay cheap.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why is this system read-heavy, and how does that single fact shape the architecture?<br>(2) Walk the create path and the resolve path end to end.<br>(3) Hash vs counter for key generation — which would you pick and what failure mode does each have?<br>(4) How does Base62 encode a counter value, and how do you choose the key length?<br>(5) What exactly happens on a cache miss, and why is a miss never <em>wrong</em>?<br>(6) 301 vs 302 — what's the trade-off, and which do you default to and why?<br>Any fuzzy answer &rarr; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 20 · DESIGN A URL SHORTENER · interactive edition · ref BBG V1&middot;C8<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* architecture: create + resolve lifecycle */
+  makeStepper(document.getElementById('fig-arch'), [
+    {text:"CREATE — a client posts a long URL; it hits the load balancer first.", active:["a-client","a-lb"], path:"a-p1"},
+    {text:"The load balancer forwards it to any stateless app server in the fleet.", active:["a-lb","a-app"], path:"a-p2"},
+    {text:"The app server asks the counter / ID service for the next unique number and Base62-encodes it into a short key.", active:["a-app","a-ctr"], path:"a-p3"},
+    {text:"It stores the alias → long_url mapping as one row in the database (and warms the cache).", active:["a-app","a-db"], path:"a-p4"},
+    {text:"RESOLVE — a click for /alias arrives; the app server checks the cache first.", active:["a-app","a-cache"], path:"a-p5"},
+    {text:"On a cache MISS, it reads the row from the database (a replica) and writes the mapping back into the cache.", active:["a-cache","a-db"], path:"a-p6"},
+    {text:"The app server returns a 301/302 redirect to the original long URL.", active:["a-app","a-client"], path:"a-p7", reject:true}
+  ]);
+</script>
+</body>
+</html>

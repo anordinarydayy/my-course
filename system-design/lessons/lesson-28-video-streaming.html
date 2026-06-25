@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 28 — Design Video Streaming (YouTube)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;background:var(--paper-2);
+    border:1px solid var(--line);border-left:4px solid var(--blueprint-soft);border-radius:10px;
+    padding:16px 18px;overflow-x:auto;color:var(--ink);margin:24px 0;}
+  pre .cmt{color:var(--ink-soft);}
+  pre .kw{color:var(--rust);}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Video<br>Streaming</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why video is its own beast</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimation</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Resumable upload</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The transcoding pipeline ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Adaptive bitrate streaming</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>CDN delivery ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Metadata, views &amp; storage tiers</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Failure modes &amp; 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">28</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design Video Streaming (YouTube)</h1>
+      <p class="lede">A video platform must swallow enormous uploads, grind each one into a fan-out of resolutions and bitrates, and then push it to phones, laptops, and TVs on every kind of network without the dreaded spinning buffer wheel. The twist that shapes the whole design: bandwidth — not compute — is where the money goes. The interesting engineering lives in the upload-process-serve pipeline and in adaptive bitrate delivery.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on designing a large-scale video streaming service, a standard and widely-documented system-design topic. The explanations, numbers, examples, and diagrams here are my own; nothing is copied from any paid course or book. Three diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the pipeline flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why video is its own beast</h2>
+      <p>Most "design a system" questions are dominated by request count: how many writes per second, how many reads, how do you shard the keyspace. Video flips that intuition. A single one-hour 1080p upload is on the order of a few gigabytes of source data; serving it to a million viewers at once is hundreds of gigabits per second of <strong>egress</strong> — the bytes leaving your network toward users. Compared to that, the database queries that look up a title or a view count are a rounding error.</p>
+      <p>So the design pressure comes from three places that ordinary CRUD systems never feel:</p>
+      <ul>
+        <li><strong>Ingest is heavy.</strong> Uploads are huge, slow, and flaky. A creator on hotel Wi-Fi uploading a 2&nbsp;GB clip cannot afford to restart from byte zero when the connection drops at 90%.</li>
+        <li><strong>Processing is expensive and parallel.</strong> One source video must become many <strong>renditions</strong> — different resolution/bitrate combinations — and often multiple codecs. That is a CPU-and-GPU-bound fan-out, not a quick write.</li>
+        <li><strong>Delivery is bandwidth-bound, not compute-bound.</strong> Once a popular video exists, the cost is almost entirely the bytes you ship. This is why a <strong>CDN</strong> (content delivery network) is not optional decoration — it is the load-bearing wall of the whole design.</li>
+      </ul>
+      <p>Think of TikTok in Singapore: a creator films a 60-second clip, uploads it over mobile, and within minutes it can be playing on millions of devices across Southeast Asia at whatever quality each phone's network can sustain. Every architectural choice below exists to make that loop fast, cheap, and resilient.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="The three stages of a video platform: upload, process, serve, with egress dominating cost">
+            <rect class="node" x="24" y="84" width="120" height="52" rx="9"/>
+            <text class="lbl" x="84" y="108" text-anchor="middle">Upload</text>
+            <text class="lbl-sm" x="84" y="125" text-anchor="middle">huge, flaky</text>
+            <rect class="node-b" x="200" y="84" width="130" height="52" rx="9"/>
+            <text class="lbl" x="265" y="108" text-anchor="middle">Process</text>
+            <text class="lbl-sm" x="265" y="125" text-anchor="middle">CPU/GPU heavy</text>
+            <rect class="node-r" x="386" y="84" width="130" height="52" rx="9"/>
+            <text class="lbl" x="451" y="108" text-anchor="middle">Serve</text>
+            <text class="lbl-sm" x="451" y="125" text-anchor="middle">bandwidth $$$</text>
+            <rect x="544" y="76" width="74" height="68" rx="9" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="581" y="106" text-anchor="middle">viewers</text>
+            <text class="lbl-sm" x="581" y="122" text-anchor="middle">(millions)</text>
+            <path class="flow" d="M144 110 H 198" marker-end="url(#arrow)"/>
+            <path class="flow" d="M330 110 H 384" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M516 110 H 542" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle" fill="#B0532F">egress bandwidth dominates the bill</text>
+            <path class="flow-r" d="M84 70 C 200 30, 440 30, 560 70" marker-end="url(#arrow-r)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — three stages; the rightmost one quietly owns the cost model</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Before drawing boxes, narrow what we are building. "YouTube" can mean a hundred features; the interviewer wants to see you carve out a coherent core and state assumptions out loud.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Upload</strong> a video from any device, reliably, even on a weak connection.</li>
+        <li><strong>Process</strong> each upload into multiple qualities so it plays smoothly on a 4K TV or a 3G phone.</li>
+        <li><strong>Stream</strong> a video on demand with minimal startup delay and minimal mid-playback <strong>buffering</strong> (the player stalling while it waits for data).</li>
+        <li><strong>Browse and search</strong> by title, fetch metadata (owner, description, thumbnail), and show a <strong>view count</strong>.</li>
+      </ul>
+      <h3>Out of scope (say so explicitly)</h3>
+      <ul>
+        <li><strong>Live streaming</strong> — real-time ingest changes the pipeline materially; we focus on video-on-demand (VOD).</li>
+        <li>Comments, the recommendation feed, monetization, and DRM — acknowledge them, then set them aside to protect time.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>High availability</strong> for playback — a viewer should almost never see "video unavailable."</li>
+        <li><strong>Low startup latency</strong> and smooth playback across a wide range of network conditions.</li>
+        <li><strong>Cost efficiency</strong> — because egress dominates, the design must aggressively cache and avoid re-shipping bytes from origin.</li>
+        <li><strong>Scalability</strong> — read-heavy by a huge margin (far more views than uploads), so reads and writes scale independently.</li>
+        <li><strong>Durability</strong> — never lose an uploaded master; creators trust us with the only copy.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole answer: <em>"This is overwhelmingly read-heavy and bandwidth-bound, so the pipeline turns one expensive upload into many cheap-to-serve segments, and a CDN absorbs the read load."</em> Say it early; everything downstream is justified by it.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-the-envelope estimation</h2>
+      <p>Numbers force the architecture. Pick round figures and reason aloud — precision matters less than the order of magnitude and the conclusion it drives.</p>
+      <h3>Uploads and storage</h3>
+      <p>Assume <strong>500 million daily active users</strong> and that <strong>1 in 1,000</strong> uploads on a given day — so <strong>500,000 uploads/day</strong>, roughly <strong>6 uploads/second</strong> on average (and call it ~3x that at peak, ~18/s). Say the average upload is <strong>300 MB</strong> of source video. Raw ingest is then:</p>
+      <ul>
+        <li><code>500,000 × 300 MB ≈ 150 TB/day</code> of master files.</li>
+        <li>Transcoding multiplies that. If all renditions plus the codecs together total roughly <strong>1.5×</strong> the master size, processed output is another <code>~225 TB/day</code>. Combined, call it <strong>~375 TB/day</strong>, or well over <strong>100 PB/year</strong>. Storage is large but, on object storage, cheap and linear — it is not the scary number.</li>
+      </ul>
+      <h3>Egress bandwidth — the scary number</h3>
+      <p>Now the read side. Suppose those 500M users watch on average <strong>30 minutes/day</strong>, and the average serving bitrate (blending phones on mobile data with TVs on fiber) is <strong>3 Mbps</strong>. Daily bytes served:</p>
+      <ul>
+        <li><code>500M users × 1,800 s × 3 Mbps ≈ 2.7 × 10¹⁸ bits/day</code> ≈ <strong>340 PB/day</strong> egress.</li>
+        <li>Spread over a day that averages <code>~31 Tbps</code>, and peak is several times higher.</li>
+      </ul>
+      <p>Compare: <strong>~375 TB/day written</strong> versus <strong>~340 PB/day read out</strong> — reads outweigh writes by roughly <strong>900×</strong> in bytes. That ratio is the entire justification for a CDN. Serving even a fraction of 30+ Tbps directly from origin data centers would be ruinous; you push the bytes to <strong>edge caches</strong> close to users and serve the same popular segment millions of times from there.</p>
+      <div class="callout">
+        <span class="k">Why this matters</span>
+        <p>Two takeaways to state:<br>(1) <strong>storage is large but boring</strong> — object storage scales linearly and is cheap per byte;<br>(2) <strong>egress is the cost center</strong>, so the design optimizes for <strong>cache hit ratio at the edge</strong>. If 95% of viewing concentrates on a small set of popular videos, a CDN serving 95%+ from cache turns a 30&nbsp;Tbps origin problem into a 1.5&nbsp;Tbps one.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Sketch the contract so the components have something concrete to talk to. Two surfaces matter: the <strong>upload API</strong> (write path) and the <strong>playback API</strong> (read path). The actual video bytes never travel through your application servers as request bodies — they go straight to object storage and are served by the CDN. Your API moves <em>metadata and URLs</em>, not media.</p>
+      <h3>Upload API</h3>
+      <pre><span class="cmt"># 1. Reserve an upload — get back an id and a place to put bytes</span>
+<span class="kw">POST</span> /v1/videos
+  body: { title, description, visibility }
+  → 201 { video_id, upload_id,
+          upload_url:  <span class="cmt"># pre-signed, resumable target in object storage</span>
+          "https://uploads.vid.sg/u/abc123?token=..." }
+
+<span class="cmt"># 2. Client PUTs the file in chunks to upload_url (resumable, see step 05)</span>
+<span class="kw">PUT</span> {upload_url}
+  Header: Content-Range: bytes 8388608-16777215/314572800
+  → 308 Resume Incomplete   <span class="cmt"># or 200/201 when the last chunk lands</span>
+
+<span class="cmt"># 3. Finalize — triggers the transcoding pipeline</span>
+<span class="kw">POST</span> /v1/videos/{video_id}/complete
+  → 202 Accepted { status: "PROCESSING" }</pre>
+      <h3>Playback API</h3>
+      <pre><span class="cmt"># Fetch metadata + the manifest URL (a tiny JSON response)</span>
+<span class="kw">GET</span> /v1/videos/{video_id}
+  → 200 {
+      video_id, title, owner_id, duration_s, view_count,
+      thumbnail_url: "https://cdn.vid.sg/t/abc123/hq.jpg",
+      status: "READY",
+      manifest_url: "https://cdn.vid.sg/v/abc123/master.m3u8"
+    }
+
+<span class="cmt"># The PLAYER then talks to the CDN directly, not to your API:</span>
+<span class="kw">GET</span> https://cdn.vid.sg/v/abc123/master.m3u8     <span class="cmt"># the manifest</span>
+<span class="kw">GET</span> https://cdn.vid.sg/v/abc123/720p/seg_0007.ts <span class="cmt"># one ~4s segment</span></pre>
+      <h3>Data-model sketch</h3>
+      <p>Metadata is small, structured, and read constantly, so it lives in a database; the media lives in object storage and is referenced by key. A first cut:</p>
+      <pre><span class="kw">videos</span>          <span class="cmt"># the catalog row, read on every watch page</span>
+  video_id PK · owner_id · title · description
+  duration_s · visibility · status (UPLOADING|PROCESSING|READY|FAILED)
+  thumbnail_key · created_at
+
+<span class="kw">renditions</span>      <span class="cmt"># one row per quality produced by the pipeline</span>
+  video_id FK · resolution (1080p|720p|480p|...) · codec (h264|av1)
+  bitrate_kbps · segment_count · manifest_key · storage_class (HOT|COLD)
+
+<span class="kw">view_counts</span>     <span class="cmt"># write-heavy, eventually consistent (see step 09)</span>
+  video_id PK · count (approx) · updated_at</pre>
+      <p>The <code>videos</code> table is read-mostly with simple key lookups, so a wide-column store like <strong>Cassandra</strong> (or DynamoDB) partitioned by <code>video_id</code> fits the access pattern and scales horizontally; a relational store like <strong>PostgreSQL</strong> is perfectly fine until the read fan-out forces partitioning. The choice is secondary — the point in the interview is recognizing that metadata and media have completely different storage needs.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"Why a pre-signed upload URL instead of uploading through your servers?"</em> Because routing gigabytes through application servers wastes their bandwidth and memory and makes them a bottleneck. A <strong>pre-signed URL</strong> lets the client write bytes directly to object storage with a time-limited, scoped credential, keeping your API servers thin. We expand on the upload mechanics in step 05.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The blueprint</div>
+      <h2>High-level architecture</h2>
+      <p>Now assemble the pieces into one picture and trace the end-to-end flow. The system splits cleanly into a <strong>write path</strong> (upload → store → transcode) that runs once per video, and a <strong>read path</strong> (manifest → segments → CDN) that runs millions of times. Keeping them separate is what lets reads scale independently of writes.</p>
+      <p>Walk the diagram below with the controls. A client uploads to <strong>object storage</strong> via a pre-signed URL; finalizing the upload drops a job on a <strong>message queue</strong>; a fleet of <strong>transcoding workers</strong> fans the master out into renditions and segments, writes them back to storage, and publishes a <strong>manifest</strong>; the <strong>metadata service</strong> flips the video to <code>READY</code>; and from then on viewers pull the manifest and segments through the <strong>CDN</strong>, which caches them at the edge.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-hld">
+          <svg viewBox="0 0 640 300" role="img" aria-label="Interactive high-level architecture: upload, queue, transcode, store, metadata, CDN, viewer">
+            <g class="st" id="h-client"><rect class="node" x="14" y="36" width="92" height="44" rx="8"/><text class="lbl" x="60" y="63" text-anchor="middle">Uploader</text></g>
+            <g class="st" id="h-api"><rect class="node-b" x="150" y="32" width="104" height="52" rx="9"/><text class="lbl" x="202" y="55" text-anchor="middle">API /</text><text class="lbl" x="202" y="72" text-anchor="middle">gateway</text></g>
+            <g class="st" id="h-store"><rect class="node" x="300" y="30" width="120" height="56" rx="9" fill="#FBEFDD" stroke="#C98A2B"/><text class="lbl" x="360" y="53" text-anchor="middle">Object</text><text class="lbl" x="360" y="70" text-anchor="middle">storage</text></g>
+            <g class="st" id="h-queue"><rect x="150" y="120" width="104" height="50" rx="9" fill="#ECE6F7" stroke="#6E59A5" stroke-width="2"/><text class="lbl" x="202" y="142" text-anchor="middle">Job</text><text class="lbl" x="202" y="159" text-anchor="middle">queue</text></g>
+            <g class="st" id="h-work"><rect class="node-b" x="300" y="116" width="120" height="58" rx="9"/><text class="lbl" x="360" y="139" text-anchor="middle">Transcode</text><text class="lbl" x="360" y="156" text-anchor="middle">workers</text></g>
+            <g class="st" id="h-meta"><rect x="150" y="210" width="104" height="50" rx="9" fill="#E4F0F0" stroke="#2E8B8B" stroke-width="2"/><text class="lbl" x="202" y="232" text-anchor="middle">Metadata</text><text class="lbl" x="202" y="249" text-anchor="middle">DB</text></g>
+            <g class="st" id="h-cdn"><rect class="node-r" x="330" y="210" width="110" height="52" rx="9"/><text class="lbl" x="385" y="232" text-anchor="middle">CDN</text><text class="lbl-sm" x="385" y="249" text-anchor="middle">edge cache</text></g>
+            <g class="st" id="h-viewer"><rect class="node" x="500" y="208" width="116" height="52" rx="9"/><text class="lbl" x="558" y="231" text-anchor="middle">Viewer</text><text class="lbl-sm" x="558" y="248" text-anchor="middle">ABR player</text></g>
+            <!-- motion paths -->
+            <path id="h-p1" class="flow" d="M106 58 H 148" marker-end="url(#arrow)"/>
+            <path id="h-p2" class="flow" d="M254 58 H 298" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="276" y="48" text-anchor="middle">bytes</text>
+            <path id="h-p3" class="flow" d="M202 84 V 118" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="232" y="104" text-anchor="middle">job</text>
+            <path id="h-p4" class="flow" d="M254 145 H 298" marker-end="url(#arrow)"/>
+            <path id="h-p5" class="flow" d="M360 116 V 88" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="430" y="96" text-anchor="start">read master /</text>
+            <text class="lbl-sm" x="430" y="110" text-anchor="start">write renditions</text>
+            <path id="h-p6" class="flow" d="M300 150 C 250 175, 220 195, 205 208" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="275" y="180" text-anchor="middle">READY</text>
+            <path id="h-p7" class="flow-r" d="M558 206 C 540 150, 460 120, 420 86" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="570" y="148" text-anchor="middle" fill="#B0532F">miss → origin</text>
+            <path id="h-p8" class="flow" d="M498 236 H 442" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="470" y="226" text-anchor="middle">segments</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: the write path (top) feeds storage; the read path (bottom) serves from the edge</figcaption>
+      </figure>
+      <p>The cleanest way to describe this to an interviewer is "asynchronous, queue-driven processing decouples a slow, expensive transcode from a fast user response." The uploader gets a <code>202 Accepted</code> immediately; the heavy work happens out of band, and the video becomes watchable when the pipeline finishes.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Bottleneck · ingest</div>
+      <h2>Resumable upload</h2>
+      <p>The first bottleneck is getting the bytes in at all. A naive single <code>POST</code> of a 2&nbsp;GB file has two fatal problems: if the connection drops at 95% you start over, and the upload ties up a server socket for minutes. On Singapore mobile networks, where a creator might be on a train switching cells, that failure is the common case, not the edge case.</p>
+      <h3>How resumable upload works under the hood</h3>
+      <p>The fix is <strong>chunked, resumable upload</strong>: split the file into fixed-size chunks (say 8&nbsp;MB) and upload them independently, each addressed by a byte range.</p>
+      <ul>
+        <li>The client first asks the API to <strong>initiate</strong> an upload session, receiving an <code>upload_id</code> and a pre-signed URL.</li>
+        <li>Each chunk is sent with a <code>Content-Range: bytes 8388608-16777215/314572800</code> header. The storage service acknowledges each chunk it has durably received.</li>
+        <li>If the connection drops, the client asks "how far did you get?" — the server replies with the highest contiguous byte received (an HTTP <code>308 Resume Incomplete</code> with a <code>Range</code> header), and the client <strong>resumes from there</strong> instead of byte zero.</li>
+        <li>When the final chunk lands, storage assembles the object and the client calls <code>/complete</code>, which enqueues the transcode job.</li>
+      </ul>
+      <p>This is exactly the resumable object-upload model offered by <strong>Amazon S3 multipart upload</strong> and <strong>Google Cloud Storage resumable uploads</strong>, and what the <strong>tus</strong> protocol standardizes. The chunk size is the key knob: larger chunks mean fewer round trips but more to re-send on a failure; 5–16&nbsp;MB is a common sweet spot.</p>
+      <p>Two refinements matter in practice. First, <strong>chunks can upload in parallel</strong> — because each is an independent <code>PUT</code> against a byte range, a client on a good connection can saturate its uplink with several in flight at once, and storage assembles them in order at the end. Second, attach a <strong>checksum</strong> (e.g. an MD5/ETag) per chunk so a silently corrupted chunk is detected and re-sent rather than baked into the master; the final assembled object also carries a checksum the pipeline verifies before transcoding. This protects against the subtle failure where bytes arrive but are wrong, which a naive "did we receive enough bytes?" check would miss.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 200" role="img" aria-label="Chunked upload: file split into chunks, one fails and is retried, the rest assemble in object storage">
+            <text class="lbl-sm" x="130" y="36" text-anchor="middle">2 GB file split into 8 MB chunks</text>
+            <g>
+              <rect x="30" y="60" width="44" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/>
+              <rect x="80" y="60" width="44" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/>
+              <rect x="130" y="60" width="44" height="34" rx="5" fill="#F6E7DE" stroke="#B0532F" stroke-width="1.5"/>
+              <rect x="180" y="60" width="44" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/>
+              <text class="lbl-sm" x="52" y="82" text-anchor="middle">c1✓</text>
+              <text class="lbl-sm" x="102" y="82" text-anchor="middle">c2✓</text>
+              <text class="lbl-sm" x="152" y="82" text-anchor="middle" fill="#B0532F">c3✗</text>
+              <text class="lbl-sm" x="202" y="82" text-anchor="middle">c4✓</text>
+            </g>
+            <path class="flow-r" d="M152 100 C 152 130, 152 130, 152 124" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="152" y="140" text-anchor="middle" fill="#B0532F">retry c3 only</text>
+            <path class="flow" d="M232 78 H 372" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="302" y="68" text-anchor="middle">PUT chunks</text>
+            <rect x="378" y="50" width="150" height="80" rx="10" fill="#FBEFDD" stroke="#C98A2B" stroke-width="2"/>
+            <text class="lbl" x="453" y="84" text-anchor="middle">Object</text>
+            <text class="lbl" x="453" y="102" text-anchor="middle">storage</text>
+            <path class="flow" d="M528 90 H 600" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="572" y="80" text-anchor="middle">assemble</text>
+            <text class="lbl-sm" x="453" y="152" text-anchor="middle">acks each durable chunk</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — only the failed chunk is re-sent; the rest are already durable</figcaption>
+      </figure>
+      <h3>Failure mode</h3>
+      <p>If the client crashes mid-upload, the partial object simply expires — set a lifecycle rule to abort incomplete multipart uploads after, say, 24 hours so half-finished masters don't accumulate cost. If the <code>/complete</code> call is lost, the client retries it; making <code>/complete</code> <strong>idempotent</strong> on <code>upload_id</code> means a duplicate retry doesn't enqueue two transcode jobs.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"How do you stop someone uploading a 50&nbsp;GB junk file or a virus?"</em> The pre-signed URL is scoped and size-capped; after upload, the pipeline runs validation (container/codec sniffing, a malware scan, and content checks) <strong>before</strong> the video is published. A rejected upload flips status to <code>FAILED</code> and never reaches the CDN.</p>
+      </div>
+    </section>
+
+    <!-- 6 — INTERACTIVE -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Bottleneck · processing</div>
+      <h2>The transcoding pipeline</h2>
+      <p>The master file is in storage, but it is useless for streaming as-is — it is one giant file in one quality. The second bottleneck is turning it into something every device can play smoothly. This is the job of <strong>transcoding</strong>: decoding the source and re-encoding it into many renditions, then chopping each into small segments and writing a manifest.</p>
+      <h3>Why a DAG of jobs, not one big job</h3>
+      <p>Processing a video is not a single step — it is a <strong>directed acyclic graph</strong> (DAG) of dependent tasks: inspect the file, then in parallel produce each rendition, then per rendition split into segments, then assemble the manifest, then a final "publish" step that flips the video to <code>READY</code>. Modeling it as a DAG lets independent branches (e.g. the 1080p and 480p encodes) run on different workers at the same time, and lets you retry just the branch that failed instead of redoing everything.</p>
+      <h3>How the fan-out works under the hood</h3>
+      <ul>
+        <li><code>/complete</code> publishes a <strong>job message</strong> onto a queue (e.g. <strong>Kafka</strong> or <strong>SQS</strong>) — this is the decoupling point from L15's async-processing pattern. The API returns instantly; the queue buffers bursts.</li>
+        <li>A fleet of stateless <strong>transcoding workers</strong> pulls jobs. Each worker runs an encoder — in practice <strong>FFmpeg</strong> with codecs like <strong>H.264</strong>, <strong>VP9</strong>, or <strong>AV1</strong>, often GPU-accelerated for speed.</li>
+        <li>For each target <strong>rendition</strong> (e.g. 144p, 240p, 480p, 720p, 1080p, 4K, each at a chosen bitrate), the worker re-encodes the video, then runs the <strong>segmenter</strong> to cut it into ~2–6 second <strong>segments</strong> (small media files, e.g. <code>seg_0001.ts</code>).</li>
+        <li>Crucially, segments are aligned on <strong>keyframe (GOP) boundaries</strong> so the player can switch between renditions cleanly at any segment edge. This alignment is what makes adaptive bitrate (step 07) possible.</li>
+        <li>A final step writes the <strong>manifest</strong> files (one per-rendition playlist plus a master that lists all renditions) and publishes a "done" event that updates metadata to <code>READY</code>.</li>
+      </ul>
+      <p>Step through the fan-out below: one master explodes into parallel renditions, each segmented, all stitched together by a single manifest.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-trans">
+          <svg viewBox="0 0 640 290" role="img" aria-label="Interactive transcoding fan-out: master into multiple renditions, segmented, then a manifest">
+            <g class="st" id="t-master"><rect class="node" x="14" y="120" width="104" height="56" rx="9" fill="#FBEFDD" stroke="#C98A2B"/><text class="lbl" x="66" y="143" text-anchor="middle">Master</text><text class="lbl-sm" x="66" y="160" text-anchor="middle">1 file</text></g>
+            <g class="st" id="t-queue"><rect x="148" y="122" width="92" height="52" rx="9" fill="#ECE6F7" stroke="#6E59A5" stroke-width="2"/><text class="lbl" x="194" y="144" text-anchor="middle">Queue</text><text class="lbl-sm" x="194" y="161" text-anchor="middle">DAG jobs</text></g>
+            <g class="st" id="t-r1"><rect class="node-b" x="290" y="22" width="150" height="44" rx="8"/><text class="lbl" x="365" y="49" text-anchor="middle">1080p · 6 Mbps</text></g>
+            <g class="st" id="t-r2"><rect class="node-b" x="290" y="86" width="150" height="44" rx="8"/><text class="lbl" x="365" y="113" text-anchor="middle">720p · 3 Mbps</text></g>
+            <g class="st" id="t-r3"><rect class="node-b" x="290" y="150" width="150" height="44" rx="8"/><text class="lbl" x="365" y="177" text-anchor="middle">480p · 1.2 Mbps</text></g>
+            <g class="st" id="t-r4"><rect class="node-b" x="290" y="214" width="150" height="44" rx="8"/><text class="lbl" x="365" y="241" text-anchor="middle">240p · 0.4 Mbps</text></g>
+            <g class="st" id="t-seg">
+              <rect x="470" y="92" width="14" height="22" rx="2" fill="#C9D8E6" stroke="#1F4E79" stroke-width="1"/>
+              <rect x="488" y="92" width="14" height="22" rx="2" fill="#C9D8E6" stroke="#1F4E79" stroke-width="1"/>
+              <rect x="506" y="92" width="14" height="22" rx="2" fill="#C9D8E6" stroke="#1F4E79" stroke-width="1"/>
+              <rect x="524" y="92" width="14" height="22" rx="2" fill="#C9D8E6" stroke="#1F4E79" stroke-width="1"/>
+              <text class="lbl-sm" x="504" y="132" text-anchor="middle">segments</text>
+              <text class="lbl-sm" x="504" y="146" text-anchor="middle">(~4s each)</text>
+            </g>
+            <g class="st" id="t-man"><rect class="node-r" x="470" y="172" width="150" height="56" rx="9"/><text class="lbl" x="545" y="195" text-anchor="middle">Manifest</text><text class="lbl-sm" x="545" y="212" text-anchor="middle">+ READY</text></g>
+            <!-- motion paths -->
+            <path id="t-p1" class="flow" d="M118 148 H 146" marker-end="url(#arrow)"/>
+            <path id="t-p2" class="flow" d="M240 138 C 262 90, 270 60, 288 48" marker-end="url(#arrow)"/>
+            <path id="t-p3" class="flow" d="M240 144 C 262 120, 270 110, 288 108" marker-end="url(#arrow)"/>
+            <path id="t-p4" class="flow" d="M240 150 C 262 160, 270 168, 288 172" marker-end="url(#arrow)"/>
+            <path id="t-p5" class="flow" d="M240 158 C 262 210, 270 224, 288 236" marker-end="url(#arrow)"/>
+            <path id="t-p6" class="flow" d="M440 108 C 452 104, 460 104, 468 104" marker-end="url(#arrow)"/>
+            <path id="t-p7" class="flow" d="M504 114 V 170" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: one master fans out into parallel renditions, each segmented, then a manifest ties them together</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Transcode on upload (eager)</h4><ul>
+          <li>Video plays smoothly the instant it goes <code>READY</code></li>
+          <li>Predictable: every rendition exists before first view</li>
+          <li>Wastes compute &amp; storage on videos nobody watches</li>
+          <li>The long tail (most uploads get &lt;100 views) is pure cost</li>
+        </ul></div>
+        <div class="col"><h4>Transcode on demand (lazy)</h4><ul>
+          <li>Only pay to encode renditions that are actually requested</li>
+          <li>Cheaper for the huge long tail of unpopular videos</li>
+          <li>First viewer of a rare rendition waits for encode (latency)</li>
+          <li>More complex: needs a just-in-time encode + cache layer</li>
+        </ul></div>
+      </div>
+      <h3>Failure mode &amp; retries</h3>
+      <p>Transcoding is long-running and fails for ordinary reasons — a worker crashes, an OOM on a 4K frame, a corrupt source. Because the job lives on a durable queue, a failed or timed-out job is simply <strong>re-delivered</strong> to another worker. Jobs must be <strong>idempotent</strong> (writing rendition outputs to deterministic keys so a re-run overwrites cleanly) and bounded by a <strong>retry limit</strong>; after N failures the job goes to a <strong>dead-letter queue</strong> for inspection and the video is marked <code>FAILED</code>. Because the DAG isolates branches, a 4K encode failing doesn't block the 480p rendition that most viewers will actually use — you can publish partial renditions and backfill.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"How do you transcode at scale without a giant idle fleet?"</em> The queue depth is your autoscaling signal: scale the worker pool up when the backlog grows and down when it drains, and run non-urgent encodes on cheap <strong>spot/preemptible instances</strong> (the durable queue makes interruptions harmless). Split long videos into independent chunks transcoded in parallel to cut wall-clock time for a single big upload.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Bottleneck · smooth playback</div>
+      <h2>Adaptive bitrate streaming</h2>
+      <p>We now have many renditions and a manifest. The third bottleneck is playing back smoothly when the viewer's bandwidth is unknown and constantly changing — a Grab driver watching between rides drops from 5G to a congested cell in seconds. Pick a fixed quality and you either buffer constantly (too high) or look terrible (too low). The answer is <strong>adaptive bitrate streaming</strong> (ABR).</p>
+      <h3>What the manifest contains</h3>
+      <p>A <strong>manifest</strong> (a playlist file) is the table of contents the player reads first. There are two industry formats — <strong>HLS</strong> (Apple's, uses <code>.m3u8</code> playlists and <code>.ts</code>/<code>fMP4</code> segments) and <strong>MPEG-DASH</strong> (an open standard, uses an <code>.mpd</code> XML manifest). Both express the same idea: a <strong>master manifest</strong> lists every available rendition with its bandwidth and resolution, and each rendition has its own <strong>media playlist</strong> listing that quality's segments in order.</p>
+      <pre><span class="cmt"># master.m3u8 — the player reads this first</span>
+#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION=1920x1080
+1080p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720
+720p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480
+480p/index.m3u8
+
+<span class="cmt"># 720p/index.m3u8 — that rendition's ordered segment list</span>
+#EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXTINF:4.0,
+seg_0001.ts
+#EXTINF:4.0,
+seg_0002.ts   <span class="cmt"># ...one entry per ~4s segment</span></pre>
+      <h3>How ABR decides, segment by segment</h3>
+      <p>The intelligence is in the <strong>player</strong>, not the server — the server just hosts static files. The loop runs continuously:</p>
+      <ul>
+        <li>The player fetches the master manifest and starts at a conservative rendition to begin playback fast.</li>
+        <li>After downloading each segment, it <strong>measures throughput</strong> (segment bytes ÷ download time) and watches its <strong>buffer level</strong> (how many seconds of video are queued ahead).</li>
+        <li>For the <em>next</em> segment, it picks the highest rendition whose bitrate the recent throughput can sustain with margin. Throughput rising and buffer healthy → step up a quality. Throughput dropping or buffer draining → step down <em>before</em> the buffer empties.</li>
+        <li>Because every rendition's segments are cut on the same boundaries, the player can request <code>720p/seg_0008.ts</code> right after <code>1080p/seg_0007.ts</code> and the video plays seamlessly across the switch.</li>
+      </ul>
+      <p>The goal is to keep the buffer non-empty at all times. A stall (rebuffer) is the worst outcome for perceived quality — viewers tolerate a momentary dip in sharpness far better than a frozen frame, so good ABR errs toward stepping down early.</p>
+      <p>Concretely, picture a Grab driver on the MRT watching a 720p stream (3&nbsp;Mbps) with 12 seconds buffered. The train enters a tunnel and measured throughput collapses to 0.5&nbsp;Mbps. A throughput-only player would keep requesting 720p, drain the 12-second buffer in a few segments, and stall. A buffer-aware player sees the buffer falling and immediately requests the next segment at 240p (0.4&nbsp;Mbps) — which downloads faster than it plays — so the buffer <em>refills</em> even on the weak link, and playback continues, just softer. When the train exits and throughput recovers, the buffer climbs back above the high-water mark and the player ramps back to 720p, then 1080p. The viewer saw a few seconds of lower sharpness; they never saw a spinner.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Adaptive bitrate: a player requests segments at different qualities as bandwidth changes over time">
+            <line x1="40" y1="170" x2="600" y2="170" stroke="#999" stroke-width="1.5"/>
+            <text class="lbl-sm" x="320" y="196" text-anchor="middle">time / segment index →</text>
+            <text class="lbl-sm" x="40" y="40" text-anchor="start" fill="#1F4E79">bandwidth (measured per segment)</text>
+            <path class="flow-d" d="M60 120 C 160 70, 240 70, 320 130 C 400 175, 480 150, 580 95" />
+            <!-- segment quality blocks -->
+            <rect x="60" y="140" width="46" height="24" rx="3" fill="#C9D8E6" stroke="#1F4E79" stroke-width="1"/>
+            <text class="lbl-sm" x="83" y="157" text-anchor="middle">480</text>
+            <rect x="116" y="120" width="46" height="44" rx="3" fill="#9FBEDB" stroke="#1F4E79" stroke-width="1"/>
+            <text class="lbl-sm" x="139" y="147" text-anchor="middle">720</text>
+            <rect x="172" y="104" width="46" height="60" rx="3" fill="#6FA0CC" stroke="#1F4E79" stroke-width="1"/>
+            <text class="lbl-sm" x="195" y="139" text-anchor="middle" fill="#fff">1080</text>
+            <rect x="300" y="120" width="46" height="44" rx="3" fill="#9FBEDB" stroke="#1F4E79" stroke-width="1"/>
+            <text class="lbl-sm" x="323" y="147" text-anchor="middle">720</text>
+            <rect x="356" y="146" width="46" height="18" rx="3" fill="#F0D9C2" stroke="#B0532F" stroke-width="1"/>
+            <text class="lbl-sm" x="379" y="160" text-anchor="middle" fill="#B0532F">240</text>
+            <rect x="412" y="140" width="46" height="24" rx="3" fill="#C9D8E6" stroke="#1F4E79" stroke-width="1"/>
+            <text class="lbl-sm" x="435" y="157" text-anchor="middle">480</text>
+            <rect x="520" y="120" width="46" height="44" rx="3" fill="#9FBEDB" stroke="#1F4E79" stroke-width="1"/>
+            <text class="lbl-sm" x="543" y="147" text-anchor="middle">720</text>
+            <text class="lbl-sm" x="379" y="86" text-anchor="middle" fill="#B0532F">dip → step down to protect the buffer</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — the player rides the bandwidth curve, switching rendition per segment to avoid stalls</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood — startup vs steady state</span>
+        <p>The player tunes two things differently. <strong>Startup</strong> favors fast time-to-first-frame: begin low so playback starts in well under a second, then ramp up once throughput is measured. <strong>Steady state</strong> favors stability: avoid flip-flopping quality every segment (visually jarring) by using a hysteresis margin and the buffer level, not just instantaneous throughput. Real players (hls.js, ExoPlayer, AVPlayer, dash.js) implement variants of this — throughput-based, buffer-based, or hybrid algorithms.</p>
+      </div>
+      <div class="vs">
+        <div class="col"><h4>HLS</h4><ul>
+          <li>Default on Apple devices; the most broadly supported</li>
+          <li>Simple text <code>.m3u8</code> playlists, easy to debug</li>
+          <li>Historically tied to <code>.ts</code>; now supports fMP4</li>
+        </ul></div>
+        <div class="col"><h4>MPEG-DASH</h4><ul>
+          <li>Open standard, codec-agnostic, very flexible</li>
+          <li>Not natively supported on Apple Safari/iOS</li>
+          <li>XML <code>.mpd</code> manifest is more verbose</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"How does adaptive bitrate actually work?"</em> is the single most common probe on this topic. Nail it in one breath: <em>"The video is pre-segmented at every quality and described by a manifest; the player measures throughput and buffer after each segment and chooses the next segment's rendition, stepping down before the buffer empties so it never stalls. The server is dumb static files; the smarts are in the client."</em></p>
+      </div>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Bottleneck · the bill</div>
+      <h2>CDN delivery &amp; origin shielding</h2>
+      <p>The estimation said egress is 900× the ingest. The fourth bottleneck is serving that flood affordably and fast. Serving every segment from your origin data center would be slow (a viewer in Jakarta hitting a Singapore origin pays the round-trip every segment) and catastrophically expensive. The answer is to put the bytes physically close to viewers with a <strong>CDN</strong>.</p>
+      <h3>How a CDN serves a segment</h3>
+      <ul>
+        <li>Segment URLs point at the CDN (<code>cdn.vid.sg/v/abc123/720p/seg_0007.ts</code>). DNS/anycast routes the viewer to the nearest <strong>edge</strong> point of presence.</li>
+        <li>On a <strong>cache hit</strong>, the edge returns the segment immediately — no origin involved. Because segments are immutable, they cache for a long TTL.</li>
+        <li>On a <strong>cache miss</strong>, the edge fetches the segment from origin once, stores it, and serves it; every later viewer in that region gets a hit.</li>
+        <li>Real CDNs (CloudFront, Akamai, Fastly, Cloudflare) do exactly this; the platform owns the origin (object storage) and pays the CDN for edge bandwidth.</li>
+      </ul>
+      <h3>Origin shielding and tiered caching</h3>
+      <p>A subtle problem: a brand-new viral video is a miss at <em>every</em> edge at once, so all edges stampede the origin simultaneously — the <strong>thundering herd</strong>. <strong>Origin shielding</strong> inserts a mid-tier cache between the edge layer and origin: edges miss to a regional shield, the shield fetches from origin <em>once</em>, and serves all the edges. This collapses thousands of concurrent origin requests for the same hot segment into one, protecting the origin and your bandwidth bill.</p>
+      <p>Step through the delivery path: a hit at the edge, a miss that walks back through the shield to origin, then warm for everyone after.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-cdn">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive CDN delivery: viewer to edge, edge to shield, shield to origin on a miss, then warm">
+            <g class="st" id="c-viewer"><rect class="node" x="16" y="98" width="100" height="50" rx="9"/><text class="lbl" x="66" y="121" text-anchor="middle">Viewer</text><text class="lbl-sm" x="66" y="138" text-anchor="middle">player</text></g>
+            <g class="st" id="c-edge"><rect class="node-r" x="170" y="94" width="118" height="58" rx="9"/><text class="lbl" x="229" y="117" text-anchor="middle">CDN edge</text><text class="lbl-sm" x="229" y="134" text-anchor="middle">near viewer</text></g>
+            <g class="st" id="c-shield"><rect x="340" y="94" width="118" height="58" rx="9" fill="#E4F0F0" stroke="#2E8B8B" stroke-width="2"/><text class="lbl" x="399" y="117" text-anchor="middle">Shield</text><text class="lbl-sm" x="399" y="134" text-anchor="middle">mid-tier cache</text></g>
+            <g class="st" id="c-origin"><rect x="510" y="92" width="110" height="62" rx="9" fill="#FBEFDD" stroke="#C98A2B" stroke-width="2"/><text class="lbl" x="565" y="117" text-anchor="middle">Origin</text><text class="lbl-sm" x="565" y="134" text-anchor="middle">obj storage</text></g>
+            <!-- motion paths -->
+            <path id="c-p1" class="flow" d="M116 122 H 168" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="142" y="112" text-anchor="middle">GET seg</text>
+            <path id="c-p2" class="flow" d="M168 138 C 130 178, 110 176, 90 152" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="120" y="190" text-anchor="middle">hit → bytes</text>
+            <path id="c-p3" class="flow-r" d="M288 124 H 338" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="313" y="114" text-anchor="middle" fill="#B0532F">miss</text>
+            <path id="c-p4" class="flow-r" d="M458 124 H 508" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="483" y="114" text-anchor="middle" fill="#B0532F">miss</text>
+            <path id="c-p5" class="flow" d="M508 142 C 470 182, 320 188, 290 150" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="400" y="200" text-anchor="middle">fill caches → warm</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 6 — interactive: hit at the edge; on a miss, the shield fetches from origin once and warms the path</figcaption>
+      </figure>
+      <h3>Where the bandwidth cost actually goes</h3>
+      <p>The dominant cost is <strong>CDN egress to viewers</strong> — the bytes that leave edge nodes toward devices, which you pay per gigabyte. Origin-to-CDN transfer is a smaller, secondary cost that a high cache-hit ratio keeps tiny. So the levers that move the bill are: maximize <strong>cache-hit ratio</strong> (cache popular segments aggressively, use long TTLs on immutable segments), serve <strong>more-efficient codecs</strong> (AV1/VP9 cut bytes-per-pixel versus H.264, trading more encode compute for less egress), and avoid shipping renditions higher than the device needs.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"Where does the bandwidth cost go, and how do you cut it?"</em> Answer: almost entirely CDN egress to viewers. Cut it by raising the edge cache-hit ratio (popular content is highly cacheable), adopting denser codecs (spend encode CPU once to save egress millions of times), and right-sizing renditions to devices. This is the classic "spend cheap, reusable compute to save expensive, repeated bandwidth" trade.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Supporting cast</div>
+      <h2>Metadata, view counting &amp; storage tiers</h2>
+      <p>The media pipeline is the hard part, but a watch page needs more than segments. Three smaller services round out the design, each with its own twist.</p>
+      <h3>Metadata service</h3>
+      <p>The <strong>metadata service</strong> serves the small, structured data behind a watch page: title, owner, description, duration, status, and the manifest URL. It is read on every view and is tiny per response, so it scales with a read replica fleet plus a cache (Redis) in front for the hottest videos. Writes are rare (upload, edits), reads are enormous — a textbook read-heavy workload. Thumbnails are just small images served, like segments, from the CDN.</p>
+      <h3>View counting at scale</h3>
+      <p>A naive <code>UPDATE videos SET view_count = view_count + 1</code> per view is a write hotspot — a single viral video would funnel millions of writes onto one row and create lock contention. Instead, treat views as an <strong>aggregation</strong> problem:</p>
+      <ul>
+        <li>Players emit lightweight <strong>view events</strong> to a queue (Kafka).</li>
+        <li>A stream processor (e.g. <strong>Flink</strong>) or periodic batch job aggregates events per video over a window and writes back an updated count.</li>
+        <li>The displayed count is <strong>eventually consistent</strong> and approximate — which is completely fine, because nobody needs the count exact to the unit, and "1.2M views" is what users see anyway.</li>
+      </ul>
+      <p>This is the same pattern Shopee or TikTok would use for "items sold" or "likes": don't synchronously increment a hot row; ingest events, aggregate asynchronously, accept approximate.</p>
+      <h3>Hot vs cold storage tiers</h3>
+      <p>Storage grows forever, but access is wildly skewed: a small set of recent/popular videos gets nearly all the traffic, while an enormous <strong>long tail</strong> is watched rarely or never. Keeping everything on fast, expensive storage wastes money.</p>
+      <div class="vs">
+        <div class="col"><h4>Hot tier</h4><ul>
+          <li>Standard object storage; instant access</li>
+          <li>Holds recent &amp; popular videos and their segments</li>
+          <li>Higher per-GB cost, but it is what the CDN pulls from</li>
+        </ul></div>
+        <div class="col"><h4>Cold tier (archive)</h4><ul>
+          <li>Cheap archival storage (e.g. S3 Glacier-class)</li>
+          <li>Holds the long tail and the original masters</li>
+          <li>Retrieval is slow/charged — fine for rarely-watched content</li>
+        </ul></div>
+      </div>
+      <p>A lifecycle policy migrates a video's renditions to the cold tier after it has been cold (unwatched) for a while, and promotes it back if it suddenly trends. The <strong>master file</strong> is precious — it is the source of truth for any future re-encode (a new codec, a new resolution) — so keep it durably, typically in cheap cold storage, effectively forever.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"What happens when a long-tail video suddenly goes viral?"</em> Its segments are cold and uncached. The first viewers trigger a cold-tier retrieval into hot storage and a cache fill at the edge (protected by the shield from step 08); after that brief warm-up the video serves like any popular one. The design degrades gracefully: a slightly slower first play, never an outage.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Resilience</div>
+      <h2>Failure modes &amp; what breaks at 10x</h2>
+      <p>Close by walking the failure modes — interviewers always ask "what happens when X dies?" — and by stress-testing the design at ten times the load.</p>
+      <h3>What happens when a node dies</h3>
+      <ul>
+        <li><strong>A transcoding worker dies mid-job.</strong> The job is still on the durable queue; its visibility timeout expires and another worker picks it up. Idempotent output keys make the re-run safe. No data lost.</li>
+        <li><strong>The CDN edge or a whole PoP fails.</strong> Anycast/DNS reroutes viewers to the next-nearest edge; they re-fetch from origin/shield and continue. Playback may briefly drop a quality level, not stop.</li>
+        <li><strong>The metadata DB primary fails.</strong> Promote a replica; reads continue from the remaining replicas throughout. Because playback URLs are static CDN paths, even a metadata blip doesn't stop in-flight playback.</li>
+        <li><strong>Object storage degrades.</strong> Object stores are designed for very high durability via cross-AZ/region replication; a single AZ outage doesn't lose data, and segments already at the edge keep serving.</li>
+      </ul>
+      <h3>What breaks at 10x</h3>
+      <ul>
+        <li><strong>Transcoding compute</strong> is the first wall — 10x uploads means 10x encode hours. Mitigate with on-demand/lazy transcoding for the long tail, denser-but-slower codecs only where they pay off, chunked parallel encoding, and elastic spot fleets driven by queue depth.</li>
+        <li><strong>CDN egress</strong> scales with viewers, so 10x viewers is ~10x bandwidth bill. The cache-hit ratio is the lever: push it higher with origin shielding and longer TTLs, and pre-warm caches for predictable spikes (a creator's scheduled premiere).</li>
+        <li><strong>Metadata reads</strong> grow with views; add read replicas and a larger cache tier. The view-event queue must scale horizontally (more Kafka partitions) so a viral spike doesn't back it up.</li>
+        <li><strong>Storage</strong> is the easy one: object storage scales near-linearly, and tiering keeps the cost curve sane. It is rarely the bottleneck.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">The shape of the answer</span>
+        <p>Notice every 10x mitigation is the same move applied in a new place: <strong>decouple with a queue so you can scale the consumers elastically</strong>, and <strong>cache aggressively so you serve the same bytes many times</strong>. If you can name those two principles and point to where each applies, you have demonstrated you understand the system rather than memorized a diagram.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole design compresses to one arc: <em>ingest a huge upload reliably, fan it out asynchronously into many segmented renditions described by a manifest, then let the client adapt quality per segment while a CDN serves the bytes from the edge.</em> If you can sketch the upload → process → serve pipeline and explain why egress (not compute) drives the cost, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Bandwidth-bound, read-heavy</b><span>Reads outweigh writes ~900× in bytes; egress is the cost center, so a CDN is mandatory.</span></div>
+        <div class="tk"><span class="num">02</span><b>Estimate to justify</b><span>~375 TB/day stored vs ~340 PB/day served — the gap is the whole argument for edge caching.</span></div>
+        <div class="tk"><span class="num">03</span><b>Media ≠ metadata</b><span>Bytes go to object storage + CDN; the API moves small JSON and URLs, never the media.</span></div>
+        <div class="tk"><span class="num">04</span><b>Resumable upload</b><span>Chunked PUTs with byte ranges resume after a drop; the API stays thin via pre-signed URLs.</span></div>
+        <div class="tk"><span class="num">05</span><b>Queue-driven transcode</b><span>A DAG of FFmpeg jobs fans the master into renditions + segments; the queue decouples and absorbs bursts.</span></div>
+        <div class="tk"><span class="num">06</span><b>ABR lives in the client</b><span>Manifest lists qualities; the player measures throughput/buffer and switches rendition per segment.</span></div>
+        <div class="tk"><span class="num">07</span><b>CDN + origin shield</b><span>Edge serves hot segments; a mid-tier shield collapses the thundering herd to one origin fetch.</span></div>
+        <div class="tk"><span class="num">08</span><b>Views by aggregation</b><span>Emit view events, aggregate async (Flink), accept approximate — never increment a hot row.</span></div>
+        <div class="tk"><span class="num">09</span><b>Tier hot vs cold</b><span>Popular stays hot; the long tail and masters go to cheap archive, promoted back if they trend.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why is a CDN non-negotiable here — what does the storage-vs-egress estimation show?<br>(2) Walk a resumable upload through a connection drop at 90% — what gets re-sent and why?<br>(3) What is a rendition, and why model transcoding as a DAG on a queue instead of one big job?<br>(4) Explain adaptive bitrate end to end: what's in the manifest, and how does the player decide each segment's quality?<br>(5) Where does the bandwidth cost actually go, and name three ways to cut it.<br>(6) What happens when a long-tail video suddenly goes viral, and what stops every CDN edge from stampeding the origin at once?<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw the pipeline from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 28 · DESIGN VIDEO STREAMING (YOUTUBE) · interactive edition · ref BBG V1·C14 · SG context: TikTok<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* high-level architecture */
+  makeStepper(document.getElementById('fig-hld'), [
+    {text:"A creator uploads to the API/gateway, which hands back a pre-signed URL.", active:["h-client","h-api"], path:"h-p1"},
+    {text:"Bytes are written directly to object storage — they never pass through app servers.", active:["h-api","h-store"], path:"h-p2"},
+    {text:"Finalizing the upload drops a transcode job on the queue and returns 202 instantly.", active:["h-api","h-queue"], path:"h-p3"},
+    {text:"Transcode workers pull the job, read the master, and write back renditions + segments.", active:["h-queue","h-work","h-store"], path:"h-p4"},
+    {text:"When done, the video flips to READY in the metadata DB.", active:["h-work","h-meta"], path:"h-p6"},
+    {text:"Viewers now pull the manifest and segments through the CDN, which caches at the edge.", active:["h-viewer","h-cdn"], path:"h-p8"}
+  ]);
+
+  /* transcoding fan-out */
+  makeStepper(document.getElementById('fig-trans'), [
+    {text:"One master file lands in storage and a transcode job is enqueued.", active:["t-master","t-queue"], path:"t-p1"},
+    {text:"The job fans out into parallel renditions — start with 1080p at 6 Mbps.", active:["t-queue","t-r1"], path:"t-p2"},
+    {text:"720p and 480p encode on other workers at the same time.", active:["t-queue","t-r2","t-r3"], path:"t-p3"},
+    {text:"A low 240p rendition covers weak networks — every quality runs in parallel.", active:["t-queue","t-r4"], path:"t-p5"},
+    {text:"Each rendition is cut into ~4-second segments aligned on keyframes.", active:["t-r2","t-seg"], path:"t-p6"},
+    {text:"A manifest ties all renditions together and the video is marked READY.", active:["t-seg","t-man"], path:"t-p7"}
+  ]);
+
+  /* CDN delivery */
+  makeStepper(document.getElementById('fig-cdn'), [
+    {text:"The player requests a segment from the nearest CDN edge.", active:["c-viewer","c-edge"], path:"c-p1"},
+    {text:"Cache hit: the edge returns the segment immediately — no origin involved.", active:["c-viewer","c-edge"], path:"c-p2"},
+    {text:"On a fresh viral video it's a miss, so the edge asks the regional shield.", active:["c-edge","c-shield"], path:"c-p3", reject:true},
+    {text:"The shield also misses and fetches from origin object storage — exactly once.", active:["c-shield","c-origin"], path:"c-p4", reject:true},
+    {text:"The path fills both caches, so every later viewer in the region gets a warm hit.", active:["c-origin","c-shield","c-edge"], path:"c-p5"}
+  ]);
+</script>
+</body>
+</html>

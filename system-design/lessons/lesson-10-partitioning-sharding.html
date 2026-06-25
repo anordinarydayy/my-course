@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 10 — Partitioning &amp; Sharding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  pre{margin:22px 0;padding:18px 20px;background:var(--paper-2);border:1px solid var(--line-strong);
+    border-radius:10px;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;
+    color:var(--ink);}
+  pre .c{color:var(--ink-soft);} pre .kw{color:var(--rust);} pre .id{color:var(--blueprint);}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Partitioning<br>&amp; Sharding</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The single-primary wall</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Vertical vs horizontal split</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Sharding strategies</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Choosing the shard key</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Routing the write ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The hot-shard problem</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Cross-shard queries</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Resharding without downtime ▸</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Where routing lives</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>A shard dies: replicate</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">10</span><span>Lesson · System Design Interview</span></div>
+      <h1>Partitioning &amp; Sharding</h1>
+      <p class="lede">A single database primary eventually hits a wall — too many writes, too much data to fit on one machine. Partitioning splits the data across many nodes so the system scales horizontally. The interview is almost entirely about two decisions: which shard key you pick, and how you survive a live reshard without taking the system down.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on data partitioning and sharding — a standard, widely-documented engineering topic. The explanations, examples, and diagrams here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The bottleneck</div>
+      <h2>The single-primary wall</h2>
+      <p>You scaled reads first — that is the natural order. When read traffic grew, you added <strong>read replicas</strong> and pointed queries at them (that is Lesson 04). But a leader-follower setup has a structural ceiling: every write still goes through <em>one</em> primary, and every replica must replay that same write stream. Adding replicas multiplies read capacity; it does nothing for writes. So when an app becomes write-heavy — ledgers, order books, message stores, event logs — the single primary becomes the bottleneck.</p>
+      <p>Two separate limits collide here, and it helps to name them apart:</p>
+      <ul>
+        <li><strong>Write throughput.</strong> One machine has a finite number of CPU cores, a finite disk write bandwidth (IOPS), and a finite fsync rate for the write-ahead log. At GrabPay scale, a few hundred thousand payment writes per second simply will not commit through one node, no matter how large the instance.</li>
+        <li><strong>Dataset size.</strong> Even if writes were slow, the data itself outgrows the box. A Shopee order history spanning years of transactions across Southeast Asia is tens of terabytes. Indexes that no longer fit in RAM turn every query into a disk seek, and a single volume caps out long before the logical dataset does.</li>
+      </ul>
+      <p>You have already pulled the obvious lever — <strong>vertical scaling</strong>, buying a bigger machine. That buys time, not a future: the largest instance is still one instance, the price curve is brutally non-linear, and you eventually hit the biggest box the cloud sells. The structural fix is to stop putting all the data on one node. <strong>Partitioning</strong> (also called <strong>sharding</strong>) splits the dataset into independent pieces spread across many machines, so the system scales <em>horizontally</em> — you add capacity by adding nodes, not by enlarging one.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="A single database primary saturating on writes and dataset size, contrasted with data spread across multiple shards">
+            <rect class="node" x="24" y="40" width="96" height="44" rx="8"/>
+            <text class="lbl" x="72" y="67" text-anchor="middle">Writes</text>
+            <path class="flow-r" d="M122 54 H 236" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M122 62 H 236" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M122 70 H 236" marker-end="url(#arrow-r)"/>
+            <rect x="240" y="20" width="120" height="86" rx="10" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="300" y="14" text-anchor="middle" fill="#B0532F">⚡ saturated</text>
+            <g transform="translate(278,32)">
+              <path d="M0,8 L0,44 A22,7 0 0 0 44,44 L44,8" fill="#2E73B8"/>
+              <ellipse cx="22" cy="8" rx="22" ry="7" fill="#3E86CF"/>
+              <text x="22" y="32" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="12" font-weight="600">DB</text>
+            </g>
+            <text class="lbl-sm" x="300" y="120" text-anchor="middle">one primary</text>
+            <text class="lbl-sm" x="470" y="50" text-anchor="middle">shard it</text>
+            <path class="flow" d="M364 64 H 560" marker-end="url(#arrow)"/>
+            <g transform="translate(430,150)"><path d="M0,8 L0,40 A18,6 0 0 0 36,40 L36,8" fill="#2E73B8"/><ellipse cx="18" cy="8" rx="18" ry="6" fill="#3E86CF"/><text x="18" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">S1</text></g>
+            <g transform="translate(500,150)"><path d="M0,8 L0,40 A18,6 0 0 0 36,40 L36,8" fill="#2E73B8"/><ellipse cx="18" cy="8" rx="18" ry="6" fill="#3E86CF"/><text x="18" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">S2</text></g>
+            <g transform="translate(570,150)"><path d="M0,8 L0,40 A18,6 0 0 0 36,40 L36,8" fill="#2E73B8"/><ellipse cx="18" cy="8" rx="18" ry="6" fill="#3E86CF"/><text x="18" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">S3</text></g>
+            <text class="lbl-sm" x="520" y="214" text-anchor="middle">N independent shards</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one primary saturates on writes and size; sharding spreads both across nodes</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">A word on vocabulary</span>
+        <p>People use <strong>partitioning</strong> and <strong>sharding</strong> loosely, and so will your interviewer. The common convention: <em>partitioning</em> is the general act of splitting a dataset into pieces (a partition can even live on the same node); <em>sharding</em> specifically means partitioning <em>across separate machines</em> for horizontal scale. Each piece is a <strong>shard</strong>. We focus on sharding throughout.</p>
+      </div>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Two axes to cut</div>
+      <h2>Vertical vs horizontal split</h2>
+      <p>There are two fundamentally different ways to cut a table apart, and they solve different problems. Picture a table as a grid: rows are records, columns are fields. You can slice it vertically (by column) or horizontally (by row).</p>
+
+      <h3>Vertical partitioning — split by column or table</h3>
+      <p><strong>Vertical partitioning</strong> moves different <em>columns</em> or whole tables onto different stores. A GrabPay <code>users</code> table might carry a hot, tiny set of fields read on every request — <code>user_id</code>, <code>display_name</code>, <code>kyc_status</code> — alongside a cold, fat blob: the scanned ID document, the full address history, a base64 selfie. Keeping the fat columns in the same row bloats every page the database reads, so hot queries drag cold bytes off disk for nothing. Vertical partitioning peels the cold columns into a separate table or store (often blob storage like S3, with only a pointer left behind), so the hot path stays lean.</p>
+      <p>The classic real-world version is decomposing a monolithic schema along service boundaries: the <code>payments</code> tables move to a payments database, <code>messaging</code> tables to a messaging database. This is how a monolith becomes microservices at the data layer. The catch: a query that once joined across those tables now spans two stores and cannot use a SQL <code>JOIN</code> — you stitch the data in the application. Vertical partitioning relieves the bloat problem but <em>not</em> the fundamental one: if a single table's <em>rows</em> are too many for one machine, splitting its columns does not help. For that you need the other axis.</p>
+
+      <h3>Horizontal partitioning — split by row (this is sharding)</h3>
+      <p><strong>Horizontal partitioning</strong>, the proper meaning of <strong>sharding</strong>, keeps the schema identical but splits the <em>rows</em> across nodes. Shard 1 holds users A–H, shard 2 holds I–P, shard 3 holds Q–Z — same columns everywhere, different rows. Now both limits are relieved at once: each shard owns a fraction of the writes <em>and</em> a fraction of the bytes. Ten shards means roughly one-tenth the write load and one-tenth the data per machine, and you scale by adding an eleventh.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Vertical partitioning splits a table by columns; horizontal partitioning splits the same table by rows across shards">
+            <text class="lbl" x="150" y="24" text-anchor="middle">Vertical (by column)</text>
+            <rect class="node" x="40" y="40" width="100" height="120" rx="6"/>
+            <line x1="90" y1="40" x2="90" y2="160" stroke="#1F4E79" stroke-width="1" stroke-dasharray="3 3"/>
+            <text class="lbl-sm" x="65" y="100" text-anchor="middle">hot</text>
+            <text class="lbl-sm" x="115" y="100" text-anchor="middle">cold</text>
+            <path class="flow-d" d="M148 70 H 188" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M148 130 H 188" marker-end="url(#arrow-s)"/>
+            <rect class="node-b" x="192" y="48" width="74" height="44" rx="6"/>
+            <text class="lbl-sm" x="229" y="74" text-anchor="middle">store A</text>
+            <rect class="node-b" x="192" y="110" width="74" height="44" rx="6"/>
+            <text class="lbl-sm" x="229" y="136" text-anchor="middle">store B</text>
+            <line x1="320" y1="34" x2="320" y2="220" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text class="lbl" x="480" y="24" text-anchor="middle">Horizontal (by row) = sharding</text>
+            <rect class="node" x="372" y="40" width="100" height="120" rx="6"/>
+            <line x1="372" y1="80" x2="472" y2="80" stroke="#1F4E79" stroke-width="1" stroke-dasharray="3 3"/>
+            <line x1="372" y1="120" x2="472" y2="120" stroke="#1F4E79" stroke-width="1" stroke-dasharray="3 3"/>
+            <text class="lbl-sm" x="422" y="64" text-anchor="middle">A–H</text>
+            <text class="lbl-sm" x="422" y="104" text-anchor="middle">I–P</text>
+            <text class="lbl-sm" x="422" y="144" text-anchor="middle">Q–Z</text>
+            <path class="flow-d" d="M480 60 H 524" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M480 100 H 524" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M480 140 H 524" marker-end="url(#arrow-s)"/>
+            <rect class="node-b" x="528" y="46" width="70" height="30" rx="5"/><text class="lbl-sm" x="563" y="65" text-anchor="middle">shard 1</text>
+            <rect class="node-b" x="528" y="86" width="70" height="30" rx="5"/><text class="lbl-sm" x="563" y="105" text-anchor="middle">shard 2</text>
+            <rect class="node-b" x="528" y="126" width="70" height="30" rx="5"/><text class="lbl-sm" x="563" y="145" text-anchor="middle">shard 3</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — vertical splits columns onto different stores; horizontal splits rows across shards</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Vertical partitioning</h4><ul>
+          <li>Separates hot from cold fields; keeps the hot path small</li>
+          <li>Natural fit for decomposing a monolith into per-service DBs</li>
+          <li>Does <em>not</em> help when one table has too many rows</li>
+          <li>Breaks SQL joins across the split; app must stitch</li>
+        </ul></div>
+        <div class="col"><h4>Horizontal partitioning (sharding)</h4><ul>
+          <li>Relieves both write throughput and dataset size at once</li>
+          <li>Scales out: add a node to add capacity</li>
+          <li>Introduces a routing problem and cross-shard query pain</li>
+          <li>The shard key choice now dominates everything</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>When asked "how would you scale the database," do not jump straight to sharding. Walk the ladder out loud: <em>add read replicas → vertical scaling for the primary → vertical partitioning to peel off cold data → and only then horizontal sharding.</em> Sharding is the most powerful and the most painful, so reach for it last.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> How to assign rows</div>
+      <h2>Sharding strategies</h2>
+      <p>Once you decide to shard horizontally, the immediate question is: given a row, which shard owns it? The function from a key to a shard is the heart of the system. There are three classic answers, and an interviewer wants you to compare them honestly.</p>
+
+      <h3>Range-based sharding</h3>
+      <p><strong>Range-based sharding</strong> assigns a contiguous range of key values to each shard: users A–H on shard 1, I–P on shard 2, Q–Z on shard 3; or orders from Jan–Mar on one shard, Apr–Jun on the next. Under the hood the router keeps a small sorted table of range boundaries and does a binary search to find the owning shard. The big win is <strong>range scans</strong>: "all Agoda bookings between two dates" lands on one or a few adjacent shards, so the query is cheap and local. The big risk is <strong>imbalance</strong>. Ranges are rarely uniform — if you shard orders by date, the newest shard takes <em>all</em> the write traffic while older shards sit idle, and any range with a popular prefix (every user whose ID starts with a common value) becomes a hot range.</p>
+
+      <h3>Hash-based sharding</h3>
+      <p><strong>Hash-based sharding</strong> runs the key through a hash function and uses the result to pick a shard — classically <code>shard = hash(key) % N</code>. Because a good hash scatters keys uniformly, load spreads evenly across shards almost by definition, which kills the imbalance problem. The cost is the inverse of range sharding: hashing <em>destroys order</em>. Two consecutive order IDs land on different shards, so "all orders in March" becomes a <strong>scatter-gather</strong> across every shard — there is no locality to exploit. Hashing is the default when your access is point lookups by key (give me this user, give me this wallet) and you do not need range scans.</p>
+
+      <h3>Directory-based (lookup) sharding</h3>
+      <p><strong>Directory-based sharding</strong> adds a level of indirection: a <strong>lookup service</strong> holds an explicit mapping from key (or key-range) to shard, and you consult it to route. Because the mapping is data rather than a formula, it is the most flexible — you can move one noisy tenant to a dedicated shard, split a hot range, or migrate keys, all by editing the directory, without rehashing the world. The price is an <strong>extra network hop</strong> on the lookup and, more seriously, a <strong>single point of failure</strong>: if the directory is down or wrong, every query is mis-routed. You make it highly available (replicate it) and cache it aggressively on the clients. Many large systems converge on a directory-like coordinator precisely because operational flexibility beats elegance at scale.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Three sharding strategies side by side: range-based ordered ranges, hash-based modulo distribution, and directory-based lookup table">
+            <text class="lbl" x="105" y="22" text-anchor="middle">Range</text>
+            <rect class="node-b" x="40" y="36" width="130" height="26" rx="5"/><text class="lbl-sm" x="105" y="54" text-anchor="middle">A–H → S1</text>
+            <rect class="node-b" x="40" y="70" width="130" height="26" rx="5"/><text class="lbl-sm" x="105" y="88" text-anchor="middle">I–P → S2</text>
+            <rect class="node-b" x="40" y="104" width="130" height="26" rx="5"/><text class="lbl-sm" x="105" y="122" text-anchor="middle">Q–Z → S3</text>
+            <text class="lbl-sm" x="105" y="152" text-anchor="middle">ordered ✓ range scans</text>
+            <text class="lbl-sm" x="105" y="168" text-anchor="middle" fill="#B0532F">hot range ✗</text>
+            <line x1="215" y1="30" x2="215" y2="190" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text class="lbl" x="320" y="22" text-anchor="middle">Hash</text>
+            <rect class="node" x="248" y="40" width="144" height="30" rx="6"/>
+            <text class="lbl-sm" x="320" y="60" text-anchor="middle">hash(key) % N</text>
+            <path class="flow" d="M270 72 V 96" marker-end="url(#arrow)"/>
+            <path class="flow" d="M320 72 V 96" marker-end="url(#arrow)"/>
+            <path class="flow" d="M370 72 V 96" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="252" y="98" width="40" height="26" rx="5"/><text class="lbl-sm" x="272" y="116" text-anchor="middle">S1</text>
+            <rect class="node-b" x="300" y="98" width="40" height="26" rx="5"/><text class="lbl-sm" x="320" y="116" text-anchor="middle">S2</text>
+            <rect class="node-b" x="348" y="98" width="40" height="26" rx="5"/><text class="lbl-sm" x="368" y="116" text-anchor="middle">S3</text>
+            <text class="lbl-sm" x="320" y="152" text-anchor="middle">even ✓ no locality</text>
+            <text class="lbl-sm" x="320" y="168" text-anchor="middle" fill="#B0532F">no range scans ✗</text>
+            <line x1="430" y1="30" x2="430" y2="190" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text class="lbl" x="535" y="22" text-anchor="middle">Directory</text>
+            <rect class="node-r" x="470" y="40" width="130" height="40" rx="6"/>
+            <text class="lbl-sm" x="535" y="58" text-anchor="middle">lookup service</text>
+            <text class="lbl-sm" x="535" y="72" text-anchor="middle">key → shard map</text>
+            <path class="flow" d="M488 82 V 104" marker-end="url(#arrow)"/>
+            <path class="flow" d="M582 82 V 104" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="470" y="106" width="56" height="26" rx="5"/><text class="lbl-sm" x="498" y="124" text-anchor="middle">S1</text>
+            <rect class="node-b" x="544" y="106" width="56" height="26" rx="5"/><text class="lbl-sm" x="572" y="124" text-anchor="middle">S2</text>
+            <text class="lbl-sm" x="535" y="152" text-anchor="middle">flexible ✓ move keys</text>
+            <text class="lbl-sm" x="535" y="168" text-anchor="middle" fill="#B0532F">extra hop + SPOF ✗</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — range keeps order, hash spreads evenly, directory trades a hop for flexibility</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Range vs Hash</h4><ul>
+          <li><strong>Range:</strong> fast range scans, simple to grow at the high end — but prone to hot ranges and uneven load</li>
+          <li><strong>Hash:</strong> near-uniform distribution and predictable per-shard load — but no efficient range queries, and naive <code>% N</code> is a nightmare to resize</li>
+        </ul></div>
+        <div class="col"><h4>Directory adds</h4><ul>
+          <li>Decouples placement from any formula — rebalance by editing data</li>
+          <li>Lets you isolate a hot tenant onto its own shard</li>
+          <li>Must be made HA and cached, or it is the bottleneck and the SPOF</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Under the hood — who runs which</span>
+        <p><strong>HBase</strong> and <strong>MongoDB</strong> (ranged sharding) use range partitioning with split/merge of ranges. <strong>Cassandra</strong> and <strong>DynamoDB</strong> hash the partition key onto a token ring (a refinement of hash sharding — that ring <em>is</em> consistent hashing, Lesson 11). MongoDB also offers hashed sharding via a <code>hashed</code> shard-key index. Vitess, the sharding layer behind YouTube's MySQL, keeps a directory-like map (the <code>VSchema</code>) that a routing proxy consults.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The one decision that matters</div>
+      <h2>Choosing the shard key</h2>
+      <p>The <strong>shard key</strong> (also called the partition key) is the column whose value decides which shard a row lands on. Almost every problem with a sharded system traces back to a bad shard key, and almost every interview probes it directly. A good shard key has three properties at once:</p>
+      <ul>
+        <li><strong>High cardinality.</strong> The key must have many distinct values so the data can spread thinly. Sharding a payments table by <code>country_code</code> (a handful of values) means you can never have more shards than countries, and Indonesia would dwarf the rest. Sharding by <code>currency</code> is worse still.</li>
+        <li><strong>Even access distribution.</strong> Not just many values, but values that are <em>touched evenly</em>. A key can be high-cardinality and still hot if a few values get the lion's share of traffic (a celebrity's <code>user_id</code>, a flash-sale <code>product_id</code>). Even spread of <em>load</em> matters more than even spread of <em>rows</em>.</li>
+        <li><strong>Alignment with the dominant query.</strong> Pick the key the most important queries already filter on, so those queries hit a single shard. If 90% of GrabPay reads are "show me <em>this wallet's</em> recent transactions," shard the ledger by <code>wallet_id</code> and every one of those reads is single-shard.</li>
+      </ul>
+
+      <h3>user_id vs timestamp vs composite</h3>
+      <p>Three candidates illustrate the trade-off space. Sharding a transactions table by <strong><code>user_id</code></strong> gives high cardinality and good per-user locality — one user's whole history lives on one shard — but it cannot answer "all transactions in the last hour" without a scatter-gather, and a whale user can overload their shard. Sharding by <strong><code>timestamp</code></strong> makes time-range reports trivial but is the textbook anti-pattern for writes: <em>all</em> new writes target the single newest shard while the rest go cold — a self-inflicted hotspot. A <strong>composite key</strong> like <code>(merchant_id, created_at)</code> blends the two: it co-locates a merchant's data (good for the dominant "this merchant's sales today" query) while spreading writes across merchants. The art is matching the key to your real access pattern, not to what is convenient.</p>
+      <pre><span class="c">-- SeaMoney wallet ledger, sharded by wallet_id (point lookups dominate)</span>
+<span class="kw">CREATE TABLE</span> ledger_entry (
+  wallet_id   BIGINT,      <span class="c">-- &lt;-- shard key: high cardinality, even, matches query</span>
+  entry_id    BIGINT,
+  amount      DECIMAL(18,2),
+  currency    CHAR(3),
+  created_at  TIMESTAMP,
+  <span class="kw">PRIMARY KEY</span> (wallet_id, entry_id)
+);
+<span class="c">-- route: shard = hash(wallet_id) % N   ->  one wallet's entries stay together</span></pre>
+      <div class="callout tip">
+        <span class="k">Interview tip — the question you will be asked</span>
+        <p>"What is your shard key, and why?" is the single most common follow-up in this topic. Answer with all three properties in one breath: <em>"I'd shard by <code>wallet_id</code> — it's high-cardinality so data spreads, access is roughly even because no single wallet dominates, and it matches our dominant query, per-wallet balance and history, so those reads stay single-shard. I'd accept that cross-user reporting becomes a scatter-gather and handle it offline."</em> Naming what you give up is what makes the answer senior.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The write path</div>
+      <h2>Routing the write</h2>
+      <p>With a shard key chosen, follow a single write through the system. The application does not (and should not) know which physical shard owns a row. Instead a <strong>routing layer</strong> computes the shard from the key. For hash sharding the math is one line — <code>shard = hash(key) % N</code> — but the conceptual flow is the same for every strategy: extract the key, map it to a shard, talk only to that shard. The step-through below walks one <code>wallet_id</code> write from arrival to commit.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-route">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive shard routing: a write arrives, the router hashes the wallet id, and routes to the owning shard">
+            <g class="st" id="r-client"><rect class="node" x="20" y="100" width="96" height="46" rx="8"/><text class="lbl" x="68" y="121" text-anchor="middle">App</text><text class="lbl-sm" x="68" y="137" text-anchor="middle">write w_4821</text></g>
+            <g class="st" id="r-router"><rect class="node-b" x="180" y="92" width="150" height="62" rx="9"/><text class="lbl" x="255" y="117" text-anchor="middle">Router</text><text class="lbl-sm" x="255" y="136" text-anchor="middle">hash(key) % 3</text></g>
+            <g class="st" id="r-s1"><rect class="node" x="430" y="20" width="160" height="44" rx="8"/><text class="lbl" x="510" y="42" text-anchor="middle">Shard 0</text><text class="lbl-sm" x="510" y="56" text-anchor="middle">hash≡0</text></g>
+            <g class="st" id="r-s2"><rect class="node" x="430" y="100" width="160" height="44" rx="8"/><text class="lbl" x="510" y="122" text-anchor="middle">Shard 1</text><text class="lbl-sm" x="510" y="136" text-anchor="middle">hash≡1 ← owns w_4821</text></g>
+            <g class="st" id="r-s3"><rect class="node" x="430" y="180" width="160" height="44" rx="8"/><text class="lbl" x="510" y="202" text-anchor="middle">Shard 2</text><text class="lbl-sm" x="510" y="216" text-anchor="middle">hash≡2</text></g>
+            <path id="r-p1" class="flow" d="M116 123 H 178" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="147" y="114" text-anchor="middle">write</text>
+            <path id="r-p2" class="flow" d="M330 118 C 380 118, 400 124, 428 124" marker-end="url(#arrow)"/>
+            <path id="r-ack" class="flow" d="M428 130 C 380 150, 360 168, 332 150" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 4</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: extract the key, hash to a shard, write only to the owner</figcaption>
+      </figure>
+      <p>Notice what the router does <em>not</em> do: it never touches shards 0 or 2 for this write. That single-shard property is the whole point — a sharded write is exactly as cheap as an unsharded one, because each shard is just a smaller database. The cost is entirely on the design side: the router must stay in lock-step with which shard owns which keys, and the moment that mapping changes (next section), life gets hard.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> When one shard melts</div>
+      <h2>The hot-shard problem</h2>
+      <p>Even with a high-cardinality key, real-world access is rarely uniform — and an interviewer will press on this immediately. The <strong>hot shard</strong> (or <strong>celebrity / hotspot</strong>) problem is when a disproportionate share of traffic concentrates on one shard, so it saturates while its siblings idle. Sharding gave you N machines of capacity, but a hotspot means your effective ceiling is one machine again.</p>
+      <p>Three named scenarios cause it. First, the <strong>celebrity</strong>: shard a social graph by <code>user_id</code> and a creator with twenty million followers makes their shard a furnace on every post. Second, the <strong>flash sale</strong>: shard an inventory table by <code>product_id</code> and a single Shopee 11.11 doorbuster receives a million reads and decrements in minutes, all on one shard. Third, the <strong>monotonic key</strong>: shard by an auto-incrementing ID or by <code>timestamp</code> and every new write piles onto the newest shard while the rest go cold.</p>
+
+      <h3>Mitigations</h3>
+      <ul>
+        <li><strong>Compound (composite) keys.</strong> Append a second dimension to spread a hot value. Sharding a chat system by <code>(channel_id, bucket)</code> — where bucket is a number from 0–9 derived from the message id — splits one blazing channel across ten shards instead of one. You trade single-shard reads for a small, bounded scatter (read all ten buckets).</li>
+        <li><strong>Splitting a hot shard.</strong> If one shard is hot because it simply holds too much, split its key range in two and move half elsewhere. Directory-based sharding makes this a directory edit; range sharding supports explicit split operations (HBase region splits, MongoDB chunk splits).</li>
+        <li><strong>Salting.</strong> Prefix or suffix the key with a small random or hashed value — <code>salt:user_id</code> — so a single logical key fans out across many physical partitions. This is exactly how you defeat the monotonic-key write hotspot: a tiny salt scatters sequential writes. The cost, again, is that reading the logical key now means reading every salt bucket.</li>
+      </ul>
+      <p>The thread running through all three: you defeat a hotspot by trading <em>read locality</em> for <em>write spread</em>. There is no free lunch — every fix that spreads a hot key across shards makes reading that key a multi-shard gather.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A celebrity user overloads one shard while others idle; a salted compound key spreads that load across shards">
+            <text class="lbl" x="150" y="22" text-anchor="middle">Hotspot</text>
+            <path class="flow-r" d="M40 50 H 120" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M40 60 H 120" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M40 70 H 120" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M40 80 H 120" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="42" y="40" text-anchor="start">celebrity</text>
+            <rect class="node-r" x="124" y="40" width="56" height="50" rx="6"/><text class="lbl-sm" x="152" y="69" text-anchor="middle">S1 🔥</text>
+            <rect class="node" x="124" y="104" width="56" height="34" rx="6"/><text class="lbl-sm" x="152" y="125" text-anchor="middle">S2</text>
+            <rect class="node" x="124" y="150" width="56" height="34" rx="6"/><text class="lbl-sm" x="152" y="171" text-anchor="middle">S3</text>
+            <text class="lbl-sm" x="152" y="206" text-anchor="middle" fill="#B0532F">one shard saturates</text>
+            <line x1="240" y1="30" x2="240" y2="200" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text class="lbl" x="450" y="22" text-anchor="middle">Salted compound key</text>
+            <rect class="node-b" x="280" y="48" width="150" height="34" rx="6"/>
+            <text class="lbl-sm" x="355" y="69" text-anchor="middle">(salt 0–2, user_id)</text>
+            <path class="flow" d="M430 56 C 470 56, 490 52, 516 50" marker-end="url(#arrow)"/>
+            <path class="flow" d="M430 65 C 470 80, 490 96, 516 104" marker-end="url(#arrow)"/>
+            <path class="flow" d="M430 74 C 470 120, 490 150, 516 158" marker-end="url(#arrow)"/>
+            <rect class="node" x="520" y="40" width="56" height="30" rx="6"/><text class="lbl-sm" x="548" y="60" text-anchor="middle">S1</text>
+            <rect class="node" x="520" y="92" width="56" height="30" rx="6"/><text class="lbl-sm" x="548" y="112" text-anchor="middle">S2</text>
+            <rect class="node" x="520" y="146" width="56" height="30" rx="6"/><text class="lbl-sm" x="548" y="166" text-anchor="middle">S3</text>
+            <text class="lbl-sm" x="450" y="206" text-anchor="middle" fill="#1F4E79">load now spread evenly</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — salting turns one hot key into many physical partitions, spreading the load</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>If asked "what if one user is a celebrity," do not just say "use consistent hashing" — that spreads <em>shards</em> evenly, not the load on a <em>single key</em>. The honest answer is: detect the hot key, then spread <em>that key</em> across partitions with a salt or compound key (accepting a fan-out read), and for read-heavy hotspots, put a <strong>cache</strong> in front so the hot shard is shielded. Hotspots are an access-pattern problem, not a hashing problem.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The cost of splitting</div>
+      <h2>Cross-shard queries, joins &amp; transactions</h2>
+      <p>Sharding's bill comes due whenever an operation needs data from more than one shard. On a single database, a <code>JOIN</code> or a multi-row transaction is trivial. Across shards, the database can no longer help you — the rows live on different machines that know nothing of each other. Three things get hard, in rising order of pain.</p>
+
+      <h3>Cross-shard reads — scatter-gather</h3>
+      <p>A query that does not filter on the shard key cannot be routed to one shard, so it must <strong>scatter</strong> to all shards and <strong>gather</strong> the results. "Top 10 Agoda hotels by bookings this week," when sharded by <code>hotel_id</code>, fans out to every shard, each returns its local top 10, and the coordinator merges them. Scatter-gather works but scales poorly: latency is governed by the <em>slowest</em> shard (the tail-latency tax), and load multiplies — one logical query becomes N physical queries. The mitigation is to design these away: precompute the answer with an offline job and store it, or maintain a secondary index in a system built for it (Elasticsearch, a separate analytics store).</p>
+
+      <h3>Cross-shard joins</h3>
+      <p>A SQL <code>JOIN</code> across shards is not supported by the engine — you must do the join in the application (fetch from shard A, fetch from shard B, stitch in memory) or, far better, <strong>denormalize</strong> so the data you read together lives together. If you always read an order with its line items, store the line items <em>in</em> the order's shard, keyed by the same <code>order_id</code>, so the read is single-shard. This is why NoSQL stores push you toward denormalized, query-shaped data: the schema is bent so the common read never crosses a shard.</p>
+
+      <h3>Cross-shard transactions</h3>
+      <p>The hardest. A GrabPay transfer debiting wallet A on shard 1 and crediting wallet B on shard 2 needs both writes to commit atomically — but they are on different machines. A local <code>BEGIN…COMMIT</code> cannot span shards. Options, none free: <strong>two-phase commit (2PC)</strong> gives atomicity but is slow and blocks if the coordinator dies mid-commit, locking rows on every participant. The modern preference is a <strong>Saga</strong> — break the transfer into local transactions per shard plus compensating actions to undo on failure (debit A; if credit B fails, refund A) — which trades strict atomicity for availability and eventual consistency. The senior move in an interview is to <strong>design the transaction away</strong>: co-locate accounts that transact together on the same shard when you can, so the common case stays single-shard.</p>
+      <div class="vs">
+        <div class="col"><h4>Two-phase commit (2PC)</h4><ul>
+          <li>Strong atomicity across shards — all commit or none</li>
+          <li>Synchronous, multiple round trips: high latency</li>
+          <li>Coordinator failure mid-commit leaves rows locked (blocking)</li>
+          <li>Reduces availability; rarely used on the hot path at scale</li>
+        </ul></div>
+        <div class="col"><h4>Saga (compensation)</h4><ul>
+          <li>Local commits per shard, no global lock — stays available</li>
+          <li>Failure handled by compensating actions (undo)</li>
+          <li>Only eventual consistency; intermediate states are visible</li>
+          <li>You must design and test every compensation path</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">What breaks at 10x</span>
+        <p>A scatter-gather that touches 4 shards at 1k QPS is fine. At 10x scale across 40 shards, the same query now hits 40 machines per request and your tail latency is set by the worst of 40 — a p99 that was 20ms becomes 200ms. This is why teams move reporting and search off the sharded OLTP store entirely and onto a purpose-built secondary index, fed asynchronously. Plan for it before it bites.</p>
+      </div>
+    </section>
+
+    <!-- 7 — INTERACTIVE -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> The operational nightmare</div>
+      <h2>Resharding without downtime</h2>
+      <p>Everything above assumed a fixed number of shards. The moment you need to <em>add</em> one — and you always eventually do — the naive scheme detonates. With <code>shard = hash(key) % N</code>, changing N from 4 to 5 changes the modulus for almost <em>every</em> key: a key that mapped to <code>hash % 4 == 2</code> now maps to <code>hash % 5 == something_else</code>. In the worst case roughly <strong>(N−1)/N of all keys move</strong> — about 80% of the data reshuffles on a single scale-out. That is a multi-terabyte data migration triggered by adding one box, and during it the mapping is in flux.</p>
+      <p>This pain is exactly what <strong>consistent hashing</strong> (Lesson 11) was invented to fix: it arranges shards on a ring so that adding a node moves only the keys in <em>one</em> adjacent arc — roughly <code>1/N</code> of the data, not <code>(N−1)/N</code>. Keep that as the structural answer to "how do you avoid reshuffling everything." But even with consistent hashing, the <em>data still has to move while the system is live</em>, and that operational dance is what the next interview question is really about.</p>
+
+      <h3>Online resharding: double-write, backfill, cutover</h3>
+      <p>The safe recipe for moving a key range to a new shard without downtime has four phases:</p>
+      <ul>
+        <li><strong>1. Double-write.</strong> Start writing every affected key to <em>both</em> the old and the new shard. New writes are now safe on the destination; the old shard stays authoritative for reads.</li>
+        <li><strong>2. Backfill.</strong> A background job copies the existing (historical) rows for that range from old to new. Because double-writes are already flowing, you only need to backfill data written <em>before</em> double-writing began.</li>
+        <li><strong>3. Verify.</strong> Compare old and new for the range — row counts, checksums, sampled reads — until they agree. This catches bugs before they become data loss.</li>
+        <li><strong>4. Cutover.</strong> Flip reads to the new shard (a directory edit or routing config change), confirm health, then stop double-writing and reclaim space on the old shard.</li>
+      </ul>
+      <p>The step-through shows the structural win: when a new shard is added under consistent hashing, only the keys in one arc move — most of the data does not budge.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-reshard">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive resharding: adding a fourth shard moves only one slice of the key space using double-writes and backfill, leaving most data in place">
+            <g class="st" id="rs-keys"><rect class="node" x="20" y="104" width="96" height="44" rx="8"/><text class="lbl" x="68" y="125" text-anchor="middle">key space</text><text class="lbl-sm" x="68" y="141" text-anchor="middle">0 … M</text></g>
+            <g class="st" id="rs-s1"><rect class="node-b" x="180" y="20" width="150" height="40" rx="8"/><text class="lbl" x="255" y="45" text-anchor="middle">Shard 0 (stays)</text></g>
+            <g class="st" id="rs-s2"><rect class="node-b" x="180" y="74" width="150" height="40" rx="8"/><text class="lbl" x="255" y="99" text-anchor="middle">Shard 1 (stays)</text></g>
+            <g class="st" id="rs-s3"><rect class="node-b" x="180" y="128" width="150" height="40" rx="8"/><text class="lbl" x="255" y="153" text-anchor="middle">Shard 2 (splits)</text></g>
+            <g class="st" id="rs-new"><rect class="node-r" x="180" y="190" width="150" height="44" rx="8"/><text class="lbl" x="255" y="212" text-anchor="middle">Shard 3 (new)</text><text class="lbl-sm" x="255" y="228" text-anchor="middle">takes one arc</text></g>
+            <g class="st" id="rs-dw">
+              <rect class="node" x="420" y="100" width="200" height="120" rx="10"/>
+              <text class="lbl" x="520" y="124" text-anchor="middle">Migration</text>
+              <text class="lbl-sm" x="520" y="148" text-anchor="middle">1. double-write</text>
+              <text class="lbl-sm" x="520" y="168" text-anchor="middle">2. backfill old rows</text>
+              <text class="lbl-sm" x="520" y="188" text-anchor="middle">3. verify checksums</text>
+              <text class="lbl-sm" x="520" y="208" text-anchor="middle">4. cutover reads</text>
+            </g>
+            <path id="rs-p1" class="flow" d="M116 126 C 150 110, 160 100, 178 90" marker-end="url(#arrow)"/>
+            <path id="rs-p2" class="flow-r" d="M330 148 C 350 168, 350 188, 330 210" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="378" y="124" text-anchor="middle" fill="#B0532F">only 1/N moves</text>
+            <path id="rs-p3" class="flow-d" d="M330 212 C 370 200, 390 180, 418 160" marker-end="url(#arrow-s)"/>
+            <path id="rs-p4" class="flow" d="M520 100 C 470 80, 360 60, 332 48" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 6 — interactive: add a shard, move only one arc, migrate it live with double-writes</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interview tip — the second-most-common question</span>
+        <p>"How do you reshard without downtime?" Land the four phases — <em>double-write → backfill → verify → cutover</em> — and mention the rollback story (if verify fails, you simply stop double-writing and never cut over, losing nothing). Bonus points for noting that consistent hashing or pre-splitting into many <strong>virtual shards</strong> upfront (say 1024 logical shards mapped onto 8 physical nodes) makes future growth a cheap remapping instead of a rehash.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Who computes the route</div>
+      <h2>Where routing lives</h2>
+      <p>Something has to turn a shard key into a shard address. There are three architectures for <em>where</em> that logic runs, and the choice is a recurring design-review question.</p>
+
+      <h3>Smart client (routing in the app)</h3>
+      <p>The application library knows the sharding map and connects directly to the owning shard — no middle hop, so it is the <strong>lowest latency</strong>. Cassandra's drivers work this way: they are token-aware and route straight to the right node. The downside is operational: every client must carry and refresh the topology, and changing the sharding scheme means redeploying every service that uses the database.</p>
+
+      <h3>Proxy / router (routing in a middle tier)</h3>
+      <p>A dedicated proxy sits between app and shards; the app talks to the proxy as if it were one database, and the proxy routes. This <strong>centralizes</strong> the sharding logic — one place to update the map, clients stay dumb. <strong>Vitess</strong> (vtgate) and <strong>ProxySQL</strong> do this for MySQL. The cost is an extra network hop and one more tier to make highly available, since the proxy is now on the critical path.</p>
+
+      <h3>Coordinator / cluster-aware nodes</h3>
+      <p>The data nodes themselves know the topology and forward a misrouted request to the right peer. DynamoDB and the request-coordinator role in Dynamo-style systems work like this — you can hit any node and it routes internally. Simplest for clients, at the cost of intra-cluster forwarding hops.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Three places routing logic can live: in a smart client, in a middle proxy, or in cluster-aware data nodes">
+            <text class="lbl" x="106" y="22" text-anchor="middle">Smart client</text>
+            <rect class="node-b" x="56" y="36" width="100" height="40" rx="7"/><text class="lbl-sm" x="106" y="60" text-anchor="middle">app + map</text>
+            <path class="flow" d="M106 78 V 110" marker-end="url(#arrow)"/>
+            <rect class="node" x="64" y="112" width="40" height="28" rx="5"/><text class="lbl-sm" x="84" y="131" text-anchor="middle">S1</text>
+            <rect class="node" x="110" y="112" width="40" height="28" rx="5"/><text class="lbl-sm" x="130" y="131" text-anchor="middle">S2</text>
+            <text class="lbl-sm" x="106" y="162" text-anchor="middle">no hop, fat client</text>
+            <line x1="214" y1="30" x2="214" y2="170" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text class="lbl" x="320" y="22" text-anchor="middle">Proxy</text>
+            <rect class="node" x="280" y="36" width="80" height="30" rx="6"/><text class="lbl-sm" x="320" y="56" text-anchor="middle">app</text>
+            <path class="flow" d="M320 68 V 82" marker-end="url(#arrow)"/>
+            <rect class="node-r" x="270" y="84" width="100" height="32" rx="6"/><text class="lbl-sm" x="320" y="104" text-anchor="middle">router/proxy</text>
+            <path class="flow" d="M296 118 V 132" marker-end="url(#arrow)"/>
+            <path class="flow" d="M344 118 V 132" marker-end="url(#arrow)"/>
+            <rect class="node" x="276" y="134" width="40" height="26" rx="5"/><text class="lbl-sm" x="296" y="152" text-anchor="middle">S1</text>
+            <rect class="node" x="324" y="134" width="40" height="26" rx="5"/><text class="lbl-sm" x="344" y="152" text-anchor="middle">S2</text>
+            <text class="lbl-sm" x="320" y="178" text-anchor="middle">one hop, central map</text>
+            <line x1="428" y1="30" x2="428" y2="170" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text class="lbl" x="534" y="22" text-anchor="middle">Coordinator</text>
+            <rect class="node" x="494" y="36" width="80" height="30" rx="6"/><text class="lbl-sm" x="534" y="56" text-anchor="middle">app</text>
+            <path class="flow" d="M534 68 V 88" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="486" y="90" width="44" height="30" rx="5"/><text class="lbl-sm" x="508" y="109" text-anchor="middle">any</text>
+            <rect class="node" x="538" y="90" width="44" height="30" rx="5"/><text class="lbl-sm" x="560" y="109" text-anchor="middle">owns</text>
+            <path class="flow-d" d="M530 105 H 538" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="534" y="150" text-anchor="middle">nodes forward</text>
+            <text class="lbl-sm" x="534" y="166" text-anchor="middle">internally</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — routing lives in the client, a proxy, or the cluster itself; each trades hops for simplicity</figcaption>
+      </figure>
+      <h3>Rebalancing</h3>
+      <p>Wherever routing lives, the topology is not static — shards fill unevenly, machines are added, hotspots emerge. <strong>Rebalancing</strong> is the ongoing process of redistributing data to keep load even. The cardinal rule: rebalancing should move the <em>minimum</em> necessary data (this is why <code>hash % N</code> is so bad and consistent hashing or fixed virtual-shard counts are good), and it should run as a throttled background task so it never starves live traffic of disk and network. Systems like Cassandra and DynamoDB rebalance automatically; classic sharded MySQL setups rebalance with operator-run migration tooling.</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> When a shard dies</div>
+      <h2>A shard down: combine with replication</h2>
+      <p>Sharding has a sharp failure mode that is easy to miss. On an unsharded database, the primary dying takes everything down — total but uniform. On a sharded system, a single shard dying takes down <em>only its key range</em>: if shard 2 of 4 is lost, roughly a quarter of your users cannot read or write while three-quarters are completely fine. That partial-outage property is a double-edged sword — the blast radius is smaller, but you now have <em>N times as many machines</em> that can fail, so the probability that <em>something</em> is down at any moment goes up with N.</p>
+      <p>The resolution is the key insight of this whole topic: <strong>sharding and replication are orthogonal and you use both together.</strong> Sharding splits data for scale; replication copies each piece for durability and availability (Lesson 04). In production, each shard is itself a small <strong>replica set</strong> — one primary plus one or more followers. If a shard's primary dies, a follower is promoted (failover) and that key range keeps serving; you have lost a replica, not the data.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Each shard is replicated into a small group with a primary and followers, so losing one node does not lose the key range">
+            <rect x="30" y="40" width="170" height="160" rx="10" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="115" y="32" text-anchor="middle">Shard 1 group</text>
+            <g transform="translate(85,52)"><path d="M0,8 L0,40 A22,7 0 0 0 44,40 L44,8" fill="#2E73B8"/><ellipse cx="22" cy="8" rx="22" ry="7" fill="#3E86CF"/><text x="22" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">P</text></g>
+            <text class="lbl-sm" x="107" y="116" text-anchor="middle">primary</text>
+            <g transform="translate(46,140)"><path d="M0,6 L0,30 A16,5 0 0 0 32,30 L32,6" fill="#9bb8d6"/><ellipse cx="16" cy="6" rx="16" ry="5" fill="#b6cee6"/></g>
+            <g transform="translate(126,140)"><path d="M0,6 L0,30 A16,5 0 0 0 32,30 L32,6" fill="#9bb8d6"/><ellipse cx="16" cy="6" rx="16" ry="5" fill="#b6cee6"/></g>
+            <text class="lbl-sm" x="115" y="194" text-anchor="middle">followers</text>
+            <rect x="235" y="40" width="170" height="160" rx="10" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="320" y="32" text-anchor="middle">Shard 2 group</text>
+            <g transform="translate(290,52)"><path d="M0,8 L0,40 A22,7 0 0 0 44,40 L44,8" fill="#B0532F"/><ellipse cx="22" cy="8" rx="22" ry="7" fill="#c97550"/><text x="22" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="9" font-weight="600">✗P</text></g>
+            <text class="lbl-sm" x="312" y="116" text-anchor="middle" fill="#B0532F">primary dies</text>
+            <g transform="translate(251,140)"><path d="M0,6 L0,30 A16,5 0 0 0 32,30 L32,6" fill="#2E73B8"/><ellipse cx="16" cy="6" rx="16" ry="5" fill="#3E86CF"/><text x="16" y="22" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="9" font-weight="600">P'</text></g>
+            <g transform="translate(331,140)"><path d="M0,6 L0,30 A16,5 0 0 0 32,30 L32,6" fill="#9bb8d6"/><ellipse cx="16" cy="6" rx="16" ry="5" fill="#b6cee6"/></g>
+            <text class="lbl-sm" x="320" y="194" text-anchor="middle" fill="#1F4E79">follower promoted ↑</text>
+            <rect x="440" y="40" width="170" height="160" rx="10" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="525" y="32" text-anchor="middle">Shard 3 group</text>
+            <g transform="translate(495,52)"><path d="M0,8 L0,40 A22,7 0 0 0 44,40 L44,8" fill="#2E73B8"/><ellipse cx="22" cy="8" rx="22" ry="7" fill="#3E86CF"/><text x="22" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">P</text></g>
+            <text class="lbl-sm" x="517" y="116" text-anchor="middle">primary</text>
+            <g transform="translate(456,140)"><path d="M0,6 L0,30 A16,5 0 0 0 32,30 L32,6" fill="#9bb8d6"/><ellipse cx="16" cy="6" rx="16" ry="5" fill="#b6cee6"/></g>
+            <g transform="translate(536,140)"><path d="M0,6 L0,30 A16,5 0 0 0 32,30 L32,6" fill="#9bb8d6"/><ellipse cx="16" cy="6" rx="16" ry="5" fill="#b6cee6"/></g>
+            <text class="lbl-sm" x="525" y="194" text-anchor="middle">followers</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 8 — each shard is its own replica set; a failed primary fails over within its group</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood — the full topology</span>
+        <p>Put the lessons together and a production sharded store is a grid: <em>N shards × R replicas</em>. A write routes to shard <code>k</code>, commits on shard <code>k</code>'s primary, and replicates to shard <code>k</code>'s followers. MongoDB calls each group a <strong>replica set</strong> and the whole thing a sharded cluster (with <code>mongos</code> routers and config servers as the directory). Cassandra spreads each shard's replicas around the token ring with a <strong>replication factor</strong>. The shard key controls scale; the replication factor controls survivability.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>If asked "what happens when a shard goes down," resist saying "the system is down." The precise answer: <em>"Only that shard's key range is affected, and because each shard is a replica set, a follower is promoted and the range keeps serving — so it's a brief, partial degradation, not a full outage. The trade-off is that more shards means more machines that can fail, which is why each shard needs replication and good failure detection."</em></p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The topic compresses to one sentence: <em>when one primary can't hold the writes or the bytes, split the rows across nodes — and live or die by your shard key and your ability to reshard while serving traffic.</em> If you can defend a shard-key choice, name the hot-shard fixes, and walk the double-write reshard, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">00</span><b>Why shard at all</b><span>Replicas scale reads; one primary still caps writes and dataset size. Shard to scale both out.</span></div>
+        <div class="tk"><span class="num">01</span><b>Vertical vs horizontal</b><span>Vertical splits columns (hot/cold); horizontal splits rows — that's sharding, and it's the powerful one.</span></div>
+        <div class="tk"><span class="num">02</span><b>Range / hash / directory</b><span>Range = scans but hotspots; hash = even but no scans; directory = flexible but a hop + SPOF.</span></div>
+        <div class="tk"><span class="num">03</span><b>The shard key rules all</b><span>High cardinality, even access, aligned with the dominant query. A bad key creates hotspots.</span></div>
+        <div class="tk"><span class="num">04</span><b>Route, don't broadcast</b><span>The router maps key → shard and touches only the owner; a sharded write is as cheap as one DB.</span></div>
+        <div class="tk"><span class="num">05</span><b>Hot shards</b><span>Celebrity / flash-sale / monotonic keys. Fix with salting, compound keys, splits, and a cache.</span></div>
+        <div class="tk"><span class="num">06</span><b>Cross-shard hurts</b><span>Scatter-gather, app-side joins, 2PC vs Saga. Denormalize and co-locate to design it away.</span></div>
+        <div class="tk"><span class="num">07</span><b>Resharding live</b><span>hash%N reshuffles ~80%. Consistent hashing limits it to one arc; migrate via double-write/backfill/cutover.</span></div>
+        <div class="tk"><span class="num">08</span><b>Where routing lives</b><span>Smart client (no hop), proxy (central map), or coordinator (cluster forwards). Rebalance minimally.</span></div>
+        <div class="tk"><span class="num">09</span><b>Replicate each shard</b><span>A shard down = partial outage of one range. Each shard is a replica set, so it fails over.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why does adding read replicas fail to solve a write bottleneck, and what does sharding solve that vertical scaling cannot?<br>(2) Compare range, hash, and directory sharding — give the one query each is good and bad at.<br>(3) What three properties make a good shard key, and why is <code>timestamp</code> a trap for writes?<br>(4) A creator with 20M followers melts one shard — how do you fix it without rehashing everything?<br>(5) Why does naive <code>hash % N</code> reshuffle most of the data on scale-out, and walk the four phases of an online reshard.<br>(6) What happens when one shard's primary dies, and how do sharding and replication combine?<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw the topology from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 10 · PARTITIONING &amp; SHARDING · interactive edition<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* shard routing */
+  makeStepper(document.getElementById('fig-route'), [
+    {text:"A write for wallet w_4821 arrives at the router. The app never names a physical shard.", active:["r-client","r-router"], path:"r-p1"},
+    {text:"The router computes hash(w_4821) % 3 = 1 — shard 1 owns this key.", active:["r-router","r-s2"]},
+    {text:"The write goes only to shard 1; shards 0 and 2 are never touched.", active:["r-router","r-s2"], path:"r-p2"},
+    {text:"Shard 1 commits and acks. A sharded write is as cheap as a single-DB write.", active:["r-router","r-s2"], path:"r-ack"}
+  ]);
+
+  /* resharding */
+  makeStepper(document.getElementById('fig-reshard'), [
+    {text:"Today the key space 0…M is split across shards 0, 1, and 2.", active:["rs-keys","rs-s1","rs-s2","rs-s3"], path:"rs-p1"},
+    {text:"We add shard 3. Under consistent hashing it claims just one arc of the ring.", active:["rs-keys","rs-new"]},
+    {text:"Only that one slice moves — most keys stay put (not the ~80% that hash%N would shuffle).", active:["rs-s3","rs-new"], path:"rs-p2"},
+    {text:"Migrate it live: double-write to old+new, backfill old rows, verify checksums.", active:["rs-new","rs-dw"], path:"rs-p3"},
+    {text:"Cutover reads to shard 3, stop double-writing, reclaim space. No downtime.", active:["rs-dw","rs-s1","rs-s2","rs-s3","rs-new"], path:"rs-p4"}
+  ]);
+</script>
+</body>
+</html>

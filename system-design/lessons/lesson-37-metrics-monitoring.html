@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 37 — Design Metrics Monitoring &amp; Alerting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1c2733;border:1px solid #2a3a4a;border-radius:10px;
+    overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;color:#cdd9e5;}
+  pre .cm{color:#7d8fa3;} pre .kw{color:#7fb2d9;} pre .st{color:#c1986a;} pre .nm{color:#9ad0a0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Metrics &amp;<br>Alerting</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why monitor at all?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope sizing</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Pull vs push collection</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The time-series store</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Downsampling &amp; retention</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Query &amp; dashboards</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>The alerting pipeline ▸</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Cardinality &amp; scaling</span></a></li>
+      <li><a href="#s11"><span class="n">11</span><span>Failure modes &amp; 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">37</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design Metrics Monitoring &amp; Alerting</h1>
+      <p class="lede">A monitoring system swallows numbers from thousands of hosts, stores them as time series, paints dashboards, and pages on-call when a rule trips — and it must stay up even while the systems it watches are falling over. The interview turns on three choices: pull versus push collection, a purpose-built time-series store, and an alert pipeline that warns you without burying you.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on metrics monitoring and alerting — a standard, widely-documented infrastructure topic. The explanations, numbers, examples, and diagrams here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why monitor at all?</h2>
+      <p>Imagine GrabPay processes a payment every few milliseconds across hundreds of services, and at 2 a.m. the checkout success rate quietly slips from 99.6% to 91%. No exception is thrown, no service crashes — a downstream bank connector is just timing out a little more often. Without a monitoring system, nobody knows until customer-support tickets pile up the next morning. With one, an alert fires within a minute and a human is paged before most users ever notice.</p>
+      <p>A <strong>metrics monitoring and alerting system</strong> is the always-on observer that turns the raw operational state of your fleet into numbers you can graph, query, and trigger on. It answers three different questions for three different audiences:</p>
+      <ul>
+        <li><strong>Is it broken right now?</strong> — for on-call engineers who need a page the moment an SLO is at risk.</li>
+        <li><strong>Why did it break?</strong> — for whoever is debugging, who needs to slice latency by region, version, and endpoint.</li>
+        <li><strong>Is it trending toward broken?</strong> — for capacity planners watching disk and CPU creep up over weeks.</li>
+      </ul>
+      <p>Crucially, this system is <strong>infrastructure for infrastructure</strong>. It must be more reliable than anything it watches, because the one moment you most need it — a partial outage — is exactly when it is under the most load and most likely to share a failure with the thing that broke. That single constraint shapes nearly every design decision that follows.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Many hosts emitting metrics into a monitoring system that powers dashboards and alerts">
+            <rect class="node" x="20" y="40" width="120" height="34" rx="7"/>
+            <text class="lbl-sm" x="80" y="62" text-anchor="middle">payment svc</text>
+            <rect class="node" x="20" y="92" width="120" height="34" rx="7"/>
+            <text class="lbl-sm" x="80" y="114" text-anchor="middle">ride-match svc</text>
+            <rect class="node" x="20" y="144" width="120" height="34" rx="7"/>
+            <text class="lbl-sm" x="80" y="166" text-anchor="middle">…1000s of hosts</text>
+            <rect class="node-b" x="248" y="82" width="150" height="58" rx="10"/>
+            <text class="lbl" x="323" y="108" text-anchor="middle">Monitoring</text>
+            <text class="lbl" x="323" y="126" text-anchor="middle">system</text>
+            <path class="flow" d="M140 57 C 200 62, 210 90, 246 100" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 109 H 246" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 161 C 200 156, 210 130, 246 120" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="178" y="50" text-anchor="middle">metrics</text>
+            <rect class="node" x="500" y="44" width="120" height="42" rx="8"/>
+            <text class="lbl" x="560" y="70" text-anchor="middle">Dashboards</text>
+            <rect class="node-r" x="500" y="136" width="120" height="42" rx="8"/>
+            <text class="lbl" x="560" y="162" text-anchor="middle">Alerts</text>
+            <path class="flow" d="M398 100 C 450 90, 460 72, 498 66" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M398 122 C 450 132, 460 150, 498 156" marker-end="url(#arrow-r)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the monitoring system observes the fleet and feeds both dashboards and the pager</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Scope check</span>
+        <p>This lesson is about <strong>metrics</strong> — numeric, regularly-sampled measurements like request rate, error count, and p99 latency. That is deliberately narrower than full observability, which also covers <strong>logs</strong> (discrete text events) and <strong>traces</strong> (the path of one request across services). Metrics are cheap and aggregatable; logs and traces are richer but far heavier. Say this out loud early so the interviewer knows you are scoping on purpose.</p>
+      </div>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Before sketching boxes, narrow the problem. Monitoring means very different things at different scales, and the interviewer is watching whether you ask. I would settle the following.</p>
+
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Collect</strong> metrics from many hosts and services — counters, gauges, and histograms tagged with dimensions (region, service, instance).</li>
+        <li><strong>Store</strong> them efficiently as <strong>time series</strong> with configurable retention.</li>
+        <li><strong>Query</strong> them: aggregate, filter by tag, and compute rates and percentiles over time ranges.</li>
+        <li><strong>Visualize</strong> them on dashboards that refresh in near real time.</li>
+        <li><strong>Alert</strong> on rules — when a query crosses a threshold for some duration, notify on-call through email, Slack, PagerDuty, or SMS.</li>
+      </ul>
+
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>High write throughput.</strong> Writes vastly outnumber reads. Millions of new data points per second is normal; most are never read by a human, only scanned by alert rules.</li>
+        <li><strong>Low query latency</strong> for dashboards — a graph should render in well under a second.</li>
+        <li><strong>Reliability and independence.</strong> The stack must outlive what it monitors and share as little failure domain as possible with it.</li>
+        <li><strong>Scalability</strong> to grow with the fleet, and <strong>bounded cost</strong> as data ages.</li>
+        <li><strong>Tolerance for small inaccuracy.</strong> A dropped sample or a slightly approximate percentile is fine; we are not doing accounting.</li>
+      </ul>
+
+      <h3>Explicit non-goals</h3>
+      <p>I would push log aggregation and distributed tracing out of scope, and assume metrics are operational, not billing-grade — that last assumption is what frees us to drop data and downsample aggressively later. State your assumptions plainly: roughly <strong>10,000 hosts</strong>, each exposing on the order of <strong>100 to 1,000 metrics</strong>, a scrape every <strong>10 seconds</strong>, retention of <strong>1 year</strong> at decreasing resolution, and a few hundred engineers building dashboards and rules.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design: <em>"writes dominate reads by orders of magnitude, data is append-only and time-ordered, and the system must be more available than the systems it watches."</em> Say it now and every later decision — the storage engine, the pull model, the HA story — will look like an obvious consequence.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-envelope sizing</h2>
+      <p>Numbers turn vague requirements into design pressure. The key quantity in monitoring is the count of <strong>active time series</strong> — every unique combination of a metric name and its label values is one series.</p>
+
+      <h3>Write throughput</h3>
+      <p>Take 10,000 hosts, each emitting 500 metrics, scraped every 10 seconds:</p>
+      <ul>
+        <li>Active series ≈ <code>10,000 × 500 = 5,000,000</code> series.</li>
+        <li>Data points per second ≈ <code>5,000,000 / 10s = 500,000 points/sec</code>.</li>
+        <li>At 10x growth — more hosts, finer scrape interval, richer labels — you are staring at <strong>5 million points per second</strong>. That number alone rules out a generic relational database.</li>
+      </ul>
+
+      <h3>Storage</h3>
+      <p>A naive data point is a (timestamp, value) pair plus the series identity — say 16 bytes raw. Without compression: <code>500,000 pts/s × 16 B × 86,400 s/day ≈ 690 GB/day</code>. That is enormous and would dominate cost. The saving grace of time-series data is that it compresses ferociously — consecutive timestamps are evenly spaced and consecutive values barely change. Real engines push each point down to roughly <strong>1 to 2 bytes</strong> on average:</p>
+      <ul>
+        <li>Compressed ingest ≈ <code>500,000 × 1.5 B × 86,400 ≈ 65 GB/day</code> of raw-resolution data.</li>
+        <li>That is why retention is tiered: you keep the heavy raw layer for days, not years (covered in step 07).</li>
+      </ul>
+
+      <h3>Read &amp; query load</h3>
+      <p>Reads come from two places: humans loading dashboards (bursty, maybe hundreds of queries per second across the company) and the <strong>rule evaluator</strong> re-running every alert query on a fixed interval (steady, predictable). With 2,000 alert rules each evaluated every 15 seconds, that is a constant <code>~130 evaluations/sec</code> — small compared to writes, which confirms the design instinct: <strong>optimize the write and scan path first</strong>.</p>
+      <div class="callout">
+        <span class="k">Why this matters</span>
+        <p>The estimation is not arithmetic for its own sake — it is the justification for every later choice. 500k writes/sec and a 100:1 write-to-read ratio is precisely why we reach for a column-compressed, append-optimized time-series database instead of a B-tree-indexed RDBMS, and why we downsample old data instead of keeping everything forever.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Two interfaces matter: how a data point looks going in, and how a query reads it back out. Get the data model right and the rest of the system falls into place.</p>
+
+      <h3>The shape of a metric</h3>
+      <p>A single observation is a <strong>data point</strong>: a metric name, a set of <strong>labels</strong> (key–value tag pairs that give the metric its dimensions), a timestamp, and a floating-point value. The metric name plus the exact set of label values defines one <strong>time series</strong>.</p>
+      <pre><span class="cm"># one data point — name{labels} value timestamp</span>
+http_request_latency_ms{<span class="st">service</span>=<span class="nm">"checkout"</span>, <span class="st">region</span>=<span class="nm">"ap-southeast-1"</span>,
+                        <span class="st">instance</span>=<span class="nm">"i-0af3"</span>, <span class="st">le</span>=<span class="nm">"500"</span>}  4123  1717142400</pre>
+      <p>Change any label value — a different <code>region</code>, a different <code>instance</code> — and you have a brand-new series. That is the engine of both the system's power (slice anything by any dimension) and its biggest danger (cardinality explosion, step 10).</p>
+
+      <h3>Write path: a thin ingest endpoint</h3>
+      <p>In a <strong>pull</strong> model, each target simply exposes its current numbers over HTTP and the system scrapes them:</p>
+      <pre><span class="cm"># GET /metrics on a target — text exposition, scraped every 10s</span>
+http_requests_total{service="checkout",code="200"} 480231
+http_requests_total{service="checkout",code="500"} 142
+process_resident_memory_bytes{service="checkout"} 734003200</pre>
+      <p>In a <strong>push</strong> model, short-lived jobs send points to a gateway instead:</p>
+      <pre><span class="kw">POST</span> /api/v1/push
+<span class="cm"># body: batched (series, timestamp, value) tuples, often protobuf + snappy</span>
+{ <span class="st">"series"</span>: <span class="nm">"batch_job_duration_ms{job=\"daily-reco\"}"</span>,
+  <span class="st">"samples"</span>: [ [1717142400, 88210] ] }</pre>
+
+      <h3>Read path: a query API</h3>
+      <p>Queries select series by name and label matchers, then aggregate over a time range. A purpose-built query language expresses rates and percentiles directly:</p>
+      <pre><span class="cm"># 5xx error ratio for checkout over the last 5 minutes, per region</span>
+<span class="kw">sum by</span>(region) (<span class="nm">rate</span>(http_requests_total{service=<span class="nm">"checkout"</span>,code=~<span class="nm">"5.."</span>}[5m]))
+  /
+<span class="kw">sum by</span>(region) (<span class="nm">rate</span>(http_requests_total{service=<span class="nm">"checkout"</span>}[5m]))</pre>
+      <p>The HTTP surface is small and read-heavy on the query side:</p>
+      <ul>
+        <li><code>GET /api/v1/query?query=…&amp;time=…</code> — an instant value, used by alert rules and single-stat panels.</li>
+        <li><code>GET /api/v1/query_range?query=…&amp;start=…&amp;end=…&amp;step=…</code> — a series of points for a graph.</li>
+        <li><code>GET /api/v1/labels</code> and <code>/label/{name}/values</code> — autocomplete for dashboard builders.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>Expect <em>"why labels instead of separate metrics per region?"</em> Because dimensions you can aggregate over are far more flexible: one <code>http_requests_total</code> with a <code>region</code> label lets you sum across all regions or split by one of them at query time, whereas baking the region into the metric name (<code>http_requests_total_sg</code>) forces you to know every dimension up front and makes cross-region rollups painful.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The big picture</div>
+      <h2>High-level architecture</h2>
+      <p>Now assemble the pipeline end to end. Five stages move a number from a host to a human: <strong>collection</strong>, <strong>storage</strong>, <strong>query</strong>, <strong>visualization</strong>, and <strong>alerting</strong>. Each is a separate concern so it can scale and fail independently.</p>
+      <ul>
+        <li>A <strong>collector</strong> gathers data points — by scraping targets (pull) or receiving them at a gateway (push).</li>
+        <li>The <strong>time-series database (TSDB)</strong> persists the points, compressed and indexed by series.</li>
+        <li>A <strong>query service</strong> answers range and instant queries from the TSDB.</li>
+        <li>A <strong>dashboard / visualization</strong> layer (think Grafana) reads the query service.</li>
+        <li>A <strong>rule evaluator</strong> periodically runs alert queries; when one trips, it hands an alert to the <strong>alert manager</strong>, which groups, deduplicates, and routes it to on-call.</li>
+      </ul>
+      <p>Walk the diagram below step by step — it traces one metric from the moment it is exposed on a host all the way to a page landing on a phone.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-hld">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive end-to-end metrics pipeline from target to on-call">
+            <g class="st" id="h-target"><rect class="node" x="14" y="110" width="96" height="48" rx="8"/><text class="lbl-sm" x="62" y="130" text-anchor="middle">target</text><text class="lbl-sm" x="62" y="146" text-anchor="middle">/metrics</text></g>
+            <g class="st" id="h-coll"><rect class="node-b" x="150" y="108" width="104" height="52" rx="9"/><text class="lbl" x="202" y="130" text-anchor="middle">Collector</text><text class="lbl-sm" x="202" y="148" text-anchor="middle">(scraper)</text></g>
+            <g class="st" id="h-tsdb"><rect class="node-r" x="294" y="108" width="104" height="52" rx="9"/><text class="lbl" x="346" y="131" text-anchor="middle">TSDB</text><text class="lbl-sm" x="346" y="148" text-anchor="middle">time series</text></g>
+            <g class="st" id="h-query"><rect class="node" x="294" y="22" width="104" height="44" rx="8"/><text class="lbl" x="346" y="49" text-anchor="middle">Query svc</text></g>
+            <g class="st" id="h-dash"><rect class="node" x="448" y="22" width="100" height="44" rx="8"/><text class="lbl-sm" x="498" y="49" text-anchor="middle">Dashboards</text></g>
+            <g class="st" id="h-rule"><rect class="node" x="294" y="196" width="104" height="44" rx="8"/><text class="lbl-sm" x="346" y="223" text-anchor="middle">Rule eval</text></g>
+            <g class="st" id="h-am"><rect class="node-r" x="448" y="196" width="100" height="44" rx="8"/><text class="lbl-sm" x="498" y="218" text-anchor="middle">Alert mgr</text><text class="lbl-sm" x="498" y="232" text-anchor="middle">→ on-call</text></g>
+            <path id="h-p1" class="flow" d="M110 134 H 148" marker-end="url(#arrow)"/>
+            <path id="h-p2" class="flow" d="M254 134 H 292" marker-end="url(#arrow)"/>
+            <path id="h-p3" class="flow" d="M346 108 V 68" marker-end="url(#arrow)"/>
+            <path id="h-p4" class="flow" d="M398 44 H 446" marker-end="url(#arrow)"/>
+            <path id="h-p5" class="flow" d="M346 196 V 162" marker-end="url(#arrow)"/>
+            <path id="h-p6" class="flow-r" d="M398 218 H 446" marker-end="url(#arrow-r)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: one number's journey from a host to the pager</figcaption>
+      </figure>
+      <p>Two design instincts are baked in here. First, the write side (collector → TSDB) and the read side (query → dashboards, rule eval → alert manager) are decoupled, so a flood of dashboard queries can never stall ingestion. Second, the <strong>alert manager is a distinct component from the rule evaluator</strong>: evaluation decides <em>whether</em> something is wrong; the manager decides <em>who hears about it and how loudly</em>. Keeping them apart is what lets you suppress an alert storm without touching evaluation logic.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Deep dive · collection</div>
+      <h2>Pull vs push collection</h2>
+      <p>The first real fork in the design: how do data points get from a target into the collector? There are two models, and the choice has consequences that ripple through service discovery, security, and failure handling.</p>
+
+      <h3>Pull: the scraper fetches</h3>
+      <p>In a <strong>pull</strong> model, each target exposes a <code>/metrics</code> endpoint, and a central scraper fetches it on a schedule — every 10 seconds, say. This is the Prometheus model. Under the hood the scraper holds a <strong>list of targets</strong> (populated by service discovery — Kubernetes, Consul, or a cloud API), and a scheduler loops over that list firing HTTP GETs, parsing the text response, attaching the scrape timestamp, and appending to the TSDB.</p>
+      <p>The quiet superpower of pull is that <strong>the scraper controls its own load</strong>: it decides how often and how many targets to hit, so it can never be overwhelmed by a misbehaving target spraying data. It also gives you a free liveness signal — if a scrape fails, the target is probably down, and you can synthesize an <code>up == 0</code> metric and alert on that directly.</p>
+
+      <h3>Push: the agent sends</h3>
+      <p>In a <strong>push</strong> model, an agent on each host (StatsD, the OpenTelemetry collector, Telegraf) sends data points to a gateway. This wins precisely where pull struggles: <strong>short-lived jobs</strong> that finish before any scrape could reach them (a nightly Shopee recommendation batch that runs for 40 seconds), and targets <strong>behind a firewall or NAT</strong> that the central scraper cannot reach but which can dial outward.</p>
+
+      <h3>The hybrid in practice</h3>
+      <p>Real systems usually do both: pull for long-lived services where discovery is easy, and a <strong>push gateway</strong> as a bridge for ephemeral jobs — the job pushes to the gateway, and the scraper pulls the gateway like any other target. That keeps the scraper's clean pull semantics while still capturing work that vanishes too fast to scrape.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Side by side comparison of pull-based scraping and push-based agents">
+            <text class="lbl" x="160" y="26" text-anchor="middle" fill="#1F4E79">PULL</text>
+            <rect class="node" x="40" y="50" width="84" height="36" rx="7"/><text class="lbl-sm" x="82" y="72" text-anchor="middle">target</text>
+            <rect class="node" x="40" y="100" width="84" height="36" rx="7"/><text class="lbl-sm" x="82" y="122" text-anchor="middle">target</text>
+            <rect class="node" x="40" y="150" width="84" height="36" rx="7"/><text class="lbl-sm" x="82" y="172" text-anchor="middle">target</text>
+            <rect class="node-b" x="200" y="100" width="92" height="48" rx="9"/><text class="lbl" x="246" y="120" text-anchor="middle">Scraper</text><text class="lbl-sm" x="246" y="138" text-anchor="middle">pulls</text>
+            <path class="flow" d="M200 124 C 170 76, 150 70, 126 68" marker-end="url(#arrow)"/>
+            <path class="flow" d="M200 124 H 126" marker-end="url(#arrow)"/>
+            <path class="flow" d="M200 124 C 170 172, 150 168, 126 168" marker-end="url(#arrow)"/>
+            <line x1="320" y1="20" x2="320" y2="200" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <text class="lbl" x="480" y="26" text-anchor="middle" fill="#B0532F">PUSH</text>
+            <rect class="node" x="360" y="50" width="84" height="36" rx="7"/><text class="lbl-sm" x="402" y="72" text-anchor="middle">agent</text>
+            <rect class="node" x="360" y="100" width="84" height="36" rx="7"/><text class="lbl-sm" x="402" y="122" text-anchor="middle">agent</text>
+            <rect class="node" x="360" y="150" width="84" height="36" rx="7"/><text class="lbl-sm" x="402" y="172" text-anchor="middle">batch job</text>
+            <rect class="node-r" x="520" y="100" width="92" height="48" rx="9"/><text class="lbl" x="566" y="120" text-anchor="middle">Gateway</text><text class="lbl-sm" x="566" y="138" text-anchor="middle">receives</text>
+            <path class="flow-r" d="M444 68 C 480 76, 500 110, 518 120" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M444 124 H 518" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M444 168 C 480 168, 500 138, 518 130" marker-end="url(#arrow-r)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — pull lets the scraper pace itself; push captures jobs too short-lived to scrape</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Pull</h4><ul>
+          <li>Scraper controls load — can't be flooded by a target</li>
+          <li>Free up/down liveness signal per target</li>
+          <li>Service discovery centralizes the target list</li>
+          <li>Struggles with short-lived jobs and firewalled targets</li>
+          <li>Needs network reachability to every target</li>
+        </ul></div>
+        <div class="col"><h4>Push</h4><ul>
+          <li>Captures ephemeral jobs and serverless functions</li>
+          <li>Works through NAT/firewalls — agent dials out</li>
+          <li>No central reachability requirement</li>
+          <li>A buggy client can flood the gateway (needs rate limits)</li>
+          <li>No automatic liveness — silence is ambiguous</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p><em>"Pull or push, and why?"</em> Default to pull for the operational clarity — pacing and built-in liveness — then add a push gateway for the cases pull genuinely can't cover. The wrong answer is dogma in either direction; the right answer names the trade-off and picks pull as the backbone <em>because</em> the scraper paces itself and gives you up/down for free.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Deep dive · storage</div>
+      <h2>The time-series store</h2>
+      <p>This is the heart of the system. A <strong>time-series database (TSDB)</strong> is a store specialized for data that is append-only, timestamped, and queried in ranges. Our estimation said 500k points/sec and a 100:1 write-to-read ratio — so the store must absorb a firehose of writes and answer "give me this series over this window" fast.</p>
+
+      <h3>Why a generic RDBMS struggles</h3>
+      <p>You could put metrics in PostgreSQL — and at small scale people do. But it breaks down for three concrete reasons:</p>
+      <ul>
+        <li><strong>B-tree write amplification.</strong> A relational index is a B-tree tuned for random reads and updates. Time-series writes are a relentless stream of new rows; every insert rebalances the index, and at hundreds of thousands of inserts per second the index maintenance becomes the bottleneck.</li>
+        <li><strong>Row storage wastes the structure.</strong> A row store keeps each (timestamp, value, all-the-labels) tuple together, so it can't exploit the fact that timestamps march evenly and values barely change. It stores 16 honest bytes where a TSDB stores one or two.</li>
+        <li><strong>No native rollups or retention.</strong> Downsampling and expiry are bolt-ons you have to script, not first-class features.</li>
+      </ul>
+
+      <h3>How a TSDB works under the hood</h3>
+      <p>The standard architecture is a <strong>log-structured merge (LSM) tree</strong> feeding compressed, time-bucketed blocks:</p>
+      <ul>
+        <li><strong>In-memory head block.</strong> Recent points land in a per-series in-memory buffer plus a <strong>write-ahead log (WAL)</strong> on disk for crash recovery. Writes are sequential appends — no random I/O, no B-tree rebalancing.</li>
+        <li><strong>Periodic flush to immutable blocks.</strong> Every couple of hours the head is sealed and written to disk as a read-only block covering a fixed time range, with its own index from series → label values.</li>
+        <li><strong>Columnar, delta-compressed chunks.</strong> Within a block, each series' points are stored together. Timestamps are <strong>delta-of-delta</strong> encoded (the gap between scrape intervals is nearly constant, so the second derivative is usually zero — a single bit), and values are <strong>XOR-compressed</strong> against the previous value (a gauge that barely moves XORs to mostly zero bits). This is what drives 16 bytes down to ~1.5.</li>
+        <li><strong>Background compaction.</strong> Small blocks are merged into larger ones, which is also the natural moment to apply downsampling and drop expired data.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="TSDB ingest path: WAL and in-memory head block flushing to compressed immutable blocks">
+            <rect class="node-b" x="20" y="86" width="96" height="48" rx="9"/>
+            <text class="lbl-sm" x="68" y="106" text-anchor="middle">incoming</text>
+            <text class="lbl-sm" x="68" y="122" text-anchor="middle">points</text>
+            <rect class="node" x="170" y="40" width="120" height="44" rx="8"/>
+            <text class="lbl-sm" x="230" y="60" text-anchor="middle">WAL (disk)</text>
+            <text class="lbl-sm" x="230" y="75" text-anchor="middle">crash safety</text>
+            <rect class="node" x="170" y="110" width="120" height="48" rx="8"/>
+            <text class="lbl-sm" x="230" y="131" text-anchor="middle">head block</text>
+            <text class="lbl-sm" x="230" y="146" text-anchor="middle">(in memory)</text>
+            <path class="flow" d="M116 100 C 140 80, 150 66, 168 62" marker-end="url(#arrow)"/>
+            <path class="flow" d="M116 116 C 140 122, 150 130, 168 132" marker-end="url(#arrow)"/>
+            <rect class="node-r" x="350" y="60" width="80" height="40" rx="7"/><text class="lbl-sm" x="390" y="84" text-anchor="middle">block</text>
+            <rect class="node-r" x="350" y="116" width="80" height="40" rx="7"/><text class="lbl-sm" x="390" y="140" text-anchor="middle">block</text>
+            <path class="flow-d" d="M290 134 C 320 120, 330 100, 348 92" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M290 134 H 348" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="318" y="178" text-anchor="middle">flush every ~2h</text>
+            <rect class="node" x="500" y="86" width="120" height="48" rx="8"/>
+            <text class="lbl-sm" x="560" y="106" text-anchor="middle">compacted +</text>
+            <text class="lbl-sm" x="560" y="122" text-anchor="middle">compressed</text>
+            <path class="flow" d="M430 96 C 460 96, 470 104, 498 106" marker-end="url(#arrow)"/>
+            <path class="flow" d="M430 136 C 460 130, 470 120, 498 116" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — appends hit a WAL and an in-memory head, then flush to compressed immutable blocks</figcaption>
+      </figure>
+
+      <h3>Real systems &amp; knobs</h3>
+      <p>The named options: <strong>Prometheus</strong> (single-node TSDB, the de-facto standard), <strong>Thanos</strong> and <strong>Cortex / Mimir</strong> (turn Prometheus into a horizontally-scalable, long-term store backed by object storage like <strong>S3</strong>), <strong>InfluxDB</strong>, <strong>VictoriaMetrics</strong>, <strong>TimescaleDB</strong> (a time-series layer on Postgres), and for the largest fleets columnar stores like <strong>ClickHouse</strong>. Knobs you tune: scrape/sample interval, block duration, WAL flush policy, compaction schedule, and the retention period per resolution tier.</p>
+      <div class="vs">
+        <div class="col"><h4>TSDB (LSM + columnar)</h4><ul>
+          <li>Sequential appends — no index rebalancing</li>
+          <li>Delta + XOR compression → ~1.5 B/point</li>
+          <li>Native retention and downsampling</li>
+          <li>Fast time-range scans of a single series</li>
+        </ul></div>
+        <div class="col"><h4>Generic RDBMS</h4><ul>
+          <li>B-tree write amplification at high insert rates</li>
+          <li>Row storage wastes the regular structure</li>
+          <li>Retention/rollups are manual scripts</li>
+          <li>Strong consistency &amp; joins you don't need here</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p><em>"How do you store time series cheaply?"</em> Lead with the two compression tricks — delta-of-delta on timestamps, XOR on values — because they exploit the defining property of metrics: regular sampling and slowly-changing values. Then mention tiered retention and object-storage offload. If you can say "16 bytes raw collapses to about 1.5 because the second derivative of the timestamp is almost always zero," you have shown you understand the mechanism, not just the buzzword.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Deep dive · cost</div>
+      <h2>Downsampling &amp; retention</h2>
+      <p>Compression alone is not enough. At 65 GB/day of compressed raw data, a year is over 23 TB per cluster — and almost none of those fine-grained points are ever read once they are a few days old. Nobody graphs 10-second resolution from eight months ago; they want a daily trend. So we trade resolution for cost as data ages.</p>
+
+      <h3>What downsampling is</h3>
+      <p><strong>Downsampling</strong> (also called rollup) replaces many fine-grained points with fewer coarse ones by aggregating over time buckets. Take all the 10-second points in a 5-minute window and store their <code>min</code>, <code>max</code>, <code>sum</code>, <code>count</code>, and <code>avg</code> as a single 5-minute point. A graph spanning a month renders from the 5-minute or 1-hour tier and looks identical to the human eye, while reading a fraction of the data.</p>
+
+      <h3>How tiered retention works under the hood</h3>
+      <p>A background job — usually folded into compaction — reads sealed raw blocks and writes downsampled blocks into a separate, coarser tier, then lets the raw tier expire by dropping whole blocks once they age past their retention. A query is routed to the finest tier that still covers its time range and step. Asking for the last hour hits raw; asking for the last quarter hits the hourly tier automatically.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Three retention tiers with increasing time bucket and decreasing storage cost as data ages">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">data flows right as it ages →</text>
+            <rect class="node-r" x="24" y="50" width="170" height="110" rx="10"/>
+            <text class="lbl" x="109" y="78" text-anchor="middle">RAW</text>
+            <text class="lbl-sm" x="109" y="100" text-anchor="middle">10s resolution</text>
+            <text class="lbl-sm" x="109" y="118" text-anchor="middle">keep 7 days</text>
+            <text class="lbl-sm" x="109" y="142" text-anchor="middle" fill="#B0532F">~65 GB/day</text>
+            <rect class="node-b" x="234" y="62" width="170" height="86" rx="10"/>
+            <text class="lbl" x="319" y="88" text-anchor="middle">5-MIN</text>
+            <text class="lbl-sm" x="319" y="108" text-anchor="middle">5m rollup</text>
+            <text class="lbl-sm" x="319" y="126" text-anchor="middle">keep 90 days</text>
+            <rect class="node" x="444" y="74" width="170" height="62" rx="10"/>
+            <text class="lbl" x="529" y="98" text-anchor="middle">1-HOUR</text>
+            <text class="lbl-sm" x="529" y="118" text-anchor="middle">keep 1 year</text>
+            <path class="flow" d="M194 105 H 232" marker-end="url(#arrow)"/>
+            <path class="flow" d="M404 105 H 442" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="320" y="186" text-anchor="middle">coarser bucket · cheaper · still accurate for trends</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — keep raw data briefly, then roll up to coarser tiers as it ages to bound cost</figcaption>
+      </figure>
+      <p>The cost win is dramatic. Going from 10-second to 5-minute buckets is a 30x reduction in point count; to 1-hour is 360x. A year that would cost 23 TB at raw resolution costs a small fraction once 99% of it lives in the hourly tier — often offloaded to cheap object storage like S3, with only the recent raw tier on fast local disk.</p>
+      <div class="callout">
+        <span class="k">Under the hood: choosing the rollup function</span>
+        <p>Not every metric downsamples the same way. A <strong>counter</strong> (monotonically increasing, like total requests) is rolled up by keeping the last value and computing rates; a <strong>gauge</strong> (a momentary level, like memory) keeps min/max/avg; a <strong>histogram</strong> rolls up by summing per-bucket counts so percentiles still work. Store enough aggregates (count + sum lets you recompute averages later) so the coarse tier can still answer the queries you care about — losing min/max means you can never again see the spike that mattered.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Read path</div>
+      <h2>Query &amp; dashboards</h2>
+      <p>Storage is useless without a fast read path. The <strong>query service</strong> is a stateless layer that parses a query, selects the matching series from the TSDB, and applies aggregation functions over the requested time range.</p>
+
+      <h3>The aggregation vocabulary</h3>
+      <p>Three families of function cover almost everything you graph:</p>
+      <ul>
+        <li><strong>Rate over time</strong> — turn a counter into a per-second rate (<code>rate(http_requests_total[5m])</code>). Counters only ever go up, so the raw value is meaningless; the rate of change is what you watch.</li>
+        <li><strong>Aggregation across series</strong> — <code>sum</code>, <code>avg</code>, <code>max</code> grouped by a label (<code>sum by(region)(...)</code>), to collapse thousands of per-instance series into one line per region.</li>
+        <li><strong>Quantiles</strong> — <code>histogram_quantile(0.99, ...)</code> to read p99 latency out of histogram buckets. This is approximate by design: the percentile is interpolated within a bucket, which is exactly the tolerable inaccuracy we scoped for in step 01.</li>
+      </ul>
+
+      <h3>How a dashboard panel renders</h3>
+      <p>A dashboard panel is just a saved <code>query_range</code> call with a refresh interval. When a Grab on-call engineer opens the "Checkout health" dashboard, the browser fires one range query per panel; the query service selects series, runs the aggregation, and returns a downsampled set of points sized to the panel's pixel width (no point returning 10,000 points for a 600-pixel graph). Caching recent query results and pre-aggregating common dashboards keeps the p99 render under a second even when dozens of engineers reload during an incident.</p>
+      <p>The dominant tool here is <strong>Grafana</strong>, which sits in front of any of the TSDBs above and turns saved queries into refreshing panels. The key scaling insight: dashboard load is <em>bursty and human-driven</em> — it spikes during incidents, exactly when the system is already stressed — so the query layer must be horizontally scalable and isolated from the write path, and aggressive result caching is non-negotiable.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p><em>"What happens to your dashboards during a big incident?"</em> Everyone reloads at once, query load spikes, and if the query layer isn't isolated from ingestion you get a feedback loop where monitoring degrades just as you need it most. The answer: separate read and write paths, autoscale the stateless query tier, cache results, and pre-compute the handful of dashboards on-call actually opens first.</p>
+      </div>
+    </section>
+
+    <!-- 9 — INTERACTIVE -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Deep dive · alerting</div>
+      <h2>The alerting pipeline</h2>
+      <p>Collecting and graphing metrics is half the job; the other half is waking the right person at the right time and <em>not</em> waking them otherwise. The alerting pipeline has two distinct stages, and conflating them is the classic design mistake.</p>
+
+      <h3>Stage 1 — the rule evaluator</h3>
+      <p>The <strong>rule evaluator</strong> runs each alert rule on a fixed interval (every 15 seconds, say). A rule is a query plus a threshold plus a duration: <em>"if the 5xx ratio for checkout exceeds 2% <strong>for 3 minutes</strong>, fire."</em> The <code>for</code> duration matters — it prevents a single noisy scrape from paging anyone. The evaluator queries the TSDB, compares the result to the threshold, and tracks each rule's state machine: <code>inactive → pending</code> (threshold breached but not yet for the full duration) <code>→ firing</code>. Only on entering <code>firing</code> does it emit an alert.</p>
+      <pre><span class="cm"># an alert rule</span>
+<span class="kw">alert:</span> CheckoutHighErrorRate
+<span class="kw">expr:</span>  sum(rate(http_requests_total{service="checkout",code=~"5.."}[5m]))
+      / sum(rate(http_requests_total{service="checkout"}[5m])) > 0.02
+<span class="kw">for:</span>   3m
+<span class="kw">labels:</span>   { severity: page, team: payments }
+<span class="kw">annotations:</span> { summary: "checkout 5xx ratio above 2%" }</pre>
+
+      <h3>Stage 2 — the alert manager</h3>
+      <p>Firing alerts do not go straight to a phone. They flow into the <strong>alert manager</strong>, whose entire job is to make sure on-call gets <em>signal, not noise</em>. It does four things:</p>
+      <ul>
+        <li><strong>Grouping</strong> — bundle related alerts into one notification. If a database node dies and 200 services suddenly report errors, on-call gets <em>one</em> grouped page ("payments cluster degraded"), not 200.</li>
+        <li><strong>Deduplication</strong> — multiple redundant evaluator replicas may fire the same alert; the manager collapses identical alerts (keyed by their label set) into one.</li>
+        <li><strong>Silencing &amp; inhibition</strong> — during a planned deploy you silence expected alerts; inhibition suppresses downstream alerts when their root cause is already firing (if "datacenter unreachable" is active, mute the 50 "service X down" alerts it obviously caused).</li>
+        <li><strong>Routing &amp; escalation</strong> — send <code>severity: page</code> to PagerDuty, <code>severity: ticket</code> to a queue, and escalate to the secondary on-call if the primary doesn't acknowledge within N minutes.</li>
+      </ul>
+      <p>Step through the full path below — from a healthy threshold, to a breach, to a deduplicated and grouped page landing on one phone.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-alert">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive alerting pipeline from rule evaluation to a routed page">
+            <g class="st" id="a-tsdb"><rect class="node-b" x="20" y="100" width="100" height="48" rx="9"/><text class="lbl" x="70" y="122" text-anchor="middle">TSDB</text><text class="lbl-sm" x="70" y="138" text-anchor="middle">series</text></g>
+            <g class="st" id="a-rule"><rect class="node" x="158" y="96" width="120" height="56" rx="9"/><text class="lbl" x="218" y="118" text-anchor="middle">Rule eval</text><text class="lbl-sm" x="218" y="136" text-anchor="middle">expr &gt; thr · for 3m</text></g>
+            <g class="st" id="a-fire"><rect class="node-r" x="318" y="30" width="120" height="44" rx="8"/><text class="lbl-sm" x="378" y="50" text-anchor="middle">FIRING</text><text class="lbl-sm" x="378" y="64" text-anchor="middle">alert emitted</text></g>
+            <g class="st" id="a-am"><rect class="node-r" x="318" y="100" width="120" height="56" rx="9"/><text class="lbl" x="378" y="122" text-anchor="middle">Alert mgr</text><text class="lbl-sm" x="378" y="140" text-anchor="middle">group · dedup</text></g>
+            <g class="st" id="a-oncall"><rect class="node" x="490" y="100" width="120" height="56" rx="9"/><text class="lbl" x="550" y="122" text-anchor="middle">On-call</text><text class="lbl-sm" x="550" y="140" text-anchor="middle">PagerDuty</text></g>
+            <g class="st" id="a-ok"><rect class="node" x="158" y="190" width="120" height="40" rx="8"/><text class="lbl-sm" x="218" y="214" text-anchor="middle">under thr → quiet</text></g>
+            <path id="a-p1" class="flow" d="M120 124 H 156" marker-end="url(#arrow)"/>
+            <path id="a-p2" class="flow-r" d="M278 110 C 300 80, 308 64, 316 56" marker-end="url(#arrow-r)"/>
+            <path id="a-p3" class="flow-r" d="M378 74 V 98" marker-end="url(#arrow-r)"/>
+            <path id="a-p4" class="flow-r" d="M438 128 H 488" marker-end="url(#arrow-r)"/>
+            <path id="a-p5" class="flow-d" d="M218 152 V 188" marker-end="url(#arrow-s)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 6 — interactive: evaluate the rule, fire on a sustained breach, then group/dedup before paging</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p><em>"How do you avoid alert storms?"</em> Name the four alert-manager jobs — grouping, deduplication, silencing/inhibition, routing/escalation — and the <code>for</code> duration on the rule. The deepest version: a single root cause (a dead DB node) should produce <em>one</em> grouped, inhibited page, not a flood, because a flooded on-call ignores everything and the real signal drowns. That is a reliability property, not a UX nicety.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Scaling</div>
+      <h2>Cardinality &amp; scaling out</h2>
+      <p>A single-node TSDB tops out somewhere around a few million active series. Past that, two pressures force you to scale, and one of them — cardinality — is the most common way a monitoring system silently kills itself.</p>
+
+      <h3>The cardinality explosion</h3>
+      <p><strong>Cardinality</strong> is the number of distinct time series, and it is the product of every label's distinct values. The danger is multiplicative. Suppose someone adds a <code>user_id</code> label to a latency metric "to debug a customer issue." With 50 million users, a metric that was one series per endpoint becomes <em>50 million series per endpoint</em>. Memory blows up (the head block holds an index entry per active series), ingestion stalls, and queries crawl. This is the number-one operational incident for monitoring teams.</p>
+      <p>How to bound it: keep labels to <strong>low-cardinality dimensions</strong> only (region, service, status code, instance — values in the dozens or hundreds), <strong>never</strong> put unbounded identifiers (<code>user_id</code>, <code>request_id</code>, raw URLs, email) in labels; high-cardinality identity belongs in logs or traces, not metrics. Enforce it with per-target <strong>series limits</strong> that reject or drop a target exceeding a cap, so one misconfigured service can't take down ingestion for everyone.</p>
+
+      <h3>Sharding the TSDB</h3>
+      <p>To go beyond one node, partition by series. A <strong>hash on the series identity</strong> (metric name + labels) assigns each series to a shard, so all points for a given series always land on the same node and a query for that series hits exactly one shard. This is the same consistent-hashing idea used everywhere — it spreads write load evenly and lets you add nodes by rebalancing a fraction of series.</p>
+      <ul>
+        <li><strong>Functional sharding</strong> — split by team or service first (payments cluster, ride-hailing cluster), which also isolates blast radius.</li>
+        <li><strong>Hash sharding within a cluster</strong> — spread series across nodes for write balance.</li>
+        <li><strong>Fan-out query layer</strong> — a query that spans shards (sum across all regions) scatters to each shard and gathers the partial results. Systems like Thanos/Cortex/Mimir do exactly this on top of sharded Prometheus.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Sharding the time-series database by hashing the series identity across nodes">
+            <rect class="node-b" x="30" y="84" width="110" height="48" rx="9"/>
+            <text class="lbl-sm" x="85" y="104" text-anchor="middle">collector</text>
+            <text class="lbl-sm" x="85" y="120" text-anchor="middle">hash(series)</text>
+            <rect class="node-r" x="240" y="20" width="120" height="40" rx="8"/><text class="lbl-sm" x="300" y="44" text-anchor="middle">shard A</text>
+            <rect class="node-r" x="240" y="90" width="120" height="40" rx="8"/><text class="lbl-sm" x="300" y="114" text-anchor="middle">shard B</text>
+            <rect class="node-r" x="240" y="160" width="120" height="40" rx="8"/><text class="lbl-sm" x="300" y="184" text-anchor="middle">shard C</text>
+            <path class="flow" d="M140 100 C 190 70, 210 50, 238 42" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 108 H 238" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 116 C 190 150, 210 168, 238 178" marker-end="url(#arrow)"/>
+            <rect class="node" x="450" y="84" width="140" height="48" rx="9"/>
+            <text class="lbl-sm" x="520" y="104" text-anchor="middle">query layer</text>
+            <text class="lbl-sm" x="520" y="120" text-anchor="middle">scatter / gather</text>
+            <path class="flow-d" d="M360 40 C 410 70, 430 90, 448 100" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M360 110 H 448" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M360 180 C 410 150, 430 130, 448 116" marker-end="url(#arrow-s)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — hash each series to a shard for write balance; the query layer fans out and gathers</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Why hash on the whole series</span>
+        <p>If you sharded only on metric name, every <code>http_requests_total</code> point in the fleet would pile onto one node — a hot shard. Hashing the full identity (name + all label values) spreads even a single popular metric across all shards, while still guaranteeing that any one series stays whole on one node so range scans don't fan out unnecessarily.</p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <div class="steptag"><b>11</b> Resilience</div>
+      <h2>Failure modes &amp; what breaks at 10x</h2>
+      <p>The defining constraint returns: <strong>the monitoring system must be more reliable than what it monitors.</strong> So name the failure modes explicitly and design for independence.</p>
+
+      <h3>What happens when a node dies?</h3>
+      <ul>
+        <li><strong>A scraper dies.</strong> You lose visibility into its targets. Fix: run scrapers in <strong>redundant pairs</strong> that scrape the same targets, and deduplicate at the query/alert layer. A dead scraper means a gap, never a silent blind spot.</li>
+        <li><strong>A TSDB shard dies.</strong> Recent in-memory points are recovered from the <strong>WAL</strong> on restart; older points sit in immutable blocks already on disk (and ideally replicated to object storage). Replicate each shard, or accept a short gap for non-critical data — remember, metrics tolerate small loss.</li>
+        <li><strong>The alert manager dies.</strong> This is the scary one — a dead alert manager means no pages, a silent failure exactly when you need it. Run it as a <strong>small redundant cluster</strong> that gossips state so any replica can dedup and route, and add a dead-man's-switch alert: a rule that is <em>always</em> firing, routed to an external service that pages you if it ever <em>stops</em> arriving — proving the whole pipeline is alive.</li>
+      </ul>
+
+      <h3>Independence from the monitored system</h3>
+      <p>Run monitoring in a <strong>separate failure domain</strong>: different hosts, ideally a different availability zone or account, with its own DNS and network path. If GrabPay's payment cluster and its monitoring share the same database or the same AZ, a zone outage takes out both — and you are blind during the very incident you most need to see. The principle: never let the watcher and the watched fail together.</p>
+
+      <h3>What breaks at 10x</h3>
+      <ul>
+        <li><strong>Single-node TSDB ceiling.</strong> 5M series becomes 50M — past any single node. You must shard (step 10) and offload cold data to object storage; this is the jump from vanilla Prometheus to Thanos/Cortex/Mimir.</li>
+        <li><strong>Ingest pipeline saturation.</strong> 500k writes/sec becomes 5M. Put a buffer in front of the TSDB — a durable queue like <strong>Kafka</strong> — so a write spike or a slow flush absorbs into the buffer instead of dropping points or stalling scrapers.</li>
+        <li><strong>Rule evaluation load.</strong> Thousands more rules each re-querying the TSDB can swamp the read path. Sharding the rule evaluator by rule group, and reusing recording rules (pre-computed common sub-queries stored as new series), keeps evaluation cheap.</li>
+        <li><strong>Cardinality, again.</strong> At 10x the fleet, the temptation to add "just one more label" is 10x stronger. Enforce series limits as a hard guardrail, not a guideline.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Deep-dive the interviewer may push for</span>
+        <p>Two favorites. <strong>Recording rules:</strong> if many dashboards and alerts compute the same expensive sub-query, pre-evaluate it on a schedule and store the result as a new series — trading a little storage for a lot of read CPU. <strong>The dead-man's switch:</strong> "how do you know your monitoring itself is healthy?" The answer — an always-firing heartbeat alert whose <em>absence</em> pages you via an independent channel — shows you've internalized that the watcher needs a watcher.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole system compresses to one arc: <em>collect numbers from a fleet (pull, with a push gateway for the edge cases), pack them into a purpose-built time-series store that exploits regular sampling, downsample as they age to bound cost, and run an alert pipeline whose manager turns a storm of related alerts into one actionable page — all in a failure domain independent of what it watches.</em> If you can whiteboard the five-stage pipeline and defend pull-vs-push, the compression tricks, and the rule-eval-vs-alert-manager split, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Writes dominate reads</b><span>Append-only, time-ordered, 100:1 write-to-read — design the write path first.</span></div>
+        <div class="tk"><span class="num">02</span><b>Series = name + labels</b><span>Every label-value combination is one series; labels give power and danger both.</span></div>
+        <div class="tk"><span class="num">03</span><b>Pull by default</b><span>Scraper paces itself + free liveness; push gateway for ephemeral &amp; firewalled jobs.</span></div>
+        <div class="tk"><span class="num">04</span><b>Use a TSDB</b><span>LSM + delta-of-delta timestamps + XOR values → ~1.5 B/point; an RDBMS chokes.</span></div>
+        <div class="tk"><span class="num">05</span><b>Downsample to last</b><span>Keep raw briefly, roll up to coarser tiers as it ages; offload cold data to S3.</span></div>
+        <div class="tk"><span class="num">06</span><b>Two-stage alerting</b><span>Rule eval decides if; alert manager decides who hears it and how loudly.</span></div>
+        <div class="tk"><span class="num">07</span><b>Group &amp; dedup</b><span>One root cause → one grouped, inhibited page, not a flood that gets ignored.</span></div>
+        <div class="tk"><span class="num">08</span><b>Bound cardinality</b><span>No unbounded IDs in labels; enforce per-target series limits as a hard cap.</span></div>
+        <div class="tk"><span class="num">09</span><b>Be more reliable</b><span>Separate failure domain, redundant scrapers/alert mgr, a dead-man's switch.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why do writes dominate reads here, and what one consequence does that have for the storage engine?<br>(2) Pull or push — pick one as the backbone and justify it with two concrete properties.<br>(3) What two compression tricks let a TSDB store a point in ~1.5 bytes, and why do they work for metrics specifically?<br>(4) Why downsample, and what do you lose if you keep only the average?<br>(5) Explain the split between the rule evaluator and the alert manager, and name the four jobs the manager does to avoid an alert storm.<br>(6) What is a cardinality explosion, what causes it, and how do you bound it?<br>(7) Why must monitoring sit in a separate failure domain, and what is a dead-man's switch?<br>Any fuzzy answer → re-read that section, replay its diagram, then redraw the architecture from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 37 · DESIGN METRICS MONITORING &amp; ALERTING · interactive edition · ref BBG V2·C5<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* high-level pipeline */
+  makeStepper(document.getElementById('fig-hld'), [
+    {text:"A target exposes its current numbers on a /metrics endpoint.", active:["h-target"], path:"h-p1"},
+    {text:"The collector scrapes the target and forwards the data points.", active:["h-target","h-coll"], path:"h-p2"},
+    {text:"Points are appended to the TSDB, compressed and indexed by series.", active:["h-coll","h-tsdb"], path:"h-p3"},
+    {text:"The query service reads series from the TSDB to render dashboards.", active:["h-tsdb","h-query","h-dash"], path:"h-p4"},
+    {text:"In parallel, the rule evaluator periodically queries the TSDB.", active:["h-tsdb","h-rule"], path:"h-p5"},
+    {text:"A tripped rule hands an alert to the alert manager, which pages on-call.", active:["h-rule","h-am"], path:"h-p6", reject:true}
+  ]);
+
+  /* alerting pipeline */
+  makeStepper(document.getElementById('fig-alert'), [
+    {text:"The rule evaluator queries the TSDB for the rule's expression.", active:["a-tsdb","a-rule"], path:"a-p1"},
+    {text:"Under threshold → the rule stays quiet, no alert is emitted.", active:["a-rule","a-ok"], path:"a-p5"},
+    {text:"Over threshold for the full 'for' duration → the rule enters FIRING.", active:["a-rule","a-fire"], path:"a-p2", reject:true},
+    {text:"The firing alert is emitted into the alert manager.", active:["a-fire","a-am"], path:"a-p3", reject:true},
+    {text:"The manager groups related alerts and dedups identical ones.", active:["a-am"]},
+    {text:"One grouped, deduplicated page is routed to on-call (PagerDuty).", active:["a-am","a-oncall"], path:"a-p4", reject:true}
+  ]);
+</script>
+</body>
+</html>

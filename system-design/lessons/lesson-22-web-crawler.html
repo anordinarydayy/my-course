@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 22 — Design a Web Crawler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;margin:22px 0;}
+  pre code{background:none;color:var(--ink);padding:0;font-size:13.5px;line-height:1.6;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Design a<br>Web Crawler</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>What a crawler is for</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimation</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The crawl loop ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The URL frontier</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Politeness at scale</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Dedup &amp; the Bloom filter</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Traps, loops &amp; freshness</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Distribute &amp; survive failure</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">22</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Web Crawler</h1>
+      <p class="lede">A web crawler walks billions of pages: fetch a URL, parse the HTML, extract the links, repeat. The art is doing this <em>politely</em> — without hammering any one host, without re-fetching the same page forever, and without falling into a calendar that generates new URLs to infinity. Every design decision orbits one data structure: the URL frontier.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on web-crawler design — a standard, widely-documented systems topic (reference tag <strong>BBG&nbsp;V1·C9</strong>). The explanations, numbers, schemas, and diagrams here are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the crawl loop turn.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>What a crawler is for</h2>
+      <p>A <strong>web crawler</strong> (also called a spider or bot) is a program that systematically discovers and downloads pages from the web. It starts from a small set of <strong>seed URLs</strong>, fetches each one, extracts the hyperlinks inside, and feeds those new URLs back in to be fetched later. Run that loop long enough and you traverse an enormous chunk of the reachable web.</p>
+      <p>Why would you build one? The motivating use cases shape every later decision, so name them up front:</p>
+      <ul>
+        <li><strong>Search-engine indexing</strong> — the classic case. Download pages so a separate indexer can build the inverted index that answers queries.</li>
+        <li><strong>Archival</strong> — snapshot pages over time (think a national web archive or a compliance record).</li>
+        <li><strong>Data mining &amp; monitoring</strong> — a price-comparison engine watching merchant listings, or a fintech compliance team watching for leaked credentials and brand-abuse sites.</li>
+        <li><strong>Product use in a super-app context</strong> — at a marketplace like Shopee you might crawl partner catalogues to enrich listings; at Agoda you might re-crawl hotel description pages to keep content fresh; a GrabPay risk team might crawl phishing-suspect domains that impersonate the brand.</li>
+      </ul>
+      <p>The deceptively simple loop hides three hard problems that the rest of this lesson is about: <strong>scale</strong> (billions of pages means you cannot keep everything in memory), <strong>politeness</strong> (you must not look like a denial-of-service attack to the sites you visit), and <strong>termination</strong> (the web has cycles and infinite link generators, so a naive crawl never stops).</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="The basic crawl loop: seed, fetch, parse, extract links, repeat">
+            <rect class="node-r" x="40" y="92" width="96" height="44" rx="8"/>
+            <text class="lbl" x="88" y="119" text-anchor="middle">seeds</text>
+            <rect class="node" x="200" y="92" width="100" height="44" rx="8"/>
+            <text class="lbl" x="250" y="119" text-anchor="middle">fetch</text>
+            <rect class="node" x="364" y="92" width="100" height="44" rx="8"/>
+            <text class="lbl" x="414" y="119" text-anchor="middle">parse</text>
+            <rect class="node" x="520" y="92" width="100" height="44" rx="8"/>
+            <text class="lbl" x="570" y="113" text-anchor="middle">extract</text>
+            <text class="lbl" x="570" y="129" text-anchor="middle">links</text>
+            <path class="flow" d="M136 114 H 198" marker-end="url(#arrow)"/>
+            <path class="flow" d="M300 114 H 362" marker-end="url(#arrow)"/>
+            <path class="flow" d="M464 114 H 518" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M570 136 C 570 196, 250 196, 250 138" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="410" y="210" text-anchor="middle" fill="#B0532F">new URLs loop back in</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the whole system is one loop; the engineering is in making it scale, behave, and stop</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>"Design a web crawler" is wide open. The interviewer wants to see you fence it in before you draw anything. Ask, then state the assumptions you'll proceed with.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Input:</strong> a set of seed URLs. <strong>Output:</strong> downloaded page content (HTML) stored for a downstream consumer, plus the discovered link graph.</li>
+        <li><strong>Scope of content:</strong> HTML pages only, or also images, PDFs, video? We'll assume HTML text pages, with a note on how to extend.</li>
+        <li><strong>Freshness:</strong> one-shot snapshot, or a continuous crawl that re-visits pages as they change? We'll design for a continuous crawl.</li>
+        <li><strong>Politeness:</strong> respect <code>robots.txt</code> and per-host rate limits — non-negotiable for a real crawler.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Scalability:</strong> billions of pages, so the design must shard cleanly across many machines.</li>
+        <li><strong>Robustness:</strong> the web is hostile — malformed HTML, redirects, timeouts, servers that hang. The crawler must tolerate all of it and never crash on a bad page.</li>
+        <li><strong>Politeness</strong> (worth repeating as a non-functional goal): never overload a host.</li>
+        <li><strong>Extensibility:</strong> adding a new content type or a new processing step should be a plug-in, not a rewrite.</li>
+        <li><strong>Freshness:</strong> popular and fast-changing pages should be re-crawled more often than static ones.</li>
+      </ul>
+      <p>Two cross-cutting design qualities fall out of this list and will recur throughout: we need a single canonical <strong>"seen" set</strong> so we never store the same URL twice, and we need <strong>per-host fairness</strong> so a site with a million pages doesn't get pummelled by a hundred workers at once.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The phrase that scores points here: <em>"a crawler is fundamentally a graph traversal, but the graph is adversarial and unbounded — so the interesting design is in the frontier, the dedup, and the politeness layer, not in the fetch itself."</em> Say that and the interviewer knows you've built one before.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimate</div>
+      <h2>Back-of-envelope estimation</h2>
+      <p>Numbers turn the vague "billions of pages" into concrete capacity targets, and they justify every later choice (why we shard, why we need a Bloom filter, why storage goes to object stores not a SQL row per page). Let's size a crawl that fetches <strong>one billion pages a month</strong>.</p>
+      <h3>Crawl rate (QPS)</h3>
+      <p>A month is roughly 2.5&nbsp;million seconds (30 × 24 × 3600 ≈ 2.59M). So:</p>
+      <pre><code>1,000,000,000 pages / 2,590,000 sec ≈ 386 pages/sec  (average)
+peak ≈ 2× average ≈ ~800 pages/sec</code></pre>
+      <p>That's modest per second but relentless. The constraint is rarely raw QPS — it's the politeness rule that you may only hit any single host every few seconds, so to sustain ~400 pages/sec you must be fetching from <strong>thousands of distinct hosts concurrently</strong>. Concurrency, not throughput, is the real number.</p>
+      <h3>Storage</h3>
+      <p>Assume an average HTML page is ~100&nbsp;KB after we keep the raw markup (compresses well, but estimate raw):</p>
+      <pre><code>1B pages × 100 KB = 100 TB / month of raw page content
+with 2× freshness re-crawls retained ≈ 200 TB/month
+over 1 year ≈ ~1.2 PB (before compression; ~3-5× less compressed)</code></pre>
+      <p>That number alone tells you page bodies live in an object store (<strong>S3</strong>-style blob storage), not in a relational row. Metadata — URL, fetch time, status, content hash — is far smaller: maybe ~500 bytes/page, so <code>1B × 500B = 500 GB/month</code>, which a wide-column store handles comfortably.</p>
+      <h3>Bandwidth</h3>
+      <pre><code>386 pages/sec × 100 KB ≈ 38 MB/sec ≈ 310 Mbps sustained download
+peak ≈ ~620 Mbps</code></pre>
+      <h3>The "seen" set</h3>
+      <p>We will discover far more URLs than we fetch — say we encounter <strong>10 billion unique URLs</strong> over the year. Storing each URL (avg ~80 bytes) in a hash set would cost <code>10B × 80B = 800 GB</code> of RAM just to remember what we've seen. That single line is the entire justification for the Bloom filter we reach for in step 08.</p>
+      <div class="callout">
+        <span class="k">Why these numbers matter</span>
+        <p>Estimation isn't ritual — each figure forces an architectural choice. 100 TB/month ⇒ blob storage. 800 GB of URLs ⇒ a probabilistic membership filter. ~400 pages/sec spread over thousands of hosts ⇒ a frontier organized <em>by host</em>, not a single global queue. Derive the design from the math and it writes itself.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contracts</div>
+      <h2>API &amp; data model</h2>
+      <p>A crawler is mostly an internal pipeline, but it still has interfaces worth sketching: an admin/control surface to seed and steer it, and the data shapes that flow between stages. Showing these makes the design concrete and goes past hand-waving.</p>
+      <h3>Control API</h3>
+      <p>A small internal API to manage crawls. These are not public endpoints — they're the operator's steering wheel.</p>
+      <pre><code>POST /crawls                      # start a crawl job
+  body: { seeds:["https://shopee.sg/"],
+          maxDepth:8, maxPagesPerHost:50000,
+          allowDomains:["shopee.sg"], priority:"high" }
+  -> 201 { crawlId:"cr_8f2a" }
+
+POST /crawls/{id}/seeds           # inject more seeds mid-flight
+GET  /crawls/{id}/stats           # pages fetched, frontier size, error rate
+POST /crawls/{id}/pause           # stop popping new URLs (drain in flight)
+DELETE /crawls/{id}               # cancel</code></pre>
+      <h3>Data model sketch</h3>
+      <p>Three logical stores, each chosen for its access pattern.</p>
+      <p><strong>1. URL metadata</strong> — one row per known URL, the system of record for crawl state. High write volume, key-value access by URL hash. A wide-column store like <strong>Cassandra</strong> or <strong>DynamoDB</strong> fits.</p>
+      <pre><code>url_hash      (PK)   # 64-bit hash of the normalized URL
+url                  # the normalized URL string
+host                 # parsed host, used for sharding & politeness
+status               # NEW | FETCHING | FETCHED | FAILED | BLOCKED
+content_hash         # hash of page body, for content dedup
+first_seen_at
+last_fetched_at
+next_recrawl_at      # drives the freshness scheduler
+fetch_count
+error_count</code></pre>
+      <p><strong>2. Page content</strong> — the raw bytes, written once, read rarely, huge. Object storage (<strong>S3</strong>/GCS). The metadata row holds the object key.</p>
+      <pre><code>key:  pages/{url_hash}/{fetch_ts}.html.gz   # gzip'd raw HTML
+plus a small sidecar:  { contentType, httpStatus, headers, fetchedAt }</code></pre>
+      <p><strong>3. Per-host policy</strong> — robots rules and timing, cached so we don't re-fetch <code>robots.txt</code> for every URL.</p>
+      <pre><code>host          (PK)
+robots_rules         # parsed allow/disallow paths
+crawl_delay          # seconds between requests to this host
+last_access_at       # when we last fetched from this host
+robots_fetched_at    # TTL: refresh robots.txt daily-ish</code></pre>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"Why not one big SQL table?"</em> Because the access patterns diverge: metadata is point-lookup-by-key at billions of rows (NoSQL's sweet spot), page bodies are large blobs (object storage), and the frontier is a queue (Kafka/Redis). Forcing all three into Postgres makes each one slow. Right tool per access pattern is the answer they want.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Big picture</div>
+      <h2>High-level architecture</h2>
+      <p>Now assemble the components into one pipeline. Read it left to right; the dashed line back from the link extractor to the frontier is the loop that makes it a crawler rather than a one-shot downloader.</p>
+      <ul>
+        <li><strong>URL frontier</strong> — the heart. A queue of URLs waiting to be fetched, organized so that priority and politeness can both be honored. Everything else feeds it or drains it.</li>
+        <li><strong>Fetcher (downloader)</strong> — pops a URL, does DNS resolution (with a cache), opens the HTTP connection, downloads the body. Many fetcher workers run in parallel.</li>
+        <li><strong>DNS resolver + cache</strong> — resolving a hostname can take tens of milliseconds; at hundreds of fetches/sec, uncached DNS becomes the bottleneck, so we cache resolutions.</li>
+        <li><strong>Parser / link extractor</strong> — parses the HTML, validates it, and pulls out hyperlinks (and optionally the text for downstream indexing).</li>
+        <li><strong>Content storage</strong> — writes the page body to the blob store and metadata to the wide-column store.</li>
+        <li><strong>Dedup stages</strong> — a <strong>URL "seen" filter</strong> (so we don't enqueue the same URL twice) and a <strong>content dedup</strong> (so we don't store the same body twice).</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 320" role="img" aria-label="High-level crawler architecture: frontier feeds fetchers, which parse, extract links, dedup, and loop back">
+            <!-- frontier -->
+            <rect class="node-b" x="40" y="130" width="120" height="58" rx="10"/>
+            <text class="lbl" x="100" y="155" text-anchor="middle">URL</text>
+            <text class="lbl" x="100" y="173" text-anchor="middle">frontier</text>
+            <!-- fetcher -->
+            <rect x="220" y="120" width="120" height="78" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <g transform="translate(232,134)"><rect width="34" height="50" rx="5" fill="#69B34C"/><rect x="8" y="9" width="18" height="3.5" rx="1.5" fill="#fff"/><rect x="8" y="32" width="18" height="3.5" rx="1.5" fill="#fff"/><rect x="8" y="40" width="18" height="3.5" rx="1.5" fill="#fff"/></g>
+            <text class="lbl" x="298" y="150" text-anchor="middle">Fetcher</text>
+            <text class="lbl-sm" x="298" y="166" text-anchor="middle">workers</text>
+            <!-- DNS -->
+            <g transform="translate(252,232)"><circle cx="20" cy="20" r="20" fill="#FDFBF6" stroke="#666" stroke-width="2.2"/><ellipse cx="20" cy="20" rx="8" ry="20" fill="none" stroke="#666" stroke-width="1.3"/><line x1="0" y1="20" x2="40" y2="20" stroke="#666" stroke-width="1.6"/><text x="20" y="24" text-anchor="middle" fill="#444" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">DNS</text></g>
+            <text class="lbl-sm" x="320" y="258" text-anchor="start">+ cache</text>
+            <!-- parser -->
+            <rect class="node" x="400" y="120" width="110" height="58" rx="10"/>
+            <text class="lbl" x="455" y="145" text-anchor="middle">Parser /</text>
+            <text class="lbl" x="455" y="163" text-anchor="middle">extractor</text>
+            <!-- storage -->
+            <g transform="translate(556,118)"><path d="M0,8 L0,40 A22,7 0 0 0 44,40 L44,8" fill="#2E73B8"/><ellipse cx="22" cy="8" rx="22" ry="7" fill="#3E86CF"/><text x="22" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="600">S3</text></g>
+            <text class="lbl-sm" x="578" y="178" text-anchor="middle">content</text>
+            <!-- dedup filter -->
+            <rect x="378" y="232" width="155" height="48" rx="9" fill="#FBF1D8" stroke="#C98A2B" stroke-width="2"/>
+            <text class="lbl" x="455" y="252" text-anchor="middle">"seen" filter</text>
+            <text class="lbl-sm" x="455" y="269" text-anchor="middle">(Bloom)</text>
+            <!-- flows -->
+            <path class="flow" d="M160 159 H 218" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="189" y="150" text-anchor="middle">pop</text>
+            <path class="flow-d" d="M280 198 V 230" marker-end="url(#arrow-s)"/>
+            <path class="flow" d="M340 152 H 398" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="369" y="143" text-anchor="middle">HTML</text>
+            <path class="flow" d="M510 145 H 552" marker-end="url(#arrow)"/>
+            <path class="flow" d="M455 178 V 230" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="500" y="208" text-anchor="middle">new links</text>
+            <path class="flow-r" d="M378 256 C 200 256, 100 250, 100 190" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="210" y="300" text-anchor="middle" fill="#B0532F">unseen URLs enqueued back to the frontier</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — the pipeline: frontier → fetch (with DNS cache) → parse → store + dedup → loop new URLs back</figcaption>
+      </figure>
+      <p>The end-to-end flow for one URL: the frontier hands a URL to a fetcher; the fetcher resolves DNS (cache first), downloads the body, and passes it to the parser; the parser stores the content and extracts links; each extracted link is checked against the "seen" filter; brand-new URLs are normalized and pushed back into the frontier. Then the loop turns again. The next five sections each take one box and ask "what breaks here, and how do we fix it?"</p>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The loop, step by step</div>
+      <h2>The crawl loop</h2>
+      <p>Before zooming into any single component, watch the full cycle for one URL. This is the sequence you'll narrate on the whiteboard, and it's the mental model that every later optimization plugs into. Press <strong>Play</strong>, or step through with <strong>Next</strong> and predict each transition before it happens.</p>
+      <p>Note the order of the checks. We verify <code>robots.txt</code> and politeness <em>before</em> we fetch — there's no point downloading a page we're not allowed to take, and no point hammering a host that asked us to wait. And we dedup the <em>extracted links</em> against the seen filter <em>before</em> enqueueing, so the frontier never fills with URLs we've already handled.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-loop">
+          <svg viewBox="0 0 640 300" role="img" aria-label="Interactive crawl loop: pop, robots check, fetch, parse, extract, dedup, enqueue">
+            <g class="st" id="cl-frontier"><rect class="node-b" x="30" y="120" width="110" height="56" rx="10"/><text class="lbl" x="85" y="145" text-anchor="middle">frontier</text><text class="lbl-sm" x="85" y="163" text-anchor="middle">pop URL</text></g>
+            <g class="st" id="cl-robots"><rect class="node-r" x="190" y="20" width="130" height="50" rx="9"/><text class="lbl" x="255" y="40" text-anchor="middle">robots +</text><text class="lbl" x="255" y="58" text-anchor="middle">politeness</text></g>
+            <g class="st" id="cl-fetch"><rect class="node" x="200" y="120" width="110" height="56" rx="10"/><text class="lbl" x="255" y="145" text-anchor="middle">fetch</text><text class="lbl-sm" x="255" y="163" text-anchor="middle">download</text></g>
+            <g class="st" id="cl-parse"><rect class="node" x="370" y="120" width="110" height="56" rx="10"/><text class="lbl" x="425" y="145" text-anchor="middle">parse +</text><text class="lbl-sm" x="425" y="163" text-anchor="middle">extract links</text></g>
+            <g class="st" id="cl-store"><rect x="372" y="222" width="106" height="46" rx="9" fill="#FDFBF6" stroke="#2E73B8" stroke-width="2"/><text class="lbl" x="425" y="242" text-anchor="middle">store</text><text class="lbl-sm" x="425" y="259" text-anchor="middle">S3 + meta</text></g>
+            <g class="st" id="cl-dedup"><rect x="520" y="120" width="100" height="56" rx="9" fill="#FBF1D8" stroke="#C98A2B" stroke-width="2"/><text class="lbl" x="570" y="145" text-anchor="middle">Bloom</text><text class="lbl-sm" x="570" y="163" text-anchor="middle">seen?</text></g>
+            <!-- motion paths -->
+            <path id="cl-p1" class="flow" d="M140 138 C 165 110, 200 100, 255 72" marker-end="url(#arrow)"/>
+            <path id="cl-p2" class="flow" d="M255 70 V 118" marker-end="url(#arrow)"/>
+            <path id="cl-p3" class="flow" d="M310 148 H 368" marker-end="url(#arrow)"/>
+            <path id="cl-p4" class="flow" d="M425 176 V 220" marker-end="url(#arrow)"/>
+            <path id="cl-p5" class="flow" d="M480 148 H 518" marker-end="url(#arrow)"/>
+            <path id="cl-p6" class="flow-r" d="M520 162 C 300 240, 120 230, 85 178" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="300" y="290" text-anchor="middle" fill="#B0532F">unseen URLs → enqueue back to frontier</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: pop → robots/politeness → fetch → parse → store → dedup → enqueue</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood — why DNS deserves its own cache</span>
+        <p>Inside the "fetch" box, the very first thing a worker does is turn <code>shopee.sg</code> into an IP. A cold DNS lookup is a network round trip of 20–120&nbsp;ms. At 400 fetches/sec that's a wall of DNS traffic, and many fetches to the <em>same</em> host repeat the same lookup. A local <strong>DNS cache</strong> (respecting the record's TTL) collapses thousands of repeats into one resolution. Without it, DNS — not bandwidth — silently becomes your throughput ceiling.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The core data structure</div>
+      <h2>The URL frontier</h2>
+      <p>Everything hinges here, so it gets the most attention. The <strong>URL frontier</strong> is the queue of URLs discovered but not yet fetched. A first instinct is "it's just a FIFO queue — pop the next URL, fetch it." That naive version breaks in two ways at once, and watching it break tells us exactly what to build.</p>
+      <h3>Bottleneck 1 — a plain FIFO has no priority</h3>
+      <p>Not all URLs are equal. The Shopee homepage matters more than a buried filter-combination page; a frequently-updated news section deserves attention before a static "about us" page. A flat queue treats them identically, so important pages wait behind junk. We want <strong>priority</strong>: rank URLs (by site importance, page rank, or update frequency) and pull high-priority ones sooner.</p>
+      <h3>Bottleneck 2 — a plain FIFO destroys politeness</h3>
+      <p>Worse: imagine the frontier currently holds 10,000 URLs all from <code>agoda.com</code> (a big site fans out fast). A flat queue feeds those to your 100 fetcher workers, and suddenly 100 workers are downloading from Agoda <em>simultaneously</em>. To Agoda that's indistinguishable from an attack, and they'll block your IP range. We need the opposite guarantee: <strong>at most one in-flight request per host at a time</strong>, with a delay between requests to the same host.</p>
+      <h3>The two-layer design that satisfies both</h3>
+      <p>The standard answer is a <strong>front-queue / back-queue</strong> structure — two banks of queues with a router between them:</p>
+      <ul>
+        <li><strong>Front queues (prioritizer).</strong> Several FIFO queues, one per priority level (say 1–5). A <strong>prioritizer</strong> assigns each incoming URL a priority and drops it in the matching front queue. This layer is purely about <em>what to fetch next</em>.</li>
+        <li><strong>Back queues (politeness).</strong> Many FIFO queues, where <strong>each back queue maps to exactly one host</strong>. A router moves URLs from front to back queues such that all URLs for a given host land in the same back queue. This layer is purely about <em>not overloading anyone</em>.</li>
+        <li><strong>Queue selector + host table.</strong> Worker threads pull from back queues, but a mapping table enforces that a given host's queue is served by only one worker thread, and a per-host timestamp enforces the crawl delay. A worker that finishes a host waits out the delay before the next pull.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 300" role="img" aria-label="URL frontier with front priority queues and back per-host politeness queues">
+            <text class="lbl-sm" x="120" y="26" text-anchor="middle">FRONT: priority</text>
+            <rect class="node-b" x="40" y="40" width="160" height="30" rx="6"/><text class="lbl-sm" x="120" y="60" text-anchor="middle">P1 (highest)</text>
+            <rect class="node" x="40" y="78" width="160" height="30" rx="6"/><text class="lbl-sm" x="120" y="98" text-anchor="middle">P2</text>
+            <rect class="node" x="40" y="116" width="160" height="30" rx="6"/><text class="lbl-sm" x="120" y="136" text-anchor="middle">P3</text>
+            <rect class="node" x="40" y="154" width="160" height="30" rx="6"/><text class="lbl-sm" x="120" y="174" text-anchor="middle">… P5 (lowest)</text>
+            <!-- router -->
+            <rect class="node-b" x="260" y="92" width="80" height="118" rx="9"/>
+            <text class="lbl-sm" x="300" y="142" text-anchor="middle">router /</text>
+            <text class="lbl-sm" x="300" y="158" text-anchor="middle">mapper</text>
+            <text class="lbl-sm" x="300" y="174" text-anchor="middle">by host</text>
+            <!-- back queues -->
+            <text class="lbl-sm" x="470" y="26" text-anchor="middle">BACK: one per host</text>
+            <rect class="node" x="400" y="40" width="200" height="28" rx="6"/><text class="lbl-sm" x="500" y="59" text-anchor="middle">b1 → shopee.sg</text>
+            <rect class="node" x="400" y="76" width="200" height="28" rx="6"/><text class="lbl-sm" x="500" y="95" text-anchor="middle">b2 → agoda.com</text>
+            <rect class="node" x="400" y="112" width="200" height="28" rx="6"/><text class="lbl-sm" x="500" y="131" text-anchor="middle">b3 → grab.com</text>
+            <rect class="node" x="400" y="148" width="200" height="28" rx="6"/><text class="lbl-sm" x="500" y="167" text-anchor="middle">… bN → host N</text>
+            <rect class="node-r" x="400" y="206" width="200" height="44" rx="8"/>
+            <text class="lbl-sm" x="500" y="225" text-anchor="middle">host table: 1 worker +</text>
+            <text class="lbl-sm" x="500" y="241" text-anchor="middle">crawl_delay per host</text>
+            <path class="flow" d="M200 122 H 258" marker-end="url(#arrow)"/>
+            <path class="flow" d="M340 110 C 370 80, 380 70, 398 60" marker-end="url(#arrow)"/>
+            <path class="flow" d="M340 140 H 398" marker-end="url(#arrow)"/>
+            <path class="flow" d="M340 170 C 370 165, 380 160, 398 130" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M500 176 V 204" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="300" y="284" text-anchor="middle">priority decides ORDER · per-host queues decide POLITENESS</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — front queues rank by priority; back queues isolate by host so one worker touches one host at a time</figcaption>
+      </figure>
+      <p>This split is the elegant part: <strong>priority and politeness are orthogonal concerns, and the two-layer frontier lets each be tuned independently.</strong> The front layer answers "what's most worth fetching?"; the back layer answers "who can I safely fetch from right now?".</p>
+      <h3>Where the frontier physically lives</h3>
+      <p>At billions of URLs the frontier can't sit in one process's memory. In practice the queues are backed by durable infrastructure: <strong>Kafka</strong> topics (partitioned by host, which conveniently gives you per-host ordering for free) or <strong>Redis</strong> lists/sorted sets for the hottest queues, with the long tail spilled to disk. The host-to-worker assignment table lives in Redis or ZooKeeper so all machines agree on who owns which host.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"How big does the frontier get, and what if it doesn't fit in RAM?"</em> It grows faster than you fetch (each page yields many links), so it <em>must</em> spill to disk. Keep a bounded in-memory buffer per queue for speed and page the rest from disk/Kafka. Also bound it: cap URLs-per-host and total depth (step 09) or the frontier grows without limit.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Be a good citizen</div>
+      <h2>Politeness at scale</h2>
+      <p>Politeness is the requirement most candidates under-weight and most interviewers care about, because getting it wrong gets your crawler banned. It has three distinct mechanisms.</p>
+      <h3>Obey robots.txt</h3>
+      <p><strong><code>robots.txt</code></strong> is a file at the root of a site (<code>https://host/robots.txt</code>) where the owner declares which paths bots may and may not fetch, and sometimes a suggested crawl delay. Before fetching <em>any</em> URL on a host, the crawler fetches and parses that host's <code>robots.txt</code>, then honors its <code>Disallow</code> rules. You cache the parsed rules in the per-host policy store (with a TTL of, say, a day) so you don't re-download it for every URL — re-fetching robots.txt a million times would itself be impolite.</p>
+      <h3>Honor a per-host crawl delay</h3>
+      <p>Even on allowed paths, you space out requests. A typical rule is "no more than one request to a host every <em>N</em> seconds" (e.g. 1–5s). The host table stores <code>last_access_at</code> per host; a worker that wants to fetch from a host computes <code>now − last_access_at</code> and, if it's less than the delay, sleeps the difference. This is per-host, not global — you can fetch from a thousand <em>different</em> hosts in that same second.</p>
+      <h3>Distribute politeness so one host isn't hit by many workers</h3>
+      <p>This is the subtle one and the reason for the back-queue design. In a distributed crawler with hundreds of worker machines, the danger is two machines independently deciding to fetch from <code>agoda.com</code> at the same instant — each thinks it's polite, but together they double the load. The fix is the <strong>host-to-queue mapping</strong>: a given host is owned by exactly one back queue, and that queue is served by exactly one worker thread. Consistent hashing on the hostname assigns each host to one machine, so all of a host's traffic funnels through a single point that can enforce the delay. <strong>The unit of work is the host, not the URL.</strong></p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Many workers, but each host routed to exactly one worker to enforce politeness">
+            <rect class="node" x="30" y="40" width="110" height="36" rx="7"/><text class="lbl-sm" x="85" y="62" text-anchor="middle">worker A</text>
+            <rect class="node" x="30" y="98" width="110" height="36" rx="7"/><text class="lbl-sm" x="85" y="120" text-anchor="middle">worker B</text>
+            <rect class="node" x="30" y="156" width="110" height="36" rx="7"/><text class="lbl-sm" x="85" y="178" text-anchor="middle">worker C</text>
+            <rect class="node-b" x="220" y="86" width="150" height="58" rx="10"/>
+            <text class="lbl-sm" x="295" y="110" text-anchor="middle">consistent-hash</text>
+            <text class="lbl-sm" x="295" y="126" text-anchor="middle">host → worker</text>
+            <rect class="node-r" x="450" y="40" width="160" height="32" rx="7"/><text class="lbl-sm" x="530" y="61" text-anchor="middle">agoda.com → A only</text>
+            <rect class="node-r" x="450" y="98" width="160" height="32" rx="7"/><text class="lbl-sm" x="530" y="119" text-anchor="middle">shopee.sg → B only</text>
+            <rect class="node-r" x="450" y="156" width="160" height="32" rx="7"/><text class="lbl-sm" x="530" y="177" text-anchor="middle">grab.com → C only</text>
+            <path class="flow-d" d="M140 58 C 180 70, 195 100, 218 108" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M140 116 H 218" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M140 174 C 180 162, 195 132, 218 122" marker-end="url(#arrow-s)"/>
+            <path class="flow" d="M370 100 C 410 80, 425 65, 448 58" marker-end="url(#arrow)"/>
+            <path class="flow" d="M370 115 H 448" marker-end="url(#arrow)"/>
+            <path class="flow" d="M370 130 C 410 150, 425 165, 448 172" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — each host hashes to one worker, so a host never sees concurrent requests from your fleet</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Shard the frontier by host</h4><ul>
+          <li>Politeness is automatic — one host, one owner, one timeline</li>
+          <li>Per-host crawl delay is trivial to enforce locally</li>
+          <li>Maps naturally onto Kafka partitions / consistent hashing</li>
+        </ul></div>
+        <div class="col"><h4>Shard by URL hash instead</h4><ul>
+          <li>Perfectly even load balancing across workers</li>
+          <li>But a host's URLs scatter across all workers → no single point to throttle</li>
+          <li>You'd need cross-worker coordination on every fetch — slow and fragile</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"What about a giant host that dominates? You said one worker per host."</em> A site with 50M pages crawled one-request-per-2s would take years on a single worker. Real systems relax this: split a huge host across a few queues by sub-path while still bounding total concurrency to that host, or negotiate a higher rate. Name the tension — politeness vs. coverage of mega-sites — and the interviewer is satisfied.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Don't do the same work twice</div>
+      <h2>Dedup &amp; the Bloom filter</h2>
+      <p>The web is densely cross-linked: the same URL is reachable from thousands of pages. If we enqueue a URL every time we see it, the frontier explodes with duplicates and we fetch the same page over and over. We need a <strong>"seen" set</strong> — a record of every URL we've already discovered — and we check every extracted link against it before enqueueing. There are two layers of dedup.</p>
+      <h3>URL dedup — and why a hash set won't fit</h3>
+      <p>Recall the estimate: ~10 billion unique URLs at ~80 bytes each is ~800&nbsp;GB just to remember them. A plain in-memory hash set is out of the question, and a database lookup on every extracted link adds a network round trip to the hottest path in the system. We need something tiny and fast.</p>
+      <p>Enter the <strong>Bloom filter</strong>: a probabilistic set membership structure. It's a bit array of <em>m</em> bits plus <em>k</em> independent hash functions. To <strong>add</strong> a URL, hash it with all <em>k</em> functions and set those <em>k</em> bits to 1. To <strong>test</strong> a URL, hash it the same way and check those <em>k</em> bits: if <em>any</em> bit is 0, the URL is <strong>definitely new</strong> (no false negatives); if <em>all</em> bits are 1, the URL is <strong>probably seen</strong> — but might be a <strong>false positive</strong> where other URLs happened to set those same bits.</p>
+      <p>The crucial asymmetry: a Bloom filter <strong>never returns a false negative</strong>. So if it says "new," it's truly new and we crawl it. If it says "seen," we skip it — and occasionally (the false-positive rate) we wrongly skip a genuinely new URL. For a crawler that's an acceptable trade: missing a tiny fraction of pages is fine; the prize is fitting the entire seen-set in a sliver of the memory a hash set would need.</p>
+      <pre><code># 10 billion URLs, target 1% false-positive rate
+m ≈ 1.44 × k × n,   k ≈ 7   (optimal for 1% FP)
+m ≈ 10B × ~9.6 bits ≈ 96 Gbit ≈ 12 GB
+
+# vs a hash set of the raw URLs:  ~800 GB
+# ~65× smaller — and a lookup is just k bit-tests, no network</code></pre>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Bloom filter: a URL is hashed by k functions to set or test k bits in a bit array">
+            <rect class="node" x="30" y="30" width="150" height="40" rx="8"/>
+            <text class="lbl-sm" x="105" y="55" text-anchor="middle">URL (normalized)</text>
+            <text class="lbl-sm" x="105" y="100" text-anchor="middle">k hash functions</text>
+            <rect class="node-b" x="40" y="108" width="130" height="34" rx="7"/>
+            <text class="lbl-sm" x="105" y="130" text-anchor="middle">h1 h2 … hk</text>
+            <!-- bit array -->
+            <g font-family="'JetBrains Mono',monospace" font-size="12" text-anchor="middle">
+              <rect x="250" y="60" width="30" height="30" rx="4" class="node"/><text x="265" y="80">0</text>
+              <rect x="282" y="60" width="30" height="30" rx="4" fill="#FBF1D8" stroke="#C98A2B" stroke-width="2"/><text x="297" y="80">1</text>
+              <rect x="314" y="60" width="30" height="30" rx="4" class="node"/><text x="329" y="80">0</text>
+              <rect x="346" y="60" width="30" height="30" rx="4" fill="#FBF1D8" stroke="#C98A2B" stroke-width="2"/><text x="361" y="80">1</text>
+              <rect x="378" y="60" width="30" height="30" rx="4" class="node"/><text x="393" y="80">0</text>
+              <rect x="410" y="60" width="30" height="30" rx="4" fill="#FBF1D8" stroke="#C98A2B" stroke-width="2"/><text x="425" y="80">1</text>
+              <rect x="442" y="60" width="30" height="30" rx="4" class="node"/><text x="457" y="80">0</text>
+              <rect x="474" y="60" width="30" height="30" rx="4" class="node"/><text x="489" y="80">0</text>
+              <rect x="506" y="60" width="30" height="30" rx="4" fill="#FBF1D8" stroke="#C98A2B" stroke-width="2"/><text x="521" y="80">1</text>
+              <rect x="538" y="60" width="30" height="30" rx="4" class="node"/><text x="553" y="80">0</text>
+            </g>
+            <text class="lbl-sm" x="409" y="48" text-anchor="middle">bit array (m bits)</text>
+            <path class="flow" d="M105 70 V 106" marker-end="url(#arrow)"/>
+            <path class="flow" d="M170 122 C 210 118, 220 90, 248 82" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="300" y="135" text-anchor="start">any bit 0 → DEFINITELY new (no false negatives)</text>
+            <text class="lbl-sm" x="300" y="158" text-anchor="start" fill="#B0532F">all bits 1 → PROBABLY seen (rare false positive)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — the Bloom filter trades a tiny false-positive rate for ~65× less memory than a raw URL set</figcaption>
+      </figure>
+      <h3>Content dedup — different URL, same page</h3>
+      <p>URL dedup catches the same address; it doesn't catch two <em>different</em> URLs serving the <em>same</em> content (e.g. <code>?ref=email</code> vs <code>?ref=fb</code>, or a page mirrored on www and non-www). For that we hash the page <em>body</em>: compute a checksum (MD5/SHA) of the content and keep a set of seen content hashes. If a freshly fetched page's hash already exists, we skip storing and indexing it — we've seen this content before.</p>
+      <p>Exact hashing misses <strong>near</strong>-duplicates: pages that differ only in a timestamp, a session ID, or an ad. For those, a <strong>SimHash</strong> (a locality-sensitive hash) produces fingerprints whose Hamming distance is small when the content is similar, so you can detect "this is 98% the same as a page we already have" and skip it. That's how you avoid storing a million almost-identical product pages that differ only by a tracking parameter.</p>
+      <div class="callout">
+        <span class="k">Under the hood — where the filter lives when distributed</span>
+        <p>A 12&nbsp;GB Bloom filter fits on one machine, but in a sharded crawler each worker owns a slice of the URL space (by host hash), so each shard keeps its own Bloom filter for the hosts it owns. That keeps the seen-check local and lock-free. A scaled implementation often uses a <strong>scalable/partitioned Bloom filter</strong> backed by Redis, or RocksDB on disk for the authoritative seen-set with the Bloom filter as the fast front-line check.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"What's the downside of the Bloom filter, and how do you recover from a false positive?"</em> A false positive silently drops a real URL — you never crawl that page. You can't detect it directly (that's the point of the structure). Mitigations: size the filter for a low FP rate, and back it with an authoritative on-disk seen-set you consult only when the filter says "seen," turning a probabilistic skip into a confirmed one at the cost of a disk read on hits.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Make it terminate &amp; stay fresh</div>
+      <h2>Traps, loops &amp; freshness</h2>
+      <p>The web is not a tidy DAG. It has cycles, and it has pages that generate <em>infinite</em> new links. A naive crawler walks straight into these and never comes back. Two defenses plus a freshness policy keep the crawl finite and useful.</p>
+      <h3>Crawler traps — infinite URL generators</h3>
+      <p>A <strong>crawler trap</strong> (or spider trap) is a region of a site that produces an unbounded stream of distinct URLs. The classic is an online <strong>calendar</strong>: <code>/cal?date=2026-06-01</code> links to <code>2026-06-02</code>, which links to the next day, forever — there's always a "next month" arrow. Faceted-search pages are another: every combination of filters (<code>?color=red&amp;size=l&amp;sort=price&amp;page=2…</code>) is a new URL, and the combinations are astronomically many. Each is technically a "new" URL, so URL dedup doesn't save you — the URLs really are distinct.</p>
+      <p>Defenses, layered:</p>
+      <ul>
+        <li><strong>URL normalization.</strong> Before hashing, canonicalize: lowercase the host, strip default ports, remove fragments (<code>#…</code>), sort or drop tracking query params (<code>utm_*</code>, <code>ref</code>, <code>fbclid</code>), resolve <code>../</code> path segments. This collapses many trap variants into one URL the seen-filter already knows.</li>
+        <li><strong>Depth / budget limits per domain.</strong> Cap how deep links chain from a seed (<code>maxDepth</code>) and cap total pages per host (<code>maxPagesPerHost</code>). A calendar can generate infinite URLs, but the budget cuts it off after, say, 50,000 pages — coverage you can live with.</li>
+        <li><strong>URL-length and pattern heuristics.</strong> Absurdly long URLs or ones with deeply repeated path segments (<code>/a/a/a/a/…</code>) are trap signatures; drop them.</li>
+      </ul>
+      <h3>Loops — cycle avoidance</h3>
+      <p>Pure cycles (page A links to B links back to A) are handled by the same seen-filter that does dedup: once a URL is marked seen, we never enqueue it again, so a cycle can't spin. Cycles are the <em>easy</em> case; the hard case is the trap above, where every URL is genuinely new and only budgets save you.</p>
+      <h3>Freshness — when to re-crawl</h3>
+      <p>A crawl is never "done" — pages change. But re-crawling everything uniformly wastes effort on static pages while letting fast-moving ones go stale. The policy is <strong>re-crawl by observed change frequency</strong>: track how often a page's content hash actually changes between fetches, and set <code>next_recrawl_at</code> adaptively. A news front page that changes hourly gets re-crawled hourly; a "Terms of Service" page that hasn't changed in a year gets pushed out to monthly. A scheduler scans <code>next_recrawl_at</code> and re-injects due URLs into the frontier — turning the one-shot crawl into a perpetual, self-tuning one.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="A calendar trap generating infinite URLs, cut off by a depth and page budget">
+            <rect class="node" x="30" y="50" width="120" height="44" rx="8"/><text class="lbl-sm" x="90" y="68" text-anchor="middle">/cal?d=06-01</text><text class="lbl-sm" x="90" y="84" text-anchor="middle">depth 1</text>
+            <rect class="node" x="200" y="50" width="120" height="44" rx="8"/><text class="lbl-sm" x="260" y="68" text-anchor="middle">/cal?d=06-02</text><text class="lbl-sm" x="260" y="84" text-anchor="middle">depth 2</text>
+            <rect class="node" x="370" y="50" width="120" height="44" rx="8"/><text class="lbl-sm" x="430" y="68" text-anchor="middle">/cal?d=06-03</text><text class="lbl-sm" x="430" y="84" text-anchor="middle">depth 3</text>
+            <text class="lbl" x="555" y="78" text-anchor="middle">…∞</text>
+            <path class="flow" d="M150 72 H 198" marker-end="url(#arrow)"/>
+            <path class="flow" d="M320 72 H 368" marker-end="url(#arrow)"/>
+            <path class="flow" d="M490 72 H 525" marker-end="url(#arrow)"/>
+            <rect x="20" y="120" width="600" height="62" rx="10" fill="none" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 4"/>
+            <text class="lbl" x="320" y="146" text-anchor="middle" fill="#B0532F">budget: stop at maxDepth=8 or maxPagesPerHost=50k</text>
+            <text class="lbl-sm" x="320" y="168" text-anchor="middle">+ normalize URLs · drop utm/ref params · cap URL length</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — the trap is infinite; per-domain depth and page budgets make the crawl finite anyway</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Follow-up they'll ask</span>
+        <p><em>"How would you escape a crawler trap you didn't anticipate?"</em> You can't enumerate every trap, so make budgets the backstop: hard caps on depth and pages-per-host bound the damage of <em>any</em> trap. Layer on monitoring — if one host's frontier share spikes abnormally, alert and auto-throttle or blacklist that host. The honest answer is "defense in depth: normalize, budget, and monitor — no single rule catches them all."</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Scale &amp; survive</div>
+      <h2>Distribute &amp; survive failure</h2>
+      <p>A single machine can't fetch a billion pages a month politely. We scale out — and the moment we do, we inherit the standard distributed-systems failure questions. Here's how the crawler answers them.</p>
+      <h3>Shard by host</h3>
+      <p>We already chose the sharding key in step 07: <strong>consistent hashing on the hostname</strong> assigns each host to one worker machine. This is the right key for two reasons — it keeps all of a host's politeness state (last-access time, robots rules, crawl delay) local to one machine, and consistent hashing means adding or removing a machine only re-maps a fraction of hosts rather than reshuffling everything.</p>
+      <h3>Failure mode: a fetcher node dies</h3>
+      <p>If a worker crashes, the hosts it owned are now unserved and any URLs it had popped-but-not-finished are in limbo. Recovery rests on two ideas:</p>
+      <ul>
+        <li><strong>Checkpoint the frontier.</strong> The frontier is durable (Kafka/Redis with persistence, or a backing DB), not just in worker RAM. A URL is only removed from the queue after it's been fully processed and its links enqueued — like a message-queue ack. If a worker dies mid-fetch, the un-acked URL becomes visible again and another worker re-processes it.</li>
+        <li><strong>Re-balance ownership.</strong> A coordinator (ZooKeeper/etcd) detects the dead node via heartbeat and re-assigns its hosts to surviving nodes via the consistent-hash ring. The new owner loads that host's policy from the per-host store and resumes.</li>
+      </ul>
+      <h3>Failure mode: a fetch fails</h3>
+      <p>Individual fetches fail constantly — timeouts, 5xx errors, connection resets. The policy is <strong>retry with exponential backoff</strong>, capped at a few attempts; persistent failures mark the URL <code>FAILED</code> in metadata and schedule a re-try far in the future rather than blocking the queue. Crucially, <strong>one bad page must never crash a worker</strong> — wrap parsing in defensive error handling, because malformed HTML and hostile pages are guaranteed, not exceptional.</p>
+      <h3>What breaks at 10×</h3>
+      <p>Push from 1B to 10B pages/month (~4,000 pages/sec) and the pressure points shift:</p>
+      <ul>
+        <li><strong>DNS</strong> becomes a first-class service. A simple per-worker cache no longer cuts it; you run a dedicated, replicated DNS-resolution layer with prefetching, or you'll be DNS-bound long before you're bandwidth-bound.</li>
+        <li><strong>The Bloom filter</strong> grows past one machine's RAM (~120&nbsp;GB at 10B URLs / 1% FP), forcing a partitioned/sharded filter aligned with the host-shards.</li>
+        <li><strong>Storage write throughput</strong> dominates: ~400&nbsp;MB/sec of page bodies streaming into the blob store needs the writes batched and the metadata store partitioned by <code>url_hash</code> to spread the load.</li>
+        <li><strong>The frontier</strong> can't be one Kafka cluster; partition it and accept that global priority becomes approximate per-shard priority.</li>
+        <li><strong>Hot hosts</strong> (a handful of mega-sites with billions of pages) become stragglers — one polite worker can't drain them — so they get special handling (sub-path sharding, negotiated higher rates, or dedicated capacity).</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Extensibility, as promised in the requirements</span>
+        <p>Because the pipeline is stage-based, new behavior is a new stage, not a rewrite. Want to also crawl PDFs and images? Add a content-type router after the fetcher that forwards each body to the right parser. Want to detect spam or malware (a fintech compliance use case)? Insert a classification stage between parse and store. The frontier, fetcher, and dedup layers don't change — that's the extensibility goal made real.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>a crawler is a graph traversal over an adversarial, unbounded web — so the design is a polite, dedup'd, fault-tolerant pipeline built around one priority-plus-politeness data structure, the URL frontier.</em> If you can draw the pipeline, explain why the frontier has two layers, and name the trap-and-dedup defenses, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>It's a loop, not magic</b><span>Fetch → parse → extract links → enqueue. Scale, politeness, and termination are the hard parts.</span></div>
+        <div class="tk"><span class="num">02</span><b>Concurrency, not QPS</b><span>~400 pages/sec is easy; spreading it over thousands of hosts politely is the real constraint.</span></div>
+        <div class="tk"><span class="num">03</span><b>Right store per pattern</b><span>Blobs in S3, metadata in Cassandra/DynamoDB, the queue in Kafka/Redis.</span></div>
+        <div class="tk"><span class="num">04</span><b>Frontier = priority + politeness</b><span>Front queues rank what to fetch; back queues isolate one host per worker.</span></div>
+        <div class="tk"><span class="num">05</span><b>Shard by host</b><span>One host, one owner — so politeness state is local and consistent hashing rebalances cheaply.</span></div>
+        <div class="tk"><span class="num">06</span><b>Obey robots + crawl delay</b><span>Cache parsed robots.txt; space requests per host; never let the fleet gang up on one site.</span></div>
+        <div class="tk"><span class="num">07</span><b>Bloom filter for "seen"</b><span>No false negatives, tiny memory; occasionally skips a real URL — fine for a crawler.</span></div>
+        <div class="tk"><span class="num">08</span><b>Two kinds of dedup</b><span>URL dedup (Bloom) for addresses; content hash / SimHash for same-or-near-same bodies.</span></div>
+        <div class="tk"><span class="num">09</span><b>Budgets beat traps</b><span>Normalize URLs, cap depth and pages-per-host — the backstop against infinite generators.</span></div>
+        <div class="tk"><span class="num">10</span><b>Checkpoint &amp; retry</b><span>Durable frontier with acks, backoff retries, re-balance dead nodes' hosts.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why is the real bottleneck concurrency across hosts rather than raw pages-per-second?<br>(2) Why does the URL frontier need <em>two</em> layers of queues, and what does each layer guarantee?<br>(3) How do you avoid recrawling the same URL — and why won't a plain hash set work at 10 billion URLs?<br>(4) Explain a Bloom filter's false-positive-but-no-false-negative property and why that asymmetry is safe for a crawler.<br>(5) How do you stay polite at scale when hundreds of workers could all hit one host?<br>(6) How do you escape a crawler trap that you didn't anticipate?<br>Any fuzzy answer → re-read that section, then replay the crawl-loop diagram and redraw the architecture from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 22 · DESIGN A WEB CRAWLER · interactive edition · ref BBG V1·C9<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* crawl loop */
+  makeStepper(document.getElementById('fig-loop'), [
+    {text:"Pop the next URL from the frontier — chosen by priority, allowed by politeness.", active:["cl-frontier"], path:"cl-p1"},
+    {text:"Check the host's robots.txt and crawl-delay before doing anything else.", active:["cl-frontier","cl-robots"], path:"cl-p2"},
+    {text:"Allowed and due — the fetcher resolves DNS (cache first) and downloads the page.", active:["cl-robots","cl-fetch"], path:"cl-p3"},
+    {text:"The parser validates the HTML and extracts its hyperlinks.", active:["cl-fetch","cl-parse"], path:"cl-p4"},
+    {text:"Store the raw body in S3 and the metadata (status, content hash) in the wide-column store.", active:["cl-parse","cl-store"]},
+    {text:"Check each extracted link against the Bloom filter — already seen?", active:["cl-parse","cl-dedup"], path:"cl-p5"},
+    {text:"Brand-new URLs are normalized and enqueued back into the frontier; the loop turns again.", active:["cl-dedup","cl-frontier"], path:"cl-p6"}
+  ]);
+</script>
+</body>
+</html>

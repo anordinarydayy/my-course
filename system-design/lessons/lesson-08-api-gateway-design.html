@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 08 — API &amp; Gateway Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1c2b38;color:#dfe7ef;border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;border:1px solid #2a3d4d;}
+  pre .c{color:#7fa8c9;} pre .s{color:#c4d97f;} pre .k{color:#e0986b;} pre .m{color:#9bb7d4;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">API &amp;<br>Gateway Design</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why a front door?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The API gateway</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>REST vs gRPC vs GraphQL</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Reverse proxy duties</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>BFF &amp; aggregation ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Authentication &amp; tokens ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Versioning a contract</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Pagination that scales</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Idempotency keys ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>The payment contract</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>API hygiene &amp; errors</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">08</span><span>Lesson · System Design Interview</span></div>
+      <h1>API &amp; Gateway Design</h1>
+      <p class="lede">Before any service does real work, clients reach it through a contract — and in a world of dozens of services, through a single front door. This lesson covers choosing REST against gRPC, what an API gateway absorbs, how to version and paginate without breaking callers, and the idempotency keys that stop a retried payment from charging a rider twice.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on API and gateway design — a standard, widely-documented engineering topic. The prose, examples, numbers, and diagrams here are my own; nothing is copied from any paid course or book. Three diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow. Examples lean toward Singapore product and fintech systems (Grab, Shopee, GrabPay, SeaMoney, Agoda), but the concepts are general.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why a front door?</h2>
+      <p>Picture a super-app like Grab in its early days: one mobile client, one backend, one contract. Life is simple. Then the company grows. Now there is an iOS app, an Android app, a web booking site, a partner-merchant portal, and a stable of third-party developers building on a public API. Behind them sits not one backend but a dozen <strong>microservices</strong> — rides, payments, food, wallet, identity, promos, notifications. Suddenly every client must know the address of every service it talks to, and every service must independently solve the same boring problems.</p>
+      <p>Let each client call each service directly and you pay a tax that compounds:</p>
+      <ul>
+        <li><strong>Duplicated cross-cutting work.</strong> Authentication, rate limiting, TLS termination, logging, and request validation get re-implemented in every service — inconsistently, so a bug fixed in one is still live in five others.</li>
+        <li><strong>Chatty round trips.</strong> To render one ride-history screen, the mobile app fires separate calls to the trips service, the fare service, and the driver-profile service. On a flaky 4G connection in a Jakarta tunnel, three sequential round trips is a visibly slow screen.</li>
+        <li><strong>A brittle, leaky contract.</strong> Clients now depend on the internal shape and network location of every service. Move a service, rename a field, or split it in two, and you break shipped mobile apps you can no longer update.</li>
+        <li><strong>An exposed attack surface.</strong> Every internal service is reachable from the public internet, each one a door you must independently harden.</li>
+      </ul>
+      <p>The fix is to put one component in front of everything — a <strong>single entry point</strong> that owns the cross-cutting concerns once and hides the service topology behind it. That component is the API gateway, and it is the spine of this lesson.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Many clients each calling many services directly, a tangle of connections">
+            <rect class="node" x="24" y="30" width="110" height="38" rx="8"/>
+            <text class="lbl" x="79" y="54" text-anchor="middle">iOS app</text>
+            <rect class="node" x="24" y="106" width="110" height="38" rx="8"/>
+            <text class="lbl" x="79" y="130" text-anchor="middle">Web</text>
+            <rect class="node" x="24" y="182" width="110" height="38" rx="8"/>
+            <text class="lbl" x="79" y="206" text-anchor="middle">3rd party</text>
+            <rect class="node-b" x="470" y="20" width="146" height="34" rx="7"/>
+            <text class="lbl" x="543" y="42" text-anchor="middle">Rides svc</text>
+            <rect class="node-b" x="470" y="74" width="146" height="34" rx="7"/>
+            <text class="lbl" x="543" y="96" text-anchor="middle">Payments svc</text>
+            <rect class="node-b" x="470" y="128" width="146" height="34" rx="7"/>
+            <text class="lbl" x="543" y="150" text-anchor="middle">Wallet svc</text>
+            <rect class="node-b" x="470" y="182" width="146" height="34" rx="7"/>
+            <text class="lbl" x="543" y="204" text-anchor="middle">Identity svc</text>
+            <path class="flow-r" d="M134 49 C 300 38, 360 30, 468 37" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M134 52 C 300 90, 360 90, 468 91" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M134 124 C 300 60, 360 60, 468 91" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M134 127 C 300 140, 360 140, 468 145" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M134 200 C 300 170, 360 160, 468 145" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M134 203 C 300 210, 360 200, 468 199" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="300" y="238" text-anchor="middle" fill="#B0532F">N clients × M services = a tangle every team re-solves</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — direct client-to-service calls duplicate auth, leak the topology, and multiply round trips</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The single entry point</div>
+      <h2>The API gateway</h2>
+      <p>An <strong>API gateway</strong> is a server that sits at the edge of your system and is the one address every client talks to. It receives every inbound request, applies a pipeline of cross-cutting policies, then routes the survivor to whichever internal service owns that path — and relays the response back. The clients never learn that ten services exist; they see one coherent API at one hostname, say <code>api.grab.com</code>.</p>
+
+      <h3>What the gateway absorbs</h3>
+      <p>The gateway's value is that it owns, in one place, the work that would otherwise be scattered and duplicated:</p>
+      <ul>
+        <li><strong>Authentication &amp; authorization.</strong> Validate the caller's token once at the edge, reject anonymous traffic, and pass a trusted identity inward so downstream services don't each re-verify credentials.</li>
+        <li><strong>Rate limiting &amp; quotas.</strong> Throttle abusive callers before they touch a single service (this is the limiter from <em>Lesson 18</em>, deployed at the door).</li>
+        <li><strong>TLS termination.</strong> Decrypt HTTPS once at the edge so internal hops can run cheaper.</li>
+        <li><strong>Routing.</strong> Map a public path like <code>/v1/rides</code> to the rides service and <code>/v1/wallet</code> to the wallet service.</li>
+        <li><strong>Request aggregation / fan-out.</strong> Combine several internal calls into one client response, cutting round trips.</li>
+        <li><strong>Response shaping, logging, metrics, and tracing.</strong> Tag every request with a correlation ID and emit uniform logs and latency metrics.</li>
+      </ul>
+
+      <h3>How a request flows through it</h3>
+      <p>Mechanically, a request is processed as an ordered chain of <strong>filters</strong> (sometimes called middleware or handlers). Each filter inspects or mutates the request, then either passes it to the next filter or short-circuits with a response. A typical inbound order is: terminate TLS → parse and normalize the request → authenticate → rate-limit → route-match → forward upstream. On the way back the chain runs in reverse: the upstream response is shaped, compressed, logged, and returned. Short-circuiting matters — if authentication fails at filter three, the request never reaches routing or the service, which is exactly the protection you wanted.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Clients funnel through one gateway which applies cross-cutting filters then routes to services">
+            <rect class="node" x="20" y="40" width="96" height="32" rx="7"/>
+            <text class="lbl" x="68" y="61" text-anchor="middle">iOS app</text>
+            <rect class="node" x="20" y="108" width="96" height="32" rx="7"/>
+            <text class="lbl" x="68" y="129" text-anchor="middle">Web</text>
+            <rect class="node" x="20" y="176" width="96" height="32" rx="7"/>
+            <text class="lbl" x="68" y="197" text-anchor="middle">3rd party</text>
+            <rect class="node-b" x="200" y="48" width="180" height="152" rx="11"/>
+            <text class="lbl" x="290" y="40" text-anchor="middle">API Gateway</text>
+            <text class="lbl-sm" x="290" y="74" text-anchor="middle">TLS · auth</text>
+            <text class="lbl-sm" x="290" y="94" text-anchor="middle">rate limit</text>
+            <text class="lbl-sm" x="290" y="114" text-anchor="middle">route</text>
+            <text class="lbl-sm" x="290" y="134" text-anchor="middle">aggregate</text>
+            <text class="lbl-sm" x="290" y="154" text-anchor="middle">log · trace</text>
+            <text class="lbl-sm" x="290" y="184" text-anchor="middle" fill="#B0532F">↯ reject early</text>
+            <rect class="node-b" x="470" y="38" width="150" height="32" rx="7"/>
+            <text class="lbl" x="545" y="59" text-anchor="middle">Rides svc</text>
+            <rect class="node-b" x="470" y="92" width="150" height="32" rx="7"/>
+            <text class="lbl" x="545" y="113" text-anchor="middle">Payments svc</text>
+            <rect class="node-b" x="470" y="146" width="150" height="32" rx="7"/>
+            <text class="lbl" x="545" y="167" text-anchor="middle">Wallet svc</text>
+            <rect class="node-b" x="470" y="200" width="150" height="32" rx="7"/>
+            <text class="lbl" x="545" y="221" text-anchor="middle">Identity svc</text>
+            <path class="flow" d="M116 56 C 160 70, 175 100, 198 110" marker-end="url(#arrow)"/>
+            <path class="flow" d="M116 124 H 198" marker-end="url(#arrow)"/>
+            <path class="flow" d="M116 192 C 160 178, 175 145, 198 128" marker-end="url(#arrow)"/>
+            <path class="flow" d="M380 90 C 420 70, 440 60, 468 55" marker-end="url(#arrow)"/>
+            <path class="flow" d="M380 105 H 468" marker-end="url(#arrow)"/>
+            <path class="flow" d="M380 120 C 420 140, 440 152, 468 160" marker-end="url(#arrow)"/>
+            <path class="flow" d="M380 135 C 420 175, 440 195, 468 212" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — one front door owns the cross-cutting work and hides the service topology</figcaption>
+      </figure>
+
+      <h3>What implements it</h3>
+      <p>In practice you rarely write a gateway from scratch. <strong>NGINX</strong> and <strong>Envoy</strong> are the workhorse reverse proxies; Envoy underpins service meshes like <strong>Istio</strong>. Cloud-managed options include <strong>AWS API Gateway</strong>, <strong>Kong</strong>, and <strong>Apigee</strong>. The knobs you tune are timeouts (<code>connect</code>, <code>read</code>, <code>upstream</code>), retry and circuit-breaker policy, max request body size, and the route table mapping paths to upstream clusters.</p>
+
+      <div class="callout">
+        <span class="k">Failure mode</span>
+        <p>The gateway is now a <strong>single point of failure</strong> and a latency tax on every request — if it dies, everything is unreachable. So you never run one: you run a fleet of stateless gateway instances behind a load balancer, across availability zones, and you keep the gateway logic thin so a slow plugin can't stall the whole edge. The blast radius is real, which is precisely why the gateway must be boringly reliable.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Isn't the gateway a bottleneck and a single point of failure?" Answer with the deployment: a horizontally-scaled, stateless gateway fleet behind a load balancer, health-checked, multi-AZ, with conservative per-route timeouts so one slow upstream can't exhaust connections for the rest. The gateway adds a hop, but it removes far more duplicated work than it costs.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Protocol choice</div>
+      <h2>REST vs gRPC vs GraphQL</h2>
+      <p>Before the gateway can route anything, you must decide what shape the conversation takes. The protocol you pick at each boundary is a real interview decision, and the right answer differs between the public edge and the internal mesh.</p>
+
+      <h3>REST — the lingua franca of the edge</h3>
+      <p><strong>REST</strong> (Representational State Transfer) is a resource-oriented style over plain HTTP. You model the domain as nouns — a ride, an order, a wallet — addressed by URLs, and act on them with HTTP verbs: <code>GET</code> to read, <code>POST</code> to create, <code>PUT</code>/<code>PATCH</code> to update, <code>DELETE</code> to remove. Outcomes ride on standard status codes (<code>200</code>, <code>201</code>, <code>404</code>, <code>409</code>, <code>429</code>), and bodies are usually JSON. Its superpowers are <strong>ubiquity</strong> (every language, every tool, every browser speaks it), <strong>cacheability</strong> (a <code>GET</code> is safely cacheable by CDNs and proxies), and human readability. That makes REST the default for public and edge APIs — the contract you hand to third-party developers and your own mobile apps.</p>
+
+      <h3>gRPC — the internal speed layer</h3>
+      <p><strong>gRPC</strong> is a binary RPC framework: you define your service and message types in a <strong>Protocol Buffers</strong> (<code>.proto</code>) schema, a code generator produces strongly-typed client and server stubs, and calls travel as compact binary over <strong>HTTP/2</strong>. The mechanism is what makes it fast: Protobuf serializes to a fraction of the bytes of JSON, HTTP/2 multiplexes many calls over one connection (no head-of-line blocking at the connection level), and the generated stubs make a remote call look like a local function. gRPC also supports streaming — server-streaming, client-streaming, and bidirectional — over a single long-lived connection. The cost is that it is not browser-native and not human-readable on the wire, so it shines <strong>internally, service-to-service</strong>: the rides service calling the pricing service ten thousand times a second wants gRPC's low latency and strict contract, not JSON over HTTP/1.1.</p>
+
+      <div class="vs">
+        <div class="col"><h4>REST over HTTP/JSON</h4><ul>
+          <li>Universal: every client, browser, and tool speaks it</li>
+          <li><code>GET</code>s are cacheable at the CDN and proxy layer</li>
+          <li>Human-readable; trivial to debug with curl</li>
+          <li>Looser contract — easy to evolve, easy to drift</li>
+          <li>Heavier on the wire; one request per round trip on HTTP/1.1</li>
+        </ul></div>
+        <div class="col"><h4>gRPC over HTTP/2 + Protobuf</h4><ul>
+          <li>Compact binary payloads, low latency, high throughput</li>
+          <li>Strict, generated, typed contract — fewer integration bugs</li>
+          <li>First-class streaming and multiplexed connections</li>
+          <li>Not browser-native (needs a proxy/grpc-web); opaque on the wire</li>
+          <li>Schema must be shared and versioned between both sides</li>
+        </ul></div>
+      </div>
+
+      <h3>GraphQL — let the client shape the response</h3>
+      <p>REST has a chronic annoyance: a fixed endpoint returns a fixed shape, so a screen often <strong>over-fetches</strong> (gets fields it ignores) or <strong>under-fetches</strong> (must make follow-up calls). <strong>GraphQL</strong> answers this with a single endpoint where the client sends a query describing exactly the fields it wants, possibly spanning several resources, and gets back precisely that shape. For a data-rich screen — a Shopee product page pulling listing, seller rating, shipping options, and recommendations — one GraphQL query can replace four REST calls.</p>
+      <p>The trap is the <strong>N+1 problem</strong>: a query that fetches a list of 50 orders and, for each, the buyer's name can naively trigger 1 list query plus 50 buyer lookups. The fix is a <strong>batching loader</strong> (the DataLoader pattern) that collects all 50 buyer IDs within a tick and resolves them in a single batched query. GraphQL also complicates caching (it is mostly <code>POST</code>, so HTTP caching doesn't apply for free) and rate limiting (one query can be arbitrarily expensive, so you score query complexity instead of counting requests).</p>
+
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"REST or gRPC between these two services, and why?" The crisp answer: <em>REST at the public edge for ubiquity and cacheability; gRPC inside the mesh for latency, throughput, and a strict typed contract; GraphQL when one client must assemble many resources and you want to kill over- and under-fetching — while guarding the N+1 with a batching loader.</em> Naming where each lives, not just what each is, is what scores.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Under the hood</div>
+      <h2>The gateway as a reverse proxy</h2>
+      <p>A gateway is, at its core, a <strong>reverse proxy</strong> with policy. It is worth slowing down on what "reverse proxy" actually means and the work it quietly does, because interviewers probe the mechanism, not just the name.</p>
+
+      <h3>Forward vs reverse proxy</h3>
+      <p>A <strong>forward proxy</strong> sits in front of <em>clients</em> and makes requests on their behalf to the wider internet — think a corporate proxy that filters employee web traffic. A <strong>reverse proxy</strong> sits in front of <em>servers</em>: clients believe they are talking to the origin, but the proxy intercepts every request and decides how to fulfill it. The gateway is a reverse proxy because it fronts your services — clients address it, and it speaks for the backend.</p>
+
+      <h3>TLS termination</h3>
+      <p><strong>TLS termination</strong> means the proxy holds the certificate and private key, decrypts inbound HTTPS, and hands plaintext to the backend over the trusted internal network. This centralizes certificate management (renew in one place, not in every service) and saves each service the CPU cost of the handshake. If the internal network is not trusted — common in fintech — you re-encrypt for the internal hop (<strong>TLS re-origination</strong>) or run <strong>mTLS</strong> between services.</p>
+
+      <h3>Caching, compression, and buffering</h3>
+      <p>Because the proxy sees every response, it can <strong>cache</strong> safe <code>GET</code>s keyed by URL and headers, returning a stored copy without touching the origin — a static promo catalog can be served straight from the edge. It can <strong>compress</strong> responses (gzip or Brotli) so a fat JSON payload travels small to a mobile client. And it <strong>buffers</strong>: it can read a slow client's full request before opening a backend connection, so a trickling upload doesn't tie up a precious backend worker for seconds.</p>
+
+      <h3>Header rewriting and origin hiding</h3>
+      <p>The proxy rewrites headers as traffic crosses the boundary. It strips internal headers, injects <code>X-Forwarded-For</code> (the real client IP), adds a correlation ID, and removes <code>Server</code> banners that would reveal your stack. By presenting one hostname and never exposing internal addresses, it performs <strong>origin hiding</strong> — an attacker who probes <code>api.grab.com</code> cannot tell whether one service or fifty sit behind it, and cannot reach any of them directly.</p>
+
+      <div class="callout">
+        <span class="k">Under the hood</span>
+        <p>Reverse proxies maintain a pool of <strong>keep-alive connections</strong> to each upstream. Instead of opening a fresh TCP (and TLS) connection per request, the proxy reuses warm connections, which slashes tail latency. Watch the knob: if the pool is too small under load, requests queue at the proxy; too large, and you can overwhelm a fragile backend. NGINX exposes this as <code>keepalive</code> in an <code>upstream</code> block; Envoy as connection-pool circuit breakers.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Tailored doors · aggregation</div>
+      <h2>BFF &amp; request aggregation</h2>
+      <p>A single generic gateway eventually strains under a new tension: an iOS app, a smartwatch, and a partner web dashboard want very different response shapes from the same services. Bloat the one gateway with per-client logic and it becomes a tangle owned by no one. The pattern that resolves this is the <strong>Backend-for-Frontend</strong> (BFF): a thin, dedicated gateway per client type, each shaping responses for exactly that experience.</p>
+      <p>Grab might run a mobile BFF, a web BFF, and a partner BFF. The mobile BFF trims payloads to the minimum a phone needs; the partner BFF exposes a stable, conservative contract for external integrators. Each is owned by the team that owns that client, so they evolve independently.</p>
+      <p>The headline trick a BFF performs is <strong>request aggregation</strong> (fan-out / fan-in). Instead of the client making three sequential calls to render a screen, it makes one call to the BFF; the BFF fires the three internal calls <em>in parallel</em>, waits for all to return, stitches the results into one response, and sends it back. Three round trips over a slow mobile link collapse into one.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-bff">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive request aggregation: one client call fans out to three services in parallel and is stitched back">
+            <g class="st" id="b-client"><rect class="node" x="20" y="100" width="96" height="48" rx="8"/><text class="lbl" x="68" y="129" text-anchor="middle">Mobile</text></g>
+            <g class="st" id="b-bff"><rect class="node-b" x="190" y="92" width="140" height="64" rx="10"/><text class="lbl" x="260" y="118" text-anchor="middle">Mobile BFF</text><text class="lbl-sm" x="260" y="138" text-anchor="middle">fan-out / stitch</text></g>
+            <g class="st" id="b-trips"><rect class="node-b" x="450" y="20" width="150" height="40" rx="8"/><text class="lbl" x="525" y="45" text-anchor="middle">Trips svc</text></g>
+            <g class="st" id="b-fare"><rect class="node-b" x="450" y="104" width="150" height="40" rx="8"/><text class="lbl" x="525" y="129" text-anchor="middle">Fare svc</text></g>
+            <g class="st" id="b-driver"><rect class="node-b" x="450" y="188" width="150" height="40" rx="8"/><text class="lbl" x="525" y="213" text-anchor="middle">Driver svc</text></g>
+            <path id="b-p1" class="flow" d="M116 124 H 188" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="150" y="114" text-anchor="middle">1 call</text>
+            <path id="b-p2" class="flow" d="M330 110 C 390 70, 410 55, 448 45" marker-end="url(#arrow)"/>
+            <path id="b-p3" class="flow" d="M330 124 H 448" marker-end="url(#arrow)"/>
+            <path id="b-p4" class="flow" d="M330 138 C 390 178, 410 198, 448 208" marker-end="url(#arrow)"/>
+            <path id="b-p5" class="flow" d="M188 140 C 150 175, 130 175, 116 148" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="150" y="186" text-anchor="middle">1 reply</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: one client call fans out in parallel, then is stitched into one response</figcaption>
+      </figure>
+
+      <div class="callout">
+        <span class="k">Failure mode &amp; the 10x question</span>
+        <p>Aggregation couples the response to its slowest dependency: if the driver service is slow, the whole screen waits. The defenses are <strong>per-call timeouts</strong>, <strong>partial responses</strong> (return trips and fare, mark the driver block as degraded), and a <strong>circuit breaker</strong> that stops calling a failing dependency and serves a fallback. At 10x traffic the BFF's own fan-out can hammer a downstream into the ground — so add concurrency limits and caching at the BFF, or the convenience layer becomes the outage amplifier.</p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Who are you?</div>
+      <h2>Authentication &amp; tokens</h2>
+      <p>The gateway must answer "who is this caller, and may they do this?" before forwarding anything. Several mechanisms coexist, each fitting a different caller.</p>
+
+      <h3>OAuth2 — access &amp; refresh tokens</h3>
+      <p><strong>OAuth2</strong> is the framework that lets a user authenticate once and the system issue two tokens: a short-lived <strong>access token</strong> the client attaches to every API call, and a longer-lived <strong>refresh token</strong> used only to obtain new access tokens when they expire. The split is deliberate. The access token is sent constantly, so if it leaks the damage is bounded by its short lifetime (often 5 to 15 minutes). The refresh token is sent rarely and can be revoked server-side, so it can live for weeks without the same exposure.</p>
+
+      <h3>JWT — stateless signed claims</h3>
+      <p>The access token is commonly a <strong>JWT</strong> (JSON Web Token): a base64-encoded header and payload of <strong>claims</strong> (user id, roles, expiry <code>exp</code>) plus a cryptographic <strong>signature</strong>. The gateway verifies the signature with the issuer's public key and trusts the claims without any database lookup — that is what "stateless" buys you: no round trip to a session store on every request. The catch is the flip side of statelessness: a JWT is valid until it expires, so you cannot easily <strong>revoke</strong> it mid-life. If a SeaMoney user reports a stolen phone, you can't instantly kill an already-issued token. The mitigations are a <strong>short TTL plus refresh</strong> (the token self-expires fast) or a <strong>denylist</strong> of revoked token IDs the gateway checks — which reintroduces a lookup, trading some of the statelessness back.</p>
+
+      <h3>API keys &amp; mTLS</h3>
+      <p>For machine callers — a partner merchant's server calling the GrabPay API — an <strong>API key</strong> (a long random secret tied to a client account) is simpler than a user login flow; you scope and rate-limit per key. For internal service-to-service calls inside the mesh, <strong>mTLS</strong> (mutual TLS) has both sides present certificates, so the pricing service can cryptographically prove it really is the pricing service. mTLS authenticates the <em>service identity</em>, while OAuth/JWT authenticates the <em>user identity</em> — production systems use both at different layers.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-auth">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive OAuth token flow: login issues access and refresh tokens, the gateway verifies the JWT signature, then refresh on expiry">
+            <g class="st" id="a-client"><rect class="node" x="20" y="100" width="96" height="48" rx="8"/><text class="lbl" x="68" y="129" text-anchor="middle">Client</text></g>
+            <g class="st" id="a-auth"><rect class="node-b" x="180" y="20" width="150" height="50" rx="9"/><text class="lbl" x="255" y="42" text-anchor="middle">Auth server</text><text class="lbl-sm" x="255" y="60" text-anchor="middle">OAuth2</text></g>
+            <g class="st" id="a-gw"><rect class="node-b" x="180" y="100" width="150" height="50" rx="9"/><text class="lbl" x="255" y="122" text-anchor="middle">Gateway</text><text class="lbl-sm" x="255" y="140" text-anchor="middle">verify JWT sig</text></g>
+            <g class="st" id="a-svc"><rect class="node-b" x="470" y="100" width="150" height="50" rx="9"/><text class="lbl" x="545" y="122" text-anchor="middle">Service</text><text class="lbl-sm" x="545" y="140" text-anchor="middle">trusts identity</text></g>
+            <path id="a-p1" class="flow" d="M116 110 C 150 70, 160 55, 178 48" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="135" y="78" text-anchor="middle">login</text>
+            <path id="a-p2" class="flow" d="M178 60 C 150 90, 130 100, 116 116" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="118" y="92" text-anchor="middle">tokens</text>
+            <path id="a-p3" class="flow" d="M116 128 H 178" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="148" y="118" text-anchor="middle">+ token</text>
+            <path id="a-p4" class="flow" d="M330 125 H 468" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="399" y="115" text-anchor="middle">identity →</text>
+            <path id="a-p5" class="flow-r" d="M150 150 C 130 195, 165 195, 188 70" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="120" y="218" text-anchor="middle" fill="#B0532F">expired → refresh</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: log in once, attach the access token, verify its signature, refresh on expiry</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Your JWTs can't be revoked — how do you log out a stolen device immediately?" Strong answers combine a short access-token TTL (so it dies on its own within minutes) with refresh-token revocation in a store, optionally backed by a small denylist of token IDs the gateway checks for the rare immediate-kill case. Acknowledge that this trades a slice of statelessness for control — that honesty is the point.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Don't break callers</div>
+      <h2>Versioning a contract</h2>
+      <p>Once a third party or a shipped mobile app depends on your API, you cannot change it freely — there are clients in the wild you cannot force-update. Yet the product must evolve. <strong>Versioning</strong> is how you change the contract without breaking yesterday's clients.</p>
+
+      <h3>Three places to put the version</h3>
+      <ul>
+        <li><strong>URI versioning</strong>: <code>/v1/payments</code> then <code>/v2/payments</code>. Explicit, trivially visible in logs and curl, and the most common choice for public APIs.</li>
+        <li><strong>Header versioning</strong>: a custom header like <code>Api-Version: 2</code>. Keeps URLs clean but is invisible in a browser address bar and easy to forget.</li>
+        <li><strong>Content negotiation</strong>: an <code>Accept: application/vnd.grab.v2+json</code> media type. The most RESTfully "pure" but the least obvious to most developers.</li>
+      </ul>
+
+      <h3>Backward compatibility and the additive rule</h3>
+      <p>The deeper skill is avoiding new versions at all. Most evolution can be <strong>backward compatible</strong> if you follow one discipline: <strong>only add, never break</strong>. Adding a new optional field, a new endpoint, or a new enum value an old client can ignore is safe. <strong>Removing</strong> a field, <strong>renaming</strong> one, <strong>changing its type</strong>, or <strong>tightening</strong> validation is breaking — an old client that still reads <code>fare_amount</code> will crash or misbehave the moment you rename it to <code>total_fare</code>. So you never break an existing field; you add the new one alongside it and let old clients keep reading the old one.</p>
+      <p>When a breaking change is truly unavoidable, you cut a new major version and run both in parallel through a <strong>deprecation path</strong>: announce the timeline, emit a <code>Deprecation</code> / <code>Sunset</code> header on <code>v1</code> responses, watch traffic migrate off it, then retire <code>v1</code> only when usage approaches zero. gRPC encodes the additive rule structurally — Protobuf field numbers are append-only, so a new field gets a new number and old readers skip what they don't recognize.</p>
+
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"You need to rename a field thousands of mobile clients still read — what do you do?" The wrong answer is "rename it." The right one: add the new field, keep populating the old one in parallel, migrate clients over releases, mark the old field deprecated with a sunset date, and remove it only once telemetry shows old clients are effectively gone.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Paging a moving list</div>
+      <h2>Pagination that scales</h2>
+      <p>No endpoint should return ten thousand orders in one response — it blows up memory, latency, and the client. <strong>Pagination</strong> returns results in pages. There are two strategies, and choosing wrong is a classic feed bug.</p>
+
+      <h3>Offset / limit — simple, but it drifts</h3>
+      <p><strong>Offset pagination</strong> is the intuitive one: <code>?limit=20&amp;offset=40</code> means "skip 40, give me the next 20", which the database runs as <code>LIMIT 20 OFFSET 40</code>. It is dead simple and lets you jump to an arbitrary page. Two problems sink it at scale. First, <strong>drift</strong>: on a list that changes, if a new order is inserted at the top between page 1 and page 2, every row shifts down by one — the reader sees a duplicate at the page boundary, or misses a row entirely. Second, <strong>deep-page cost</strong>: <code>OFFSET 100000</code> forces the database to scan and discard 100,000 rows before returning 20, so latency grows linearly with how deep you page.</p>
+
+      <h3>Cursor / keyset — stable and fast</h3>
+      <p><strong>Cursor pagination</strong> (also called keyset pagination) fixes both. Instead of "skip N rows", you say "give me rows <em>after this specific point</em>". The server returns an opaque <strong>cursor</strong> — typically an encoded pointer to the last item's stable sort key, like <code>(created_at, id)</code> — and the client passes it back to fetch the next page. The query becomes <code>WHERE (created_at, id) &lt; (:cursor) ORDER BY created_at DESC, id DESC LIMIT 20</code>, which an index serves in roughly constant time no matter how deep you are. And because it anchors on a stable key rather than a position, inserts at the top don't shift the window — no duplicates, no gaps. That stability is exactly why feeds and timelines (a Shopee order list, a Grab ride history that keeps growing) use cursors by default.</p>
+
+      <div class="vs">
+        <div class="col"><h4>Offset / limit</h4><ul>
+          <li>Trivial to implement and reason about</li>
+          <li>Can jump directly to any page number</li>
+          <li>Drifts: inserts shift rows → duplicates or gaps</li>
+          <li>Slow on deep pages: <code>OFFSET</code> scans and discards</li>
+          <li>Fine for small, stable, admin-style tables</li>
+        </ul></div>
+        <div class="col"><h4>Cursor / keyset</h4><ul>
+          <li>Stable under inserts — no duplicates or skips</li>
+          <li>Constant-time deep paging via an indexed key</li>
+          <li>The default for feeds, timelines, infinite scroll</li>
+          <li>No arbitrary "jump to page 50"; only next / prev</li>
+          <li>Needs a stable, unique sort key to anchor the cursor</li>
+        </ul></div>
+      </div>
+
+      <pre><span class="c"># Cursor request and response shape</span>
+GET /v1/orders?limit=20&amp;cursor=eyJjcmVhdGVkX2F0IjoiMjAyNi0wNS0zMCJ9
+
+<span class="m">{</span>
+  <span class="s">"data"</span>: [ <span class="c">/* up to 20 orders, newest first */</span> ],
+  <span class="s">"page_info"</span>: <span class="m">{</span>
+    <span class="s">"next_cursor"</span>: <span class="s">"eyJjcmVhdGVkX2F0IjoiMjAyNi0wNS0yOSJ9"</span>,
+    <span class="s">"has_next"</span>: <span class="k">true</span>
+  <span class="m">}</span>
+<span class="m">}</span></pre>
+
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How do you paginate a feed that keeps changing as the user scrolls?" Cursor pagination on a stable, unique sort key such as <code>(created_at, id)</code>. Explain why offset fails here: a new item at the top shifts every offset, so page 2 repeats a row from page 1. The cursor anchors to content, not position, so the window stays consistent even as new rows arrive.</p>
+      </div>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> The fintech centerpiece</div>
+      <h2>Idempotency keys</h2>
+      <p>Here is the scenario that defines a fintech round. A rider taps "Pay" in the Grab app. The phone sends <code>POST /v1/payments</code>, the server charges the card — and then the response is lost in a tunnel. The client times out, sees nothing, and does the natural thing: it retries. Without protection, the second request charges the card <em>again</em>. The rider is billed twice for one ride. Retries are unavoidable on unreliable networks, so the system must make an unsafe <code>POST</code> safe to retry. The tool is the <strong>idempotency key</strong>.</p>
+
+      <h3>How it works under the hood</h3>
+      <p>An operation is <strong>idempotent</strong> if performing it many times has the same effect as performing it once. <code>GET</code> and <code>PUT</code> are naturally idempotent; <code>POST</code> is not — each call creates a new resource. We make <code>POST</code> idempotent by attaching a client-generated unique <strong>Idempotency-Key</strong> header (a UUID the client mints once for one logical payment and reuses on every retry of it). The server keeps a <strong>key store</strong> mapping each key to the result it produced:</p>
+      <ul>
+        <li>On arrival, the server looks up the key. <strong>First time seen:</strong> it processes the charge, stores <code>key → {status, response}</code> atomically, and returns the result.</li>
+        <li><strong>Key already present:</strong> it skips processing entirely and returns the <em>stored</em> response — same body, same status — so the retry observes the original outcome and the card is never charged twice.</li>
+        <li><strong>Key present but still processing</strong> (the first request hasn't finished): the server returns <code>409 Conflict</code> or makes the retry wait, so two concurrent retries can't both slip through.</li>
+      </ul>
+      <p>The store is typically <strong>Redis</strong> (fast, with a natural <code>TTL</code> so keys expire after, say, 24 hours) or a <strong>PostgreSQL</strong> / <strong>DynamoDB</strong> table with a unique constraint on the key. The unique constraint is the safety net: even under a race, the database rejects the second insert of the same key, collapsing two requests into one charge.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-idem">
+          <svg viewBox="0 0 640 260" role="img" aria-label="Interactive idempotency flow: first POST processes and stores the result, a retry with the same key returns the stored result without charging again">
+            <g class="st" id="i-client"><rect class="node" x="20" y="104" width="96" height="50" rx="8"/><text class="lbl" x="68" y="126" text-anchor="middle">Client</text><text class="lbl-sm" x="68" y="143" text-anchor="middle">key=K9f2</text></g>
+            <g class="st" id="i-gw"><rect class="node-b" x="190" y="100" width="140" height="58" rx="10"/><text class="lbl" x="260" y="124" text-anchor="middle">Payments svc</text><text class="lbl-sm" x="260" y="143" text-anchor="middle">check key store</text></g>
+            <g class="st" id="i-store"><rect class="node-r" x="210" y="196" width="120" height="44" rx="9"/><text class="lbl-sm" x="270" y="216" text-anchor="middle">Key store</text><text class="lbl-sm" x="270" y="231" text-anchor="middle">K→result, TTL</text></g>
+            <g class="st" id="i-card"><rect class="node-b" x="470" y="30" width="150" height="48" rx="9"/><text class="lbl" x="545" y="52" text-anchor="middle">Card / PSP</text><text class="lbl-sm" x="545" y="69" text-anchor="middle">charge once</text></g>
+            <path id="i-p1" class="flow" d="M116 122 H 188" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="150" y="112" text-anchor="middle">POST</text>
+            <path id="i-p2" class="flow" d="M262 158 V 194" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="300" y="180" text-anchor="middle">lookup</text>
+            <path id="i-p3" class="flow" d="M330 116 C 400 80, 420 70, 468 60" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="400" y="106" text-anchor="middle">new → charge</text>
+            <path id="i-p4" class="flow" d="M278 196 V 160" marker-end="url(#arrow)"/>
+            <path id="i-p5" class="flow-r" d="M188 140 C 150 175, 130 175, 116 150" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="135" y="190" text-anchor="middle" fill="#B0532F">retry: stored result</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: the money diagram — first request charges and stores; the retry replays the stored result, no double charge</figcaption>
+      </figure>
+
+      <h3>Where it connects</h3>
+      <p>Idempotency is the safety mechanism that makes higher-level patterns trustworthy. A <strong>saga</strong> (<em>Lesson 16</em>) that retries a failed step relies on each step being idempotent, or a retry would corrupt state. A real <strong>payment system</strong> (<em>Lesson 39</em>) layers idempotency keys with a ledger and reconciliation. The key is the smallest unit of "make this retryable", and interviewers treat it as a litmus test for whether you've actually built money-moving systems.</p>
+
+      <div class="callout">
+        <span class="k">Failure mode &amp; the 10x question</span>
+        <p>What if the first request charges the card but crashes <em>before</em> storing the key? The retry, finding no key, charges again — the exact bug you were avoiding. So the result must be recorded in the <em>same atomic transaction</em> as the side effect (or the key reserved <em>before</em> calling the payment provider, then finalized after). At 10x volume the key store must be highly available and the <code>TTL</code> long enough to outlive a client's retry budget but short enough to bound storage — a 24-hour window is a common balance.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How do you make this <code>POST</code> safe to retry?" Idempotency key on the request, a key→result store checked before acting, the result persisted atomically with the side effect, and a unique constraint to win races. Bonus points for naming the crash-between-charge-and-store failure and fixing it with one transaction. This is the single most-tested API design question in fintech rounds.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Past the book</div>
+      <h2>The payment contract, concretely</h2>
+      <p>Interviewers reward a candidate who can write an actual contract, not just talk about one. Here is a create-payment endpoint with everything this lesson assembled — a version prefix, an idempotency header, a correlation ID for tracing, and a clear status code:</p>
+
+      <pre><span class="c"># Request</span>
+POST /v1/payments  HTTP/1.1
+Host: api.grabpay.com
+Authorization: Bearer &lt;access_token&gt;        <span class="c"># OAuth2 access token (JWT)</span>
+Idempotency-Key: 9f2c1b7a-4e2d-4a01-bf33   <span class="c"># client-minted, reused on retry</span>
+X-Request-Id: req-7731-aa19                 <span class="c"># correlation id for tracing</span>
+Content-Type: application/json
+
+<span class="m">{</span>
+  <span class="s">"amount"</span>: <span class="k">1850</span>,                  <span class="c"># minor units: 18.50 SGD</span>
+  <span class="s">"currency"</span>: <span class="s">"SGD"</span>,
+  <span class="s">"source"</span>: <span class="s">"wallet_8812"</span>,
+  <span class="s">"description"</span>: <span class="s">"Ride GR-44213"</span>
+<span class="m">}</span></pre>
+
+      <pre><span class="c"># Response — first time the key is seen</span>
+HTTP/1.1 201 Created
+X-Request-Id: req-7731-aa19
+
+<span class="m">{</span>
+  <span class="s">"payment_id"</span>: <span class="s">"pay_01HF8..."</span>,
+  <span class="s">"status"</span>: <span class="s">"succeeded"</span>,
+  <span class="s">"amount"</span>: <span class="k">1850</span>,
+  <span class="s">"currency"</span>: <span class="s">"SGD"</span>,
+  <span class="s">"created_at"</span>: <span class="s">"2026-05-30T09:12:44Z"</span>
+<span class="m">}</span>
+
+<span class="c"># A retry with the SAME Idempotency-Key returns the SAME 201 body —</span>
+<span class="c"># the card is not charged a second time.</span></pre>
+
+      <p>And the key store behind it, as a relational sketch — the unique constraint is what enforces "one key, one charge":</p>
+
+      <pre><span class="k">CREATE TABLE</span> idempotency_keys <span class="m">(</span>
+  idem_key      <span class="k">TEXT</span> <span class="k">PRIMARY KEY</span>,   <span class="c"># the client's Idempotency-Key</span>
+  request_hash  <span class="k">TEXT</span> <span class="k">NOT NULL</span>,      <span class="c"># guards against key reuse on a different body</span>
+  status        <span class="k">TEXT</span> <span class="k">NOT NULL</span>,      <span class="c"># in_progress | completed</span>
+  response_code <span class="k">INT</span>,
+  response_body <span class="k">JSONB</span>,
+  created_at    <span class="k">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> now(),
+  expires_at    <span class="k">TIMESTAMPTZ</span>            <span class="c"># TTL: purge after 24h</span>
+<span class="m">)</span>;</pre>
+
+      <p>Note <code>request_hash</code>: if a client reuses a key for a <em>different</em> request body (a bug), the server can detect the mismatch and reject it rather than silently returning the wrong stored result. That detail separates a textbook answer from one that has shipped.</p>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> The finishing touches</div>
+      <h2>API hygiene &amp; errors</h2>
+      <p>The last 10% of an API contract is what makes it pleasant — or miserable — to integrate against. Three habits matter.</p>
+
+      <h3>A consistent error model</h3>
+      <p>Every error should have the same shape, a machine-readable code, and the right status. Don't return <code>200</code> with <code>{"error": "..."}</code> in the body — that lies to caches and clients. Map outcomes to the standard families: <code>4xx</code> for client mistakes (<code>400</code> bad input, <code>401</code> unauthenticated, <code>403</code> forbidden, <code>404</code> missing, <code>409</code> conflict, <code>422</code> unprocessable, <code>429</code> rate-limited) and <code>5xx</code> for server faults. A uniform body lets clients branch on a stable <code>code</code> rather than parsing English:</p>
+
+      <pre><span class="m">{</span>
+  <span class="s">"error"</span>: <span class="m">{</span>
+    <span class="s">"code"</span>: <span class="s">"insufficient_balance"</span>,
+    <span class="s">"message"</span>: <span class="s">"Wallet balance is below the charge amount."</span>,
+    <span class="s">"request_id"</span>: <span class="s">"req-7731-aa19"</span>
+  <span class="m">}</span>
+<span class="m">}</span></pre>
+
+      <h3>Correlation IDs for tracing</h3>
+      <p>Give every request a <strong>correlation ID</strong> (<code>X-Request-Id</code>) at the gateway and propagate it through every internal hop. When a payment fails, one ID lets you stitch the gateway log, the payments-service log, and the wallet-service log into a single trace — the difference between a five-minute fix and a five-hour hunt. This is the foundation distributed tracing (OpenTelemetry, Jaeger) builds on.</p>
+
+      <h3>Sensible timeouts</h3>
+      <p>Every call needs a timeout — a missing timeout is a latent outage. Without one, a single stuck downstream call holds a connection open until threads exhaust and the whole gateway hangs. Set per-route timeouts shorter as you go deeper (the client waits longer than the gateway, which waits longer than the service) so failures surface cleanly instead of cascading, and pair them with bounded retries and a circuit breaker so a struggling dependency isn't hammered while it tries to recover.</p>
+
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"A downstream call hangs — what happens to your gateway?" The answer is the timeout discipline: bounded per-route timeouts, capped retries with backoff and jitter (so retries don't synchronize into a thundering herd), and a circuit breaker that trips after repeated failures and serves a fast fallback. No timeout means one slow dependency can take the entire edge down.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one arc: <em>put one front door in front of many services so cross-cutting work is solved once; choose REST or gRPC by where the call lives; version and paginate so you never break a client; and make unsafe writes retryable with idempotency keys.</em> If you can draw the gateway, justify the protocol, and explain why a retried payment doesn't double-charge, you can carry the round.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>One front door</b><span>A gateway owns auth, rate limiting, TLS, and routing once, and hides the topology.</span></div>
+        <div class="tk"><span class="num">02</span><b>REST edge, gRPC mesh</b><span>REST for ubiquity and caching at the edge; gRPC for low-latency typed internal calls.</span></div>
+        <div class="tk"><span class="num">03</span><b>GraphQL shapes data</b><span>Client-chosen fields kill over/under-fetch; guard the N+1 with a batching loader.</span></div>
+        <div class="tk"><span class="num">04</span><b>Reverse proxy duties</b><span>TLS termination, caching, compression, buffering, header rewrite, origin hiding.</span></div>
+        <div class="tk"><span class="num">05</span><b>BFF aggregates</b><span>A per-client gateway fans out in parallel and stitches one response.</span></div>
+        <div class="tk"><span class="num">06</span><b>Tokens at the edge</b><span>OAuth2 access+refresh, signed JWTs (short TTL), API keys, mTLS internally.</span></div>
+        <div class="tk"><span class="num">07</span><b>Add, never break</b><span>Additive changes are safe; rename/remove needs a new version + sunset path.</span></div>
+        <div class="tk"><span class="num">08</span><b>Cursor over offset</b><span>Keyset paging is stable under inserts and constant-time on deep pages.</span></div>
+        <div class="tk"><span class="num">09</span><b>Idempotency keys</b><span>Key→result store + unique constraint makes a retried POST charge once.</span></div>
+        <div class="tk"><span class="num">10</span><b>Hygiene wins</b><span>Consistent errors, correlation IDs, and timeouts with circuit breakers.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) What concrete problems appear when many clients call many services directly, and how does a gateway fix each?<br>(2) REST or gRPC between two internal services, and why — and where does GraphQL fit, including the N+1 trap?<br>(3) Name four duties a reverse proxy performs beyond routing.<br>(4) Why is a JWT hard to revoke, and what two mitigations do you pair?<br>(5) How do you paginate a feed that keeps changing, and why does offset fail there?<br>(6) How do you make a create-payment <code>POST</code> safe to retry, and what failure happens if you store the key <em>after</em> charging instead of atomically with it?<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 08 · API &amp; GATEWAY DESIGN · interactive edition · Beyond BBG<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* BFF request aggregation */
+  makeStepper(document.getElementById('fig-bff'), [
+    {text:"The mobile app makes ONE call to its Backend-for-Frontend.", active:["b-client","b-bff"], path:"b-p1"},
+    {text:"The BFF fans out to the trips service in parallel.", active:["b-bff","b-trips"], path:"b-p2"},
+    {text:"…and the fare service, concurrently — not in sequence.", active:["b-bff","b-fare"], path:"b-p3"},
+    {text:"…and the driver service. All three calls fly at once.", active:["b-bff","b-driver"], path:"b-p4"},
+    {text:"The BFF stitches the three results into one response. Three round trips became one.", active:["b-bff","b-client"], path:"b-p5"}
+  ]);
+
+  /* OAuth / JWT token flow */
+  makeStepper(document.getElementById('fig-auth'), [
+    {text:"The client logs in against the OAuth2 auth server.", active:["a-client","a-auth"], path:"a-p1"},
+    {text:"The auth server issues a short-lived access token plus a refresh token.", active:["a-auth","a-client"], path:"a-p2"},
+    {text:"The client attaches the access token (a signed JWT) to its API call.", active:["a-client","a-gw"], path:"a-p3"},
+    {text:"The gateway verifies the signature locally — no DB lookup — and forwards a trusted identity.", active:["a-gw","a-svc"], path:"a-p4"},
+    {text:"When the access token expires, the client uses the refresh token to get a fresh one.", active:["a-client","a-auth"], path:"a-p5"}
+  ]);
+
+  /* idempotency key flow */
+  makeStepper(document.getElementById('fig-idem'), [
+    {text:"The client sends POST /payments with a unique Idempotency-Key (K9f2).", active:["i-client","i-gw"], path:"i-p1"},
+    {text:"The payments service checks the key store — has this key been seen before?", active:["i-gw","i-store"], path:"i-p2"},
+    {text:"First time: the key is new, so it charges the card and stores key→result atomically.", active:["i-gw","i-card"], path:"i-p3"},
+    {text:"The stored result is read back to build the response.", active:["i-store","i-gw"], path:"i-p4"},
+    {text:"The response is lost in a tunnel; the client times out and RETRIES with the SAME key.", active:["i-client","i-gw"], path:"i-p1"},
+    {text:"The key is found — the service returns the stored result. The card is NOT charged twice.", active:["i-gw","i-client"], path:"i-p5", reject:true}
+  ]);
+</script>
+</body>
+</html>

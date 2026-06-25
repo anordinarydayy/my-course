@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 09 — Microservices, Service Discovery &amp; Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1c2b38;border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;color:#dce7f0;}
+  pre .c{color:#7f99ad;} pre .k{color:#e7a06b;} pre .s{color:#9fc59f;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Microservices<br>&amp; Service Mesh</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The monolith that grew up</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Monolith vs microservices</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Decomposition &amp; DB-per-service</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The discovery problem</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The service registry &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Client vs server discovery</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Talking between services</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Stopping cascades</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>The service mesh</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Observability &amp; tracing</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">09</span><span>Lesson · System Design Interview</span></div>
+      <h1>Microservices, Service Discovery &amp; Mesh</h1>
+      <p class="lede">Breaking a monolith into services buys you independent deploys and team autonomy — and in exchange hands you a full distributed system to operate. This lesson walks through <em>when</em> to split, <em>how</em> services find one another when their addresses never stop changing, and <em>what</em> a service mesh quietly takes over so your application code doesn't have to. Grab and Sea run thousands of services in production; an interviewer will expect you to reason about this.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on microservices, service discovery, and service meshes — standard, widely-documented distributed-systems topics. The explanations, examples, numbers, and diagrams are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch service discovery and failover in motion.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>The monolith that grew up</h2>
+      <p>Almost every successful system begins as a <strong>monolith</strong>: one codebase, one deployable artifact, one database. For a startup this is exactly right — a single Grab-style app handling rides, payments, and food orders in one process is fast to build, trivial to deploy (push one binary), and easy to reason about because a function call to another module is just a function call. There's no network in the middle, no serialization, no partial failure.</p>
+      <p>The trouble is that monoliths don't fail technically first — they fail <em>organizationally</em>. By the time a super-app has 300 engineers across rides, payments, maps, and merchant teams, the single codebase becomes a coordination nightmare:</p>
+      <ul>
+        <li><strong>Coupled deploys.</strong> The payments team can't ship a one-line fix without riding the same release train as the maps team. Everyone's velocity is capped by the slowest, riskiest change in the build.</li>
+        <li><strong>Coupled scaling.</strong> A festive-season surge in food orders forces you to scale the <em>entire</em> monolith — including the rarely-touched admin module — because you can't scale one part of a single process. You pay for capacity you don't need.</li>
+        <li><strong>Coupled technology.</strong> The whole thing is locked to one language and one framework version. The fraud team wants Python's ML libraries; the matching team wants Go's concurrency. Neither can have it.</li>
+        <li><strong>Blast radius.</strong> A memory leak in the promo-code module can crash the process serving live ride-matching. One module's bug is everyone's outage.</li>
+      </ul>
+      <p>The escape hatch is to split the monolith into <strong>microservices</strong> — a set of small, independently deployable services, each owned by a team and communicating over the network. This solves the coupling problem cleanly. But splitting <em>creates</em> four new problems that didn't exist when everything was a function call: services now have to <em>find</em> each other, <em>talk reliably</em> across an unreliable network, <em>secure</em> that traffic, and stay <em>consistent</em> without a shared database. The rest of this lesson is the chain of fixes for exactly those problems.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 760 260" role="img" aria-label="A single monolith box on the left split into several independent service boxes on the right">
+            <text class="lbl-sm" x="120" y="28" text-anchor="middle">BEFORE — one deployable</text>
+            <rect x="40" y="50" width="160" height="170" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <rect class="node-b" x="60" y="70" width="120" height="30" rx="5"/><text class="lbl-sm" x="120" y="89" text-anchor="middle">Rides</text>
+            <rect class="node-b" x="60" y="106" width="120" height="30" rx="5"/><text class="lbl-sm" x="120" y="125" text-anchor="middle">Payments</text>
+            <rect class="node-b" x="60" y="142" width="120" height="30" rx="5"/><text class="lbl-sm" x="120" y="161" text-anchor="middle">Maps</text>
+            <rect class="node-b" x="60" y="178" width="120" height="30" rx="5"/><text class="lbl-sm" x="120" y="197" text-anchor="middle">Merchants</text>
+            <text class="lbl-sm" x="120" y="238" text-anchor="middle">one DB · one release</text>
+            <path class="flow-r" d="M214 135 H 286" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="250" y="125" text-anchor="middle" fill="#B0532F">split</text>
+            <text class="lbl-sm" x="540" y="28" text-anchor="middle">AFTER — independent services</text>
+            <g transform="translate(308,52)"><rect width="125" height="60" rx="8" fill="#FDFBF6" stroke="#444" stroke-dasharray="4 3"/><rect x="41" y="12" width="42" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/><text class="lbl-sm" x="62" y="34" text-anchor="middle">Rides</text></g>
+            <g transform="translate(450,52)"><rect width="125" height="60" rx="8" fill="#FDFBF6" stroke="#444" stroke-dasharray="4 3"/><rect x="41" y="12" width="42" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/><text class="lbl-sm" x="62" y="34" text-anchor="middle">Pay</text></g>
+            <g transform="translate(592,52)"><rect width="125" height="60" rx="8" fill="#FDFBF6" stroke="#444" stroke-dasharray="4 3"/><rect x="41" y="12" width="42" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/><text class="lbl-sm" x="62" y="34" text-anchor="middle">Maps</text></g>
+            <g transform="translate(378,142)"><rect width="125" height="60" rx="8" fill="#FDFBF6" stroke="#444" stroke-dasharray="4 3"/><rect x="41" y="12" width="42" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/><text class="lbl-sm" x="62" y="34" text-anchor="middle">Merch</text></g>
+            <g transform="translate(522,142)"><rect width="125" height="60" rx="8" fill="#FDFBF6" stroke="#444" stroke-dasharray="4 3"/><rect x="41" y="12" width="42" height="34" rx="5" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.5"/><text class="lbl-sm" x="62" y="34" text-anchor="middle">Fraud</text></g>
+            <path class="flow-d" d="M370 112 V 142" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M512 112 C 535 125, 545 132, 562 142" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="540" y="225" text-anchor="middle">own DB · own release · network calls</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the split trades a coordination problem for a distributed-systems problem</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interview framing</span>
+        <p>The strongest opening line here is: <em>"Microservices are an organizational and scaling tool, not a default. They solve team-coupling and independent-scaling problems — and the price is real operational complexity. I'd only split when that pain justifies the tax."</em> Say that and you've signaled seniority before drawing a single box.</p>
+      </div>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The trade-off</div>
+      <h2>Monolith vs microservices — the honest scorecard</h2>
+      <p>It is tempting to treat "microservices" as the obviously-correct modern answer. It isn't. Each benefit has a matching cost, and a good engineer names both. Here is the trade-off the way an interviewer wants to hear it.</p>
+      <div class="vs">
+        <div class="col"><h4>Microservices win</h4><ul>
+          <li><strong>Independent deploys</strong> — payments ships 20&times; a day without touching maps.</li>
+          <li><strong>Independent scaling</strong> — scale only ride-matching during peak, not the whole app.</li>
+          <li><strong>Tech freedom</strong> — Go here, Python ML there, each team picks per problem.</li>
+          <li><strong>Fault isolation</strong> — a crash in the promo service doesn't take down checkout.</li>
+          <li><strong>Team autonomy</strong> — small teams own a service end-to-end, "you build it, you run it".</li>
+        </ul></div>
+        <div class="col"><h4>Microservices cost</h4><ul>
+          <li><strong>Operational complexity</strong> — dozens of deploy pipelines, dashboards, on-call rotations.</li>
+          <li><strong>Network latency</strong> — a former function call is now a round trip that can time out.</li>
+          <li><strong>Distributed debugging</strong> — one user tap now spans 8 services and 8 log streams.</li>
+          <li><strong>Data consistency</strong> — no single transaction spans services; you need events and sagas.</li>
+          <li><strong>Testing</strong> — integration-testing a graph of services is far harder than one process.</li>
+        </ul></div>
+      </div>
+      <h3>The pragmatic middle: the modular monolith</h3>
+      <p>The wisest default is rarely "all microservices on day one". It's a <strong>modular monolith</strong>: a single deployable, but internally carved into clean modules with strict boundaries — each module owns its data and exposes only an interface, no module reaches into another's tables. This buys you most of the organizational clarity of microservices with none of the network tax. When a specific module hits a real scaling or team-coupling wall — say ride-matching needs to scale 50&times; independently — you carve <em>that</em> module out into its own service. You split along seams you've already drawn.</p>
+      <p>The anti-pattern to name out loud is the <strong>distributed monolith</strong>: you've paid the full price of the network — separate deploys, serialization, partial failure — but the services are so tightly coupled that you can't actually deploy one without the others. Every release still has to go out together; a change to one service breaks three more. You got all the cost of microservices and none of the benefit. This is what happens when teams split by technical layer (a "controllers service", a "DAO service") instead of by business capability, or when they share a database. Avoiding it is the entire point of the next section.</p>
+      <div class="callout tip">
+        <span class="k">Likely follow-up</span>
+        <p>"When would you <em>not</em> use microservices?" Answer: a young product with a small team and unproven domain boundaries. You don't yet know where the seams are, and premature splitting freezes the wrong boundaries into expensive-to-change network contracts. Start modular, split on evidence.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Drawing the lines</div>
+      <h2>Decomposition &amp; database-per-service</h2>
+      <p>If you decide to split, the single most important decision is <em>where</em> to cut. Cut wrong and you build a distributed monolith; cut right and services evolve independently for years.</p>
+      <h3>Split by business capability, not technical layer</h3>
+      <p>The durable approach is to split by <strong>business capability</strong> — by what the service <em>does for the business</em>, not by what technical tier it sits in. In domain-driven design this maps to a <strong>bounded context</strong>: a self-contained slice of the domain with its own vocabulary and rules. For a Grab-like super-app, natural contexts are <code>ride-matching</code>, <code>driver-locations</code>, <code>fare-pricing</code>, <code>wallet</code>, <code>payments</code>, <code>fraud</code>, <code>notifications</code>, <code>merchant-catalog</code>. Each is owned by one team and changes for one business reason.</p>
+      <p>The test for a good boundary: changes tend to stay <em>inside</em> one service. If adding "promo codes on food orders" forces edits across six services in lockstep, your boundaries are wrong — those things belonged together. High cohesion inside, loose coupling across.</p>
+      <h3>Database-per-service: no shared database</h3>
+      <p>The rule that makes services <em>actually</em> independent is <strong>database-per-service</strong>: each service owns its own datastore and no other service may touch it directly. The <code>wallet</code> service reads and writes the wallet tables; the <code>fraud</code> service never issues a SQL query against them. If fraud needs balance data, it asks the wallet service through its API.</p>
+      <p>This feels heavy, so it's worth being precise about <em>why</em> it's non-negotiable. A shared database is a shared, invisible contract. The moment two services read the same table, you can no longer change that table's schema without coordinating both deploys — you're back to coupled releases, the exact thing you split to escape. A shared DB is the surest route to a distributed monolith. Owning your own data also lets each service pick the right store: <code>driver-locations</code> wants a geospatial / in-memory store (Redis), <code>payments</code> wants a strongly-consistent relational store (PostgreSQL), <code>ride-history</code> wants a wide-column store for huge write volume (Cassandra). One size never fits all.</p>
+      <p>The cost lands immediately, though: <strong>you lose cross-service transactions.</strong> In the monolith, "debit wallet and create order" was one ACID transaction — both happen or neither does. Across two services with two databases, there is no single transaction to wrap them in. This is the bottleneck that forces two new patterns:</p>
+      <ul>
+        <li><strong>Cross-service data flows via events.</strong> When the wallet is debited, the <code>wallet</code> service publishes a <code>wallet.debited</code> event to a broker (Kafka); interested services consume it and update their own copies. Data flows by replication of facts, not by reaching across boundaries.</li>
+        <li><strong>Sagas for multi-step consistency.</strong> A "place order" workflow becomes a sequence of local transactions across services, each with a compensating undo if a later step fails (refund the wallet if the order can't be created). This is its own deep topic — covered in Lesson 16 — but recognize here that database-per-service is what <em>creates</em> the need for it.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Three services each owning a private database, communicating only through APIs and an event broker">
+            <g transform="translate(40,40)">
+              <rect width="150" height="170" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+              <rect class="node-b" x="20" y="20" width="110" height="40" rx="7"/><text class="lbl" x="75" y="45" text-anchor="middle">Wallet svc</text>
+              <g transform="translate(51,90)"><path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#2E73B8"/><ellipse cx="24" cy="8" rx="24" ry="8" fill="#3E86CF"/><text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text></g>
+              <text class="lbl-sm" x="75" y="162" text-anchor="middle">PostgreSQL</text>
+            </g>
+            <g transform="translate(450,40)">
+              <rect width="150" height="170" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+              <rect class="node-b" x="20" y="20" width="110" height="40" rx="7"/><text class="lbl" x="75" y="45" text-anchor="middle">Order svc</text>
+              <g transform="translate(51,90)"><path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#2E73B8"/><ellipse cx="24" cy="8" rx="24" ry="8" fill="#3E86CF"/><text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text></g>
+              <text class="lbl-sm" x="75" y="162" text-anchor="middle">Cassandra</text>
+            </g>
+            <g transform="translate(266,108)"><rect width="108" height="46" rx="9" fill="#EFE9F6" stroke="#6E59A5" stroke-width="2"/><text class="lbl" x="54" y="29" text-anchor="middle" fill="#4a3a78">Broker</text><text class="lbl-sm" x="54" y="42" text-anchor="middle">Kafka</text></g>
+            <path class="flow" d="M190 110 C 220 110, 240 118, 264 124" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="226" y="100" text-anchor="middle">wallet.debited</text>
+            <path class="flow" d="M376 132 C 410 138, 425 130, 448 124" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="412" y="160" text-anchor="middle">consume</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — each service owns its data; facts cross boundaries as events, never as foreign SQL</figcaption>
+      </figure>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The new problem</div>
+      <h2>The discovery problem: addresses won't sit still</h2>
+      <p>Now the core mechanic of operating microservices. In the monolith, calling another module was a function call — the address was "right here in memory". The moment that module becomes a separate service, calling it means sending a request to a network address: an IP and a port. So the new question is brutally simple and surprisingly hard: <strong>how does service A find a running, healthy instance of service B?</strong></p>
+      <p>The naive answer — hardcode B's IP in a config file — falls apart immediately, because in a modern deployment <strong>instances are ephemeral</strong>. Their addresses change constantly:</p>
+      <ul>
+        <li><strong>Autoscaling.</strong> Friday-evening surge spins up 40 new <code>ride-matching</code> instances, each with a fresh IP from the cluster's pool. At midnight they're scaled back down and those IPs are gone.</li>
+        <li><strong>Redeploys.</strong> The order service ships 15 times a day; each rollout replaces every instance with new ones on new IPs.</li>
+        <li><strong>Failures &amp; restarts.</strong> A node dies, the orchestrator (Kubernetes) reschedules the pod elsewhere — new IP.</li>
+      </ul>
+      <p>At Grab/Sea scale, with thousands of services and tens of thousands of instances, addresses are churning every second. A hardcoded IP is stale within minutes and points at a dead host or, worse, a recycled IP now belonging to a totally different service. You need a layer of indirection that always knows the current, healthy set of addresses for each service. That layer is a <strong>service registry</strong>, and discovery is the act of querying it.</p>
+      <div class="callout">
+        <span class="k">Under the hood — why DNS alone isn't enough</span>
+        <p>"Just use DNS" is a reasonable first instinct, and platform discovery <em>is</em> built on DNS (more on that in step 05). But plain DNS has two weaknesses for fast-churning fleets: clients and resolvers <strong>cache</strong> records for the TTL, so a dead instance can keep receiving traffic for seconds-to-minutes after it dies; and classic DNS returns addresses with no notion of <em>health</em> — it'll happily hand you the IP of a crashed instance. A purpose-built registry fixes both with active health checks and near-instant deregistration.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The fix · the registry</div>
+      <h2>The service registry: register, heartbeat, deregister</h2>
+      <p>A <strong>service registry</strong> is a highly-available database whose only job is to answer one question: "for service <em>X</em>, which instances are alive right now, and at what addresses?" It is the source of truth for the cluster's live topology. The mechanism is a three-beat loop, and you should be able to narrate it in your sleep.</p>
+      <h3>1 — Register on startup</h3>
+      <p>When a new instance of the <code>driver-locations</code> service boots, the first thing it does — before serving traffic — is call the registry: <em>"I am <code>driver-locations</code>, instance <code>dl-7f3a</code>, reachable at <code>10.4.18.22:8080</code>, and here's a health-check endpoint at <code>/healthz</code>."</em> The registry adds it to the live pool for <code>driver-locations</code>.</p>
+      <h3>2 — Heartbeat to prove liveness</h3>
+      <p>Registration alone isn't enough — an instance can crash without getting a chance to say goodbye. So the registry continuously verifies liveness. There are two styles: <strong>heartbeat / TTL</strong>, where the instance must ping the registry every few seconds to renew a lease (miss enough pings and the lease expires); and <strong>active health checks</strong>, where the registry (or its agent) periodically calls the instance's <code>/healthz</code> endpoint. Either way, the registry maintains a continuously-updated view of who's healthy.</p>
+      <h3>3 — Deregister on failure</h3>
+      <p>When an instance fails its health checks or lets its lease expire, the registry <strong>deregisters</strong> it — removes it from the live pool. From that moment, lookups for <code>driver-locations</code> stop returning the dead address, and traffic flows only to survivors. Graceful shutdowns also deregister explicitly so they drain cleanly. This automatic add-on-start, remove-on-failure loop is the whole magic: callers never see a stale address for long.</p>
+      <p>Walk the full lifecycle — including a node dying mid-flight — in the interactive diagram below.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-disc">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive service discovery: B instances register, A looks them up and calls one, an instance fails its health check and is deregistered, and A reroutes to the survivor">
+            <g class="st" id="dc-a"><rect class="node-b" x="20" y="108" width="110" height="54" rx="9"/><text class="lbl" x="75" y="132" text-anchor="middle">Service A</text><text class="lbl-sm" x="75" y="149" text-anchor="middle">(caller)</text></g>
+            <g class="st" id="dc-reg"><rect class="node-r" x="250" y="20" width="140" height="58" rx="10"/><text class="lbl" x="320" y="44" text-anchor="middle">Registry</text><text class="lbl-sm" x="320" y="61" text-anchor="middle">live B: [b1,b2]</text></g>
+            <g class="st" id="dc-b1"><rect class="node" x="470" y="96" width="140" height="40" rx="8"/><text class="lbl" x="540" y="121" text-anchor="middle">B inst. 1 &#10003;</text></g>
+            <g class="st" id="dc-b2"><rect class="node" x="470" y="160" width="140" height="40" rx="8"/><text class="lbl" x="540" y="185" text-anchor="middle">B inst. 2 &#10003;</text></g>
+            <path id="dc-reg1" class="flow-d" d="M470 110 C 420 80, 380 70, 392 64" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M470 176 C 410 150, 380 110, 360 80" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="540" y="152" text-anchor="middle">register + heartbeat</text>
+            <path id="dc-look" class="flow" d="M130 120 C 180 90, 210 70, 248 56" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="178" y="74" text-anchor="middle">lookup B</text>
+            <path id="dc-call1" class="flow" d="M130 132 C 280 150, 360 122, 468 116" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="300" y="156" text-anchor="middle">call b1</text>
+            <path id="dc-fail" class="flow-r" d="M392 64 C 430 110, 450 150, 468 178" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="452" y="232" text-anchor="middle" fill="#B0532F">health check fails &rarr; deregister b2</text>
+            <path id="dc-call2" class="flow" d="M130 138 C 280 200, 380 150, 468 122" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: register &rarr; look up &rarr; call &rarr; an instance dies &rarr; auto-reroute to the survivor</figcaption>
+      </figure>
+      <h3>The tools that implement this</h3>
+      <p>Several systems play the registry role. <strong>Consul</strong> (HashiCorp) and <strong>etcd</strong> are general-purpose, strongly-consistent registries with health checking and a key-value store. <strong>Eureka</strong> (Netflix) is an AP-leaning registry from the Spring/Java world that favors availability — it keeps serving slightly-stale data during partitions rather than refusing reads. In <strong>Kubernetes</strong>, discovery is built in: a <code>Service</code> object gives a stable virtual name and IP, and the control plane keeps the backing <code>Endpoints</code> list in sync with healthy pods via <strong>readiness probes</strong> — your code just talks to <code>order-service.default.svc.cluster.local</code> and the platform resolves it to a live pod. Grab and Sea, both heavy Kubernetes users, lean on exactly this platform-native discovery.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up you must nail</span>
+        <p>"How does service A find a healthy instance of service B?" — the canonical microservices question. Answer in one breath: <em>"B's instances register with a service registry on startup and send heartbeats; the registry health-checks them and deregisters any that fail. A queries the registry for the current healthy set and load-balances across them, so a dead instance stops receiving traffic within seconds."</em> Then be ready for "what if the registry itself goes down?" — see the failure mode below.</p>
+      </div>
+      <div class="callout">
+        <span class="k">Failure mode — when the registry dies</span>
+        <p>The registry is critical infrastructure, so it's never a single node — it's a replicated cluster (Consul/etcd run a Raft quorum of 3 or 5 nodes; lose a minority and it stays up). But callers also defend themselves: they <strong>cache</strong> the last-known-good set of addresses, so a brief registry outage doesn't stop A from calling B — A just keeps using its cached list (perhaps slightly stale) until the registry recovers. The system degrades, it doesn't collapse. Note the consistency trade-off baked in here, straight from CAP: Eureka chooses availability (serve possibly-stale data during a partition), while etcd chooses consistency (a partitioned minority refuses to serve rather than risk returning stale topology).</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Who does the lookup</div>
+      <h2>Client-side vs server-side discovery</h2>
+      <p>The registry knows the addresses — but <em>who</em> queries it and picks an instance? There are two patterns, and the difference is exactly where the load-balancing logic lives.</p>
+      <p>In <strong>client-side discovery</strong>, the caller (service A) queries the registry itself, gets back the full list of healthy B instances, and runs its own load-balancing logic to pick one (round-robin, least-connections, etc.), then calls it directly. The caller is smart; there's no extra hop. Netflix's classic stack worked this way: Eureka as the registry plus Ribbon as the client-side load balancer baked into each service.</p>
+      <p>In <strong>server-side discovery</strong>, the caller stays dumb — it just sends the request to a stable address (a load balancer, a router, or a platform DNS name). That intermediary queries the registry and forwards the request to a healthy instance on the caller's behalf. Kubernetes <code>Service</code> objects, AWS ALB target groups, and an API gateway in front of a service all work this way.</p>
+      <div class="vs">
+        <div class="col"><h4>Client-side discovery</h4><ul>
+          <li><strong>+</strong> No extra network hop — caller talks to the instance directly.</li>
+          <li><strong>+</strong> Caller can use smart, app-aware balancing (e.g. zone-aware routing).</li>
+          <li><strong>&minus;</strong> Discovery + balancing logic must live in <em>every</em> service, in every language — a client library per stack.</li>
+          <li><strong>&minus;</strong> Couples your app code to the registry's API.</li>
+        </ul></div>
+        <div class="col"><h4>Server-side discovery</h4><ul>
+          <li><strong>+</strong> Callers are dumb and language-agnostic — just hit one stable address.</li>
+          <li><strong>+</strong> Balancing logic centralized in infrastructure, not duplicated in apps.</li>
+          <li><strong>&minus;</strong> One extra hop and one more thing to run and scale (the LB/router).</li>
+          <li><strong>&minus;</strong> The router is a potential bottleneck / failure point (so it's made HA).</li>
+        </ul></div>
+      </div>
+      <p>The industry has largely converged on server-side discovery — but with a twist that gets the best of both. The <strong>service mesh</strong> (step 08) puts a tiny proxy <em>right next to</em> each service instance, so the "server-side" router is one network hop away on the same host. You get language-agnostic, centralized routing logic with effectively no extra latency, and your app code goes back to being dumb. Keep that thread in mind; it's where this lesson is heading.</p>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The conversation</div>
+      <h2>Talking between services: sync vs async</h2>
+      <p>Discovery tells A <em>where</em> B is. The next question is <em>how</em> they should talk. There are two fundamentally different styles, and choosing per-interaction is a core design skill.</p>
+      <h3>Synchronous: request/response (REST, gRPC)</h3>
+      <p><strong>Synchronous communication</strong> means A sends a request and blocks waiting for B's response — a request/response round trip. Use it when the caller genuinely needs the answer to proceed: the <code>checkout</code> service must call <code>fare-pricing</code> and wait for the price before it can show a total. The two common protocols:</p>
+      <ul>
+        <li><strong>REST over HTTP/JSON</strong> — ubiquitous, human-readable, easy to debug with <code>curl</code>, great for public and cross-team APIs.</li>
+        <li><strong>gRPC over HTTP/2 with Protobuf</strong> — binary, strongly-typed via a schema, multiplexed, and markedly faster and more compact. The common choice for chatty internal service-to-service calls at scale (Grab and many large shops default to gRPC internally).</li>
+      </ul>
+      <p>The danger of synchronous calls is <strong>temporal coupling</strong>: if B is slow or down, A is stuck waiting, and A's caller is now stuck waiting on A. A single slow dependency can stall a whole chain — the cascade problem we tackle in step 07.</p>
+      <h3>Asynchronous: events over a broker (Kafka, queues)</h3>
+      <p><strong>Asynchronous communication</strong> means A publishes a message (an event or a command) to a broker and moves on immediately, without waiting for a consumer. B (and any other interested service) processes it later. Use it when the caller doesn't need an immediate answer and you want the two services <em>decoupled</em>. When a ride completes, the <code>ride</code> service publishes <code>ride.completed</code>; the <code>wallet</code>, <code>loyalty-points</code>, <code>receipts</code>, and <code>analytics</code> services each react on their own schedule. The ride service neither knows nor cares who's listening.</p>
+      <p>Async buys you loose coupling and resilience — if the receipts service is down, events queue up in the broker and are processed when it recovers; nothing is lost and the ride service was never blocked. The cost is complexity: you give up the simple request/response mental model and inherit eventual consistency, message ordering, and idempotency concerns (a consumer may see the same event twice and must handle it safely).</p>
+      <div class="vs">
+        <div class="col"><h4>Synchronous (REST / gRPC)</h4><ul>
+          <li><strong>+</strong> Simple mental model; immediate result.</li>
+          <li><strong>+</strong> Natural for queries that block the user's next step.</li>
+          <li><strong>&minus;</strong> Temporal coupling — a slow callee stalls the caller.</li>
+          <li><strong>&minus;</strong> Cascading-failure risk down a call chain.</li>
+        </ul></div>
+        <div class="col"><h4>Asynchronous (events / queues)</h4><ul>
+          <li><strong>+</strong> Loose coupling; producer unaffected by consumer health.</li>
+          <li><strong>+</strong> Natural buffering absorbs spikes; easy fan-out to many consumers.</li>
+          <li><strong>&minus;</strong> Eventual consistency; harder to reason about end-to-end.</li>
+          <li><strong>&minus;</strong> Must design for duplicate delivery and ordering.</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Containing failure</div>
+      <h2>Stopping one slow dependency from sinking everything</h2>
+      <p>Synchronous calls expose the most feared failure in microservices: the <strong>cascading failure</strong>. Picture the chain <code>checkout &rarr; fare-pricing &rarr; driver-locations</code>. The <code>driver-locations</code> service hits a slow query and starts taking 30 seconds to respond. Now <code>fare-pricing</code>'s threads all pile up blocked on it; once every thread is waiting, <code>fare-pricing</code> can't answer <em>anyone</em>, so <code>checkout</code> piles up too. A single slow leaf node has taken down the whole tree. You need patterns that <em>contain</em> a failing dependency.</p>
+      <h3>Timeouts — never wait forever</h3>
+      <p>Every remote call must have a <strong>timeout</strong>. Without one, a hung dependency holds your thread/connection indefinitely, and your resource pool drains. A sensible internal timeout is a few hundred milliseconds to a couple of seconds — tuned from the dependency's normal latency, not guessed. The point is to fail fast and free the resource rather than wait on a callee that's never going to answer.</p>
+      <h3>Retries with backoff and jitter</h3>
+      <p>Transient blips (a brief network hiccup, one bad instance) are worth a <strong>retry</strong>. But naive retries are dangerous: if a service is struggling and everyone retries immediately and in lockstep, you triple its load at the worst possible moment and turn a wobble into an outage — a <strong>retry storm</strong>. The fix is <strong>exponential backoff</strong> (wait 100&nbsp;ms, then 200, then 400&hellip;) plus <strong>jitter</strong> (a random offset) so the retries spread out instead of arriving as a synchronized thundering herd. Only retry idempotent operations — retrying a non-idempotent "charge the card" could double-charge.</p>
+      <h3>Circuit breakers — stop calling a dead dependency</h3>
+      <p>The key pattern is the <strong>circuit breaker</strong>, borrowed from electrical engineering. It wraps calls to a dependency and tracks the recent failure rate, moving through three states:</p>
+      <ul>
+        <li><strong>Closed</strong> — normal. Requests flow through; the breaker counts failures.</li>
+        <li><strong>Open</strong> — once failures cross a threshold (say &gt;50% of the last 20 calls failed), the breaker <em>trips</em>. For a cool-off period it <strong>fails fast</strong>: calls return an error or a fallback <em>immediately</em> without even attempting the network call. This is the crucial bit — it stops hammering a sick dependency and stops your own threads piling up waiting on it, giving the dependency room to recover.</li>
+        <li><strong>Half-open</strong> — after the cool-off, the breaker lets a few trial requests through. If they succeed, it closes and normal traffic resumes; if they fail, it re-opens and waits again.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Circuit breaker state machine cycling between closed, open, and half-open">
+            <g><rect class="node" x="40" y="84" width="150" height="56" rx="10"/><text class="lbl" x="115" y="108" text-anchor="middle">CLOSED</text><text class="lbl-sm" x="115" y="126" text-anchor="middle">calls flow</text></g>
+            <g><rect class="node-r" x="245" y="84" width="150" height="56" rx="10"/><text class="lbl" x="320" y="108" text-anchor="middle" fill="#B0532F">OPEN</text><text class="lbl-sm" x="320" y="126" text-anchor="middle">fail fast</text></g>
+            <g><rect class="node-b" x="450" y="84" width="150" height="56" rx="10"/><text class="lbl" x="525" y="108" text-anchor="middle">HALF-OPEN</text><text class="lbl-sm" x="525" y="126" text-anchor="middle">trial calls</text></g>
+            <path class="flow-r" d="M190 102 H 243" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="216" y="92" text-anchor="middle" fill="#B0532F">failures &gt; threshold</text>
+            <path class="flow" d="M395 118 H 448" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="422" y="160" text-anchor="middle">cool-off elapses</text>
+            <path class="flow" d="M525 84 C 470 30, 230 30, 150 82" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="338" y="34" text-anchor="middle">trial succeeds &rarr; reset</text>
+            <path class="flow-r" d="M470 140 C 430 180, 380 180, 360 142" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="415" y="200" text-anchor="middle" fill="#B0532F">trial fails &rarr; re-open</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — the circuit breaker trips open to protect the caller, then probes before fully resuming</figcaption>
+      </figure>
+      <h3>Bulkheads and fallbacks</h3>
+      <p>A <strong>bulkhead</strong> — named after a ship's watertight compartments — isolates resources so a failure in one area can't sink the whole vessel. Concretely, give each downstream dependency its own bounded thread pool or connection pool. If <code>driver-locations</code> goes slow and saturates its pool, calls to <em>other</em> dependencies still have their own pools and keep working; the damage is contained to one compartment. Pair these with a <strong>fallback</strong>: when the breaker is open, return something graceful — a cached price, a default ETA, an empty-but-valid response — instead of an error, so the user experience degrades softly rather than failing hard.</p>
+      <p>The tooling: Netflix's <strong>Hystrix</strong> popularized circuit breakers (now in maintenance); <strong>Resilience4j</strong> is the modern in-process library for the JVM. But — and this is the pivot to the next section — implementing timeouts, retries, breakers, and bulkheads correctly in <em>every</em> service in <em>every</em> language is a huge, duplicated burden. What if the infrastructure could do it for you?</p>
+      <div class="callout tip">
+        <span class="k">The follow-up you must nail</span>
+        <p>"What stops one slow dependency from taking the whole system down?" Answer crisply: <em>"Timeouts so we never block forever; retries with exponential backoff and jitter for transient blips; a circuit breaker that trips open and fails fast when a dependency is unhealthy, so we stop piling threads onto it; and bulkheads so one saturated dependency's pool can't starve the others. With a fallback, the user sees graceful degradation instead of an error."</em></p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Pushing it into infra</div>
+      <h2>The service mesh: move it out of app code</h2>
+      <p>Steps 04–07 left every service responsible for a thick stack of network concerns: discovery and load-balancing, retries and timeouts, circuit breaking, mutual TLS for secure traffic, and emitting metrics and traces. Re-implementing all of that in Go, Java, Python, and Node — and keeping the implementations consistent across hundreds of services — is brutal. The <strong>service mesh</strong> is the answer: a dedicated infrastructure layer that takes over all service-to-service networking, lifting it <em>out</em> of your application code.</p>
+      <h3>The sidecar proxy</h3>
+      <p>The mesh works by deploying a small proxy — the <strong>sidecar</strong> — right alongside every service instance (in Kubernetes, a second container in the same pod, sharing the network namespace). The most common sidecar is <strong>Envoy</strong>. Crucially, all of a service's inbound and outbound traffic is transparently routed <em>through</em> its sidecar. Service A doesn't call B directly anymore; A calls its <em>local</em> sidecar (same host, sub-millisecond), the sidecar handles discovery, load-balancing, retries, timeouts, circuit breaking, and encryption, and forwards to B's sidecar, which hands it to B. Your application code just makes a plain local call and knows nothing about any of it.</p>
+      <h3>Data plane vs control plane</h3>
+      <p>A mesh has two halves, and naming them earns points:</p>
+      <ul>
+        <li>The <strong>data plane</strong> is the fleet of sidecar proxies. They sit in the request path and actually <em>do</em> the work — routing every packet, terminating mTLS, enforcing retries and timeouts, recording telemetry.</li>
+        <li>The <strong>control plane</strong> is the brain. It holds your configuration and policy, knows the live topology (it talks to the registry / Kubernetes), and pushes the right config down to every sidecar — "route 5% of traffic to v2", "require mTLS in the payments namespace", "retry idempotent GETs twice". It is <em>not</em> in the request path; if the control plane briefly goes down, sidecars keep running on their last-known config.</li>
+      </ul>
+      <p>What does the mesh hand you, with zero application code? <strong>mTLS everywhere</strong> — the sidecars mutually authenticate and encrypt all service-to-service traffic automatically, so you get zero-trust networking for free. <strong>Traffic shifting</strong> — canary and blue-green deploys by telling the control plane to send 1% of traffic to the new version and ramping up. <strong>Resilience</strong> — retries, timeouts, and circuit breaking as config, uniform across every language. <strong>Observability</strong> — because every request passes through a sidecar, you get consistent golden-signal metrics (latency, traffic, errors) and trace spans for free.</p>
+      <p>The two best-known meshes are <strong>Istio</strong> (powerful, feature-rich, Envoy-based, the heavyweight at large shops) and <strong>Linkerd</strong> (lighter, simpler, with its own purpose-built micro-proxy). Both follow the same data-plane / control-plane split.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 280" role="img" aria-label="Two services each wrapped by an Envoy sidecar, traffic flowing between sidecars, with a control plane configuring both">
+            <g transform="translate(30,150)">
+              <rect width="220" height="100" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+              <text class="lbl-sm" x="110" y="-8" text-anchor="middle">Pod A</text>
+              <rect class="node-b" x="18" y="30" width="80" height="44" rx="8"/><text class="lbl" x="58" y="51" text-anchor="middle">Svc A</text><text class="lbl-sm" x="58" y="65" text-anchor="middle">app</text>
+              <rect x="120" y="30" width="82" height="44" rx="8" fill="#E2F0EF" stroke="#2E8B8B" stroke-width="2"/><text class="lbl" x="161" y="51" text-anchor="middle" fill="#1f5e5e">Envoy</text><text class="lbl-sm" x="161" y="65" text-anchor="middle">sidecar</text>
+              <path class="flow" d="M98 52 H 118" marker-end="url(#arrow)"/>
+            </g>
+            <g transform="translate(390,150)">
+              <rect width="220" height="100" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+              <text class="lbl-sm" x="110" y="-8" text-anchor="middle">Pod B</text>
+              <rect x="18" y="30" width="82" height="44" rx="8" fill="#E2F0EF" stroke="#2E8B8B" stroke-width="2"/><text class="lbl" x="59" y="51" text-anchor="middle" fill="#1f5e5e">Envoy</text><text class="lbl-sm" x="59" y="65" text-anchor="middle">sidecar</text>
+              <rect class="node-b" x="122" y="30" width="80" height="44" rx="8"/><text class="lbl" x="162" y="51" text-anchor="middle">Svc B</text><text class="lbl-sm" x="162" y="65" text-anchor="middle">app</text>
+              <path class="flow" d="M100 52 H 120" marker-end="url(#arrow)"/>
+            </g>
+            <path class="flow" d="M252 195 H 386" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="319" y="184" text-anchor="middle">mTLS · retries · LB</text>
+            <text class="lbl-sm" x="319" y="214" text-anchor="middle">(data plane)</text>
+            <g><rect class="node-r" x="220" y="30" width="200" height="56" rx="10"/><text class="lbl" x="320" y="54" text-anchor="middle" fill="#B0532F">Control plane</text><text class="lbl-sm" x="320" y="72" text-anchor="middle">Istio / Linkerd · policy + config</text></g>
+            <path class="flow-d" d="M280 86 C 240 110, 200 130, 178 178" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M360 86 C 400 110, 440 130, 462 178" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="320" y="120" text-anchor="middle">push config to sidecars</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — sidecars (data plane) carry the traffic; the control plane programs them but stays out of the request path</figcaption>
+      </figure>
+      <p>The mesh isn't free. Every request now traverses two extra proxy hops, adding a small latency tax (typically single-digit milliseconds), and you've added a meaningful operational system to run and upgrade. For a handful of services it's overkill — plain Kubernetes discovery and a resilience library are plenty. The mesh earns its keep at the scale where you have <em>so many</em> services in <em>so many</em> languages that re-implementing networking in each is the bigger cost. That's precisely the Grab/Sea regime.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up you must nail</span>
+        <p>"What does the mesh handle versus what stays in your code?" The clean line: <em>"The mesh owns service-to-service networking — discovery, load-balancing, retries, timeouts, circuit breaking, mTLS, and traffic shifting for canaries — plus uniform metrics and traces. Your code owns business logic and the API contracts. The split is: mesh handles 'how bytes get there safely and reliably'; your code handles 'what the request means'."</em> Expect a sharpening probe: "could you just use a library like Resilience4j instead?" — yes, for a few same-language services; the mesh wins when you have many services in many languages and want the policy uniform and out of app code.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Seeing across services</div>
+      <h2>Observability: following one request across many hops</h2>
+      <p>The split created one last problem worth its own section. In the monolith, one user action was one stack trace in one log file — debugging was grep. Now a single "place a food order" tap fans out across <code>api-gateway &rarr; order &rarr; wallet &rarr; fraud &rarr; merchant-catalog &rarr; notifications</code>, six services with six separate log streams on different hosts. When the order is mysteriously slow, <em>which</em> hop is to blame? You can't see the forest from any single tree. <strong>Observability</strong> is the discipline of being able to answer that, and it rests on three pillars.</p>
+      <h3>Distributed tracing — the trace/correlation ID</h3>
+      <p><strong>Distributed tracing</strong> stitches one request's journey across all services into a single timeline. The mechanism is a <strong>trace ID</strong> (also called a correlation ID): the entry point — the gateway — generates a unique ID for the request and attaches it as a header. Every service, when it calls the next one, <em>propagates</em> that same header forward, and each hop records a <strong>span</strong> — a timed segment tagged with the trace ID, recording when it started, how long it took, and what it called. A tracing backend collects all spans sharing a trace ID and reassembles them into a waterfall view, so you can see at a glance that the order took 4 seconds because the <code>fraud</code> check alone ate 3.8 of them. The standard wire format is <strong>W3C Trace Context</strong> (the <code>traceparent</code> header), and the standard instrumentation is <strong>OpenTelemetry</strong>; spans land in backends like <strong>Jaeger</strong>, <strong>Zipkin</strong>, or a vendor APM. A sketch of what propagates:</p>
+      <pre><span class="c"># gateway mints the trace, then every hop forwards the same header</span>
+GET /orders/9f2c
+traceparent: 00-<span class="k">4bf92f3577b34da6a3ce929d0e0e4736</span>-00f067aa0ba902b7-01
+<span class="c">#                  ^ trace-id (same all the way down)   ^ this hop's span-id</span>
+
+<span class="c"># order-svc -&gt; wallet-svc carries it forward: new span-id, same trace-id</span>
+POST /wallet/debit
+traceparent: 00-<span class="k">4bf92f3577b34da6a3ce929d0e0e4736</span>-a1b2c3d4e5f60718-01</pre>
+      <h3>Metrics and structured logs</h3>
+      <p>The other two pillars: <strong>metrics</strong> are aggregate numbers over time — request rate, error rate, p99 latency, per service — scraped by <strong>Prometheus</strong> and dashboarded in <strong>Grafana</strong>; they tell you <em>that</em> something is wrong and where. <strong>Structured logs</strong> are machine-parseable (JSON, not free text) and — critically — <em>carry the trace ID on every line</em>, so once a trace points you at the slow <code>fraud</code> hop, you jump straight to that request's logs across all services by filtering on the ID. Logs land in something like the ELK stack or Loki. The mesh's sidecars are a quiet superpower here: because every request flows through them, they emit consistent metrics and trace spans for free, even for services whose authors never added any instrumentation.</p>
+      <div class="callout">
+        <span class="k">Under the hood — why the ID must propagate</span>
+        <p>The whole scheme collapses if even one service forgets to forward the <code>traceparent</code> header — the trace breaks into disconnected fragments at that hop and you lose the thread exactly where you need it most. This is another reason teams love the mesh: the sidecar can propagate trace headers automatically, removing the chance for a service to drop the ball. (It still helps for the app to propagate context for its <em>internal</em> async work, like a background job kicked off mid-request.)</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">The follow-up you must nail</span>
+        <p>"A user reports a slow checkout — how do you find the culprit across 8 services?" Answer: <em>"Pull the request's trace by its correlation ID and look at the span waterfall to see which hop dominated the latency. Then filter structured logs by that same trace ID to read exactly what that service did. Metrics dashboards tell me whether it's this one request or a systemic regression."</em> That three-pillar answer — traces to localize, logs to explain, metrics to quantify — is what they're listening for.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one chain: <em>split a monolith for team and scaling independence; that forces database-per-service, which forces events over a network; the network forces discovery, reliable communication, and tracing; and a service mesh moves all that networking out of your app code into the infrastructure.</em> If you can narrate that cause-and-effect chain and name the failure mode at each link, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">00</span><b>Split for people, not tech</b><span>Monoliths fail on team coupling first; microservices buy autonomy at an operational cost.</span></div>
+        <div class="tk"><span class="num">01</span><b>Start modular</b><span>Modular monolith now; split a module out only when scale or team pain justifies it. Avoid the distributed monolith.</span></div>
+        <div class="tk"><span class="num">02</span><b>DB per service</b><span>Own your data; no shared DB. This forces events and sagas for cross-service consistency.</span></div>
+        <div class="tk"><span class="num">03</span><b>Addresses churn</b><span>Autoscaling, redeploys, and crashes mean instance IPs are never stable — you can't hardcode them.</span></div>
+        <div class="tk"><span class="num">04</span><b>The registry loop</b><span>Register on startup, heartbeat for liveness, deregister on health-check failure. Callers cache for resilience.</span></div>
+        <div class="tk"><span class="num">05</span><b>Who looks up</b><span>Client-side (no hop, logic in every app) vs server-side (dumb caller, central router). Mesh blends both.</span></div>
+        <div class="tk"><span class="num">06</span><b>Sync vs async</b><span>REST/gRPC when you need the answer now; events over Kafka to decouple and absorb spikes.</span></div>
+        <div class="tk"><span class="num">07</span><b>Contain cascades</b><span>Timeouts, backoff+jitter retries, circuit breakers, and bulkheads stop one slow dependency sinking the rest.</span></div>
+        <div class="tk"><span class="num">08</span><b>Mesh = infra networking</b><span>Sidecars (data plane) do mTLS, retries, LB, canaries; control plane configures them, out of the request path.</span></div>
+        <div class="tk"><span class="num">09</span><b>Trace the journey</b><span>One propagated trace ID stitches a request across all hops; metrics quantify, logs explain.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why are microservices an organizational tool, and what is the distributed-monolith anti-pattern?<br>(2) Why is database-per-service non-negotiable, and what two patterns does it force on you?<br>(3) How does service A find a healthy instance of service B — register, heartbeat, deregister — and what happens when the registry itself goes down?<br>(4) Contrast client-side and server-side discovery, and explain how a service mesh gets the best of both.<br>(5) What four patterns stop one slow dependency from taking the whole system down, and what are a circuit breaker's three states?<br>(6) What does the mesh handle versus your app code, and how does a single trace ID let you debug a slow request across eight services?<br>Any fuzzy answer &rarr; re-read that section, replay the discovery diagram, and redraw the architecture from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 09 · MICROSERVICES, SERVICE DISCOVERY &amp; MESH · interactive edition<br>
+      Original study notes on standard distributed-systems fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* service discovery + failover */
+  makeStepper(document.getElementById('fig-disc'), [
+    {text:"Two instances of service B boot and REGISTER with the registry, then send heartbeats. The registry now lists both as healthy.", active:["dc-reg","dc-b1","dc-b2"], path:"dc-reg1"},
+    {text:"Service A needs B, so it LOOKS UP the registry and gets back the healthy set [b1, b2].", active:["dc-a","dc-reg"], path:"dc-look"},
+    {text:"A load-balances across the set and calls a healthy instance — say b1 — directly.", active:["dc-a","dc-b1"], path:"dc-call1"},
+    {text:"Instance b2 crashes and fails its health check, so the registry DEREGISTERS it from the live pool.", active:["dc-reg","dc-b2"], path:"dc-fail", reject:true},
+    {text:"On its next lookup A sees only b1, so it automatically routes all traffic to the surviving instance — no stale address, no manual change.", active:["dc-a","dc-b1"], path:"dc-call2"}
+  ]);
+</script>
+</body>
+</html>

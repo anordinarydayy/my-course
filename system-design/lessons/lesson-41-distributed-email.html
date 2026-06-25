@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 41 — Design a Distributed Email Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;margin:22px 0;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;color:var(--ink);}
+  pre .cm{color:var(--blueprint-soft);}
+  pre .kw{color:var(--rust);font-weight:600;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Distributed<br>Email</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why email is hard</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-the-envelope</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The send path (outbound MTA)</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The receive path &amp; spam ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Storing huge mailboxes</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Search the inverted index</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Sync, IMAP &amp; flag consistency</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Scale, failure &amp; 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">41</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Distributed Email Service</h1>
+      <p class="lede">An email service has to do four hard things at once: speak SMTP to send and receive across the open internet, store mailboxes that grow without bound, keep spam and malware out without dropping real mail, and let a user search years of messages in milliseconds. It's the broadest systems drill there is — a tour through object storage, queues, full-text search, and the dark art of staying deliverable.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on building a large-scale email system — a standard, widely-documented engineering topic. The explanations, numbers, schemas, and diagrams here are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch an incoming message flow through filtering, storage, and indexing.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why email is hard</h2>
+      <p>Email looks deceptively simple — a textbox, a Send button, an inbox. Under the hood it is one of the oldest and least forgiving distributed systems still in daily use. The reason it makes a great interview is that it forces you to combine almost every building block you have studied: a protocol you do not control (<strong>SMTP</strong>, the Simple Mail Transfer Protocol), petabyte-scale storage, asynchronous queues with retries, a full-text search engine, and a real-time adversary (spammers) trying to abuse the whole thing.</p>
+      <p>Three properties make email uniquely painful compared to a chat app or a feed:</p>
+      <ul>
+        <li><strong>You federate with strangers.</strong> When SeaMoney sends a receipt to a customer on Gmail, your servers talk directly to Google's servers over SMTP. You don't control the other side, can't retry forever, and your <strong>sender reputation</strong> with them decides whether your mail lands in the inbox or the spam folder.</li>
+        <li><strong>Storage only grows.</strong> Users delete almost nothing. A ten-year-old Shopee account might hold 80,000 messages and several gigabytes of attachments. Mailboxes are append-heavy and read-skewed toward recent mail, but the long tail must stay cheap.</li>
+        <li><strong>Delivery must be durable, not fast.</strong> Losing a payment confirmation email is unacceptable, but taking thirty seconds to deliver it is fine. That inverts the usual latency-first instinct and pushes you toward queues and idempotent retries.</li>
+      </ul>
+      <p>So the lesson is bottleneck-driven: we start with a single send and a single receive, then watch each naive choice break under volume, adversaries, and storage cost — and add the component that fixes it.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Two email providers exchanging mail over SMTP across the open internet">
+            <rect class="node" x="24" y="84" width="150" height="52" rx="9"/>
+            <text class="lbl" x="99" y="106" text-anchor="middle">Our service</text>
+            <text class="lbl-sm" x="99" y="124" text-anchor="middle">seamoney.com</text>
+            <rect class="node" x="466" y="84" width="150" height="52" rx="9"/>
+            <text class="lbl" x="541" y="106" text-anchor="middle">Their service</text>
+            <text class="lbl-sm" x="541" y="124" text-anchor="middle">gmail.com</text>
+            <ellipse cx="320" cy="110" rx="120" ry="56" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="4 5"/>
+            <text class="lbl-sm" x="320" y="64" text-anchor="middle" fill="#666">the open internet</text>
+            <text class="lbl-sm" x="320" y="118" text-anchor="middle" fill="#666">no shared trust</text>
+            <path class="flow" d="M174 102 C 250 84, 280 84, 320 86" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M466 122 C 400 140, 360 140, 320 134" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="240" y="78" text-anchor="middle">SMTP send →</text>
+            <text class="lbl-sm" x="400" y="158" text-anchor="middle" fill="#B0532F">← accept / defer / bounce</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — email is federated: you hand mail to a server you don't own, on terms it sets</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Before drawing a box, narrow the problem. "Design email" is enormous — calendars, contacts, threading, encryption, and labels could each be a lesson. State out loud what you will and won't build.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Send</strong> a message to one or more recipients, including external domains, over SMTP — with attachments.</li>
+        <li><strong>Receive</strong> mail from external senders over SMTP and deliver it into the right mailbox.</li>
+        <li><strong>Store</strong> mailboxes durably and let users organize mail into folders/labels with read/unread and starred <strong>flags</strong>.</li>
+        <li><strong>Search</strong> a mailbox by sender, subject, body text, and date, returning results in well under a second.</li>
+        <li><strong>Filter</strong> spam and malware on the inbound path, and stay deliverable on the outbound path.</li>
+        <li><strong>Sync</strong> the same mailbox across a web client and a phone, keeping flags consistent.</li>
+      </ul>
+      <h3>Out of scope (say so explicitly)</h3>
+      <ul>
+        <li>End-to-end encryption, calendaring, contacts, and rich threading UI. Mention them as extensions, then set them aside.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Durability above all.</strong> Once we accept a message, we must never lose it. Target eleven nines of storage durability (the S3-class bar).</li>
+        <li><strong>Availability over latency.</strong> The send pipeline is asynchronous; a few seconds of delivery latency is acceptable, an outage that loses mail is not.</li>
+        <li><strong>Read-your-own-writes for the owner.</strong> When I send mail, it must appear in my Sent folder immediately and consistently; cross-device flag updates can be slightly eventual.</li>
+        <li><strong>Scalable, cheap storage.</strong> The bulk of bytes are old, rarely-read attachments. Cost per stored gigabyte dominates the bill.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design: <em>"Email is a durability-and-deliverability problem far more than a latency problem — so I'll lean on queues, object storage, and reputation management rather than chasing milliseconds."</em> Say that early and the rest of the interview follows naturally.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-the-envelope</h2>
+      <p>Numbers turn vague hand-waving into concrete design pressure. Assume a regional provider — think the email backbone behind a Singapore super-app's transactional and consumer mail — with <strong>100 million users</strong>, half active daily.</p>
+      <h3>Traffic (QPS)</h3>
+      <ul>
+        <li>Suppose each active user sends ~10 emails/day and receives ~40 (most mail is received: notifications, receipts, newsletters). With 50M active users that's 50M × 50 = <strong>2.5 billion messages/day</strong>.</li>
+        <li>2.5B / 86,400s ≈ <strong>~29,000 messages/sec average</strong>. Mail is peaky — business hours in one timezone push the peak to maybe <strong>5× average ≈ 145,000 msg/sec</strong>.</li>
+        <li>Reads dominate interaction: opening the inbox, paging, searching. Call it 10× the message rate, so design the read path for <strong>~300k+ QPS</strong>.</li>
+      </ul>
+      <h3>Storage</h3>
+      <ul>
+        <li>Average message with headers and a small body: ~50 KB. Attachments are the killer — assume 20% of mail carries an attachment averaging 1 MB, so blended size ≈ 50 KB + 0.2 × 1 MB ≈ <strong>~250 KB/message</strong>.</li>
+        <li>Daily ingest: 2.5B × 250 KB ≈ <strong>~625 TB/day of new mail</strong>. Over a year that's ~228 PB before dedup/compression.</li>
+        <li>This is why the body and attachments <em>cannot</em> sit in a relational database — they go to <strong>object storage</strong>, and we deduplicate identical attachments (the same 5 MB Shopee promo image sent to a million inboxes is stored once).</li>
+      </ul>
+      <h3>Metadata</h3>
+      <ul>
+        <li>Headers + flags + folder + index pointers ≈ ~1 KB/message. 2.5B/day × 1 KB ≈ <strong>~2.5 TB/day of metadata</strong> — small enough for a partitioned, indexed store but far too hot for a single node.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">What the numbers tell us</span>
+        <p>Three orders of magnitude separate blob bytes (hundreds of PB) from metadata bytes (single-digit PB). That gap is the design's load-bearing insight: <strong>split metadata from blobs</strong> so each lands on the storage tier that fits its access pattern and cost. Everything in step 07 follows from this one ratio.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Two interface surfaces matter. First, the <strong>internal/client API</strong> our own web and mobile apps call (HTTPS/JSON). Second, the <strong>SMTP wire protocol</strong> we must speak to the rest of the world — that one we don't get to design, only implement.</p>
+      <h3>Client-facing REST API</h3>
+      <pre><span class="cm"># Submit a message for delivery (returns immediately; sending is async)</span>
+POST /v1/messages
+  { "from": "shop@seamoney.com", "to": ["buyer@gmail.com"],
+    "subject": "Your receipt", "body_html": "...",
+    "attachments": ["blob://att/9f2c..."] }
+  &rarr; 202 Accepted { "message_id": "msg_01HXY...", "status": "queued" }
+
+<span class="cm"># List a folder, newest first, cursor-paginated</span>
+GET  /v1/folders/INBOX/messages?limit=50&amp;cursor=...
+  &rarr; 200 { "messages": [ {meta}, ... ], "next_cursor": "..." }
+
+<span class="cm"># Full-text + structured search</span>
+GET  /v1/search?q=receipt+from:shopee&amp;after=2026-01-01
+  &rarr; 200 { "hits": [ {message_id, snippet, score}, ... ] }
+
+<span class="cm"># Mutate a flag (read/unread/star) — idempotent</span>
+PATCH /v1/messages/{id}  { "flags": { "seen": true } }
+  &rarr; 200 { "message_id": "...", "flags": {...}, "mod_seq": 4821 }</pre>
+      <p>Note the <code>202 Accepted</code> on send: the API does not wait for SMTP delivery, it just durably enqueues the message and returns. Note also <code>mod_seq</code> on the flag update — a monotonically increasing per-mailbox sequence number that step 09 uses to sync devices.</p>
+      <h3>Data model: metadata vs blob</h3>
+      <p>The schema encodes the split from step 02. <strong>Message metadata</strong> lives in a partitioned wide-column / NoSQL store (Cassandra-style), partitioned by <code>user_id</code> so one user's whole mailbox is co-located. The <strong>body and attachments</strong> live in object storage, addressed by content hash.</p>
+      <pre><span class="cm">-- Metadata row (partitioned by user_id, clustered by folder + received_at)</span>
+mailbox_message {
+  user_id         <span class="kw">PARTITION KEY</span>   <span class="cm">// shard / locality key</span>
+  folder_id       <span class="kw">CLUSTER KEY</span>
+  received_at     <span class="kw">CLUSTER KEY DESC</span> <span class="cm">// newest first</span>
+  message_id      uuid
+  thread_id       uuid
+  from, to, subject, snippet   text
+  flags           map&lt;string,bool&gt; <span class="cm">// seen, starred, answered</span>
+  size_bytes      int
+  blob_ref        text          <span class="cm">// pointer into object store</span>
+  mod_seq         bigint        <span class="cm">// per-mailbox change counter</span>
+}
+
+<span class="cm">-- Blob, content-addressed &amp; deduplicated in object storage</span>
+S3 key:  /blobs/&lt;sha256-of-content&gt;
+value:   raw MIME (headers + body + base64 attachments)
+refcount table tracks how many mailboxes point at each blob</pre>
+      <p>Storing the blob under its own SHA-256 means two identical attachments collapse to one object automatically — the dedup win we sized in step 02. The metadata row is tiny and indexable; the heavy bytes never touch the hot path.</p>
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>"Why not keep everything in Postgres?" Because the blob bytes are 100× the metadata and have a totally different access pattern — write-once, read-rarely, never queried by content. A relational row store would make every mailbox scan drag megabytes off disk. Splitting lets metadata stay in a fast, indexable store and blobs sit on the cheapest durable tier. Name the trade now; you'll defend it in step 07.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The whole board</div>
+      <h2>High-level architecture</h2>
+      <p>Step back and draw the full system before diving in. There are two largely independent data planes — <strong>send</strong> (outbound) and <strong>receive</strong> (inbound) — that meet only at the shared mailbox store and search index. Decoupling them with queues is the single most important structural decision: it lets each side absorb spikes, retry independently, and scale on its own.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 360" role="img" aria-label="High-level email architecture with separate send and receive planes meeting at the mailbox store">
+            <!-- client -->
+            <rect class="node" x="20" y="20" width="120" height="46" rx="8"/>
+            <text class="lbl" x="80" y="48" text-anchor="middle">Clients</text>
+            <!-- API / submission -->
+            <rect class="node-b" x="20" y="100" width="120" height="48" rx="9"/>
+            <text class="lbl" x="80" y="124" text-anchor="middle">API /</text>
+            <text class="lbl" x="80" y="140" text-anchor="middle">submission</text>
+            <!-- send queue -->
+            <rect x="200" y="100" width="118" height="48" rx="9" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/>
+            <text class="lbl" x="259" y="124" text-anchor="middle">Send queue</text>
+            <text class="lbl-sm" x="259" y="140" text-anchor="middle">+ retries</text>
+            <!-- outbound MTA -->
+            <rect class="node" x="378" y="100" width="120" height="48" rx="8"/>
+            <text class="lbl" x="438" y="124" text-anchor="middle">Outbound</text>
+            <text class="lbl" x="438" y="140" text-anchor="middle">MTA</text>
+            <!-- internet -->
+            <ellipse cx="575" cy="124" rx="50" ry="34" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="4 5"/>
+            <text class="lbl-sm" x="575" y="120" text-anchor="middle" fill="#666">SMTP</text>
+            <text class="lbl-sm" x="575" y="134" text-anchor="middle" fill="#666">world</text>
+            <!-- inbound MTA -->
+            <rect class="node" x="378" y="210" width="120" height="48" rx="8"/>
+            <text class="lbl" x="438" y="234" text-anchor="middle">Inbound</text>
+            <text class="lbl" x="438" y="250" text-anchor="middle">MTA</text>
+            <!-- spam -->
+            <rect class="node-r" x="200" y="210" width="118" height="48" rx="9"/>
+            <text class="lbl" x="259" y="234" text-anchor="middle">Spam /</text>
+            <text class="lbl" x="259" y="250" text-anchor="middle">virus filter</text>
+            <!-- delivery -->
+            <rect class="node-b" x="20" y="210" width="120" height="48" rx="9"/>
+            <text class="lbl" x="80" y="234" text-anchor="middle">Delivery</text>
+            <text class="lbl" x="80" y="250" text-anchor="middle">workers</text>
+            <!-- mailbox store -->
+            <g transform="translate(150,300)">
+              <path d="M0,8 L0,42 A36,8 0 0 0 72,42 L72,8" fill="#2E73B8"/>
+              <ellipse cx="36" cy="8" rx="36" ry="8" fill="#3E86CF"/>
+              <text x="36" y="32" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="600">META</text>
+            </g>
+            <text class="lbl-sm" x="186" y="356" text-anchor="middle">metadata + flags</text>
+            <!-- object store -->
+            <rect x="300" y="300" width="110" height="46" rx="8" fill="#FCEFD8" stroke="#C98A2B" stroke-width="2"/>
+            <text class="lbl-sm" x="355" y="320" text-anchor="middle">Object store</text>
+            <text class="lbl-sm" x="355" y="336" text-anchor="middle">(blobs)</text>
+            <!-- search -->
+            <rect x="430" y="300" width="110" height="46" rx="8" fill="#E6F0EE" stroke="#2E8B8B" stroke-width="2"/>
+            <text class="lbl-sm" x="485" y="320" text-anchor="middle">Search index</text>
+            <text class="lbl-sm" x="485" y="336" text-anchor="middle">(inverted)</text>
+            <!-- arrows -->
+            <path class="flow" d="M80 66 V 98" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 124 H 198" marker-end="url(#arrow)"/>
+            <path class="flow" d="M318 124 H 376" marker-end="url(#arrow)"/>
+            <path class="flow" d="M498 124 H 528" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M528 134 H 500" marker-end="url(#arrow-r)"/>
+            <path class="flow" d="M378 234 H 320" marker-end="url(#arrow)"/>
+            <path class="flow" d="M200 234 H 142" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M80 256 V 300" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M260 256 C 300 280, 330 285, 350 298" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M120 300 C 300 270, 420 280, 480 298" marker-end="url(#arrow-s)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — top row is the send plane, second row the receive plane; both write the mailbox store, object store, and index</figcaption>
+      </figure>
+      <p>Read the diagram as two pipelines that share a tail. <strong>Send:</strong> client → API → durable send queue → outbound MTA → the internet. <strong>Receive:</strong> the internet → inbound MTA → spam/virus filter → delivery worker → mailbox store. Both delivery and submission write metadata to the store, push heavy bytes to the object store, and emit a copy to the search indexer.</p>
+      <p>The components in green are stateless app servers you scale horizontally; blue is the partitioned metadata store; amber is object storage; teal is the search cluster; violet is the queue. Each gets its own deep-dive below.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Outbound</div>
+      <h2>The send path: submission, MTA, queue &amp; retry</h2>
+      <p>Sending is where most candidates underthink the design. The naive version — "the API opens an SMTP connection to Gmail and waits" — collapses the moment the recipient server is slow, busy, or temporarily refusing. You must decouple submission from delivery.</p>
+      <h3>Submission vs transfer</h3>
+      <p><strong>Message submission</strong> is the act of a client handing us a message to send (authenticated, over our API or submission port 587). <strong>Mail transfer</strong> is our server relaying that message to the recipient's server over SMTP (port 25). The <strong>MTA</strong> (Mail Transfer Agent) is the daemon that performs transfer — real-world implementations are <strong>Postfix</strong>, <strong>Exim</strong>, or <strong>Haraka</strong>. Crucially, submission returns to the client immediately after we durably persist the message; transfer happens asynchronously behind a queue.</p>
+      <h3>How transfer actually works, step by step</h3>
+      <p>When the outbound MTA pulls a queued message for <code>buyer@gmail.com</code>:</p>
+      <ul>
+        <li>It extracts the domain <code>gmail.com</code> and does a DNS <strong>MX lookup</strong> to find the recipient's mail exchanger hostnames, sorted by priority.</li>
+        <li>It opens a TCP connection to the highest-priority MX, performs the SMTP handshake (<code>EHLO</code>, optional <code>STARTTLS</code> to encrypt), then <code>MAIL FROM</code>, <code>RCPT TO</code>, <code>DATA</code>.</li>
+        <li>The remote server answers with a status code. <strong>2xx</strong> = accepted (we mark delivered). <strong>4xx</strong> = temporary failure ("try later" — greylisting, full mailbox, rate-limited). <strong>5xx</strong> = permanent failure (no such user) → we generate a <strong>bounce</strong> back to the sender.</li>
+      </ul>
+      <h3>Why the queue + retry is non-negotiable</h3>
+      <p>A 4xx is normal, not exceptional — many receiving servers <strong>greylist</strong> first-time senders, deliberately returning a temporary failure to see if a legitimate server retries (spammers usually don't). So the outbound MTA must re-enqueue with <strong>exponential backoff</strong>: retry after 1 min, 5 min, 30 min, a few hours, then give up after a deadline (typically a few days) and bounce. The send queue (Kafka, or SQS/RabbitMQ) is what makes this durable across MTA restarts.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Outbound send path from submission through queue and MTA with retry loop and bounce">
+            <rect class="node" x="16" y="92" width="96" height="46" rx="8"/>
+            <text class="lbl" x="64" y="120" text-anchor="middle">Submit</text>
+            <rect x="148" y="92" width="110" height="46" rx="9" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/>
+            <text class="lbl" x="203" y="112" text-anchor="middle">Send</text>
+            <text class="lbl" x="203" y="128" text-anchor="middle">queue</text>
+            <rect class="node" x="296" y="92" width="110" height="46" rx="8"/>
+            <text class="lbl" x="351" y="112" text-anchor="middle">Outbound</text>
+            <text class="lbl" x="351" y="128" text-anchor="middle">MTA</text>
+            <rect class="node-b" x="446" y="40" width="78" height="40" rx="8"/>
+            <text class="lbl-sm" x="485" y="64" text-anchor="middle">MX lookup</text>
+            <ellipse cx="568" cy="115" rx="48" ry="32" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="4 5"/>
+            <text class="lbl-sm" x="568" y="112" text-anchor="middle" fill="#666">recipient</text>
+            <text class="lbl-sm" x="568" y="126" text-anchor="middle" fill="#666">MX</text>
+            <path class="flow" d="M112 115 H 146" marker-end="url(#arrow)"/>
+            <path class="flow" d="M258 115 H 294" marker-end="url(#arrow)"/>
+            <path class="flow" d="M406 108 C 430 90, 440 80, 446 70" marker-end="url(#arrow)"/>
+            <path class="flow" d="M406 122 C 460 122, 480 120, 518 118" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="430" y="138" text-anchor="middle">SMTP</text>
+            <!-- retry loop -->
+            <path class="flow-r" d="M351 138 C 320 200, 250 200, 203 142" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="276" y="206" text-anchor="middle" fill="#B0532F">4xx → re-queue, backoff</text>
+            <!-- bounce -->
+            <path class="flow-r" d="M351 138 V 224 H 64 V 140" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="200" y="240" text-anchor="middle" fill="#B0532F">5xx / deadline → bounce to sender</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — submission returns instantly; the MTA loops on temporary failures and bounces on permanent ones</figcaption>
+      </figure>
+      <h3>Sender reputation &amp; rate control</h3>
+      <p>The outbound side has a business-critical concern most candidates miss: <strong>deliverability</strong>. Receiving providers throttle or block senders they don't trust. To stay in the inbox you must: warm up sending IPs gradually, keep complaint and bounce rates low, sign every message (DKIM, covered in step 06), and separate traffic streams — a SeaMoney one-time-password email should not share a sending IP pool with a Shopee marketing blast, because a high complaint rate on marketing would poison delivery of the critical OTP.</p>
+      <div class="vs">
+        <div class="col"><h4>Synchronous send (naive)</h4><ul>
+          <li>Simple to reason about — call SMTP, get a result</li>
+          <li>Client blocks on every slow recipient</li>
+          <li>A single greylisting recipient stalls the request</li>
+          <li>No durability: an MTA crash mid-send loses the mail</li>
+        </ul></div>
+        <div class="col"><h4>Queue + async MTA (chosen)</h4><ul>
+          <li>Submission is fast and durable; delivery is best-effort with retries</li>
+          <li>Absorbs spikes; per-recipient backoff doesn't block others</li>
+          <li>Survives MTA restarts — the queue is the source of truth</li>
+          <li>More moving parts; needs dedup to avoid double-send on retry</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>"What happens if the MTA crashes after sending to the remote server but before recording success?" On restart it retries from the queue and may double-send. You bound this with an <strong>idempotency key</strong> (message-id + recipient) and accept that SMTP gives at-least-once, not exactly-once, delivery — duplicates are rare and far better than lost mail. Be ready to say "email is fundamentally at-least-once."</p>
+      </div>
+    </section>
+
+    <!-- 6 — INTERACTIVE -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Inbound &amp; defense</div>
+      <h2>The receive path &amp; the spam pipeline</h2>
+      <p>Inbound is where the adversary lives. The <strong>inbound MTA</strong> listens on port 25 for connections from the world, but accepting raw SMTP without defense means a flood of spam, phishing, and malware lands in mailboxes. So between "accepted at the door" and "delivered to the mailbox" sits a filtering pipeline — and getting it right is the heart of an email interview.</p>
+      <h3>Authentication: SPF, DKIM, DMARC</h3>
+      <p>Before scoring content, verify the sender is who they claim to be. Three DNS-backed standards stack up:</p>
+      <ul>
+        <li><strong>SPF</strong> (Sender Policy Framework): the sending domain publishes, in DNS, which IPs are allowed to send for it. We check whether the connecting IP is on that list.</li>
+        <li><strong>DKIM</strong> (DomainKeys Identified Mail): the sender signs the message with a private key; the public key is in DNS. A valid signature proves the body wasn't tampered with and really came from that domain.</li>
+        <li><strong>DMARC</strong>: a policy tying SPF and DKIM to the visible <code>From:</code> domain, telling receivers what to do on failure (none / quarantine / reject) and where to send reports. DMARC is what stops someone spoofing <code>From: support@grabpay.com</code>.</li>
+      </ul>
+      <h3>Greylisting: a cheap, brutal first filter</h3>
+      <p><strong>Greylisting</strong> temporarily rejects (4xx) the first delivery attempt from an unknown sender triple (IP, from, to). Legitimate MTAs retry minutes later and pass; most spam cannons fire once and never come back. It costs you a small delay on first contact in exchange for cutting a large fraction of junk before you even score it.</p>
+      <h3>Scoring: rules + ML</h3>
+      <p>Messages that pass authentication go to the scorer, which blends two approaches. <strong>Rule-based</strong> checks (think SpamAssassin-style) award points for known-bad patterns: suspicious URLs, mismatched headers, blocklisted IPs. A <strong>machine-learning classifier</strong> (a model trained on labeled spam/ham, scoring features like token distributions, sender history, and embedded-link reputation) produces a probability. Above a high threshold → reject or drop; medium → spam folder; low → inbox. A separate <strong>antivirus</strong> scanner detonates or signature-checks attachments.</p>
+      <p>Now watch the full inbound flow end to end — an incoming receipt email arriving for a Grab user:</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-recv">
+          <svg viewBox="0 0 640 280" role="img" aria-label="Interactive inbound pipeline: MTA, auth, spam filter, store metadata and blob, then index for search">
+            <g class="st" id="r-net"><ellipse cx="64" cy="60" rx="46" ry="32" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="4 5"/><text class="lbl-sm" x="64" y="58" text-anchor="middle" fill="#666">sender</text><text class="lbl-sm" x="64" y="72" text-anchor="middle" fill="#666">(internet)</text></g>
+            <g class="st" id="r-mta"><rect class="node" x="170" y="36" width="116" height="48" rx="8"/><text class="lbl" x="228" y="58" text-anchor="middle">Inbound</text><text class="lbl" x="228" y="74" text-anchor="middle">MTA</text></g>
+            <g class="st" id="r-auth"><rect class="node-b" x="350" y="36" width="120" height="48" rx="9"/><text class="lbl-sm" x="410" y="56" text-anchor="middle">SPF / DKIM</text><text class="lbl-sm" x="410" y="72" text-anchor="middle">DMARC</text></g>
+            <g class="st" id="r-spam"><rect class="node-r" x="350" y="120" width="120" height="48" rx="9"/><text class="lbl" x="410" y="142" text-anchor="middle">Spam +</text><text class="lbl" x="410" y="158" text-anchor="middle">virus filter</text></g>
+            <g class="st" id="r-deliver"><rect class="node-b" x="170" y="120" width="116" height="48" rx="9"/><text class="lbl" x="228" y="142" text-anchor="middle">Delivery</text><text class="lbl" x="228" y="158" text-anchor="middle">worker</text></g>
+            <g class="st" id="r-meta"><rect class="node" x="40" y="206" width="120" height="48" rx="8"/><text class="lbl-sm" x="100" y="226" text-anchor="middle">Metadata</text><text class="lbl-sm" x="100" y="242" text-anchor="middle">store</text></g>
+            <g class="st" id="r-blob"><rect x="260" y="206" width="120" height="48" rx="8" fill="#FCEFD8" stroke="#C98A2B" stroke-width="2"/><text class="lbl-sm" x="320" y="226" text-anchor="middle">Object store</text><text class="lbl-sm" x="320" y="242" text-anchor="middle">(blob)</text></g>
+            <g class="st" id="r-index"><rect x="470" y="206" width="120" height="48" rx="8" fill="#E6F0EE" stroke="#2E8B8B" stroke-width="2"/><text class="lbl-sm" x="530" y="226" text-anchor="middle">Search</text><text class="lbl-sm" x="530" y="242" text-anchor="middle">indexer</text></g>
+            <path id="rv-1" class="flow" d="M110 60 H 168" marker-end="url(#arrow)"/>
+            <path id="rv-2" class="flow" d="M286 60 H 348" marker-end="url(#arrow)"/>
+            <path id="rv-3" class="flow" d="M410 84 V 118" marker-end="url(#arrow)"/>
+            <path id="rv-4" class="flow" d="M348 144 H 288" marker-end="url(#arrow)"/>
+            <path id="rv-5" class="flow" d="M210 168 C 170 188, 140 192, 110 204" marker-end="url(#arrow)"/>
+            <path id="rv-6" class="flow-d" d="M246 168 C 280 188, 300 192, 318 204" marker-end="url(#arrow-s)"/>
+            <path id="rv-7" class="flow-d" d="M286 152 C 420 188, 480 192, 528 204" marker-end="url(#arrow-s)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: an incoming email is authenticated, filtered, split into metadata + blob, and indexed</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood: false positives are the real cost</span>
+        <p>Spam filtering is an asymmetric problem. Letting one spam through annoys a user; <strong>blocking one legitimate email</strong> (a false positive) can mean a missed payment, a lost booking confirmation, a furious customer. So thresholds skew conservative, borderline mail goes to a recoverable spam folder rather than being dropped, and you keep a <strong>feedback loop</strong>: when users mark "not spam" / "spam," those labels retrain the model. Quarantine, never silently discard.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>"How do you stay deliverable AND keep spam out?" — the two directions are mirror images. Inbound, you verify SPF/DKIM/DMARC and score. Outbound, you publish your own SPF/DKIM/DMARC records, sign mail, warm IPs, and watch complaint rates so other providers trust <em>you</em>. The same three acronyms appear on both sides, which is the clean way to tie the answer together.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Storage at scale</div>
+      <h2>Storing huge mailboxes cheaply</h2>
+      <p>This is the interviewer's favorite probe — "how do you store huge mailboxes cheaply?" — and step 02 already handed us the answer: <strong>split metadata from blobs</strong>, then partition by user. Let's make it concrete.</p>
+      <h3>Metadata in a partitioned store</h3>
+      <p>Mailbox <strong>metadata</strong> — headers, subject, snippet, folder membership, flags, the pointer to the blob — is small, frequently read, and queried by user and date. It belongs in a horizontally partitioned store: <strong>Cassandra</strong> or <strong>DynamoDB</strong> keyed by <code>user_id</code> as the partition key, clustered by <code>folder_id</code> then <code>received_at DESC</code>. The huge win: every operation a user performs — list inbox, page back, fetch flags — hits a single partition, so it's a fast, local read with no scatter-gather. We co-locate a user's entire mailbox on one shard.</p>
+      <h3>Blobs in object storage, deduplicated</h3>
+      <p>The <strong>body and attachments</strong> — the hundreds of PB from step 02 — go to <strong>object storage</strong> (Amazon S3, GCS, or an internal blob store), addressed by content hash. Object storage gives eleven-nines durability, tiered pricing, and effectively infinite scale, at a fraction of database cost per byte. Because the key is the content's SHA-256, identical attachments deduplicate for free: the same Shopee promotional PDF mailed to a million users is stored once, with a refcount of a million; each mailbox metadata row just points at the same blob.</p>
+      <h3>Tiering hot vs cold</h3>
+      <p>Access is heavily skewed to recent mail. So tier the blobs: recent attachments on standard (fast) storage, anything older than ~90 days transitioned automatically to a <strong>cold tier</strong> (S3 Glacier / Infrequent Access) via a lifecycle policy. A user opening a five-year-old attachment tolerates a few seconds of retrieval latency; you pay a fraction of the storage cost for the 95% of bytes that are rarely touched.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="A message split into a small metadata row and a content-addressed blob, with hot and cold object tiers">
+            <rect class="node" x="40" y="96" width="120" height="50" rx="9"/>
+            <text class="lbl" x="100" y="118" text-anchor="middle">Incoming</text>
+            <text class="lbl" x="100" y="134" text-anchor="middle">message</text>
+            <!-- metadata -->
+            <g transform="translate(300,28)">
+              <path d="M0,8 L0,38 A30,8 0 0 0 60,38 L60,8" fill="#2E73B8"/>
+              <ellipse cx="30" cy="8" rx="30" ry="8" fill="#3E86CF"/>
+              <text x="30" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">META</text>
+            </g>
+            <text class="lbl-sm" x="330" y="92" text-anchor="middle">~1 KB row, per-user partition</text>
+            <!-- hot blob -->
+            <rect x="270" y="130" width="130" height="42" rx="8" fill="#FCEFD8" stroke="#C98A2B" stroke-width="2"/>
+            <text class="lbl-sm" x="335" y="148" text-anchor="middle">Hot blob tier</text>
+            <text class="lbl-sm" x="335" y="164" text-anchor="middle">sha256 key, dedup</text>
+            <!-- cold -->
+            <rect x="270" y="186" width="130" height="42" rx="8" fill="#F4ECE0" stroke="#9a927f" stroke-width="2" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="335" y="204" text-anchor="middle" fill="#9a927f">Cold tier (&gt;90d)</text>
+            <text class="lbl-sm" x="335" y="220" text-anchor="middle" fill="#9a927f">cheap, slow</text>
+            <path class="flow" d="M160 110 C 230 80, 250 64, 298 56" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="198" y="62" text-anchor="middle">headers/flags</text>
+            <path class="flow" d="M160 134 C 210 146, 230 150, 268 151" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="208" y="170" text-anchor="middle">body + attach</text>
+            <path class="flow-d" d="M335 172 V 184" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="470" y="178" text-anchor="middle" fill="#9a927f">lifecycle policy</text>
+            <path class="flow-d" d="M330 64 C 360 110, 350 120, 340 128" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="430" y="80" text-anchor="middle">blob_ref pointer</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — metadata stays small and hot; the heavy bytes live content-addressed and tiered in object storage</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>One big relational DB</h4><ul>
+          <li>Simple: one query reaches everything</li>
+          <li>Blobs bloat the table; every scan drags MB off disk</li>
+          <li>Vertical scaling hits a wall at this byte volume</li>
+          <li>Expensive per-GB; no automatic tiering or dedup</li>
+        </ul></div>
+        <div class="col"><h4>Metadata store + object store (chosen)</h4><ul>
+          <li>Metadata reads are tiny, indexed, single-partition</li>
+          <li>Blobs sit on the cheapest durable tier and dedup for free</li>
+          <li>Each tier scales independently to its own pattern</li>
+          <li>Two systems to keep consistent (write blob first, then row)</li>
+        </ul></div>
+      </div>
+      <h3>Failure mode: a metadata shard dies</h3>
+      <p>If the node owning a user's partition fails, the affected users can't read their mailbox until failover. The fix is the standard one: <strong>replication</strong> (Cassandra/DynamoDB keep N replicas across availability zones), so a replica is promoted and reads continue with a brief blip. Because blobs are content-addressed and immutable, the object store's own cross-AZ replication protects them independently; a lost metadata row can even be rebuilt from the raw MIME blob if needed. The two stores fail independently, which is exactly what we wanted.</p>
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>"Write the blob or the metadata row first?" Always <strong>blob first, metadata second</strong>. If you crash between them, you have an orphan blob (harmless, a background GC reclaims unreferenced objects) rather than a metadata row pointing at a blob that doesn't exist (a broken mailbox). Ordering writes so the dangling artifact is the harmless one is a reusable distributed-systems instinct worth naming.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Search</div>
+      <h2>Searching mail fast: the inverted index</h2>
+      <p>The next probe: "how do you search mail fast?" A user types <code>receipt from:shopee</code> and expects results across 80,000 messages in under a second. You cannot scan the mailbox — at that size a linear scan is hopeless. You need an <strong>inverted index</strong>.</p>
+      <h3>What an inverted index is and how it works</h3>
+      <p>An <strong>inverted index</strong> maps each <strong>term</strong> (a normalized word) to the list of documents containing it — the inverse of "document → its words." Building one is a pipeline: <strong>tokenize</strong> the subject and body into words, <strong>normalize</strong> them (lowercase, strip punctuation, sometimes stem so "receipts" matches "receipt"), then for each term append the message's id to that term's <strong>postings list</strong>. A query for <code>receipt invoice</code> looks up both postings lists and intersects them — an operation that's near-instant because the lists are pre-built and sorted.</p>
+      <pre><span class="cm">// inverted index (conceptual)</span>
+"receipt"  &rarr; [ msg_8821, msg_9043, msg_9911, ... ]
+"shopee"   &rarr; [ msg_8821, msg_9911, msg_10240, ... ]
+"refund"   &rarr; [ msg_7702, msg_9911, ... ]
+
+<span class="cm">// query: receipt AND from:shopee  &rarr; intersect postings</span>
+intersect("receipt", "shopee") = [ msg_8821, msg_9911 ]</pre>
+      <p>Structured fields like <code>from:</code>, <code>has:attachment</code>, and date ranges become <strong>filters</strong> applied alongside the text terms, and results are <strong>ranked</strong> (recency-weighted relevance) before returning the top hits with snippets.</p>
+      <h3>Per-user partitioning is the key trick</h3>
+      <p>A global index over everyone's mail would be enormous and would leak one user's terms into another's search. Instead, <strong>partition the index by user</strong>: each user has their own logical index (or shares a shard keyed by <code>user_id</code>). A search only ever touches one user's postings, which keeps both the index small per-shard and the query fast and private. This mirrors the metadata partitioning exactly — the same locality key, <code>user_id</code>, governs both.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Search query hitting a per-user inverted index built asynchronously from delivered mail">
+            <rect class="node" x="20" y="40" width="110" height="46" rx="8"/>
+            <text class="lbl" x="75" y="62" text-anchor="middle">Query</text>
+            <text class="lbl-sm" x="75" y="78" text-anchor="middle">"receipt"</text>
+            <rect x="200" y="36" width="150" height="54" rx="9" fill="#E6F0EE" stroke="#2E8B8B" stroke-width="2"/>
+            <text class="lbl" x="275" y="58" text-anchor="middle">Inverted index</text>
+            <text class="lbl-sm" x="275" y="76" text-anchor="middle">partition: user_id</text>
+            <rect class="node" x="430" y="40" width="180" height="46" rx="8"/>
+            <text class="lbl-sm" x="520" y="60" text-anchor="middle">ranked hits + snippets</text>
+            <text class="lbl-sm" x="520" y="76" text-anchor="middle">top N</text>
+            <path class="flow" d="M130 63 H 198" marker-end="url(#arrow)"/>
+            <path class="flow" d="M350 63 H 428" marker-end="url(#arrow)"/>
+            <!-- async index build -->
+            <rect class="node-b" x="200" y="150" width="150" height="46" rx="9"/>
+            <text class="lbl-sm" x="275" y="170" text-anchor="middle">Indexer</text>
+            <text class="lbl-sm" x="275" y="186" text-anchor="middle">tokenize + post</text>
+            <rect class="node" x="20" y="150" width="110" height="46" rx="8"/>
+            <text class="lbl-sm" x="75" y="170" text-anchor="middle">Delivered</text>
+            <text class="lbl-sm" x="75" y="186" text-anchor="middle">mail event</text>
+            <path class="flow" d="M130 173 H 198" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M275 148 V 92" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="345" y="124" text-anchor="middle">build</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — delivery emits an event; the indexer builds per-user postings; queries intersect them in milliseconds</figcaption>
+      </figure>
+      <h3>Tools and the async build</h3>
+      <p>In practice the search layer is <strong>Elasticsearch</strong> / <strong>OpenSearch</strong> or <strong>Apache Lucene</strong>-based. Indexing happens <strong>asynchronously</strong>: when delivery writes a message, it emits an event (often onto the same Kafka backbone) and an indexer consumes it. This decouples write latency from index latency — mail appears in the inbox instantly even if it becomes searchable a second or two later. That's an acceptable trade: eventual consistency for search, strong consistency for the inbox listing.</p>
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>"What if the indexer falls behind or a shard's index is corrupted?" Because the index is <em>derived</em> data, it's always rebuildable from the durable mailbox store — you replay the delivery events for that user/shard to reconstruct postings. Stating "search is a derived, rebuildable view, so I optimize it for query speed and treat the mailbox store as the source of truth" is the senior-level framing.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Access &amp; sync</div>
+      <h2>Sync, IMAP &amp; flag consistency</h2>
+      <p>Users read mail on a phone and a laptop at once. If they read a message on the phone, the laptop should show it as read too. This is a <strong>state synchronization</strong> problem layered on top of storage, and it's subtle because the flag updates fly in from multiple devices concurrently.</p>
+      <h3>The access protocols</h3>
+      <p>Classic clients speak <strong>IMAP</strong> (Internet Message Access Protocol), which keeps mail server-side and syncs folder state — the right model for multi-device. (Its ancestor <strong>POP3</strong> downloads-and-deletes, a single-device model we'd avoid.) Modern apps mostly use our own HTTPS API plus a <strong>push channel</strong> — a long-lived connection or websocket, falling back to mobile push notifications — so a newly delivered or newly-read message propagates to other devices in near real time instead of waiting for a poll.</p>
+      <h3>How flag consistency works: a per-mailbox change counter</h3>
+      <p>The mechanism is a monotonically increasing <strong>modification sequence</strong> (the <code>mod_seq</code> from step 03), one per mailbox. Every change — new mail, a flag flip, a move — bumps <code>mod_seq</code> and stamps the affected row with the new value. A device remembers the highest <code>mod_seq</code> it has seen and, on reconnect, asks "send me everything changed since <code>mod_seq</code> = N." The server returns only the delta. This is exactly how IMAP's <code>CONDSTORE</code>/<code>QRESYNC</code> extensions work, and it makes sync an O(changes) operation rather than re-downloading the folder.</p>
+      <pre><span class="cm"># device knows it last synced at mod_seq 4810</span>
+GET /v1/folders/INBOX/changes?since_mod_seq=4810
+  &rarr; { "changes": [
+        {message_id: m1, flags:{seen:true},  mod_seq:4811},
+        {message_id: m9, "new":true,          mod_seq:4820}
+      ], "highest_mod_seq": 4820 }</pre>
+      <h3>Concurrency: two devices, one flag</h3>
+      <p>What if the phone marks a message read at the same instant the laptop stars it? Each update targets a different flag, so they merge cleanly. The harder case — both toggling the <em>same</em> flag — is resolved last-writer-wins by <code>mod_seq</code> order, which for boolean read/unread is benign. Flags are intentionally modeled as a small map of independent booleans precisely so concurrent edits commute rather than conflict.</p>
+      <div class="callout">
+        <span class="k">Under the hood: why eventual consistency is fine here</span>
+        <p>The inbox <em>listing</em> needs read-your-writes for the owner (you must see mail you just received, and the Sent copy of mail you just sent). But a flag flip propagating to your <em>other</em> device a second late is invisible in practice. So we spend strong consistency where it's felt and accept eventual consistency on cross-device flag fan-out — a deliberate, defensible split rather than a uniform guarantee.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interview follow-up</span>
+        <p>"How does a device efficiently resync after being offline for a week?" Answer with the change counter: it sends its last <code>mod_seq</code>, gets only the delta, and never re-downloads unchanged mail. If you also support offline composition, mention that queued sends carry a client-generated idempotency key so a flaky reconnect doesn't double-send — tying back to the at-least-once theme from step 05.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Wrap-up</div>
+      <h2>Scale, failure modes &amp; what breaks at 10x</h2>
+      <p>Pull the threads together. The system survives scale because every plane is independently horizontally scalable and decoupled by durable queues. Walk an interviewer through where it bends at <strong>10×</strong> — say, a Black-Friday-scale Shopee campaign hammering both planes.</p>
+      <h3>The send plane at 10x</h3>
+      <p>A marketing blast spikes outbound volume. The send queue absorbs it (that's its job), and outbound MTAs scale out as queue consumers. The real limit is <strong>downstream throttling</strong>: Gmail and others rate-limit per sending IP, returning 4xx if you push too fast. So you add <strong>more sending IPs</strong>, spread load across them, and crucially <strong>isolate streams</strong> — keep the OTP/transactional pool separate from the marketing pool so a complaint surge on marketing can't sink delivery of critical mail. The failure mode to name: a poorly-warmed IP pool gets the whole campaign deferred.</p>
+      <h3>The receive plane at 10x</h3>
+      <p>An inbound flood (a spam wave, or just heavy legitimate traffic) is shaped by the front door. The inbound MTA applies <strong>connection rate limits</strong> and greylisting at the edge; accepted mail lands on an ingest queue so the spam-scoring and delivery workers consume at their own pace. If scoring falls behind, mail queues rather than drops. The failure mode: if the spam model node dies, you <strong>fail safe by quarantining</strong> unscored mail (delay it) rather than letting unfiltered junk through or, worse, dropping good mail.</p>
+      <h3>Storage and hotspots at 10x</h3>
+      <p>Object storage scales effectively without bound, and dedup plus cold-tiering keep the bill sane. The metadata store's danger is a <strong>hot partition</strong> — a single mega-mailbox (a shared <code>support@</code> address receiving millions of messages) overwhelming one shard. The fix is to detect such accounts and shard them further (e.g. by folder or time bucket), or route shared inboxes through a different model entirely. Always name hot-partitioning as the NoSQL failure mode; it's the question behind the question.</p>
+      <h3>Search at 10x</h3>
+      <p>Index volume grows linearly; you add search shards and rebalance by <code>user_id</code>. Because the index is derived, a hot shard can be split and rebuilt from the mailbox store without data loss. Stale or lagging indexes degrade gracefully — search is a second behind, the inbox is not.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Scaling summary showing queues decoupling stateless workers from sharded stores across availability zones">
+            <rect x="30" y="30" width="160" height="160" rx="10" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="110" y="22" text-anchor="middle" fill="#666">AZ-1</text>
+            <rect x="450" y="30" width="160" height="160" rx="10" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="530" y="22" text-anchor="middle" fill="#666">AZ-2 (replica)</text>
+            <rect class="node" x="50" y="50" width="120" height="38" rx="7"/>
+            <text class="lbl-sm" x="110" y="74" text-anchor="middle">MTA / workers</text>
+            <rect x="250" y="60" width="140" height="44" rx="9" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/>
+            <text class="lbl-sm" x="320" y="80" text-anchor="middle">Durable queue</text>
+            <text class="lbl-sm" x="320" y="96" text-anchor="middle">(absorbs spikes)</text>
+            <g transform="translate(70,120)">
+              <path d="M0,8 L0,38 A40,8 0 0 0 80,38 L80,8" fill="#2E73B8"/>
+              <ellipse cx="40" cy="8" rx="40" ry="8" fill="#3E86CF"/>
+              <text x="40" y="32" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">shards</text>
+            </g>
+            <rect class="node" x="470" y="50" width="120" height="38" rx="7"/>
+            <text class="lbl-sm" x="530" y="74" text-anchor="middle">MTA / workers</text>
+            <g transform="translate(490,120)">
+              <path d="M0,8 L0,38 A40,8 0 0 0 80,38 L80,8" fill="#2E73B8"/>
+              <ellipse cx="40" cy="8" rx="40" ry="8" fill="#3E86CF"/>
+              <text x="40" y="32" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">replica</text>
+            </g>
+            <path class="flow" d="M170 69 H 248" marker-end="url(#arrow)"/>
+            <path class="flow" d="M390 69 H 468" marker-end="url(#arrow-r)" stroke="#B0532F"/>
+            <path class="flow-d" d="M150 158 C 300 200, 360 200, 490 158" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="320" y="212" text-anchor="middle" fill="#4A7BA6">cross-AZ replication</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — stateless workers behind durable queues, sharded stores replicated across AZs for failover</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">The three questions to have crisp answers for</span>
+        <p>Every email interview circles back to the same trio:<br><strong>(1) store huge mailboxes cheaply</strong> → split metadata from blobs, object storage with dedup and cold-tiering;<br><strong>(2) search fast</strong> → per-user inverted index, built async, rebuildable from the store;<br><strong>(3) keep spam out and stay deliverable</strong> → SPF/DKIM/DMARC both directions, greylisting + rules + ML scoring inbound, IP warm-up and stream isolation outbound.<br>Land those three and you've covered 80% of the rubric.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole design compresses to one sentence: <em>treat email as a durability-and-deliverability problem — decouple send and receive with durable queues, split tiny metadata from cheap dedup'd blobs, build a per-user inverted index off to the side, and defend both directions with SPF/DKIM/DMARC.</em> If you can whiteboard the two planes and name the bottleneck each component solves, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Federated &amp; at-least-once</b><span>You hand mail to servers you don't control; SMTP is at-least-once, so design for retries and dedup.</span></div>
+        <div class="tk"><span class="num">02</span><b>Durability over latency</b><span>Losing mail is unacceptable; a few seconds of delay is fine. Lean on queues, not speed.</span></div>
+        <div class="tk"><span class="num">03</span><b>Blobs ≫ metadata</b><span>Bytes are 100× the metadata, so split them onto different tiers — the load-bearing insight.</span></div>
+        <div class="tk"><span class="num">04</span><b>Two planes, shared tail</b><span>Send and receive are independent pipelines meeting at the mailbox store + index.</span></div>
+        <div class="tk"><span class="num">05</span><b>Async send + backoff</b><span>Submit fast and durably; the MTA retries 4xx with exponential backoff and bounces on 5xx.</span></div>
+        <div class="tk"><span class="num">06</span><b>Auth then score</b><span>SPF/DKIM/DMARC verify identity; greylisting + rules + ML score content. Quarantine, never drop.</span></div>
+        <div class="tk"><span class="num">07</span><b>Metadata + object store</b><span>Partition metadata by user; content-address blobs, dedup, and cold-tier old bytes.</span></div>
+        <div class="tk"><span class="num">08</span><b>Per-user inverted index</b><span>Term → postings; partition by user; build async; rebuildable from the store.</span></div>
+        <div class="tk"><span class="num">09</span><b>Sync by mod_seq</b><span>A per-mailbox change counter lets devices fetch only the delta and keep flags consistent.</span></div>
+        <div class="tk"><span class="num">10</span><b>Isolate &amp; fail safe</b><span>Separate transactional from marketing IPs; quarantine unscored mail; watch for hot partitions.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why is email a durability problem more than a latency problem, and what does that push you toward?<br>(2) Walk the send path — why must submission be decoupled from transfer, and what do 4xx vs 5xx mean?<br>(3) How do you store huge mailboxes cheaply, and why write the blob before the metadata row?<br>(4) How does a per-user inverted index make search fast, and why is it safe to build it asynchronously?<br>(5) What do SPF, DKIM, and DMARC each prove, and how do the same three appear on both the inbound and outbound sides?<br>(6) How does mod_seq keep flags consistent across devices, and where do you accept eventual consistency?<br>Any fuzzy answer → re-read that section, replay the FIG. 4 stepper, and redraw FIG. 2 from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 41 · DESIGN A DISTRIBUTED EMAIL SERVICE · interactive edition · ref BBG V2·C8<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* inbound receive pipeline */
+  makeStepper(document.getElementById('fig-recv'), [
+    {text:"An external sender opens an SMTP connection to our inbound MTA.", active:["r-net","r-mta"], path:"rv-1"},
+    {text:"The MTA accepts the message (after greylisting) and hands it to authentication.", active:["r-mta","r-auth"], path:"rv-2"},
+    {text:"SPF/DKIM/DMARC verify the sender really owns the From domain.", active:["r-auth","r-spam"], path:"rv-3"},
+    {text:"The spam + virus filter scores the message; clean mail moves to delivery.", active:["r-spam","r-deliver"], path:"rv-4"},
+    {text:"The delivery worker writes a small metadata row to the mailbox store.", active:["r-deliver","r-meta"], path:"rv-5"},
+    {text:"The body and attachments are written content-addressed to the object store.", active:["r-deliver","r-blob"], path:"rv-6"},
+    {text:"A delivered event fans out to the indexer, making the mail searchable.", active:["r-deliver","r-index"], path:"rv-7"}
+  ]);
+</script>
+</body>
+</html>

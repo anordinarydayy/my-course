@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 31 — Design a Recommendation / Ranking System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1d2630;color:#e8eef5;border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;}
+  pre .c{color:#7e93a7;} pre .k{color:#7fb3e0;} pre .s{color:#cfa86b;} pre .n2{color:#b6d39a;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Recommendation<br>&amp; Ranking</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Feed vs. recommender</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify &amp; scope</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimation</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The two-stage funnel ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Candidate generation &amp; ANN ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The feature store</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Ranking &amp; serving ▸</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>The training loop &amp; A/B</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Cold start, diversity, freshness</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Scale &amp; what breaks at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">31</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Recommendation / Ranking System</h1>
+      <p class="lede">"Design the For You feed" is not the news-feed question. The feed is reverse-chronological; the For You page is <em>personalized and ranked</em>. The expected answer is a two-stage recommender: cheaply retrieve a few hundred candidates from billions of items, then score them with a machine-learning model and return the best handful — all inside a tight latency budget. This lesson walks that funnel and the serving infrastructure around it.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on recommendation and ranking systems — a standard, widely-documented engineering topic. Examples lean toward Singapore product and super-app companies (TikTok, Shopee, Sea, Grab, Agoda) but the concepts are general. The explanations, numbers, and diagrams are my own; nothing is copied from any paid course or book. Three diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>A feed sorts by time; a recommender sorts by you</h2>
+      <p>If you have already done the news-feed lesson, file this one under a sharply different category. A <strong>news feed</strong> (think a friends-and-follows timeline) answers <em>"what's new from the accounts I follow?"</em> Its hard problem is <strong>fan-out</strong> — copying a new post into the timelines of millions of followers — and its ordering is essentially reverse-chronological with light tweaks. The candidate set is bounded: it's the union of who you follow.</p>
+      <p>A <strong>recommendation / ranking system</strong> answers a much harder question: <em>"out of every item in the catalog — most of which you've never interacted with and don't follow — which ones will you most want to engage with right now?"</em> This is the engine behind TikTok's For You page, Shopee's product recommendations, Agoda's "properties you might like," and the merchant-discovery rail in the GrabFood home screen. There is no follow graph to bound the candidates, so the system must <strong>personalize</strong> (different output per user) and <strong>rank</strong> (order by predicted engagement), choosing from a corpus of millions to billions of items.</p>
+      <p>That difference is the whole interview. The naive idea — "score every item for this user and sort" — is a non-starter: scoring a billion items per request with a real ML model would take minutes and melt your GPU fleet. The discipline the interviewer is testing is whether you reach for the <strong>two-stage funnel</strong>: a cheap retrieval stage that throws away 99.99% of the corpus, followed by an expensive ranking stage that runs only on what survives.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Comparison of a reverse-chronological news feed versus a personalized ranked recommender">
+            <text class="lbl" x="160" y="28" text-anchor="middle">News feed</text>
+            <rect class="node" x="40" y="44" width="240" height="150" rx="10"/>
+            <text class="lbl-sm" x="160" y="72" text-anchor="middle">follow graph → bounded set</text>
+            <line x1="70" y1="92" x2="250" y2="92" stroke="#999" stroke-width="1"/>
+            <text class="lbl-sm" x="160" y="112" text-anchor="middle">sort by time (newest first)</text>
+            <text class="lbl-sm" x="160" y="140" text-anchor="middle">hard part: fan-out</text>
+            <text class="lbl-sm" x="160" y="166" text-anchor="middle">same order for everyone*</text>
+            <text class="lbl" x="480" y="28" text-anchor="middle">Recommender</text>
+            <rect class="node-r" x="360" y="44" width="240" height="150" rx="10"/>
+            <text class="lbl-sm" x="480" y="72" text-anchor="middle">whole catalog → billions</text>
+            <line x1="390" y1="92" x2="570" y2="92" stroke="#B0532F" stroke-width="1"/>
+            <text class="lbl-sm" x="480" y="112" text-anchor="middle">sort by predicted engagement</text>
+            <text class="lbl-sm" x="480" y="140" text-anchor="middle">hard part: retrieve + rank</text>
+            <text class="lbl-sm" x="480" y="166" text-anchor="middle">unique order per user</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — same surface ("a feed"), fundamentally different machine underneath</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>Open by naming the distinction out loud: <em>"This isn't a fan-out problem like a timeline; it's a retrieval-and-ranking problem over an unbounded candidate set, so I'll design a two-stage funnel."</em> That single sentence signals you know the right shape before you draw a box.</p>
+      </div>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Recommenders vary enormously — a video For You page, a product grid, a "jobs you may like" rail, and a dating-style match queue all share the funnel but differ in freshness, latency, and what "engagement" means. Nail the scope before drawing.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Personalized, ranked items.</strong> Given a user (and optional context like the current screen, location, time of day), return an ordered list of item IDs the user is most likely to engage with.</li>
+        <li><strong>The surface.</strong> Let's anchor on a TikTok-style <strong>For You video feed</strong> — an infinite stream where each "page" is ~10 videos. The same design generalizes to a Shopee product rail or Agoda hotel list.</li>
+        <li><strong>Feedback loop.</strong> The system must log what it showed (<strong>impressions</strong>) and how the user reacted (<strong>clicks</strong>, watch time, likes, purchases) so the model can keep learning.</li>
+        <li><strong>Pagination / "more".</strong> When the user scrolls, return the next page without repeating recent items.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Low latency.</strong> The feed sits on the hot path of every app open. A reasonable budget is <strong>p99 &lt; 200&nbsp;ms</strong> end-to-end for a page of recommendations.</li>
+        <li><strong>Scalable.</strong> Tens of millions of daily active users, a corpus of hundreds of millions to billions of items.</li>
+        <li><strong>Fresh.</strong> A video uploaded an hour ago, or a flash-sale SKU on Shopee, should be eligible to surface — the system can't only know about yesterday's catalog.</li>
+        <li><strong>Available &amp; graceful.</strong> If the ranking model or feature store is down, the user must still get <em>something</em> reasonable (popular / trending) rather than an empty screen.</li>
+        <li><strong>Quality, measured.</strong> Success isn't "it returns items" — it's a lift in business metrics (watch time, CTR, conversion) proven by A/B test.</li>
+      </ul>
+      <h3>Assumptions to state</h3>
+      <p>Make the implicit explicit: this is a <strong>read-heavy</strong> system (far more "get me a feed" than "ingest a new item"); the corpus and user base are large but the per-request candidate set is small; eventual consistency is fine (it's okay if a brand-new video takes a minute to become recommendable); and we optimize for a single primary objective (say, expected watch time) while constraining others (diversity, freshness).</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The phrase that frames the rest of the design: <em>"It's read-heavy and latency-bound, so I'll precompute everything I can offline and keep the online path to retrieval + a fast model inference."</em> Online-vs-offline split is the load-bearing idea of the whole lesson.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-the-envelope numbers</h2>
+      <p>Quick sizing tells you which parts must be precomputed and which can be live. Assume a Shopee/TikTok-scale Southeast-Asian product: <strong>100M DAU</strong>, each opening the app and scrolling a few feed pages.</p>
+      <h3>Request rate (QPS)</h3>
+      <ul>
+        <li>Say each user requests <strong>10 feed pages/day</strong> on average → 1B feed requests/day.</li>
+        <li>1B / 86,400&nbsp;s ≈ <strong>~12,000 QPS average</strong>. Peak (evening commute, lunch break in SG) is spiky — assume <strong>5×</strong> → <strong>~60,000 QPS peak</strong>.</li>
+        <li>Each feed request triggers: 1 candidate-retrieval call, hundreds of feature lookups, and 1 batched model-inference call. So the <strong>feature store and inference fleet</strong> are the real load: at ~500 candidates ranked per request, that's 60k × 500 ≈ <strong>30M item-scorings/second</strong> at peak. That number is why ranking must be a cheap, batched model — not why retrieval matters; retrieval is what keeps that 500 from being 1 billion.</li>
+      </ul>
+      <h3>Storage</h3>
+      <ul>
+        <li><strong>Item embeddings:</strong> 500M items × a 256-dim float32 vector = 500M × 256 × 4&nbsp;bytes ≈ <strong>512&nbsp;GB</strong>. Fits in a sharded in-memory ANN index across a handful of machines.</li>
+        <li><strong>User embeddings:</strong> 100M users × 256 × 4&nbsp;B ≈ <strong>102&nbsp;GB</strong> — easily a single Redis/key-value tier.</li>
+        <li><strong>Interaction log:</strong> 1B feed requests/day × ~10 impressions each × ~200&nbsp;bytes/event ≈ <strong>~2&nbsp;TB/day</strong> of impression+engagement logs streaming into the data lake. This is the fuel for training.</li>
+      </ul>
+      <h3>The takeaway from the numbers</h3>
+      <p>Three facts fall out, and they pre-justify the architecture:<br>(1) you cannot score the whole corpus per request — retrieval is mandatory;<br>(2) embeddings are small enough to precompute and serve from memory;<br>(3) the engagement log is huge and append-only — it belongs in a streaming pipeline plus a data lake, not your serving database.</p>
+      <div class="callout">
+        <span class="k">Why state numbers at all</span>
+        <p>The estimate is not arithmetic for its own sake — each line removes a design option. "30M scorings/sec" kills the idea of a heavyweight model on the full corpus. "512&nbsp;GB of vectors" tells you the ANN index is RAM-resident and shardable. Interviewers reward the inference, not the digits.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contracts</div>
+      <h2>The API and data model</h2>
+      <p>Pin down the request/response shape before architecture — it forces clarity on what the client sends and what each internal service must produce.</p>
+      <h3>Public API</h3>
+      <p>One read endpoint for the feed and one write path for feedback. The feed endpoint takes a user, context, and a pagination cursor; it returns ranked item IDs plus a token to fetch more.</p>
+      <pre><span class="c"># Fetch a page of recommendations</span>
+<span class="k">GET</span> /v1/feed?user_id=u_8841&amp;surface=fyp&amp;limit=10&amp;cursor=eyJ...
+  <span class="c"># context headers: geo=SG, device=ios, hour_local=19</span>
+
+<span class="k">200 OK</span>
+{
+  <span class="s">"items"</span>: [
+    {<span class="s">"item_id"</span>:<span class="s">"v_5521"</span>, <span class="s">"score"</span>:0.91, <span class="s">"reason"</span>:<span class="s">"watched_similar"</span>},
+    {<span class="s">"item_id"</span>:<span class="s">"v_9034"</span>, <span class="s">"score"</span>:0.88, <span class="s">"reason"</span>:<span class="s">"trending_sg"</span>}
+  ],
+  <span class="s">"next_cursor"</span>: <span class="s">"eyJzZWVuIjpbInZfNTUyMSJdfQ"</span>,
+  <span class="s">"model_version"</span>: <span class="s">"rank_v37"</span>     <span class="c"># carried for A/B attribution</span>
+}
+
+<span class="c"># Log engagement (fire-and-forget from the client / edge)</span>
+<span class="k">POST</span> /v1/events
+{ <span class="s">"user_id"</span>:<span class="s">"u_8841"</span>, <span class="s">"item_id"</span>:<span class="s">"v_5521"</span>,
+  <span class="s">"event"</span>:<span class="s">"watch"</span>, <span class="s">"dwell_ms"</span>:14200, <span class="s">"impression_id"</span>:<span class="s">"imp_77a2"</span>,
+  <span class="s">"model_version"</span>:<span class="s">"rank_v37"</span>, <span class="s">"ts"</span>:1717142400 }</pre>
+      <p>Two details earn points. The response carries a <code>model_version</code> so every downstream engagement event can be attributed back to the model that produced it — essential for A/B analysis. And the <code>next_cursor</code> encodes <em>what was already shown</em> (e.g. seen item IDs) so the next page de-duplicates without server-side session state.</p>
+      <h3>Data model sketch</h3>
+      <p>Four distinct stores, each chosen for its access pattern — going past "just put it in Postgres":</p>
+      <ul>
+        <li><strong>Item catalog</strong> (source of truth, document store like MongoDB / DynamoDB): <code>item_id</code>, author, language, category, creation time, status (active/removed), raw stats.</li>
+        <li><strong>Item &amp; user embeddings</strong> (the vectors): item vectors live in the <strong>ANN index</strong>; user vectors live in a low-latency KV store keyed by <code>user_id</code>.</li>
+        <li><strong>Feature store</strong> (online: Redis-class KV keyed by <code>user_id</code> / <code>item_id</code>; offline: columnar tables in the lake) — covered in depth in step 06.</li>
+        <li><strong>Interaction events</strong> (append-only): streamed via Kafka, landed in S3/data lake, queryable for training. Never your serving DB.</li>
+      </ul>
+      <pre><span class="c">-- a precomputed feature row served online, keyed by user</span>
+user_features:u_8841 = {
+  emb: [0.04, -0.11, ...256d],
+  top_categories: ["dance","food_sg","comedy"],
+  avg_watch_ms_7d: 11800,
+  active_hour_mode: 19,        <span class="c"># engages most at 7pm</span>
+  device: "ios", country: "SG"
+}
+<span class="c">-- a precomputed item-side feature row, keyed by item</span>
+item_features:v_5521 = {
+  emb: [...256d], lang: "en", category: "dance",
+  ctr_1h: 0.07, completes_1h: 4210, age_min: 52, author_tier: 3
+}</pre>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Why not just store everything in one relational DB?" Because the access patterns are incompatible: the catalog wants document lookups, embeddings want vector similarity search, features want sub-millisecond key lookups, and events want append-only streaming. Forcing one engine to do all four makes each one slow.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The architecture</div>
+      <h2>The two-stage funnel</h2>
+      <p>Here is the spine of the whole design. A single feed request flows through a <strong>funnel</strong> that narrows the corpus in stages, each stage cheaper-per-item but seeing more items than the next:</p>
+      <ul>
+        <li><strong>Stage 1 — Candidate generation (retrieval).</strong> Cheaply narrow <em>billions</em> of items to a few <strong>hundred</strong> plausible candidates. Cheap per item, runs over everything.</li>
+        <li><strong>Stage 2 — Ranking.</strong> Run a richer ML model over those few hundred, scoring each with <em>many</em> features, and return the top-k (say top 10). Expensive per item, runs only on survivors.</li>
+      </ul>
+      <p>Why split it instead of one big model? Cost and latency. Retrieval is allowed to be approximate and feature-light because its only job is "don't miss the good stuff" (high recall); it can be a vector lookup answered in single-digit milliseconds. Ranking is allowed to be expensive and feature-rich because it only sees ~500 items, not a billion. You spend your compute where it changes the answer. This is exactly the discipline behind a database query planner pushing a cheap filter before an expensive join.</p>
+      <p>Production systems often add a third micro-stage, <strong>re-ranking</strong>, after scoring: a cheap pass that enforces business rules — inject a fresh video, ensure language/category diversity, drop items the user just saw, respect "don't show competitor ads back-to-back." Keep it in your back pocket; mention it as the place policy lives.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-funnel">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive two-stage recommendation funnel from corpus to top-k">
+            <g class="st" id="f-corpus"><rect class="node" x="20" y="100" width="120" height="50" rx="8"/><text class="lbl" x="80" y="122" text-anchor="middle">Corpus</text><text class="lbl-sm" x="80" y="140" text-anchor="middle">~1B items</text></g>
+            <g class="st" id="f-cand"><rect class="node-b" x="195" y="96" width="130" height="58" rx="9"/><text class="lbl" x="260" y="120" text-anchor="middle">Candidate</text><text class="lbl" x="260" y="138" text-anchor="middle">generation</text></g>
+            <g class="st" id="f-rank"><rect class="node-b" x="380" y="96" width="120" height="58" rx="9"/><text class="lbl" x="440" y="120" text-anchor="middle">Ranking</text><text class="lbl-sm" x="440" y="138" text-anchor="middle">ML model</text></g>
+            <g class="st" id="f-topk"><rect class="node-r" x="540" y="100" width="90" height="50" rx="8"/><text class="lbl" x="585" y="122" text-anchor="middle">Top-k</text><text class="lbl-sm" x="585" y="140" text-anchor="middle">~10</text></g>
+            <text class="lbl-sm" x="167" y="92" text-anchor="middle">→ ~500</text>
+            <text class="lbl-sm" x="352" y="92" text-anchor="middle">scored</text>
+            <text class="lbl-sm" x="520" y="92" text-anchor="middle">sorted</text>
+            <path id="f-p1" class="flow" d="M140 125 H 193" marker-end="url(#arrow)"/>
+            <path id="f-p2" class="flow" d="M325 125 H 378" marker-end="url(#arrow)"/>
+            <path id="f-p3" class="flow" d="M500 125 H 538" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="325" y="200" text-anchor="middle">cheap per item, sees all  →  expensive per item, sees few</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 4</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: the corpus funnels down to a ranked top-k</figcaption>
+      </figure>
+      <p>The end-to-end request flow, then, is: the client hits the <strong>recommendation service</strong> (the orchestrator); it calls <strong>candidate generation</strong> to get ~500 IDs; it asks the <strong>feature store</strong> for the user's and those items' features; it sends the batch to the <strong>inference service</strong>, which returns a score per candidate; it re-ranks for policy and returns the top-10. All of it must fit in the p99 latency budget, so each hop has a sub-budget (see step 07).</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "Why two stages?"</span>
+        <p>The crisp answer: <em>"To put expensive compute only where it matters. Retrieval optimizes recall over a billion items at ~1ms/item-equivalent using vector search; ranking optimizes precision over a few hundred with a heavy model. One model trying to do both would be either too slow (heavy on everything) or too dumb (light on everything)."</em></p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Deep dive · retrieval</div>
+      <h2>Candidate generation &amp; approximate nearest neighbor</h2>
+      <p>The first bottleneck: how do you pull a few hundred relevant items out of a billion without scoring them? The trick is to <em>not</em> score them at all in this stage — instead, represent both users and items as points in the same vector space, and pull the items <strong>closest</strong> to the user.</p>
+      <h3>Embeddings: turning users and items into vectors</h3>
+      <p>An <strong>embedding</strong> is a dense vector (say 256 floats) that encodes the "meaning" of an item or user, learned by a model so that <em>things that get engaged with together end up near each other</em> in the space. A user who watches a lot of SG food content gets a vector close to the vectors of SG food videos. This is the modern form of <strong>collaborative filtering</strong> — "users like you liked these" — but compressed into geometry: similarity is just distance (cosine or dot product) between vectors.</p>
+      <p>The serving consequence is beautiful: retrieval becomes <em>"find the items whose vectors are nearest to this user's vector."</em> That is a pure geometry query — no per-item model call.</p>
+      <h3>Why approximate: ANN, not exact KNN</h3>
+      <p>Finding the true nearest neighbors among a billion vectors exactly (<strong>k-nearest-neighbors</strong>, KNN) means computing the distance to every one of them — a billion dot products per request. Far too slow. So we use <strong>approximate nearest neighbor (ANN)</strong> search: accept a tiny chance of missing a true neighbor in exchange for a ~1000× speedup. Since retrieval only needs <em>good recall</em>, not perfection (ranking sorts the survivors anyway), the approximation is essentially free in quality terms.</p>
+      <p>The dominant ANN method is <strong>HNSW</strong> (Hierarchical Navigable Small World), a graph index. Under the hood it builds a multi-layer graph of vectors: sparse "express lanes" at the top for big jumps across the space, dense layers at the bottom for fine-grained local search. A query enters at the top, greedily hops to the nearest node it can see, descends a layer, and repeats — converging on the neighborhood of the query in roughly <em>logarithmic</em> hops instead of scanning everything. Libraries: <strong>FAISS</strong> (Meta), <strong>HNSWlib</strong>, and serving systems built on them — <strong>Vespa</strong>, <strong>Milvus</strong>, <strong>Elasticsearch/OpenSearch vector search</strong>, <strong>Pinecone</strong>. Tunable knobs: <code>M</code> (graph connectivity), <code>efConstruction</code> (build-time effort), and <code>efSearch</code> (query-time effort — higher = better recall, slower).</p>
+      <h3>Multiple candidate sources, then merge</h3>
+      <p>ANN over embeddings is the workhorse, but a good system blends several <strong>candidate sources</strong> and merges them, because each covers a blind spot:</p>
+      <ul>
+        <li><strong>Embedding ANN</strong> — "more like what you engaged with." The personalization backbone.</li>
+        <li><strong>Trending / popular</strong> — globally or per-geo (e.g. "trending in SG"). Covers cold-start and gives everyone a baseline of quality.</li>
+        <li><strong>Recent / fresh</strong> — items uploaded in the last hour, so new content has a chance to be seen before it has any stats.</li>
+        <li><strong>Follow graph</strong> — items from creators/sellers the user follows, when such a relationship exists.</li>
+      </ul>
+      <p>The service queries these in parallel, deduplicates, and passes the merged ~500 to ranking. A worked example: on the GrabFood home rail, retrieval might pull 200 merchants near you by location, 150 by cuisine-embedding similarity to your past orders, 100 currently-promoted, and 50 newly onboarded — merge, drop closed/out-of-range, send ~400 to ranking.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-ann">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive candidate generation: user vector queries an ANN index and merges with other sources">
+            <g class="st" id="a-user"><rect class="node" x="20" y="104" width="110" height="46" rx="8"/><text class="lbl" x="75" y="125" text-anchor="middle">User</text><text class="lbl-sm" x="75" y="142" text-anchor="middle">vector</text></g>
+            <g class="st" id="a-ann"><rect class="node-b" x="190" y="36" width="150" height="52" rx="9"/><text class="lbl" x="265" y="58" text-anchor="middle">ANN index</text><text class="lbl-sm" x="265" y="76" text-anchor="middle">HNSW · embeddings</text></g>
+            <g class="st" id="a-trend"><rect class="node" x="190" y="100" width="150" height="44" rx="8"/><text class="lbl-sm" x="265" y="126" text-anchor="middle">trending / popular</text></g>
+            <g class="st" id="a-fresh"><rect class="node" x="190" y="158" width="150" height="44" rx="8"/><text class="lbl-sm" x="265" y="184" text-anchor="middle">recent + follow graph</text></g>
+            <g class="st" id="a-merge"><rect class="node-b" x="410" y="100" width="100" height="52" rx="9"/><text class="lbl" x="460" y="122" text-anchor="middle">Merge</text><text class="lbl-sm" x="460" y="140" text-anchor="middle">+ dedup</text></g>
+            <g class="st" id="a-out"><rect class="node-r" x="560" y="100" width="70" height="52" rx="8"/><text class="lbl-sm" x="595" y="122" text-anchor="middle">~500</text><text class="lbl-sm" x="595" y="138" text-anchor="middle">cands</text></g>
+            <path id="a-p1" class="flow" d="M130 120 C 160 90, 170 70, 188 62" marker-end="url(#arrow)"/>
+            <path class="flow" d="M130 127 H 188" marker-end="url(#arrow)"/>
+            <path id="a-p3" class="flow" d="M130 134 C 160 164, 170 176, 188 180" marker-end="url(#arrow)"/>
+            <path class="flow" d="M340 62 C 375 92, 385 104, 408 116" marker-end="url(#arrow)"/>
+            <path id="a-p5" class="flow" d="M340 122 H 408" marker-end="url(#arrow)"/>
+            <path class="flow" d="M340 180 C 375 150, 385 138, 408 130" marker-end="url(#arrow)"/>
+            <path id="a-p7" class="flow" d="M510 126 H 558" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: parallel sources feed a merge step that emits ~500 candidates</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Exact KNN</h4><ul>
+          <li>Always returns the true nearest items</li>
+          <li>O(N) per query — scans the whole corpus</li>
+          <li>Infeasible at a billion vectors and 60k QPS</li>
+        </ul></div>
+        <div class="col"><h4>Approximate NN (HNSW)</h4><ul>
+          <li>~log(N) hops via a navigable graph — milliseconds</li>
+          <li>Tiny, tunable recall loss (efSearch trades speed vs recall)</li>
+          <li>Good enough because ranking re-sorts anyway</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Failure mode</span>
+        <p>The ANN index is RAM-resident and sharded — if a shard dies, you lose the candidates it held. Mitigate with replicas per shard and by always merging in the (separately served) trending/recent sources, so a degraded ANN tier still yields a non-empty, reasonable candidate set. New items won't be in the index until the next build/upsert, which is exactly the freshness problem step 09 addresses.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Deep dive · features</div>
+      <h2>The feature store</h2>
+      <p>Ranking needs <em>features</em> — the numbers the model reads to score a (user, item) pair: the user's watch history summary, the item's recent click-through rate, the time of day, whether the languages match, and so on. The bottleneck: the model runs on the online request path with a few-millisecond budget, but many features are expensive to compute (a 7-day average watch time is an aggregation over billions of events). You cannot compute those live per request. Enter the <strong>feature store</strong>.</p>
+      <h3>What it is and the two halves</h3>
+      <p>A <strong>feature store</strong> is the system that computes, stores, and serves features consistently for both training and inference. It has two faces:</p>
+      <ul>
+        <li><strong>Offline store</strong> — large columnar tables in the data lake (Parquet on S3, queried via Spark). Holds the full history of feature values; used to build training datasets. Throughput matters, latency doesn't.</li>
+        <li><strong>Online store</strong> — a low-latency KV store (Redis, DynamoDB, Cassandra) holding only the <em>latest</em> value of each feature, keyed by <code>user_id</code> or <code>item_id</code>. Latency matters intensely; it's read on every request.</li>
+      </ul>
+      <p>Under the hood: streaming and batch jobs <strong>materialize</strong> features into both stores. A Flink job consuming the Kafka event stream updates <code>item_features:v_5521.ctr_1h</code> in near-real-time; a nightly Spark job recomputes <code>user_features.avg_watch_ms_7d</code>. At inference, the ranking service does one (batched) read against the online store to fetch the user row once and all ~500 item rows, then feeds them to the model. Tools: <strong>Feast</strong> (open source), <strong>Tecton</strong>, and the in-house stores at large shops (e.g. Michelangelo-style platforms). Knobs: per-feature <strong>TTL</strong> and freshness SLA, batch-read fan-out limits.</p>
+      <h3>The online/offline consistency problem</h3>
+      <p>This is the feature store's signature interview trap. The model is <em>trained</em> on feature values computed by the offline pipeline, but <em>served</em> values come from the online pipeline. If the two compute a feature even slightly differently — different time windows, different rounding, a bug in one path — the model sees one distribution in training and another at serving. That mismatch is <strong>training/serving skew</strong>, and it silently tanks model quality: the model is, in effect, being asked questions in a slightly different language than it studied.</p>
+      <p>The defenses:<br>(1) compute each feature with <strong>shared transformation code</strong> used by both paths, so there is one definition;<br>(2) for the strictest correctness, <strong>log the exact feature values used at serving time</strong> and train directly on those logged features ("log-and-wait"), which makes training data identical to what serving produced by construction;<br>(3) monitor feature distributions in production and alert when online drifts from offline.</p>
+      <h3>Precomputed embeddings live here too</h3>
+      <p>The user and item embeddings from step 05 are themselves features — precomputed offline (or in near-real-time for items) and pushed to the online store, so the request path never has to run the heavy embedding model. The user vector for ANN retrieval is read from exactly this online store.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "What's a feature store for?"</span>
+        <p>Answer: <em>"To serve the same features the model trained on, but fast enough for online inference — and to guarantee the training and serving values match. It splits into an offline store for building datasets and an online store for sub-millisecond reads; its job is killing training/serving skew while hitting the latency budget."</em></p>
+      </div>
+    </section>
+
+    <!-- 7 — INTERACTIVE -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Deep dive · serving</div>
+      <h2>Ranking and serving a model in milliseconds</h2>
+      <p>Now the second stage. We have ~500 candidates and a feature store. Ranking scores each candidate with a model and sorts. The bottleneck is the one the interviewer will press hardest: <em>how do you run an ML model over 500 items inside a few-millisecond budget, 60,000 times a second?</em></p>
+      <h3>The model and what it predicts</h3>
+      <p>The <strong>ranking model</strong> predicts the probability the user will perform the target action on each candidate — for a video feed, something like <em>P(watch &gt; X seconds)</em> or expected watch time; for Shopee, <em>P(click) × P(purchase | click)</em>. It reads dozens-to-hundreds of features per (user, item) pair: user features (read once), item features (read per candidate), and cross/context features (language match, hour, geo). Architectures range from gradient-boosted trees (XGBoost / LightGBM — cheap, strong tabular baseline) to deep neural nets (the typical choice at scale, e.g. a wide-and-deep or two-tower-plus-DNN). The output is one score per candidate; sort descending, apply re-ranking policy, take top-10.</p>
+      <h3>How you make inference fast</h3>
+      <p>The few-millisecond budget is met by a stack of techniques, not one trick:</p>
+      <ul>
+        <li><strong>Batch the candidates.</strong> Score all ~500 in a single forward pass (one big matrix), not 500 calls. This is the single biggest win — it amortizes overhead and saturates the hardware.</li>
+        <li><strong>Precompute the heavy half.</strong> The item-side embeddings/features are already computed offline; the online model only combines them with the user/context — far less work than computing features live.</li>
+        <li><strong>A dedicated inference service.</strong> Serve the model behind <strong>TensorFlow Serving</strong>, <strong>NVIDIA Triton</strong>, or <strong>TorchServe</strong>, on CPU for trees / GPU for big nets, separate from the orchestrator so it scales independently.</li>
+        <li><strong>Optimize the model.</strong> Quantization (float32 → int8), distillation to a smaller student model, and compilation (ONNX Runtime, TensorRT) cut latency several-fold.</li>
+        <li><strong>Cache where safe.</strong> Cache a user's full ranked page for a few seconds so rapid re-requests (scroll-up, retries) don't re-rank.</li>
+      </ul>
+      <h3>The latency budget, allocated</h3>
+      <p>Make the p99 &lt; 200&nbsp;ms concrete by handing each hop a slice: candidate retrieval ~20&nbsp;ms, feature fetch ~15&nbsp;ms, model inference ~30&nbsp;ms, re-ranking + assembly ~10&nbsp;ms, with the rest as network and headroom. If any stage threatens its slice, it returns what it has — partial candidates, stale features, a fallback score — rather than blowing the budget. Latency is a hard contract, not a best-effort target.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-serve">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive ranking flow: orchestrator fetches features and runs model inference within a latency budget">
+            <g class="st" id="r-orch"><rect class="node-b" x="20" y="100" width="120" height="52" rx="9"/><text class="lbl" x="80" y="122" text-anchor="middle">Rec service</text><text class="lbl-sm" x="80" y="140" text-anchor="middle">orchestrator</text></g>
+            <g class="st" id="r-cand"><rect class="node" x="20" y="24" width="120" height="44" rx="8"/><text class="lbl-sm" x="80" y="50" text-anchor="middle">~500 candidates</text></g>
+            <g class="st" id="r-feat"><rect class="node" x="225" y="36" width="150" height="50" rx="8"/><text class="lbl" x="300" y="58" text-anchor="middle">Feature store</text><text class="lbl-sm" x="300" y="75" text-anchor="middle">online (Redis)</text></g>
+            <g class="st" id="r-model"><rect class="node-b" x="225" y="160" width="150" height="54" rx="9"/><text class="lbl" x="300" y="182" text-anchor="middle">Inference svc</text><text class="lbl-sm" x="300" y="200" text-anchor="middle">batched · GPU</text></g>
+            <g class="st" id="r-topk"><rect class="node-r" x="470" y="100" width="150" height="52" rx="9"/><text class="lbl" x="545" y="122" text-anchor="middle">Re-rank → top-10</text><text class="lbl-sm" x="545" y="140" text-anchor="middle">policy + diversity</text></g>
+            <path id="r-p1" class="flow" d="M80 100 V 70" marker-end="url(#arrow)"/>
+            <path id="r-p2" class="flow" d="M140 116 C 180 90, 200 70, 223 62" marker-end="url(#arrow)"/>
+            <path id="r-p3" class="flow-d" d="M225 72 C 190 100, 170 120, 142 128" marker-end="url(#arrow-s)"/>
+            <path id="r-p4" class="flow" d="M140 140 C 180 165, 200 180, 223 184" marker-end="url(#arrow)"/>
+            <path id="r-p5" class="flow-d" d="M223 196 C 190 160, 175 145, 142 134" marker-end="url(#arrow-s)"/>
+            <path id="r-p6" class="flow" d="M140 126 H 468" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="300" y="112" text-anchor="middle">scores → sort</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: orchestrator fetches features, batches inference, re-ranks to top-10</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "How do you serve a model in a few ms?"</span>
+        <p>Hit four words: <em>batch, precompute, optimize, isolate.</em> Batch all candidates into one forward pass; precompute embeddings/features offline so the online model does minimal work; optimize the model (quantize/distill/compile); isolate it behind a dedicated, independently-scaled inference service on the right hardware.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> The loop</div>
+      <h2>The training loop, skew, and A/B testing</h2>
+      <p>So far the model is a magic box that scores well. Where does it come from, and how do you know it's actually good? This is the offline-train / online-serve loop, and it's where the system <em>improves</em> over time.</p>
+      <h3>Generating training data from logs</h3>
+      <p>Every page you serve emits <strong>impression</strong> events (what was shown, in what position, with which model version) and, moments later, <strong>engagement</strong> events (watched, clicked, purchased, or ignored). Joining impressions to engagements produces labeled examples: <em>this (user, item, features-at-serving-time) pair → label = watched/not-watched.</em> An item shown and ignored is a <strong>negative</strong>; one engaged with is a <strong>positive</strong>. This labeled stream — gigabytes to terabytes a day — flows through Kafka into the data lake and becomes the next training set. The model never stops getting fresh ground truth, because the act of serving generates it.</p>
+      <h3>Train, then deploy</h3>
+      <p>Offline, a training job (Spark for feature joins, then PyTorch/TensorFlow or XGBoost) fits a new model on recent logged data, validates it against held-out data, and — if it beats the incumbent on offline metrics like AUC — promotes it to a candidate for online testing. The model is versioned (<code>rank_v37</code>) and pushed to the inference service. Cadence ranges from daily full retrains to continuous/online updates for fast-moving surfaces.</p>
+      <h3>Online vs offline skew (again, but bigger)</h3>
+      <p>Beyond feature-value skew (step 06), there's a subtler trap: <strong>the model affects its own training data.</strong> Users can only engage with items the current model <em>chose to show</em> — so the logs are biased toward the incumbent's taste. A genuinely great item the old model never surfaced has no positive examples, so the new model never learns to like it either. This is <strong>feedback-loop / selection bias</strong>. Mitigations: inject a small fraction of <strong>randomized or exploratory</strong> recommendations (explore/exploit) so the logs contain unbiased signal, and weight examples by inverse-propensity to correct for it.</p>
+      <h3>A/B testing: the only real verdict</h3>
+      <p>Offline AUC going up does <em>not</em> prove the new model is better for the business — offline metrics and online behavior diverge constantly. So you <strong>A/B test</strong>: route, say, 1% of users to the new model (treatment), keep the rest on the old (control), and compare on <strong>online metrics</strong> — CTR, average watch time, session length, retention, and for Shopee/GrabPay, conversion and GMV. The <code>model_version</code> carried in every event (step 03) is what lets you attribute each engagement to the right arm. Only a statistically significant lift, with no regression in guardrail metrics, earns a full rollout.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 260" role="img" aria-label="Offline training loop connected to online serving via logs, model deployment, and A/B testing">
+            <rect x="24" y="20" width="592" height="100" rx="10" fill="none" stroke="#4A7BA6" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="40" y="40" fill="#4A7BA6">OFFLINE</text>
+            <rect class="node" x="44" y="52" width="120" height="48" rx="8"/><text class="lbl-sm" x="104" y="80" text-anchor="middle">data lake (logs)</text>
+            <rect class="node" x="210" y="52" width="120" height="48" rx="8"/><text class="lbl-sm" x="270" y="80" text-anchor="middle">train + validate</text>
+            <rect class="node-b" x="376" y="52" width="120" height="48" rx="8"/><text class="lbl-sm" x="436" y="80" text-anchor="middle">model registry</text>
+            <path class="flow" d="M164 76 H 208" marker-end="url(#arrow)"/>
+            <path class="flow" d="M330 76 H 374" marker-end="url(#arrow)"/>
+            <rect x="24" y="150" width="592" height="92" rx="10" fill="none" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="40" y="170" fill="#B0532F">ONLINE</text>
+            <rect class="node-r" x="44" y="182" width="130" height="44" rx="8"/><text class="lbl-sm" x="109" y="208" text-anchor="middle">inference (A/B)</text>
+            <rect class="node" x="230" y="182" width="120" height="44" rx="8"/><text class="lbl-sm" x="290" y="208" text-anchor="middle">serve feed</text>
+            <rect class="node" x="406" y="182" width="150" height="44" rx="8"/><text class="lbl-sm" x="481" y="208" text-anchor="middle">log impressions/clicks</text>
+            <path class="flow-r" d="M436 100 V 180" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="470" y="142" text-anchor="start" fill="#B0532F">deploy</text>
+            <path class="flow" d="M174 204 H 228" marker-end="url(#arrow)"/>
+            <path class="flow" d="M350 204 H 404" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M481 182 C 470 150, 200 150, 104 102" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="300" y="136" text-anchor="middle" fill="#4A7BA6">feedback → next training set</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — the closed loop: serve, log, train, deploy, repeat — proven by A/B test</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Your offline metric improved but the A/B test was flat or negative — what happened?" Strong answers: offline/online metric mismatch, feedback-loop bias (the model can't be rewarded for items it never showed), a feature available offline but not online (leakage), or a novelty effect that fades. Naming feedback-loop bias unprompted is a senior signal.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Real-world edges</div>
+      <h2>Cold start, diversity, and freshness</h2>
+      <p>A funnel that only knows about well-established users and items produces a stale, repetitive, homogeneous feed. Three classic problems, each with a concrete fix, separate a textbook answer from a real one.</p>
+      <h3>Cold start</h3>
+      <p>The <strong>cold-start problem</strong>: a brand-new user has no history, so there's no embedding to query ANN with; a brand-new item has no engagement stats, so the model has nothing to score and ANN doesn't index it yet. Fixes:</p>
+      <ul>
+        <li><strong>New user:</strong> fall back to <strong>popular/trending in their geo</strong> (trending in SG, in their language), optionally seeded by a quick onboarding interest pick or signup-time signals (device, locale, referral). As they interact, an embedding forms and personalization kicks in within a few sessions.</li>
+        <li><strong>New item:</strong> bootstrap with <strong>content-based features</strong> — derive an initial embedding from the item's content (caption, audio, category, seller) rather than behavior, and give it a deliberate <strong>exploration budget</strong> (force some impressions) so it can earn real engagement data and graduate into the behavioral model.</li>
+      </ul>
+      <h3>Diversity (the filter bubble)</h3>
+      <p>Pure score-maximization collapses into a monotonous feed — ten dance videos in a row, or the same three sellers. That actually <em>hurts</em> long-term engagement. Inject <strong>diversity</strong> in the re-ranking stage: penalize candidates too similar to ones already placed (e.g. maximal-marginal-relevance), cap items per author/category per page, and reserve slots for exploration. This is a deliberate, small sacrifice of immediate predicted score for healthier sessions.</p>
+      <h3>Freshness</h3>
+      <p>For TikTok, Shopee flash sales, or breaking content, a video or SKU from minutes ago must be eligible. Two mechanisms: keep a dedicated <strong>recent</strong> candidate source backed by a near-real-time index that ingests new items in seconds; and stream <strong>real-time item features</strong> (last-hour CTR, completion rate) into the online feature store via Flink so the ranker can react to a video going viral right now, not tomorrow.</p>
+      <h3>Graceful degradation &amp; fallbacks</h3>
+      <p>The availability requirement made concrete: at every stage, define what happens when it's slow or down. If the ANN tier is degraded, still return trending. If the feature store times out, score with default/last-known features. If the inference service is unavailable, <strong>fall back to a non-personalized popular/trending feed</strong> — a static list refreshed every few minutes. The cardinal rule: <em>a recommender must never show an empty screen.</em> A slightly worse feed is infinitely better than a spinner.</p>
+      <div class="callout">
+        <span class="k">Worked scenario · Shopee 9.9 sale</span>
+        <p>During a SG mega-sale, traffic spikes 5×, thousands of flash-sale SKUs appear and sell out within minutes, and the ranking model is overwhelmed. The system holds up because: freshness streams the new SKUs into the recent source instantly; real-time features mark sold-out items so they drop out within seconds; and if inference saturates, the home rail degrades to a curated trending-deals list rather than failing. Users still see a sensible page.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Wrap-up</div>
+      <h2>Scaling, failure modes, and what breaks at 10x</h2>
+      <p>Pull it together and pressure-test. The serving path is <strong>stateless and horizontally scalable</strong> behind a load balancer: the orchestrator, candidate-generation, feature, and inference services each scale out independently because they hold no per-user state — all state lives in the ANN index, the feature store, and the model registry. That separation is what lets you 10x one bottleneck without touching the others.</p>
+      <h3>Where the caches sit</h3>
+      <ul>
+        <li><strong>Feed cache</strong> — a user's freshly-ranked page, cached for a few seconds to absorb scroll-up and retries.</li>
+        <li><strong>Feature cache</strong> — hot item features (a viral video's stats) read by everyone; cache them at the edge of the feature tier.</li>
+        <li><strong>Candidate cache</strong> — for users querying repeatedly within seconds, reuse the retrieved candidate set and just re-rank.</li>
+      </ul>
+      <h3>What breaks at 10x</h3>
+      <ul>
+        <li><strong>The ANN index outgrows RAM.</strong> At 5B items the vectors no longer fit on a small shard set. Fix: shard the index by item partition and fan-out-query in parallel, or compress vectors (product quantization in FAISS) trading a little recall for a lot of memory.</li>
+        <li><strong>The inference fleet becomes the cost center.</strong> 10x QPS × the same per-request candidate count is the dominant compute bill. Fix: cap candidates harder (rank 200 not 500), distill to a cheaper model, and add the cheap pre-ranking stage between retrieval and full ranking to cut what the heavy model sees.</li>
+        <li><strong>The feature store hot-keys.</strong> A viral video's feature row is read by millions/second, hot-spotting one shard. Fix: replicate hot keys, add a local in-process cache, and use consistent hashing with hot-key spreading.</li>
+        <li><strong>The training data outpaces the pipeline.</strong> 10x logs can stall the daily retrain. Fix: sample negatives aggressively, move to incremental/online training, and pre-aggregate features in the stream.</li>
+      </ul>
+      <h3>Failure modes, named</h3>
+      <p>What happens when a node dies? An <strong>inference node</strong> dies → the LB drops it; in-flight requests retry on a peer, and if the whole fleet is unhealthy, fall back to trending. An <strong>ANN shard</strong> dies → a replica serves it; if none, that partition's candidates are simply missing and the other sources fill in. The <strong>feature store</strong> hiccups → serve with stale/default features. The <strong>training pipeline</strong> fails → no new model deploys, but the current one keeps serving — staleness, not an outage. The theme: <em>every dependency has a degraded mode that keeps the feed alive.</em></p>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>cheaply retrieve a few hundred candidates from billions using vector search, score them with a feature-rich model inside a tight latency budget, then keep the loop honest with logged feedback and A/B tests.</em> If you can draw the funnel, name what each stage optimizes, and explain training/serving skew and the cold-start fallback, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Feed ≠ recommender</b><span>Timelines fan-out and sort by time; recommenders personalize and rank an unbounded corpus.</span></div>
+        <div class="tk"><span class="num">02</span><b>Read-heavy, latency-bound</b><span>Precompute everything offline; keep the online path to retrieval + fast inference.</span></div>
+        <div class="tk"><span class="num">03</span><b>Two-stage funnel</b><span>Cheap retrieval over billions, then expensive ranking over hundreds. Compute where it matters.</span></div>
+        <div class="tk"><span class="num">04</span><b>Embeddings + ANN</b><span>Users/items as vectors; retrieve nearest neighbors approximately (HNSW) for milliseconds, not minutes.</span></div>
+        <div class="tk"><span class="num">05</span><b>Blend candidate sources</b><span>ANN + trending + recent + follow graph, merged and deduped — covers each other's blind spots.</span></div>
+        <div class="tk"><span class="num">06</span><b>Feature store</b><span>Offline for training, online for serving; one definition of each feature kills training/serving skew.</span></div>
+        <div class="tk"><span class="num">07</span><b>Fast inference</b><span>Batch all candidates, precompute, optimize the model, isolate behind a dedicated service.</span></div>
+        <div class="tk"><span class="num">08</span><b>Serve → log → train</b><span>Logs become labels; only an A/B-tested online lift proves a new model is actually better.</span></div>
+        <div class="tk"><span class="num">09</span><b>Cold start &amp; diversity</b><span>Fall back to popular for new users/items; inject diversity and freshness in re-ranking.</span></div>
+        <div class="tk"><span class="num">10</span><b>Never show empty</b><span>Every dependency has a degraded mode; the worst feed beats a spinner.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) How does a recommender differ from a reverse-chron news feed, and why does that change the architecture?<br>(2) Why two stages instead of one model scoring the whole corpus — what does each stage optimize?<br>(3) What is an embedding, and why is ANN acceptable when exact KNN would be more correct?<br>(4) What is a feature store for, what are its two halves, and what is training/serving skew?<br>(5) How do you run a model over 500 candidates in a few milliseconds — name four techniques?<br>(6) Walk the new-item cold-start path and one thing the system does to never show an empty feed.<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw the funnel from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 31 · DESIGN A RECOMMENDATION / RANKING SYSTEM · interactive edition<br>
+      Original study notes on standard system-design fundamentals · SG context: TikTok / Shopee / Sea · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* two-stage funnel */
+  makeStepper(document.getElementById('fig-funnel'), [
+    {text:"The corpus holds ~1 billion items — far too many to score one by one.", active:["f-corpus"]},
+    {text:"Candidate generation cheaply narrows the corpus to a few hundred plausible items.", active:["f-corpus","f-cand"], path:"f-p1"},
+    {text:"The ranking model scores those few hundred with many features each.", active:["f-cand","f-rank"], path:"f-p2"},
+    {text:"Sort by score and return the top-k (about 10) for this page.", active:["f-rank","f-topk"], path:"f-p3"}
+  ]);
+
+  /* candidate generation via ANN */
+  makeStepper(document.getElementById('fig-ann'), [
+    {text:"Start from the user's precomputed embedding vector.", active:["a-user"]},
+    {text:"Query the ANN index (HNSW) for items whose vectors are nearest the user's.", active:["a-user","a-ann"], path:"a-p1"},
+    {text:"In parallel, pull trending/popular and recent + follow-graph candidates.", active:["a-user","a-trend","a-fresh"], path:"a-p3"},
+    {text:"Merge all sources and deduplicate into one candidate set.", active:["a-ann","a-trend","a-fresh","a-merge"], path:"a-p5"},
+    {text:"Emit ~500 candidates to the ranking stage.", active:["a-merge","a-out"], path:"a-p7"}
+  ]);
+
+  /* ranking & serving */
+  makeStepper(document.getElementById('fig-serve'), [
+    {text:"The orchestrator receives ~500 candidates from the retrieval stage.", active:["r-orch","r-cand"], path:"r-p1"},
+    {text:"It fetches the user row and all item feature rows from the online feature store.", active:["r-orch","r-feat"], path:"r-p2"},
+    {text:"Features come back in one batched read — fast enough for the latency budget.", active:["r-orch","r-feat"], path:"r-p3"},
+    {text:"It sends the whole batch to the inference service for one forward pass.", active:["r-orch","r-model"], path:"r-p4"},
+    {text:"The model returns one score per candidate; the orchestrator sorts them.", active:["r-orch","r-model"], path:"r-p5"},
+    {text:"Re-rank for diversity and policy, then return the top-10.", active:["r-orch","r-topk"], path:"r-p6"}
+  ]);
+</script>
+</body>
+</html>

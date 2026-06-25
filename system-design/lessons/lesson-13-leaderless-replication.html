@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 13 — Leaderless Replication &amp; Conflict Resolution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:18px 20px;
+    overflow-x:auto;margin:24px 0;font-family:"JetBrains Mono",monospace;font-size:13.5px;line-height:1.6;color:var(--ink);}
+  pre code{background:none;color:var(--ink);padding:0;font-size:13.5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Leaderless<br>Replication</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The leader bottleneck</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Going leaderless</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Quorums: W + R &gt; N</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Tuning W and R</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Sloppy quorums &amp; hinted handoff</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Read-repair ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Anti-entropy &amp; Merkle trees</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Concurrent writes &amp; conflicts</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Version vectors</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Resolving conflicts</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Where this lives</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">13</span><span>Lesson · System Design Interview</span></div>
+      <h1>Leaderless Replication &amp; Conflict Resolution</h1>
+      <p class="lede">Leader-based replication funnels every write through one node, so the leader is a throughput ceiling and its death opens a failover window where nobody can write. Dynamo-style leaderless replication deletes the leader: any replica accepts any write. You buy availability and write throughput — and you pay for it with conflicts you can no longer prevent, only detect and reconcile.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on leaderless replication and conflict resolution — standard, widely-documented distributed-systems fundamentals popularized by Amazon's Dynamo paper and its descendants. The explanations, numbers, pseudocode, and diagrams here are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>The leader bottleneck</h2>
+      <p>In <a href="lesson-04-database-replication.html">Lesson 04</a> we built leader-based (single-leader) replication: one node is the <strong>leader</strong>, it accepts all writes, and it streams a change log to a set of read-only <strong>followers</strong>. That model is correct, simple to reason about, and powers most relational deployments. But it has two structural weaknesses that get sharper the more you scale and the more you care about staying up.</p>
+      <p>First, the leader is a <strong>write bottleneck</strong>. Every mutation in the system has to land on one machine before it can be acknowledged. You can add followers all day and your read capacity grows, but write capacity is pinned to a single box's CPU, disk, and network. For a write-heavy workload — say GrabPay ingesting a flood of payment-ledger appends during a 11.11 sale, or a wallet that must record every micro-transaction — that one node becomes the thing the whole system waits on.</p>
+      <p>Second, and worse, is the <strong>failover window</strong>. When the leader dies, no writes can be accepted until a new leader is elected and promoted. Detecting the failure (a few seconds of missed heartbeats so you don't promote on a transient blip), agreeing on a new leader, and redirecting clients all take time — typically seconds, sometimes tens of seconds. During that window the system is read-only or fully down for writes. For a payments product where a declined top-up at checkout is a lost transaction and an angry customer, a recurring multi-second write outage on every leader failure is unacceptable.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A single leader is a write bottleneck and creates a failover window when it dies">
+            <rect class="node" x="24" y="86" width="96" height="46" rx="8"/>
+            <text class="lbl" x="72" y="114" text-anchor="middle">Clients</text>
+            <text class="lbl-sm" x="200" y="74" text-anchor="middle">ALL writes →</text>
+            <path class="flow-r" d="M122 100 H 250" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M122 110 H 250" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M122 120 H 250" marker-end="url(#arrow-r)"/>
+            <rect x="252" y="78" width="120" height="62" rx="10" fill="none" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 4"/>
+            <rect class="node-r" x="266" y="90" width="92" height="38" rx="7"/>
+            <text class="lbl" x="312" y="114" text-anchor="middle" fill="#B0532F">Leader</text>
+            <text class="lbl-sm" x="312" y="158" text-anchor="middle" fill="#B0532F">⚡ bottleneck + SPOF</text>
+            <rect class="node" x="446" y="34" width="150" height="40" rx="8"/>
+            <text class="lbl" x="521" y="59" text-anchor="middle">Follower</text>
+            <rect class="node" x="446" y="100" width="150" height="40" rx="8"/>
+            <text class="lbl" x="521" y="125" text-anchor="middle">Follower</text>
+            <rect class="node" x="446" y="166" width="150" height="40" rx="8"/>
+            <text class="lbl" x="521" y="191" text-anchor="middle">Follower</text>
+            <path class="flow-d" d="M372 100 C 410 70, 420 60, 444 54" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M372 112 H 444" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M372 124 C 410 150, 420 170, 444 184" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="404" y="95" text-anchor="middle">replication log</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one leader: every write queues behind it, and its death stops writes entirely</figcaption>
+      </figure>
+      <p>You can soften both with multi-leader replication, but that just moves the conflict problem around rather than solving it — and it still keeps the notion of designated leaders. The radical move is to ask: what if there is <em>no</em> leader at all?</p>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The pivot</div>
+      <h2>Going leaderless</h2>
+      <p>In <strong>leaderless replication</strong> — the model Amazon described in its 2007 Dynamo paper and that Cassandra, Riak, and Voldemort later implemented — there is no special node. Every replica is equal and every replica accepts writes directly. The data for a given key is stored on <strong>N</strong> replicas (the <strong>replication factor</strong>), and the client (or a <strong>coordinator</strong> node acting on the client's behalf) sends each write to all N and each read to all N rather than to one designated owner.</p>
+      <p>This immediately fixes both leader weaknesses. There is no single box every write funnels through, so write throughput scales with the cluster. And there is no failover: if one replica is down, the client simply talks to the others — there is no election to wait on, because nothing was special about the dead node. Availability stays high precisely because no node is load-bearing on its own.</p>
+      <h3>How a write and a read actually flow</h3>
+      <p>The mechanics are deliberately simple, which is part of the appeal. On a <strong>write</strong>, the coordinator fans the new value out to all N replicas in parallel and waits for a configurable number of them to acknowledge. On a <strong>read</strong>, the coordinator queries all N (or enough of them) in parallel and gathers whatever versions come back. The coordinator does <em>not</em> serialize writes through a primary — two clients can write the same key at essentially the same instant, and both writes are accepted by whatever replicas they reach. That is the source of the system's power and, as we will see, the source of its conflicts.</p>
+      <h3>Who coordinates — client or node?</h3>
+      <p>There are two flavors of "the coordinator." In the <strong>client-driven</strong> style the client library itself knows the cluster topology, computes which N nodes own the key (via consistent hashing, <a href="lesson-11-consistent-hashing.html">Lesson 11</a>), and fans the requests out directly. In the more common <strong>server-coordinated</strong> style the client sends one request to <em>any</em> node, and that node becomes the coordinator for that operation — it forwards to the N replicas, gathers responses, and replies. The choice is a trade between a fat, topology-aware client (one fewer network hop, but the client must track the ring) and a thin client (any node will do the work, at the cost of an extra internal hop). Cassandra uses server-side coordination; a node receiving a request acts as coordinator regardless of whether it owns the key.</p>
+      <p>The obvious worry: if a replica was down during a write, it now holds stale data; if a client reads only the replicas that missed the write, it sees an old value. Leaderless systems do not prevent this — they accept it and add machinery to <em>repair</em> it. The first and most important piece of that machinery is the quorum.</p>
+      <div class="callout">
+        <span class="k">The core trade</span>
+        <p>Leader-based replication <em>prevents</em> conflicting writes by routing them through one ordering point. Leaderless replication <em>allows</em> conflicts and <em>resolves</em> them after the fact. Every other idea in this lesson — quorums, hinted handoff, read-repair, anti-entropy, version vectors — exists to make "allow then repair" safe enough to bet a database on.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The consistency knob</div>
+      <h2>Quorums: why W + R &gt; N works</h2>
+      <p>Writing to "some replicas" and reading from "some replicas" only gives you a useful guarantee if the two sets are forced to overlap. That is exactly what a <strong>quorum</strong> does. Pick three numbers:</p>
+      <ul>
+        <li><strong>N</strong> — the replication factor: how many replicas store each key.</li>
+        <li><strong>W</strong> — the <strong>write quorum</strong>: how many replicas must acknowledge a write before the coordinator calls it a success.</li>
+        <li><strong>R</strong> — the <strong>read quorum</strong>: how many replicas the coordinator must hear back from on a read.</li>
+      </ul>
+      <p>The magic condition is <strong>W + R &gt; N</strong>. When it holds, the set of replicas that accepted the latest write and the set of replicas a read consults are guaranteed to share <em>at least one</em> node — by the pigeonhole principle, two subsets of an N-element set whose sizes add up to more than N must intersect. That one overlapping replica is holding the freshest write, so as long as the read collects versions from all R replicas and keeps the newest, it will see the latest write. This is how a leaderless system delivers <strong>strong-ish consistency</strong> on top of nodes that individually accept writes with no coordination.</p>
+      <h3>Under the hood: how the read picks the winner</h3>
+      <p>The overlap guarantees that the latest value is <em>present</em> in the read set, but it does not magically tell the coordinator which returned value is newest. Each stored value carries a version stamp (a timestamp, or a version vector — see Section 08). The coordinator gathers all R responses, compares their versions, and returns the most recent. The stale replicas it noticed along the way get fixed by read-repair (Section 05). So the quorum is two cooperating mechanisms: an overlap rule that guarantees the fresh value is somewhere in the read set, and a versioning scheme that lets the reader recognize it.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Three replicas with N equals 3, a write reaching two of them and a read reaching two of them, overlapping on one node">
+            <text class="lbl-sm" x="320" y="24" text-anchor="middle">N = 3 · W = 2 · R = 2 · W + R = 4 &gt; 3 ✓</text>
+            <circle class="node-b" cx="160" cy="120" r="42"/>
+            <text class="lbl" x="160" y="118" text-anchor="middle">R1</text>
+            <text class="lbl-sm" x="160" y="134" text-anchor="middle">v2</text>
+            <circle class="node-b" cx="320" cy="120" r="42"/>
+            <text class="lbl" x="320" y="118" text-anchor="middle">R2</text>
+            <text class="lbl-sm" x="320" y="134" text-anchor="middle">v2</text>
+            <circle class="node" cx="480" cy="120" r="42"/>
+            <text class="lbl" x="480" y="118" text-anchor="middle">R3</text>
+            <text class="lbl-sm" x="480" y="134" text-anchor="middle">v1 (stale)</text>
+            <path class="flow" d="M120 70 C 120 88, 130 96, 142 104" marker-end="url(#arrow)"/>
+            <path class="flow" d="M360 70 C 360 88, 350 96, 338 104" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="240" y="58" text-anchor="middle">WRITE v2 → R1, R2 (W=2 ack)</text>
+            <path class="flow-r" d="M180 168 C 200 188, 290 188, 308 168" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="244" y="206" text-anchor="middle" fill="#B0532F">READ from R2, R3 (R=2)</text>
+            <path class="flow-r" d="M338 168 C 380 200, 440 188, 480 168" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="320" y="240" text-anchor="middle">R2 overlaps the write set → read sees v2</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — with W + R &gt; N the write set and read set always share a node, so the read sees the latest write</figcaption>
+      </figure>
+      <h3>A worked example</h3>
+      <p>Take the common default <strong>N = 3, W = 2, R = 2</strong>. A write must be acknowledged by 2 of the 3 replicas to succeed; a read must hear from 2 of the 3. Suppose a write of <code>balance = v2</code> lands on R1 and R2 (that is 2 acks, so the write succeeds) while R3 was briefly unreachable and still holds <code>v1</code>. Now a read consults R2 and R3. R2 returns <code>v2</code>, R3 returns the stale <code>v1</code>. Because W + R = 4 &gt; 3, the read set <em>had</em> to include at least one node from the write set — here it is R2 — so the newest value is in hand. The coordinator compares versions, returns <code>v2</code>, and (via read-repair) pushes <code>v2</code> back to R3.</p>
+      <div class="callout">
+        <span class="k">Under the hood: the partial-write problem</span>
+        <p>A subtlety interviewers love to corner you with: there is <strong>no rollback</strong> in a leaderless write. Suppose W = 2 but only 1 of the 3 replicas acknowledges before the coordinator gives up — the write is reported as <em>failed</em> to the client, yet that one replica already durably stored the new value and the system does <em>not</em> undo it. A later read can therefore surface a value from a write that "failed." Worse, if you read that key right after, the answer depends on which replicas you happen to consult. This is why quorum reads alone aren't linearizability: a failed-but-partially-applied write blurs the line. Real systems live with it because the repair machinery (read-repair, anti-entropy) eventually propagates that orphaned value to all replicas anyway — the write becomes durable in retrospect rather than being cleaned up.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p><em>"What does W + R &gt; N actually guarantee — and what does it NOT?"</em> It guarantees that a read overlaps the most recent <em>successful</em> write, so you won't read a value older than the last completed write. It does <strong>not</strong> guarantee linearizability, it does <strong>not</strong> stop two concurrent writes from conflicting, and the guarantee gets fuzzy under sloppy quorums (Section 04) and partial write failures (a write that got 1 ack out of a needed 2 leaves some replicas updated and some not, with no rollback). Say that out loud and you have shown you understand the limits, which is what the question is really probing.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Tuning the knob</div>
+      <h2>Tuning W and R for your workload</h2>
+      <p>The beauty of separating N, W, and R is that they are <strong>tunable per operation</strong>. As long as you respect W + R &gt; N for strong reads, you can slide the cost between writes and reads to match traffic. The intuition: a larger quorum is more durable and consistent but slower and less available (you must wait for more nodes, and you fail if too many are down); a smaller quorum is faster and more available but weaker.</p>
+      <h3>Read-heavy vs write-heavy</h3>
+      <p>If your workload is <strong>read-heavy</strong> — a product catalog, a user-profile service hit on every Shopee page load — you want cheap reads. Set <strong>R = 1</strong> and <strong>W = N</strong>. Reads touch a single replica (fast, highly available), and the cost is moved onto writes, which must reach every replica. With W = N = 3 and R = 1, the overlap still holds (3 + 1 &gt; 3). The downside: writes now fail if even one replica is down, so this trades write availability for cheap reads.</p>
+      <p>If your workload is <strong>write-heavy</strong> — an event log, a metrics ingest pipeline, a wallet append stream — flip it: <strong>W = 1</strong> (well, usually W = 2 to keep a little overlap room) and a larger R. Writes are accepted as soon as one or two replicas ack, so ingest stays fast and available even when nodes are flaky, and reads pay the price of consulting more replicas.</p>
+      <div class="vs">
+        <div class="col"><h4>Larger quorum (e.g. W or R = N)</h4><ul>
+          <li>Stronger consistency, more durable</li>
+          <li>Higher latency — wait for more nodes</li>
+          <li>Lower availability — fails if a few nodes are down</li>
+          <li>Good when correctness &gt; speed for that op</li>
+        </ul></div>
+        <div class="col"><h4>Smaller quorum (e.g. W or R = 1)</h4><ul>
+          <li>Lower latency, higher availability</li>
+          <li>Weaker freshness — may miss the newest write</li>
+          <li>Survives more node failures</li>
+          <li>Good when speed/uptime &gt; strict freshness</li>
+        </ul></div>
+      </div>
+      <p>The latency story is subtle and worth saying explicitly: the coordinator sends to all N replicas regardless, and the operation's latency is governed by the <strong>W-th (or R-th) fastest</strong> response, not the slowest. A larger quorum waits for slower nodes, so a single straggling replica drags up your tail latency more as W and R grow. This is why a read-heavy system often sets R = 1 even when it could afford R = 2 — it shaves the tail.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>If you set <strong>W + R ≤ N</strong> on purpose — say N = 3, W = 1, R = 1 — you have chosen <em>eventual consistency</em>: lower latency and higher availability, but a read may return stale data because the read and write sets can miss each other entirely. That is a legitimate, common choice (think a "last seen online" timestamp). The interviewer wants to hear that you know it is a deliberate trade, not a bug. Connect it back to <a href="lesson-12-cap-pacelc-consistency.html">Lesson 12</a>: quorums are the dial that moves you along the CAP/PACELC spectrum.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Availability machinery</div>
+      <h2>Sloppy quorums &amp; hinted handoff</h2>
+      <p>A strict quorum has a brittle edge. Suppose N = 3 and W = 2, but a network partition cuts the client off from two of the three <strong>home replicas</strong> (the nodes that actually own this key by the partitioning scheme — see <a href="lesson-11-consistent-hashing.html">Lesson 11</a>). The client can reach plenty of <em>other</em> nodes in the cluster, just not the two it needs. Under a strict quorum the write fails: not enough home replicas are reachable. But that feels wasteful — there are healthy nodes right there willing to accept the data.</p>
+      <h3>Sloppy quorum: accept writes on stand-ins</h3>
+      <p>A <strong>sloppy quorum</strong> relaxes the rule: as long as the coordinator can reach <em>any</em> W nodes in the cluster, the write succeeds — even if some of those nodes are not among the key's home replicas. The reachable-but-wrong nodes accept the write to keep the system available. This raises write availability dramatically during partitions, which is exactly what a Dynamo-style store is built to optimize for.</p>
+      <h3>Hinted handoff: replay the data home later</h3>
+      <p>The stand-in node knows it is not the rightful owner, so it stores the value along with a <strong>hint</strong> — a note recording which home replica this data really belongs to. This is <strong>hinted handoff</strong>. The stand-in holds the data temporarily and, the moment it detects that the proper home replica has recovered, it forwards (hands off) the value to it and deletes its local hinted copy. The data finds its way home asynchronously; the client never had to wait.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="A write destined for a down home replica is stored on a stand-in node with a hint, then handed off when the home replica recovers">
+            <rect class="node" x="20" y="96" width="92" height="44" rx="8"/>
+            <text class="lbl" x="66" y="123" text-anchor="middle">Client</text>
+            <rect x="372" y="20" width="120" height="58" rx="10" fill="none" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 4"/>
+            <rect class="node-r" x="386" y="30" width="92" height="38" rx="7"/>
+            <text class="lbl" x="432" y="54" text-anchor="middle" fill="#B0532F">Home R3</text>
+            <text class="lbl-sm" x="432" y="92" text-anchor="middle" fill="#B0532F">⚡ down / partitioned</text>
+            <rect class="node-b" x="200" y="150" width="150" height="50" rx="9"/>
+            <text class="lbl" x="275" y="172" text-anchor="middle">Stand-in N9</text>
+            <text class="lbl-sm" x="275" y="190" text-anchor="middle">holds value + hint</text>
+            <path class="flow" d="M112 120 C 150 130, 165 142, 200 158" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="150" y="155" text-anchor="middle">write</text>
+            <path class="flow-r" d="M112 110 C 200 50, 300 44, 384 44" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="230" y="36" text-anchor="middle" fill="#B0532F">R3 unreachable ✗</text>
+            <path class="flow-d" d="M340 158 C 400 120, 420 90, 440 80" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="430" y="130" text-anchor="middle">hand off when</text>
+            <text class="lbl-sm" x="430" y="146" text-anchor="middle">R3 recovers</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — hinted handoff: a stand-in absorbs the write, then replays it to the real owner on recovery</figcaption>
+      </figure>
+      <h3>The catch: a sloppy quorum is not a real quorum</h3>
+      <p>While the data is sitting on a stand-in, the W + R &gt; N overlap guarantee is <em>suspended</em>. A read that consults only the home replicas can completely miss a write that is currently parked on a stand-in, because the stand-in is not in the read set. So a sloppy quorum buys write availability at the cost of a weaker freshness guarantee during failures — it is "we'll durably accept your write somewhere" rather than "your write is on the canonical replicas." In Cassandra this exact behavior is configurable per-keyspace; DynamoDB and Riak implement hinted handoff as a default availability feature.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p><em>"How do replicas catch up after a partition heals?"</em> Three mechanisms stack up: <strong>hinted handoff</strong> replays writes that were parked on stand-ins; <strong>read-repair</strong> (next section) fixes stale replicas opportunistically whenever they are read; and <strong>anti-entropy</strong> (Section 06) is the background sweep that catches everything the first two missed. Name all three and explain that hinted handoff handles the recent stuff while anti-entropy is the safety net for cold, rarely-read keys.</p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Repair on the read path</div>
+      <h2>Read-repair</h2>
+      <p>Quorums guarantee a read <em>sees</em> the latest value, but on their own they leave stale replicas stale. If R3 missed a write, it keeps serving old data until something corrects it — and the next read that happens to pick a different pair of replicas could get unlucky. <strong>Read-repair</strong> is the cheap, opportunistic fix: whenever a read discovers that the replicas disagree, it writes the freshest value back to the stale ones <em>inline</em>, as part of serving that read.</p>
+      <p>The mechanism is elegant because it piggybacks on work you are already doing. The coordinator was going to read R replicas anyway; it compares their versions, returns the newest to the client, and — noticing R3 is behind — fires an extra write to R3 to bring it up to date. No separate process, no schedule. Frequently-read keys effectively self-heal: the more a key is read, the faster its stale replicas converge.</p>
+      <p>The interactive figure below walks the full leaderless round trip end to end — a <code>PUT</code> fanned out to N replicas waiting for W acks, then a <code>GET</code> that reads R replicas, detects a stale one, and read-repairs it. Step through it, then try to predict each step before you reveal it.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-rr">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive leaderless write and read with read-repair animation">
+            <g class="st" id="rr-client"><rect class="node" x="18" y="112" width="92" height="46" rx="8"/><text class="lbl" x="64" y="140" text-anchor="middle">Client</text></g>
+            <g class="st" id="rr-coord"><rect class="node-b" x="160" y="106" width="120" height="58" rx="9"/><text class="lbl" x="220" y="131" text-anchor="middle">Coordinator</text><text class="lbl-sm" x="220" y="149" text-anchor="middle">N=3 W=2 R=2</text></g>
+            <g class="st" id="rr-r1"><rect class="node" x="468" y="20" width="150" height="46" rx="8"/><text class="lbl" x="543" y="42" text-anchor="middle">R1</text><text class="lbl-sm" x="543" y="58" text-anchor="middle">v2</text></g>
+            <g class="st" id="rr-r2"><rect class="node" x="468" y="112" width="150" height="46" rx="8"/><text class="lbl" x="543" y="134" text-anchor="middle">R2</text><text class="lbl-sm" x="543" y="150" text-anchor="middle">v2</text></g>
+            <g class="st" id="rr-r3"><rect class="node-r" x="468" y="204" width="150" height="46" rx="8"/><text class="lbl" x="543" y="226" text-anchor="middle">R3</text><text class="lbl-sm" x="543" y="242" text-anchor="middle">v1 stale</text></g>
+            <path id="rr-pin" class="flow" d="M110 135 H 158" marker-end="url(#arrow)"/>
+            <path id="rr-w1" class="flow" d="M280 120 C 360 70, 400 52, 466 44" marker-end="url(#arrow)"/>
+            <path id="rr-w2" class="flow" d="M280 135 H 466" marker-end="url(#arrow)"/>
+            <path id="rr-rd" class="flow-r" d="M280 145 C 360 200, 400 220, 466 230" marker-end="url(#arrow-r)"/>
+            <path id="rr-fix" class="flow-d" d="M300 160 C 380 230, 420 244, 466 240" marker-end="url(#arrow-s)"/>
+            <path id="rr-out" class="flow" d="M158 150 H 110" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: PUT fans out for W acks; GET reads R, spots a stale replica, and repairs it inline</figcaption>
+      </figure>
+      <p>Read-repair has one important limitation, which sets up the next section. It only fixes replicas that get <em>read</em>. A key that is written once and rarely read — cold data — can have a stale or missing replica that read-repair never touches, because no read ever consults the laggard. For those, you need a background process that does not wait for reads.</p>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Repair in the background</div>
+      <h2>Anti-entropy &amp; Merkle trees</h2>
+      <p><strong>Anti-entropy</strong> is the background repair process that continuously compares the data held by different replicas and copies over anything that is missing or stale — the safety net that catches cold keys read-repair never sees. The naive version is hopeless: comparing every key on two replicas means transferring or hashing the entire dataset on each, which is enormous and constant network and disk cost for a database that might hold billions of keys. You need a way to find the <em>differences</em> cheaply without shipping everything.</p>
+      <h3>How a Merkle tree localizes the diff</h3>
+      <p>The standard trick is a <strong>Merkle tree</strong> (a hash tree). Each replica partitions its key space into ranges, and for each range computes a hash of all the data in it — these are the <strong>leaves</strong>. Every parent node stores the hash of its children's hashes, all the way up to a single <strong>root hash</strong> that summarizes the entire dataset. Two replicas compare trees top-down:</p>
+      <ul>
+        <li>Compare <strong>root hashes</strong>. If they match, the two datasets are identical — done, with a single hash exchanged. This is the common, cheap case.</li>
+        <li>If the roots differ, descend into the children and compare <em>their</em> hashes. Identical subtrees are skipped entirely; you only follow branches whose hashes disagree.</li>
+        <li>Keep descending only the differing branches until you reach the <strong>leaves</strong> — the specific key ranges that actually diverge. Sync only those ranges.</li>
+      </ul>
+      <p>Because matching subtrees are pruned at every level, the work is proportional to the <em>size of the difference</em> (logarithmic in the dataset for a localized diff), not the size of the data. If two replicas differ in one key range out of thousands, you exchange a handful of hashes to pinpoint it instead of streaming the whole store.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Two Merkle trees compared top-down, with matching subtrees pruned and only the differing leaf range synced">
+            <text class="lbl-sm" x="160" y="20" text-anchor="middle">Replica A</text>
+            <text class="lbl-sm" x="480" y="20" text-anchor="middle">Replica B</text>
+            <!-- Tree A -->
+            <circle class="node-r" cx="160" cy="46" r="18"/><text class="lbl-sm" x="160" y="50" text-anchor="middle">root</text>
+            <circle class="node" cx="100" cy="118" r="16"/><text class="lbl-sm" x="100" y="122" text-anchor="middle">h1</text>
+            <circle class="node-r" cx="220" cy="118" r="16"/><text class="lbl-sm" x="220" y="122" text-anchor="middle">h2</text>
+            <circle class="node" cx="64" cy="196" r="14"/>
+            <circle class="node" cx="132" cy="196" r="14"/>
+            <circle class="node" cx="190" cy="196" r="14"/>
+            <circle class="node-r" cx="252" cy="196" r="14"/>
+            <line class="flow-d" x1="148" y1="60" x2="108" y2="104"/>
+            <line class="flow-d" x1="172" y1="60" x2="212" y2="104"/>
+            <line class="flow-d" x1="90" y1="130" x2="70" y2="184"/>
+            <line class="flow-d" x1="110" y1="130" x2="128" y2="184"/>
+            <line class="flow-d" x1="212" y1="132" x2="194" y2="184"/>
+            <line class="flow-d" x1="228" y1="132" x2="248" y2="184"/>
+            <!-- Tree B -->
+            <circle class="node-r" cx="480" cy="46" r="18"/><text class="lbl-sm" x="480" y="50" text-anchor="middle">root</text>
+            <circle class="node" cx="420" cy="118" r="16"/><text class="lbl-sm" x="420" y="122" text-anchor="middle">h1</text>
+            <circle class="node-r" cx="540" cy="118" r="16"/><text class="lbl-sm" x="540" y="122" text-anchor="middle">h2'</text>
+            <circle class="node" cx="384" cy="196" r="14"/>
+            <circle class="node" cx="452" cy="196" r="14"/>
+            <circle class="node" cx="510" cy="196" r="14"/>
+            <circle class="node-r" cx="572" cy="196" r="14"/>
+            <line class="flow-d" x1="468" y1="60" x2="428" y2="104"/>
+            <line class="flow-d" x1="492" y1="60" x2="532" y2="104"/>
+            <line class="flow-d" x1="410" y1="130" x2="390" y2="184"/>
+            <line class="flow-d" x1="430" y1="130" x2="448" y2="184"/>
+            <line class="flow-d" x1="532" y1="132" x2="514" y2="184"/>
+            <line class="flow-d" x1="548" y1="132" x2="568" y2="184"/>
+            <text class="lbl-sm" x="320" y="120" text-anchor="middle" fill="#1F4E79">h1 = h1</text>
+            <text class="lbl-sm" x="320" y="136" text-anchor="middle" fill="#1F4E79">(skip subtree)</text>
+            <text class="lbl-sm" x="320" y="210" text-anchor="middle" fill="#B0532F">h2 ≠ h2' → sync</text>
+            <text class="lbl-sm" x="320" y="226" text-anchor="middle" fill="#B0532F">this leaf range only</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — Merkle-tree anti-entropy: matching subtrees (h1) are pruned; only the differing leaf range under h2 is synced</figcaption>
+      </figure>
+      <p>Cassandra runs this during <code>nodetool repair</code> and builds per-range Merkle trees to decide what to stream between replicas; Riak and DynamoDB use the same family of technique for background convergence. The trade-off is cost timing: anti-entropy is heavier than read-repair (it scans and hashes data even for keys nobody is touching) so it is run periodically or during quiet hours, while read-repair handles the hot path for free.</p>
+      <div class="callout">
+        <span class="k">Why two repair mechanisms</span>
+        <p>Read-repair is <em>reactive and free</em> but only covers read keys. Anti-entropy is <em>proactive and complete</em> but costs background I/O. Together they give you the property leaderless systems promise: <strong>eventual consistency</strong> — given enough time and no new writes, all replicas converge to the same value, whether the key is hot or stone cold.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> The hard problem</div>
+      <h2>Concurrent writes &amp; the conflict problem</h2>
+      <p>Repair handles staleness — one replica simply being <em>behind</em> another. But leaderless replication has a deeper problem that repair cannot solve by itself: <strong>concurrent writes</strong>. Because any replica accepts writes with no global ordering, two clients can write the same key at the same time, each reaching different replicas first. Now different replicas hold genuinely different values, and neither is "stale" — they are <em>concurrent</em>. Which one wins? There is no leader to have decided.</p>
+      <h3>Last-write-wins (LWW), and why it loses data</h3>
+      <p>The simplest answer is <strong>last-write-wins</strong>: attach a timestamp to every write and keep the one with the highest timestamp, discarding the rest. It is trivial to implement and Cassandra uses it by default. But it has two teeth. First, it is <strong>lossy</strong> — if two writes are genuinely concurrent, LWW silently throws one away. Imagine two of a customer's devices both topping up a wallet at the same instant: LWW keeps one top-up and drops the other, and money quietly vanishes. Second, it is <strong>clock-dependent</strong> — "highest timestamp" relies on synchronized wall clocks across machines, and clock skew means the write that <em>physically</em> happened later might carry an <em>earlier</em> timestamp and lose. LWW is fine for data where loss is acceptable (a cache entry, a "last seen" marker) and dangerous everywhere else.</p>
+      <h3>Happens-before vs concurrent</h3>
+      <p>To do better than blindly trusting clocks, you need to distinguish two relationships between writes. Write A <strong>happens-before</strong> write B if B was made by a client that had already seen A (B is a deliberate update of A — A is safely superseded). Two writes are <strong>concurrent</strong> if neither client had seen the other's write when it wrote — there is no causal order, and the system genuinely cannot say which "should" win. The crucial insight from the Dynamo paper: the database cannot resolve a true concurrency on its own, but it <em>can</em> reliably <strong>detect</strong> it and hand both versions to the application — these competing versions are called <strong>siblings</strong>. Detecting concurrency correctly, without trusting wall clocks, is the job of version vectors.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p><em>"Two clients write the same key concurrently — what happens?"</em> The model answer: with LWW one write is silently dropped (call out the data-loss and clock-skew risks); with version vectors the system <strong>detects</strong> that the writes are concurrent rather than ordered, keeps both as <strong>siblings</strong>, and defers resolution to read time — either the application merges them or a CRDT merges them automatically. The phrase that scores points: <em>"a leaderless store can't prevent the conflict, so it makes the conflict visible and reconcilable instead of pretending it didn't happen."</em></p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Detecting concurrency</div>
+      <h2>Version vectors</h2>
+      <p>A <strong>version vector</strong> (the generalization of a vector clock to replicated data) is the bookkeeping that lets the system decide whether one write supersedes another or whether the two are concurrent — <em>without</em> trusting wall clocks. The idea: each replica keeps a counter, and a value carries a vector of the counters it has seen — essentially a fingerprint of "what this value knows about." Comparing two vectors tells you their causal relationship.</p>
+      <h3>How it works under the hood</h3>
+      <p>Each value stored for a key carries a version vector — a map from replica id to a counter. When a replica processes a write, it increments its own entry and merges in (takes the element-wise maximum of) the vector the client presented. To compare two vectors:</p>
+      <ul>
+        <li>If every entry in vector X is <strong>≥</strong> the matching entry in Y (and at least one is strictly greater), then Y <strong>happens-before</strong> X — X is the newer, superseding value, and Y can be discarded.</li>
+        <li>If neither dominates — X is ahead on some replica's counter and Y is ahead on another's — the writes are <strong>concurrent</strong>. Keep both as siblings.</li>
+      </ul>
+      <p>Crucially, when a client reads, the server hands back the value <em>and</em> its version vector (often opaquely, as a "context" token); the client must present that vector on its next write to that key. That is how the server learns the client "had seen" the prior version — it is how causality is tracked without any clock.</p>
+      <h3>A worked example: two concurrent cart writes</h3>
+      <p>Picture a Shopee shopping cart on key <code>cart:42</code>, replicated across replicas A and B. Two of the customer's devices act at once, each with an empty starting context:</p>
+      <pre><code>start:    cart:42 = { }        vv = {}
+
+Device 1 → replica A:  add "milk"
+   A increments its counter:
+   cart:42 = {milk}            vv = {A:1}
+
+Device 2 → replica B (concurrently, hasn't seen Device 1):  add "eggs"
+   B increments its counter:
+   cart:42 = {eggs}            vv = {B:1}
+
+Now compare the two versions:
+   {A:1}  vs  {B:1}
+   A:1 > A:0  but  B:0 < B:1   → neither dominates
+   ⇒ CONCURRENT  → keep both as siblings
+
+A read of cart:42 now returns TWO values (siblings):
+   sibling 1: {milk}  vv={A:1}
+   sibling 2: {eggs}  vv={B:1}</code></pre>
+      <p>Notice the database did not pick a winner and did not lose data. It reported the truth: "these two writes happened concurrently, here are both, you decide." Had Device 2 instead first <em>read</em> <code>{milk} vv={A:1}</code> and then added eggs, its write would carry <code>vv={A:1,B:1}</code>, which dominates <code>{A:1}</code> — that is a clean happens-before, no sibling, the cart becomes <code>{milk, eggs}</code>. The vector is what tells those two scenarios apart.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Two concurrent writes to the same cart key on different replicas produce sibling versions with non-dominating version vectors">
+            <rect class="node" x="20" y="40" width="120" height="44" rx="8"/>
+            <text class="lbl" x="80" y="62" text-anchor="middle">Device 1</text>
+            <text class="lbl-sm" x="80" y="78" text-anchor="middle">add milk</text>
+            <rect class="node" x="20" y="156" width="120" height="44" rx="8"/>
+            <text class="lbl" x="80" y="178" text-anchor="middle">Device 2</text>
+            <text class="lbl-sm" x="80" y="194" text-anchor="middle">add eggs</text>
+            <rect class="node-b" x="250" y="40" width="150" height="50" rx="9"/>
+            <text class="lbl" x="325" y="62" text-anchor="middle">Replica A</text>
+            <text class="lbl-sm" x="325" y="80" text-anchor="middle">{milk} vv={A:1}</text>
+            <rect class="node-b" x="250" y="150" width="150" height="50" rx="9"/>
+            <text class="lbl" x="325" y="172" text-anchor="middle">Replica B</text>
+            <text class="lbl-sm" x="325" y="190" text-anchor="middle">{eggs} vv={B:1}</text>
+            <path class="flow" d="M140 62 H 248" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 178 H 248" marker-end="url(#arrow)"/>
+            <rect class="node-r" x="470" y="92" width="150" height="64" rx="9"/>
+            <text class="lbl" x="545" y="114" text-anchor="middle" fill="#B0532F">SIBLINGS</text>
+            <text class="lbl-sm" x="545" y="132" text-anchor="middle">{milk} + {eggs}</text>
+            <text class="lbl-sm" x="545" y="148" text-anchor="middle">neither dominates</text>
+            <path class="flow-r" d="M400 72 C 440 92, 450 100, 468 110" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M400 174 C 440 152, 450 144, 468 134" marker-end="url(#arrow-r)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — concurrent writes on different replicas produce non-dominating vectors, so both survive as siblings</figcaption>
+      </figure>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Reconciling</div>
+      <h2>Resolving conflicts</h2>
+      <p>Detection is half the battle; something must eventually collapse siblings back into a single value. There are three families of strategy, in increasing order of how much the database does for you.</p>
+      <h3>Last-write-wins (database picks)</h3>
+      <p>The database silently keeps the highest-timestamp version and drops the rest. Zero application effort, but lossy and clock-dependent as covered above. Acceptable only when losing a concurrent write does not matter.</p>
+      <h3>Application / client-side merge (the Dynamo shopping-cart way)</h3>
+      <p>The database returns the siblings; the <em>application</em> merges them using domain knowledge the database doesn't have. The classic Dynamo example is the shopping cart: a cart is a set of items, and the natural merge of two concurrent carts is their <strong>union</strong>. So siblings <code>{milk}</code> and <code>{eggs}</code> merge to <code>{milk, eggs}</code> — the customer keeps everything, which is the customer-friendly default. The application writes the merged value back with a version vector that dominates both siblings, retiring the conflict. The famous caveat: union-merge means a <em>removed</em> item can resurrect if it was deleted on one side while added on the other — which is why deletes in such systems often use a <strong>tombstone</strong> (a "deleted" marker that itself participates in the merge) rather than just dropping the item.</p>
+      <h3>CRDTs (automatic, provably convergent merge)</h3>
+      <p>A <strong>CRDT</strong> (Conflict-free Replicated Data Type) is a data structure designed so that its merge function is commutative, associative, and idempotent — meaning concurrent versions can always be merged automatically into the same result regardless of order, with no application logic and no lost updates. A grow-only counter, an OR-set (observed-remove set), a last-writer-wins register: each defines its own deterministic merge. Riak ships CRDT types (counters, sets, maps) so the database resolves siblings for you; Redis offers CRDT-based active-active geo-replication on the enterprise side. The trade is expressiveness: not every domain maps cleanly onto a CRDT, and when it doesn't you fall back to application merge.</p>
+      <div class="vs">
+        <div class="col"><h4>Last-write-wins</h4><ul>
+          <li>Trivial; database handles it</li>
+          <li>Lossy — drops concurrent writes</li>
+          <li>Depends on synchronized clocks</li>
+          <li>OK for caches / "last seen", risky for money</li>
+        </ul></div>
+        <div class="col"><h4>Siblings + merge (app or CRDT)</h4><ul>
+          <li>No silent data loss</li>
+          <li>App merge needs domain logic; CRDTs automate it</li>
+          <li>Must handle deletes via tombstones</li>
+          <li>Right choice when losing a write is unacceptable</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Failure mode &amp; recovery</span>
+        <p>The dangerous failure here is silent: choose LWW for data that can't tolerate loss, and concurrent writes vanish with no error and no log. Recovery is a design decision, not a runtime fix — pick siblings + a merge strategy <em>before</em> you ship, model your data as a set/counter/CRDT where you can, and use tombstones so deletes don't get clobbered by concurrent adds. In an interview, naming the wallet/cart loss scenario and the tombstone caveat shows you have actually thought past the happy path.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> In the wild</div>
+      <h2>Where this lives</h2>
+      <p>Leaderless replication is not a theory exhibit — it is the engine room of several databases you will name in interviews, and the knobs we have discussed are real configuration:</p>
+      <ul>
+        <li><strong>Amazon Dynamo / DynamoDB.</strong> The 2007 paper that started it all: N/W/R quorums, sloppy quorums, hinted handoff, vector clocks, and application-side reconciliation, all motivated by Amazon's "always writable" shopping cart. DynamoDB the managed service hides much of this but inherits the lineage.</li>
+        <li><strong>Apache Cassandra.</strong> The most common interview reference. Per-query <strong>tunable consistency</strong>: you literally pass a consistency level like <code>ONE</code>, <code>QUORUM</code>, or <code>ALL</code> per read and per write, which sets R and W. It uses LWW by default (timestamp-based), read-repair, and Merkle-tree anti-entropy via <code>nodetool repair</code>.</li>
+        <li><strong>Riak.</strong> Closest to the Dynamo design: explicit N/R/W, vector clocks (later dotted version vectors), sibling values surfaced to the app, and built-in CRDT data types for automatic merge.</li>
+        <li><strong>Voldemort.</strong> LinkedIn's open-source Dynamo clone, vector-clock based — historically important even if less used now.</li>
+      </ul>
+      <p>Tie the threads together: quorums are the concrete dial that moves a leaderless store along the consistency–availability spectrum from <a href="lesson-12-cap-pacelc-consistency.html">Lesson 12</a> (CAP / PACELC) — small quorums lean AP, W + R &gt; N leans toward CP-ish reads. And everything in this lesson is a building block for the key-value store capstone in <a href="lesson-21-key-value-store.html">Lesson 21</a>, where you assemble consistent hashing for partitioning (<a href="lesson-11-consistent-hashing.html">Lesson 11</a>), leaderless quorum replication for availability, and version vectors plus read-repair and anti-entropy for convergence into one coherent design.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>When an interviewer asks you to design a highly-available key-value store or a shopping cart that's "always writable," reach for this stack explicitly: "leaderless replication with N=3, tunable W/R quorums, hinted handoff for partition tolerance, read-repair plus Merkle-tree anti-entropy for convergence, and version vectors with application-side merge — like Dynamo/Cassandra." That single sentence demonstrates the whole lesson.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one trade: <em>delete the leader to win write throughput and availability, then pay for it with conflicts you detect and reconcile instead of prevent.</em> Quorums give you a freshness dial, hinted handoff and the two repair mechanisms drive convergence, and version vectors plus a merge strategy turn concurrent writes from silent data loss into a visible, reconcilable event. If you can draw the quorum overlap, explain Merkle-tree pruning, and walk the cart-sibling example, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Leader = bottleneck + gap</b><span>One leader caps write throughput and stops writes during failover; leaderless removes both.</span></div>
+        <div class="tk"><span class="num">02</span><b>Any replica writes</b><span>Client/coordinator writes to N and reads from N — no special node, no election.</span></div>
+        <div class="tk"><span class="num">03</span><b>W + R &gt; N overlaps</b><span>Forces the read set to intersect the write set, so a read sees the latest successful write.</span></div>
+        <div class="tk"><span class="num">04</span><b>Tune the dial</b><span>R=1/W=N for read-heavy, small W for write-heavy; W+R≤N is deliberate eventual consistency.</span></div>
+        <div class="tk"><span class="num">05</span><b>Sloppy + handoff</b><span>Accept writes on stand-ins during partitions; replay them home when owners recover.</span></div>
+        <div class="tk"><span class="num">06</span><b>Two repairs</b><span>Read-repair fixes read keys for free; Merkle-tree anti-entropy is the background safety net.</span></div>
+        <div class="tk"><span class="num">07</span><b>LWW loses data</b><span>Highest-timestamp-wins is lossy and clock-dependent — risky for money or carts.</span></div>
+        <div class="tk"><span class="num">08</span><b>Version vectors detect</b><span>Compare vectors: dominance = happens-before; neither dominates = concurrent siblings.</span></div>
+        <div class="tk"><span class="num">09</span><b>Merge to reconcile</b><span>App-side union (carts) or CRDTs collapse siblings without loss; tombstones for deletes.</span></div>
+        <div class="tk"><span class="num">10</span><b>Dynamo &amp; family</b><span>Cassandra, Riak, DynamoDB — tunable consistency is the CAP dial, the basis of L21.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) What two problems does a single leader create, and how does going leaderless fix each?<br>(2) State the quorum condition and prove with the pigeonhole intuition why W + R &gt; N guarantees a fresh read — then say what it does <em>not</em> guarantee.<br>(3) How would you set W and R for a read-heavy catalog vs a write-heavy event log, and what does each trade away?<br>(4) Walk hinted handoff: where does the write go when a home replica is down, and how does the data get home?<br>(5) How does a Merkle tree let two replicas find their differences without comparing every key?<br>(6) Two clients write the same key concurrently — contrast what LWW does with what version vectors do, and how you'd reconcile the resulting siblings in a shopping cart.<br>Any fuzzy answer → re-read that section, replay the read-repair diagram, and redraw the quorum-overlap and Merkle-tree figures from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 13 · LEADERLESS REPLICATION &amp; CONFLICT RESOLUTION · interactive edition<br>
+      Original study notes on standard distributed-systems fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* leaderless write + read with read-repair */
+  makeStepper(document.getElementById('fig-rr'), [
+    {text:"A client sends PUT balance=v2 to the coordinator (N=3, W=2, R=2).", active:["rr-client","rr-coord"], path:"rr-pin"},
+    {text:"The coordinator fans the write out to all 3 replicas in parallel; R1 and R2 ack — that's W=2, so the write succeeds. R3 missed it and still holds v1.", active:["rr-coord","rr-r1","rr-r2"], path:"rr-w1"},
+    {text:"Later a GET arrives. The coordinator reads R=2 replicas — say R2 and R3 — in parallel.", active:["rr-coord","rr-r2","rr-r3"], path:"rr-rd"},
+    {text:"R2 returns v2, R3 returns the stale v1. Because W+R>N the read set overlaps the write set, so the fresh v2 is guaranteed present.", active:["rr-coord","rr-r2","rr-r3"], path:"rr-w2"},
+    {text:"Read-repair: noticing R3 is behind, the coordinator writes v2 back to R3 inline, healing it.", active:["rr-coord","rr-r3"], path:"rr-fix"},
+    {text:"The coordinator returns the freshest value, v2, to the client. All consulted replicas now agree.", active:["rr-client","rr-coord"], path:"rr-out"}
+  ], function(idx,s){
+    var r3=document.getElementById('rr-r3');
+    if(!r3) return;
+    var lbl=r3.querySelectorAll('text')[1];
+    if(lbl) lbl.textContent=(idx>=4)?'v2 repaired':'v1 stale';
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 34 — Design Google Maps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1c2733;color:#dfe7ef;border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;}
+  pre .c{color:#7f93a6;} pre .k{color:#9ecbff;} pre .s{color:#b8e6a0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Design<br>Google Maps</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Three systems in a trench coat</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify &amp; scope</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-the-envelope</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Map tiles &amp; the pyramid</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The road graph</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Routing with A* ▸</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Continent scale: CH</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Live traffic &amp; ETA ▸</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Failure &amp; what breaks at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">34</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design Google Maps</h1>
+      <p class="lede">A maps product is really three systems sharing one app: <strong>rendering</strong> the world from precomputed tiles, <strong>routing</strong> over a road graph, and keeping <strong>ETAs</strong> honest with live traffic. We will spend our depth where interviewers actually push — tiles and routing — and treat search and ETA as the supporting cast.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on the maps / navigation design problem — a standard, widely-documented system-design topic. The explanations, numbers, examples, and diagrams here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow. Examples lean toward a Singapore super-app context (Grab) where it sharpens the point.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Three systems in a trench coat</h2>
+      <p>When you open a maps app and type "Marina Bay Sands," three very different machines spring to life. The first <strong>draws the world</strong>: roads, parks, building footprints, labels — a seamless image you can pan and zoom. The second <strong>finds a path</strong> from where you are to where you want to be, over a network of millions of road segments. The third <strong>predicts time</strong>: how long that path will actually take given the traffic on the East Coast Parkway right now. Each one is a hard problem with its own bottleneck, and bolting them into one low-latency app is what makes "design Google Maps" a meaty interview.</p>
+      <p>The reason this question is loved is that it forces you to reason about <strong>scale that cannot be brute-forced</strong>. You cannot render the planet on demand for every pan. You cannot run a plain shortest-path search across a continent and answer in 100&nbsp;ms. And you cannot recompute every route the instant a single car slows down. Every good answer is a story about <em>precomputation</em> — doing the expensive work ahead of time so the live request is cheap.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="The three subsystems of a maps product: tiles, routing, and ETA, all served to one client">
+            <rect class="node" x="20" y="86" width="104" height="48" rx="8"/>
+            <text class="lbl" x="72" y="115" text-anchor="middle">Client</text>
+            <rect class="node-b" x="250" y="20" width="170" height="48" rx="9"/>
+            <text class="lbl" x="335" y="49" text-anchor="middle">Tile serving</text>
+            <rect class="node-b" x="250" y="86" width="170" height="48" rx="9"/>
+            <text class="lbl" x="335" y="115" text-anchor="middle">Routing</text>
+            <rect class="node-b" x="250" y="152" width="170" height="48" rx="9"/>
+            <text class="lbl" x="335" y="181" text-anchor="middle">ETA / traffic</text>
+            <path class="flow" d="M124 100 C 180 60, 200 48, 248 44" marker-end="url(#arrow)"/>
+            <path class="flow" d="M124 110 H 248" marker-end="url(#arrow)"/>
+            <path class="flow" d="M124 120 C 180 160, 200 172, 248 176" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="500" y="44" text-anchor="start" fill="#5A574E">render the map</text>
+            <text class="lbl-sm" x="500" y="110" text-anchor="start" fill="#5A574E">find a path</text>
+            <text class="lbl-sm" x="500" y="176" text-anchor="start" fill="#5A574E">predict time</text>
+            <path class="flow-d" d="M420 44 H 492" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M420 110 H 492" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M420 176 H 492" marker-end="url(#arrow-s)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one app, three independent backends with different scaling stories</figcaption>
+      </figure>
+      <p>Keep that three-way split in your head for the whole interview. When the interviewer says "how do you make it faster?" the right reflex is to ask <em>which</em> of the three they mean — the honest answers are completely different.</p>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify &amp; scope the requirements</h2>
+      <p>Before drawing a single box, narrow the problem out loud. "Maps" can mean a hundred things; the interviewer wants to see you pick the load-bearing subset and state your assumptions.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Render the map.</strong> Given a viewport (a center point, a zoom level, and a screen size), show roads, water, labels, and points of interest, and let the user pan and zoom smoothly.</li>
+        <li><strong>Search &amp; geocode.</strong> Turn "Changi Airport" into coordinates (<strong>geocoding</strong>), and turn a tapped coordinate back into an address (<strong>reverse geocoding</strong>). The text side leans on the autocomplete/search lesson, so we will keep it shallow here.</li>
+        <li><strong>Route.</strong> Given an origin and destination (and a travel mode — drive, walk, transit), return one or more paths.</li>
+        <li><strong>ETA.</strong> For each route, return an estimated travel time that reflects current traffic, not just road length.</li>
+      </ul>
+      <h3>Out of scope (say so explicitly)</h3>
+      <ul>
+        <li>Street View imagery, satellite layers, indoor maps, and turn-by-turn voice are real but orthogonal; we set them aside.</li>
+        <li>The full search ranking stack — covered elsewhere.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Low latency.</strong> A tile must arrive in tens of milliseconds; a route should come back in well under a second. People abandon a map that stutters.</li>
+        <li><strong>High availability.</strong> A super-app like Grab routes drivers and prices rides off this; an outage stalls the marketplace.</li>
+        <li><strong>Read-heavy.</strong> Tiles and routes are read billions of times; the underlying map data changes slowly (road edits land daily/weekly, traffic updates continuously but is small).</li>
+        <li><strong>Freshness where it matters.</strong> Tiles can be hours or days stale and nobody notices; an ETA that ignores a jam is a real product failure.</li>
+        <li><strong>Global, but regional.</strong> A user in Singapore almost never routes to Lagos in one query. Locality is a gift we will exploit hard.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single most valuable framing to say early: <em>"Map data is read-mostly and changes slowly, so I will precompute aggressively — tiles offline, routing structures offline — and keep the request path cheap. The one thing I cannot precompute is live traffic, so that gets its own streaming pipeline."</em> That sentence organizes the entire rest of the answer.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-the-envelope</h2>
+      <p>Quick numbers anchor the design and reveal where the pressure is. Assume <strong>1 billion monthly users</strong> and <strong>100 million daily active users</strong>. These are round, defensible figures — the interviewer cares about your reasoning, not the decimal.</p>
+      <h3>Tile traffic — the firehose</h3>
+      <p>A single screen of map is not one image; it is a grid of tiles, typically <strong>4 to 12 tiles</strong> per viewport. Panning and zooming fetch more. Say each active user triggers ~50 tile fetches per session and has 3 sessions a day:</p>
+      <ul>
+        <li><code>100M DAU × 3 sessions × 50 tiles ≈ 15 billion tile requests / day</code>.</li>
+        <li>That averages <code>~175,000 tiles/sec</code>, with peaks easily <code>3–5×</code> that during morning and evening commutes.</li>
+      </ul>
+      <p>No origin fleet serves a million tile reads per second affordably. This single number forces the headline decision: <strong>tiles must be served from a CDN</strong>, and the origin only ever sees cache misses.</p>
+      <h3>Tile storage — the pyramid is huge</h3>
+      <p>Tiles exist at every <strong>zoom level</strong>. Zoom 0 is one tile for the whole world; each level quadruples the count. Through ~zoom 20 the planet is on the order of <em>hundreds of billions</em> of tiles. Most are empty ocean and never stored, but populated land at high zoom is enormous. Vector tiles (geometry, not pixels) compress this dramatically — call it <strong>single-digit to low-double-digit petabytes</strong> in object storage. Cheap to store, expensive to serve hot, which again points at the CDN.</p>
+      <h3>Routing traffic</h3>
+      <p>Routing is far lighter than tiles — most map opens are "look, don't navigate." Say <code>100M DAU × 2 route queries/day ≈ 200M routes/day ≈ ~2,300 routes/sec</code> average, peaks ~10k/sec. Small QPS, but each query is <em>compute-heavy</em> (a graph search), so this scales by CPU, not by bandwidth.</p>
+      <h3>Live-traffic ingest</h3>
+      <p>Grab alone has hundreds of thousands of drivers emitting <strong>GPS probes</strong> every few seconds. At, say, <code>500k drivers × 1 probe / 4s ≈ 125,000 probes/sec</code> in one region. These are tiny messages but relentless — a streaming aggregation problem, not a request/response one.</p>
+      <div class="callout">
+        <span class="k">What the numbers tell us</span>
+        <p>Three different scaling regimes fall straight out: tiles are <strong>bandwidth-bound</strong> (solve with a CDN), routing is <strong>CPU-bound</strong> (solve with precomputed graph structures + sharding), and traffic is <strong>throughput-bound</strong> (solve with a stream processor). One question, three answers — exactly the structure to present.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>The API &amp; a data-model sketch</h2>
+      <p>Pin down the contracts; they make the rest concrete. Tiles are fetched by a simple addressing scheme; routing and geocoding are JSON over HTTPS.</p>
+      <h3>Tile endpoint</h3>
+      <p>Tiles are addressed by <code>z/x/y</code> — zoom, and the column/row of the tile within that zoom's grid. This is the universal convention (the "slippy map" addressing) and it is why tiles are so cache-friendly: every URL is immutable for a given map version.</p>
+      <pre><span class="c"># Raster or vector tile, served straight from the CDN</span>
+GET /tiles/v8/{z}/{x}/{y}.mvt        <span class="c"># vector (Mapbox Vector Tile)</span>
+GET /tiles/v8/{z}/{x}/{y}@2x.png     <span class="c"># raster, retina</span>
+<span class="c"># e.g. central Singapore at zoom 15:</span>
+GET /tiles/v8/15/25890/16361.mvt
+Cache-Control: public, max-age=604800, immutable</pre>
+      <h3>Routing endpoint</h3>
+      <pre>POST /v1/route
+{
+  <span class="k">"origin"</span>:      { <span class="k">"lat"</span>: 1.3521, <span class="k">"lng"</span>: 103.8198 },
+  <span class="k">"destination"</span>: { <span class="k">"lat"</span>: 1.2494, <span class="k">"lng"</span>: 103.8303 },
+  <span class="k">"mode"</span>: <span class="s">"drive"</span>,
+  <span class="k">"departure"</span>: <span class="s">"now"</span>,
+  <span class="k">"alternatives"</span>: true
+}
+<span class="c">// → 200 OK</span>
+{
+  <span class="k">"routes"</span>: [{
+    <span class="k">"distance_m"</span>: 12840,
+    <span class="k">"duration_s"</span>: 1080,          <span class="c">// ETA, traffic-adjusted</span>
+    <span class="k">"duration_typical_s"</span>: 900,   <span class="c">// free-flow baseline</span>
+    <span class="k">"geometry"</span>: <span class="s">"polyline-encoded-path"</span>,
+    <span class="k">"steps"</span>: [ /* turn instructions */ ]
+  }]
+}</pre>
+      <h3>Geocoding endpoint</h3>
+      <pre>GET /v1/geocode?q=Changi+Airport&amp;near=1.35,103.82
+GET /v1/reverse?lat=1.2834&amp;lng=103.8607</pre>
+      <h3>Data model — what lives where</h3>
+      <p>Different data has different shapes and homes:</p>
+      <ul>
+        <li><strong>Tiles</strong> are blobs keyed by <code>(version, z, x, y)</code>, living in object storage (S3/GCS) and fronted by the CDN. No relational database; they are files.</li>
+        <li><strong>The road graph</strong> is the routing heart. Two core tables, then compiled into a binary in-memory structure:</li>
+      </ul>
+      <pre><span class="k">node</span>  ( node_id PK,  lat,  lng,  region_id )
+<span class="k">edge</span>  ( edge_id PK,  from_node,  to_node,
+        length_m,  road_class,        <span class="c">// motorway, primary, residential…</span>
+        speed_limit,  oneway,  region_id,
+        base_time_s )                  <span class="c">// free-flow traversal time</span>
+<span class="k">edge_speed</span> ( edge_id,  bucket,  speed_kmh )  <span class="c">// live + historical, per time bucket</span></pre>
+      <p>Here a <strong>node</strong> is an intersection (or any point where routing decisions can change) and an <strong>edge</strong> is a directed road segment between two nodes. A two-way street is two edges. The <code>edge_speed</code> table is the bridge to ETA: it holds the current and historical speed for each segment, which is what turns raw distance into time.</p>
+      <div class="callout tip">
+        <span class="k">Going past the book</span>
+        <p>A sharp detail to drop: edges are <strong>directed</strong>, weights are <strong>time, not distance</strong>, and the graph is stored in a compact array form (adjacency in contiguous arrays, node ids as indices) so it fits in RAM and the CPU cache stays warm. "I'd weight edges by travel time and keep the whole regional graph in memory as packed arrays" signals you have thought about the real bottleneck: cache locality during search.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The blueprint</div>
+      <h2>High-level architecture</h2>
+      <p>Now wire the three subsystems together with their front-door infrastructure. The client talks to an <strong>API gateway</strong>; tile requests are answered almost entirely by the CDN; routing and geocoding hit dedicated services; and a separate streaming pipeline keeps edge weights fresh.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 320" role="img" aria-label="High-level maps architecture: client to CDN for tiles, gateway to routing and geocoding services, and a traffic pipeline feeding edge weights">
+            <rect class="node" x="20" y="138" width="92" height="44" rx="8"/>
+            <text class="lbl" x="66" y="165" text-anchor="middle">Client</text>
+
+            <!-- CDN / tiles path -->
+            <rect x="160" y="24" width="120" height="46" rx="9" fill="#DCEDEA" stroke="#2E8B8B" stroke-width="2"/>
+            <text class="lbl" x="220" y="44" text-anchor="middle">CDN edge</text>
+            <text class="lbl-sm" x="220" y="60" text-anchor="middle">tiles</text>
+            <rect x="340" y="24" width="120" height="46" rx="9" fill="#FDFBF6" stroke="#5A574E" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl" x="400" y="44" text-anchor="middle">Tile origin</text>
+            <text class="lbl-sm" x="400" y="60" text-anchor="middle">S3 / GCS</text>
+
+            <!-- Gateway -->
+            <rect class="node-b" x="160" y="124" width="92" height="72" rx="9"/>
+            <text class="lbl" x="206" y="156" text-anchor="middle">API</text>
+            <text class="lbl" x="206" y="174" text-anchor="middle">gateway</text>
+
+            <!-- Routing -->
+            <rect class="node" x="320" y="108" width="130" height="44" rx="8"/>
+            <text class="lbl" x="385" y="135" text-anchor="middle">Routing svc</text>
+            <!-- Geocode -->
+            <rect class="node" x="320" y="168" width="130" height="44" rx="8"/>
+            <text class="lbl" x="385" y="195" text-anchor="middle">Geocode svc</text>
+
+            <!-- Graph store -->
+            <rect class="node-r" x="500" y="108" width="120" height="44" rx="8"/>
+            <text class="lbl-sm" x="560" y="130" text-anchor="middle">Region graph</text>
+            <text class="lbl-sm" x="560" y="144" text-anchor="middle">(in-memory)</text>
+
+            <!-- Traffic pipeline -->
+            <rect x="160" y="248" width="120" height="46" rx="9" fill="#E7E1F2" stroke="#6E59A5" stroke-width="2"/>
+            <text class="lbl-sm" x="220" y="270" text-anchor="middle">GPS probes</text>
+            <text class="lbl-sm" x="220" y="285" text-anchor="middle">→ stream</text>
+            <rect x="340" y="248" width="130" height="46" rx="9" fill="#E7E1F2" stroke="#6E59A5" stroke-width="2"/>
+            <text class="lbl-sm" x="405" y="270" text-anchor="middle">Aggregator</text>
+            <text class="lbl-sm" x="405" y="285" text-anchor="middle">(Flink)</text>
+
+            <!-- arrows -->
+            <path class="flow" d="M112 150 C 130 90, 140 60, 158 50" marker-end="url(#arrow)"/>
+            <path class="flow" d="M280 47 H 338" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="309" y="38" text-anchor="middle" fill="#2E8B8B">miss</text>
+            <path class="flow" d="M112 160 H 158" marker-end="url(#arrow)"/>
+            <path class="flow" d="M252 150 C 280 138, 295 132, 318 130" marker-end="url(#arrow)"/>
+            <path class="flow" d="M252 170 C 280 182, 295 188, 318 190" marker-end="url(#arrow)"/>
+            <path class="flow" d="M450 130 H 498" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M280 271 H 338" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M470 268 C 520 250, 555 210, 560 154" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="486" y="210" text-anchor="middle" fill="#6E59A5">update weights</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — tiles bypass the app tier via CDN; routing keeps the graph in RAM; traffic flows in as a side stream</figcaption>
+      </figure>
+      <p>The end-to-end flows, traced once so the parts make sense:</p>
+      <ul>
+        <li><strong>Map open.</strong> The client computes which <code>z/x/y</code> tiles cover the viewport and requests them by URL. The CDN serves them from edge cache; only a cold tile falls through to the origin in object storage. The app tier is barely involved.</li>
+        <li><strong>Route.</strong> The gateway forwards to the <strong>routing service</strong>, which loads the relevant region graph (already in RAM), runs a shortest-path search using current edge weights, and returns the path plus ETA.</li>
+        <li><strong>Traffic.</strong> Driver apps emit GPS probes into a stream; an aggregator map-matches them to edges and updates the live speed for each segment, which the routing service reads on its next query.</li>
+      </ul>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Deep dive · rendering</div>
+      <h2>Map tiles &amp; the zoom pyramid</h2>
+      <p><strong>Bottleneck:</strong> the world is too big and too detailed to draw on demand. Rendering a styled map — anti-aliased roads, label placement, road casings — is expensive CPU work. Doing it per request, per user, for 175,000 requests a second, is hopeless. The fix is the foundational idea of web maps: <strong>precompute the map into tiles, once, offline.</strong></p>
+      <h3>How tiling works under the hood</h3>
+      <p>A <strong>map tile</strong> is a small square chunk of the map, conventionally 256×256 pixels. The whole planet is sliced into a grid of these squares. The trick is doing it at many <strong>zoom levels</strong>, forming a <strong>tile pyramid</strong> (a quadtree). At <strong>zoom 0</strong> the entire world is one tile. Zoom in one level and that tile is replaced by <strong>4</strong> tiles, each covering a quarter of the area at double the linear detail. Zoom again: 16 tiles. The pattern is <code>4^z</code> tiles at level <code>z</code> — a quadtree where each tile has four children directly below it.</p>
+      <p>Addressing falls out naturally: a tile is <code>(z, x, y)</code>, where <code>x</code> and <code>y</code> are the column and row in that level's grid. The client, knowing the user's center coordinate and zoom, does pure arithmetic to compute exactly which tiles fill the screen — typically a small rectangle of them — and requests only those. It never asks for the whole world; it asks for the 6 or 9 tiles it can see.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Tile pyramid: zoom 0 is one tile, zoom 1 is four, zoom 2 is sixteen, each level quadrupling">
+            <!-- z0 -->
+            <rect x="40" y="80" width="80" height="80" rx="4" class="node-b"/>
+            <text class="lbl-sm" x="80" y="124" text-anchor="middle">1 tile</text>
+            <text class="lbl-sm" x="80" y="176" text-anchor="middle">zoom 0</text>
+            <!-- z1 -->
+            <g>
+              <rect x="240" y="80" width="40" height="40" rx="3" class="node"/>
+              <rect x="280" y="80" width="40" height="40" rx="3" class="node"/>
+              <rect x="240" y="120" width="40" height="40" rx="3" class="node"/>
+              <rect x="280" y="120" width="40" height="40" rx="3" class="node"/>
+            </g>
+            <text class="lbl-sm" x="280" y="176" text-anchor="middle">zoom 1 · 4 tiles</text>
+            <!-- z2 -->
+            <g>
+              <rect x="450" y="80" width="80" height="80" rx="3" class="node"/>
+              <line x1="470" y1="80" x2="470" y2="160" stroke="#1F4E79" stroke-width="1"/>
+              <line x1="490" y1="80" x2="490" y2="160" stroke="#1F4E79" stroke-width="1"/>
+              <line x1="510" y1="80" x2="510" y2="160" stroke="#1F4E79" stroke-width="1"/>
+              <line x1="450" y1="100" x2="530" y2="100" stroke="#1F4E79" stroke-width="1"/>
+              <line x1="450" y1="120" x2="530" y2="120" stroke="#1F4E79" stroke-width="1"/>
+              <line x1="450" y1="140" x2="530" y2="140" stroke="#1F4E79" stroke-width="1"/>
+            </g>
+            <text class="lbl-sm" x="490" y="176" text-anchor="middle">zoom 2 · 16 tiles</text>
+            <path class="flow-d" d="M120 120 H 238" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M320 120 H 448" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="320" y="40" text-anchor="middle" fill="#1F4E79">each tile splits into 4 children — count = 4&#770;z</text>
+            <text class="lbl-sm" x="320" y="214" text-anchor="middle">the client fetches only the few tiles its viewport covers</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — the quadtree pyramid: detail quadruples per zoom level</figcaption>
+      </figure>
+      <h3>Raster vs vector tiles</h3>
+      <p>There are two flavors of precomputed tile, and the trade-off is worth naming explicitly.</p>
+      <div class="vs">
+        <div class="col"><h4>Raster tiles (PNG)</h4><ul>
+          <li>Pre-rendered images; the client just paints them — trivial work</li>
+          <li>Styling is baked in: a new map style means re-rendering the planet</li>
+          <li>Heavier bytes; need separate <code>@2x</code> sets for retina screens</li>
+          <li>No smooth rotation or runtime restyling</li>
+        </ul></div>
+        <div class="col"><h4>Vector tiles (MVT)</h4><ul>
+          <li>Ship geometry + attributes; the client renders with the GPU</li>
+          <li>Restyle, rotate, and zoom smoothly without new tiles</li>
+          <li>Much smaller, and one tile set serves all styles &amp; resolutions</li>
+          <li>Cost: client needs a capable renderer (most modern devices qualify)</li>
+        </ul></div>
+      </div>
+      <p>Modern maps overwhelmingly use <strong>vector tiles</strong> (the Mapbox Vector Tile / <code>.mvt</code> format is the de facto standard). They are smaller and far more flexible — the same tiles power day mode, night mode, and a satellite-hybrid label layer with no re-rendering.</p>
+      <h3>Why precomputation wins, with numbers</h3>
+      <p>Render-on-demand would cost a CPU-second of styling per tile and serve it once. Precompute-and-cache renders each tile <em>once</em> and serves it from RAM at the CDN edge <em>millions</em> of times. For central Singapore at zoom 15, one tile might be requested by tens of thousands of commuters a day; rendering it 30,000 times versus once is a 30,000× compute saving. That is the whole game.</p>
+      <h3>The CDN tier and updates</h3>
+      <p>Because every tile URL is <strong>immutable for a given map version</strong>, tiles are perfect CDN candidates. Set a long <code>Cache-Control: max-age</code> and let CloudFront / Cloudflare / Fastly cache them at the edge near the user. When a road changes in OpenStreetMap or an internal editor, you re-render only the affected tiles and <strong>bump the version</strong> in the URL path (<code>/v8/</code> → <code>/v9/</code>) so clients fetch fresh ones without a global purge — versioning is cheaper and safer than cache invalidation at planet scale.</p>
+      <h3>Failure mode</h3>
+      <p>If the tile <strong>origin</strong> goes down, the CDN keeps serving everything it has cached — which, for popular areas, is nearly everything. Only requests for cold, rarely-viewed tiles fail, and even those can fall back to a lower zoom level (a blurrier but valid view) while the origin recovers. This graceful degradation is a direct consequence of immutable, cacheable tiles.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up the interviewer will ask</span>
+        <p>"How do you serve the map efficiently?" — answer in one breath: <em>precompute vector tiles at every zoom level, address them by <code>z/x/y</code>, make the URLs immutable, and serve them from a CDN so the origin only ever sees cache misses.</em> Then mention versioned re-rendering for updates, and you have covered the whole tile story.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Deep dive · model</div>
+      <h2>The road network as a graph</h2>
+      <p><strong>Bottleneck:</strong> "find the best way to drive there" is meaningless until we turn the messy physical road network into something a computer can search. The model is a <strong>weighted directed graph</strong>.</p>
+      <h3>Nodes, edges, and weights</h3>
+      <p>The mapping is direct: every <strong>intersection</strong> becomes a <strong>node</strong>; every <strong>road segment</strong> between two intersections becomes a directed <strong>edge</strong>. Direction matters — a one-way street is a single edge; a normal street is two edges pointing opposite ways. The crucial modeling choice is the <strong>edge weight</strong>: not the segment's length in meters, but the <strong>time</strong> it takes to traverse it. Distance gives you the shortest route; time gives you the <em>fastest</em> route, which is what a person actually wants. A 2&nbsp;km stretch of the Pan-Island Expressway at 80&nbsp;km/h beats 1&nbsp;km of stop-start traffic through Geylang.</p>
+      <p>That single decision — weight by time — is what makes the same graph the foundation for both routing <em>and</em> ETA. The ETA of a path is just the sum of its edge weights; live traffic is just a continuous rewrite of those weights.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="A small road graph: intersections as nodes, road segments as directed edges weighted by travel time">
+            <!-- nodes -->
+            <circle cx="90" cy="60" r="16" class="node"/><text class="lbl-sm" x="90" y="65" text-anchor="middle">A</text>
+            <circle cx="300" cy="40" r="16" class="node"/><text class="lbl-sm" x="300" y="45" text-anchor="middle">B</text>
+            <circle cx="300" cy="170" r="16" class="node"/><text class="lbl-sm" x="300" y="175" text-anchor="middle">C</text>
+            <circle cx="520" cy="100" r="16" class="node-r"/><text class="lbl-sm" x="520" y="105" text-anchor="middle">D</text>
+            <circle cx="170" cy="160" r="16" class="node"/><text class="lbl-sm" x="170" y="165" text-anchor="middle">E</text>
+            <!-- edges -->
+            <path class="flow" d="M106 56 L 284 44" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="195" y="40" text-anchor="middle" fill="#1F4E79">4 min</text>
+            <path class="flow" d="M104 68 L 156 150" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="112" y="120" text-anchor="middle" fill="#1F4E79">3</text>
+            <path class="flow" d="M300 56 L 300 154" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="312" y="110" text-anchor="middle" fill="#1F4E79">2</text>
+            <path class="flow" d="M316 46 L 506 92" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="420" y="58" text-anchor="middle" fill="#1F4E79">6</text>
+            <path class="flow" d="M316 166 L 506 108" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="420" y="155" text-anchor="middle" fill="#1F4E79">3</text>
+            <path class="flow" d="M186 156 L 286 50" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="205" y="112" text-anchor="middle" fill="#1F4E79">2</text>
+            <text class="lbl-sm" x="90" y="98" text-anchor="middle">origin</text>
+            <text class="lbl-sm" x="520" y="138" text-anchor="middle" fill="#B0532F">goal</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — nodes = intersections, edges = directed segments, weights = travel time (minutes)</figcaption>
+      </figure>
+      <h3>Worked example</h3>
+      <p>In FIG. 4, the fastest A→D path is not the direct-looking one. A→B→D costs <code>4 + 6 = 10</code>. A→B→C→D costs <code>4 + 2 + 3 = 9</code>. A→E→B→C→D costs <code>3 + 2 + 2 + 3 = 10</code>. The winner is <strong>A→B→C→D at 9 minutes</strong>. A shortest-path algorithm finds this by systematically exploring cheaper-first, never trusting "looks closer."</p>
+      <h3>Dijkstra: the baseline</h3>
+      <p><strong>Dijkstra's algorithm</strong> is the textbook answer. It explores outward from the origin in order of cumulative cost, always expanding the cheapest-so-far node next, until it reaches the goal. It is correct (it finds the true shortest path with non-negative weights) but <strong>uninformed</strong>: it fans out in <em>all</em> directions equally, like ripples in a pond. To route from Jurong to Changi it will happily explore halfway to Malaysia before the ripple reaches the airport. On a continent-scale graph with hundreds of millions of nodes, that is far too slow for an interactive request.</p>
+      <div class="callout">
+        <span class="k">Why this matters</span>
+        <p>The bottleneck is now sharp: Dijkstra is correct but explores too much. The next two sections are both attacks on that single problem — <strong>A*</strong> steers the search toward the goal so it explores less, and <strong>contraction hierarchies</strong> precompute shortcuts so it barely explores at all. Everything that follows is "make shortest-path fast enough to feel instant."</p>
+      </div>
+    </section>
+
+    <!-- 7 — INTERACTIVE -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Deep dive · routing</div>
+      <h2>Routing with A* — steer toward the goal</h2>
+      <p><strong>Bottleneck:</strong> Dijkstra wastes effort exploring in directions away from the destination. <strong>A* search</strong> fixes this with a single idea: give the search a sense of direction by adding a <strong>heuristic</strong> — an optimistic estimate of the remaining distance to the goal.</p>
+      <h3>How A* works under the hood</h3>
+      <p>Dijkstra picks the next node to expand by lowest <code>g</code> — the actual cost from the origin so far. A* picks by lowest <code>f = g + h</code>, where <code>h</code> is a guess of the cost <em>remaining</em> to the goal. For road routing, a natural <code>h</code> is the <strong>straight-line (great-circle) distance to the destination divided by the top road speed</strong> — a time you definitely cannot beat, since nothing is faster than a straight line at full speed.</p>
+      <p>That biases expansion toward the goal. A node that is geographically <em>behind</em> the origin gets a large <code>h</code>, so its <code>f</code> is high and the search ignores it. A node pointing toward the destination gets a small <code>h</code> and is explored first. The pond ripple becomes a beam aimed at the target — far fewer nodes touched, same optimal answer.</p>
+      <p>The catch, and the property to name: the heuristic must be <strong>admissible</strong> — it must never <em>overestimate</em> the true remaining cost. Straight-line time is admissible because the real road is always at least as long and at most as fast. An admissible heuristic guarantees A* still returns the genuinely optimal path; an inadmissible one (too greedy) returns fast but possibly wrong routes.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-astar">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive A* routing animation: load the region graph, expand nodes toward the goal, find a path, then a traffic update reroutes">
+            <g class="st" id="a-req"><rect class="node" x="18" y="112" width="96" height="46" rx="8"/><text class="lbl-sm" x="66" y="132" text-anchor="middle">route</text><text class="lbl-sm" x="66" y="148" text-anchor="middle">request</text></g>
+            <g class="st" id="a-graph"><rect class="node-b" x="150" y="106" width="120" height="58" rx="9"/><text class="lbl" x="210" y="130" text-anchor="middle">Region</text><text class="lbl" x="210" y="148" text-anchor="middle">graph (RAM)</text></g>
+            <!-- search field -->
+            <g class="st" id="a-search">
+              <circle cx="350" cy="60" r="13" class="node"/><text class="lbl-sm" x="350" y="64" text-anchor="middle">O</text>
+              <circle cx="430" cy="90" r="13" class="node"/>
+              <circle cx="500" cy="120" r="13" class="node"/>
+              <circle cx="350" cy="160" r="13" class="node"/>
+              <circle cx="430" cy="180" r="13" class="node"/>
+              <circle cx="590" cy="150" r="13" class="node-r"/><text class="lbl-sm" x="590" y="154" text-anchor="middle">G</text>
+              <path class="flow-d" d="M363 60 L 417 88" marker-end="url(#arrow-s)"/>
+              <path class="flow-d" d="M443 90 L 487 116" marker-end="url(#arrow-s)"/>
+              <path class="flow-d" d="M363 160 L 417 178" marker-end="url(#arrow-s)"/>
+            </g>
+            <!-- found path -->
+            <g class="st" id="a-path">
+              <path class="flow-r" d="M362 66 C 420 92, 470 118, 578 146" marker-end="url(#arrow-r)"/>
+            </g>
+            <!-- eta -->
+            <g class="st" id="a-eta"><rect class="node-r" x="470" y="208" width="150" height="44" rx="8"/><text class="lbl-sm" x="545" y="230" text-anchor="middle">ETA = Σ edge</text><text class="lbl-sm" x="545" y="245" text-anchor="middle">weights</text></g>
+            <!-- traffic bump -->
+            <g class="st" id="a-jam"><rect x="300" y="208" width="150" height="44" rx="8" fill="#E7E1F2" stroke="#6E59A5" stroke-width="2"/><text class="lbl-sm" x="375" y="230" text-anchor="middle">jam: edge +5min</text><text class="lbl-sm" x="375" y="245" text-anchor="middle">→ reroute</text></g>
+
+            <text class="lbl-sm" x="470" y="40" text-anchor="middle" fill="#4A7BA6">f = g + h  (h = straight-line time)</text>
+            <path id="a-p1" class="flow" d="M114 134 H 148" marker-end="url(#arrow)"/>
+            <path id="a-p2" class="flow" d="M270 120 C 300 100, 320 80, 338 66" marker-end="url(#arrow)"/>
+            <path id="a-p3" class="flow-r" d="M362 66 C 420 92, 470 118, 576 146" marker-end="url(#arrow-r)"/>
+            <path id="a-p4" class="flow" d="M560 162 C 556 185, 552 195, 548 206" marker-end="url(#arrow)"/>
+            <path id="a-p5" class="flow-d" d="M375 206 C 410 175, 470 155, 576 150" marker-end="url(#arrow-s)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: load the graph, expand toward the goal, find a path, sum the ETA, then reroute on a jam</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Dijkstra</h4><ul>
+          <li>Explores uniformly in all directions</li>
+          <li>No heuristic needed — works on any graph</li>
+          <li>Touches far more nodes; slow on huge maps</li>
+          <li>Good for "nearest of many" (one-to-all) queries</li>
+        </ul></div>
+        <div class="col"><h4>A*</h4><ul>
+          <li>Steers expansion toward a single goal</li>
+          <li>Needs an admissible heuristic (straight-line time)</li>
+          <li>Touches far fewer nodes for point-to-point</li>
+          <li>Still too slow alone for continent-scale interactive routing</li>
+        </ul></div>
+      </div>
+      <h3>Failure mode</h3>
+      <p>A* degrades gracefully: with a weak heuristic it simply explores more (toward Dijkstra's behavior) but stays correct. The real danger is an <em>inadmissible</em> heuristic — say, multiplying straight-line time by 1.5 to go faster — which can return a route that is not actually optimal. Some production systems accept that on purpose for speed, but you must say so out loud; silently returning a worse route is a correctness bug, not an optimization.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up the interviewer will ask</span>
+        <p>"Why not just use Dijkstra?" — because it explores in every direction; A* adds a goal-directed heuristic to cut the search. The natural next probe is "is A* fast enough for routing across a continent?" The honest answer is <strong>no</strong> — even A* touches too many nodes across a country-sized graph in real time. That sets up the next section perfectly.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Deep dive · continent scale</div>
+      <h2>Continent scale: precompute the highways</h2>
+      <p><strong>Bottleneck:</strong> even A* must touch huge numbers of nodes to route across a continent, and we need sub-100&nbsp;ms answers. The insight is that <strong>most long routes share the same skeleton</strong>: to drive from one Singapore neighborhood to another far across the island, you almost certainly get onto a major expressway, ride it, and get off near the destination. Real journeys funnel through a tiny set of important roads. So precompute that structure.</p>
+      <h3>Contraction hierarchies, under the hood</h3>
+      <p><strong>Contraction hierarchies (CH)</strong> is the dominant technique. Offline, you rank every node by "importance" (roughly, how central it is to long routes). Then you <strong>contract</strong> nodes one at a time from least to most important: when you remove a node, you add <strong>shortcut edges</strong> between its neighbors that preserve the shortest distances that used to pass through it. A shortcut might say "from this on-ramp to that off-ramp is 14 minutes" and stand in for fifty real segments along the expressway.</p>
+      <p>At query time you run a <strong>bidirectional search</strong> — one search forward from the origin, one backward from the destination — but you only ever move <em>upward</em> in the importance hierarchy. Both searches climb quickly onto the shortcut network (the "highways"), meet in the middle, and stop. Instead of expanding millions of residential intersections, you expand a few thousand important nodes and shortcuts. Continent-scale queries that took seconds with plain Dijkstra finish in <strong>well under a millisecond</strong> of graph search.</p>
+      <p>The trade-off is the classic one: you pay a large <strong>offline preprocessing</strong> cost (hours to build the hierarchy and shortcuts for a country) and extra storage for the shortcuts, in exchange for blazing-fast queries. Since the road network changes slowly, that is an excellent bargain — exactly the precompute-once, serve-many pattern from the tile story, applied to routing.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Contraction hierarchies: a shortcut edge replaces a chain of minor roads so the search skips over them">
+            <!-- minor chain -->
+            <circle cx="60" cy="160" r="12" class="node"/><text class="lbl-sm" x="60" y="164" text-anchor="middle">O</text>
+            <circle cx="150" cy="160" r="9" class="node"/>
+            <circle cx="240" cy="160" r="9" class="node"/>
+            <circle cx="330" cy="160" r="9" class="node"/>
+            <circle cx="420" cy="160" r="9" class="node"/>
+            <circle cx="540" cy="160" r="12" class="node-r"/><text class="lbl-sm" x="540" y="164" text-anchor="middle">G</text>
+            <path class="flow-d" d="M72 160 H 141" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M159 160 H 231" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M249 160 H 321" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M339 160 H 411" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M429 160 H 526" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="300" y="195" text-anchor="middle">plain search: expand every minor node</text>
+            <!-- shortcut -->
+            <path class="flow" d="M70 150 C 200 70, 400 70, 530 150" stroke-width="3" marker-end="url(#arrow)"/>
+            <text class="lbl" x="300" y="78" text-anchor="middle" fill="#1F4E79">precomputed shortcut: O → G in one hop</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — a contraction shortcut lets the query leap over a whole chain of minor roads</figcaption>
+      </figure>
+      <h3>Sharding routing by region</h3>
+      <p>The graph is also too big to live in one process, and a Singapore user rarely routes to London. So <strong>shard the routing service by geographic region</strong>: each shard holds the in-memory graph (with its CH structure) for a country or metro and answers queries within it. The gateway routes a request to the shard that owns the origin's region. Locality means the vast majority of queries are answered entirely within one shard.</p>
+      <h3>Crossing boundaries</h3>
+      <p>The hard part is a route that spans two shards — Singapore to Kuala Lumpur. You handle <strong>boundary nodes</strong>: the small set of crossing points (border checkpoints, major highways) where regions connect. The query routes from origin to a boundary node in the source shard, hands off across the boundary, and continues in the destination shard. You precompute distances between boundary nodes so the handoff is cheap. This is graph partitioning: cut the graph where traffic between partitions is thinnest, and stitch the cuts back with a small overlay graph of boundary-to-boundary distances.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up the interviewer will ask</span>
+        <p>"How do you route across a continent fast?" — say it cleanly: <em>precompute contraction-hierarchy shortcuts offline so a long query climbs onto the highway skeleton and barely searches; shard the graph by region for memory and locality; and stitch shards at boundary nodes with a precomputed overlay.</em> If they push on "what changes when traffic shifts the weights?" admit CH assumes mostly-static weights and needs periodic rebuilds or customizable variants — a great segue into the live-traffic section.</p>
+      </div>
+    </section>
+
+    <!-- 9 — INTERACTIVE -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Deep dive · freshness</div>
+      <h2>Live traffic &amp; the ETA pipeline</h2>
+      <p><strong>Bottleneck:</strong> a route computed on free-flow speeds lies. The PIE at 6&nbsp;pm is not the PIE at 3&nbsp;am. The one thing we genuinely cannot precompute is <em>now</em> — so we need a continuous pipeline that turns live driver movement into fresh edge weights, which the router reads on its next query.</p>
+      <h3>How the pipeline works under the hood</h3>
+      <p>The raw signal is <strong>GPS probe data</strong>: every navigating phone and every Grab driver emits its position every few seconds. The pipeline turns this firehose into per-edge speeds in four stages:</p>
+      <ul>
+        <li><strong>Ingest.</strong> Probes land on a durable, partitioned log — <strong>Kafka</strong>, partitioned by region or geohash so each consumer owns a slice of the map. This decouples the spiky, massive write rate from the processing.</li>
+        <li><strong>Map-matching.</strong> A raw <code>(lat, lng)</code> is noisy and sits "between" roads. <strong>Map-matching</strong> snaps a sequence of probes onto the most likely actual edges they traversed — a small hidden-Markov-style inference per trajectory. This is the step that converts "a dot near a road" into "this car drove edge 8842 in 47 seconds."</li>
+        <li><strong>Aggregate.</strong> A stream processor — <strong>Apache Flink</strong> (or Spark Streaming) — groups matched observations per edge over a sliding time window (say the last 2–5 minutes) and computes a robust average speed, discarding outliers (a parked car, a GPS glitch).</li>
+        <li><strong>Publish.</strong> The new per-edge speed is written to a fast store the routers read — Redis or an in-memory overlay keyed by <code>edge_id</code>. The router blends this live speed with the historical baseline for that segment and time-of-day to set the current weight.</li>
+      </ul>
+      <figure>
+        <div class="blueprint stepper" id="fig-traffic">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive live-traffic pipeline: GPS probes to Kafka, map-matching, Flink aggregation, edge-weight store, consumed by routing">
+            <g class="st" id="t-probe"><rect x="16" y="100" width="104" height="50" rx="9" fill="#E7E1F2" stroke="#6E59A5" stroke-width="2"/><text class="lbl-sm" x="68" y="122" text-anchor="middle">GPS probes</text><text class="lbl-sm" x="68" y="138" text-anchor="middle">(drivers)</text></g>
+            <g class="st" id="t-kafka"><rect x="152" y="100" width="96" height="50" rx="9" fill="#E7E1F2" stroke="#6E59A5" stroke-width="2"/><text class="lbl" x="200" y="130" text-anchor="middle">Kafka</text></g>
+            <g class="st" id="t-match"><rect class="node-b" x="280" y="98" width="110" height="54" rx="9"/><text class="lbl-sm" x="335" y="120" text-anchor="middle">map-match</text><text class="lbl-sm" x="335" y="136" text-anchor="middle">→ edges</text></g>
+            <g class="st" id="t-flink"><rect class="node-b" x="420" y="98" width="100" height="54" rx="9"/><text class="lbl" x="470" y="122" text-anchor="middle">Flink</text><text class="lbl-sm" x="470" y="140" text-anchor="middle">aggregate</text></g>
+            <g class="st" id="t-store"><rect class="node-r" x="430" y="186" width="120" height="46" rx="9"/><text class="lbl-sm" x="490" y="206" text-anchor="middle">edge-speed</text><text class="lbl-sm" x="490" y="222" text-anchor="middle">store (Redis)</text></g>
+            <g class="st" id="t-route"><rect class="node" x="250" y="186" width="130" height="46" rx="9"/><text class="lbl-sm" x="315" y="206" text-anchor="middle">Routing svc</text><text class="lbl-sm" x="315" y="222" text-anchor="middle">reads weights</text></g>
+            <path id="t-p1" class="flow-d" d="M120 125 H 150" marker-end="url(#arrow-s)"/>
+            <path id="t-p2" class="flow-d" d="M248 125 H 278" marker-end="url(#arrow-s)"/>
+            <path id="t-p3" class="flow" d="M390 125 H 418" marker-end="url(#arrow)"/>
+            <path id="t-p4" class="flow" d="M480 152 C 486 165, 488 172, 490 184" marker-end="url(#arrow)"/>
+            <path id="t-p5" class="flow-r" d="M430 209 H 382" marker-end="url(#arrow-r)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 7 — interactive: probes → Kafka → map-match → Flink → edge-speed store → routing</figcaption>
+      </figure>
+      <h3>Worked example — a Grab driver hits a jam</h3>
+      <p>It is 6:10&nbsp;pm. Thousands of Grab drivers crawling along a segment of the ECP each emit probes showing 12&nbsp;km/h, far below the 80&nbsp;km/h baseline. Flink's 3-minute window for that edge averages the observations and writes <code>edge_speed = 12 km/h</code> to Redis. The next rider who requests a route through that area gets a weight five-to-six times higher for that segment; A* now sees it as expensive and may steer onto Marine Parade Road instead. The rider's ETA jumps from 9 to 14 minutes — accurately. Crucially, this happened with <strong>no route recomputation push</strong>: weights changed, and the very next query reflected reality.</p>
+      <h3>Historical patterns and prediction</h3>
+      <p>Live data alone is jittery and sparse on quiet roads. So edge weights blend <strong>live speed</strong> with a <strong>historical model</strong>: the typical speed for this segment at this day-of-week and time-of-day, learned from months of probes. For a long trip, you also <strong>predict</strong> — the speed on a segment you will reach in 40 minutes should use the forecast for 40 minutes from now, not the speed right now. This time-dependent weighting is why a good ETA accounts for a jam that will have cleared by the time you arrive.</p>
+      <h3>Failure mode</h3>
+      <p>If the traffic pipeline stalls — Kafka lag, a Flink job crash — edge weights go <strong>stale</strong>. The correct fallback is to detect staleness (each edge speed carries a timestamp) and <strong>fall back to the historical baseline</strong> for that segment and time. The map keeps routing with typical speeds; ETAs lose live accuracy but stay reasonable. That is far better than failing the route. Recovery is automatic: when the pipeline catches up, fresh weights overwrite the baselines on the next window flush.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up the interviewer will ask</span>
+        <p>"How does live traffic change the ETA?" — answer the mechanism, not the magic: <em>driver GPS probes stream into Kafka, get map-matched to edges, are aggregated per edge by Flink into current speeds, and update edge weights in a fast store; the router reads those weights on the next query, so a slowdown both raises the ETA and can trigger a reroute.</em> Then mention historical blending and stale-data fallback, and you have closed the loop.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Wrap-up</div>
+      <h2>Failure modes &amp; what breaks at 10x</h2>
+      <p>Tie the system off by stress-testing it. An interviewer's favorite closer is "what happens when X dies?" and "now grow it 10×." Walk each subsystem.</p>
+      <h3>What breaks, and how it recovers</h3>
+      <ul>
+        <li><strong>Tile origin dies.</strong> The CDN keeps serving cached tiles — nearly everything popular. Cold tiles can degrade to a lower zoom. Impact: minimal, by design.</li>
+        <li><strong>A routing shard dies.</strong> Queries for that region fail until a <strong>replica</strong> takes over. Run each region shard with hot standbys; the graph is read-only at query time, so promoting a replica is instant — just repoint the gateway. Cross-region routes touching the dead shard fail over to the replica's boundary handoff.</li>
+        <li><strong>Traffic pipeline stalls.</strong> Fall back to historical edge speeds (above). The system stays up; only live accuracy dips.</li>
+        <li><strong>A whole region (data center) fails.</strong> Because routing is sharded geographically and tiles are global on the CDN, a regional failure is contained: you reroute that region's traffic to a neighboring DC that also holds a replica of the graph, accepting higher latency until recovery.</li>
+      </ul>
+      <h3>What breaks at 10x</h3>
+      <ul>
+        <li><strong>Tiles (10× reads).</strong> Almost free — add CDN capacity and edge POPs. This is the easy axis; the CDN absorbs it. The origin barely notices because miss rate, not request rate, drives its load.</li>
+        <li><strong>Routing (10× queries).</strong> CPU-bound, so scale horizontally: more replicas per region shard behind the gateway, and split hot regions into finer shards. Watch the CH rebuild cost — a denser road network means longer offline preprocessing.</li>
+        <li><strong>Traffic (10× drivers).</strong> The probe firehose grows linearly. Add Kafka partitions and Flink parallelism; partition by geohash so the work shards cleanly. The risk is map-matching CPU — it is the most expensive per-probe step, so it must scale with ingest.</li>
+        <li><strong>The lurking limit: graph updates.</strong> At 10× the map editing rate, rebuilding contraction hierarchies for large regions frequently becomes the real bottleneck. Mitigations: rebuild per-region in parallel, use <em>customizable</em> route planning variants that separate the slow topology preprocessing from fast weight customization, and rebuild on a schedule rather than per edit.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">The pattern, one more time</span>
+        <p>Every scaling answer here is the same shape: <strong>precompute the slow-changing part offline</strong> (tiles, CH shortcuts, historical speeds), <strong>keep the request path cheap</strong> (CDN hits, in-memory graph search, a single weight lookup), and <strong>isolate the only truly live part</strong> (traffic) in a stream that updates weights out-of-band. If you can articulate that, you can defend any 10× the interviewer throws at you.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole design compresses to one sentence: <em>render from precomputed tiles served by a CDN, route over an in-memory road graph using A* sped up by contraction-hierarchy shortcuts and regional sharding, and keep ETAs honest with a streaming traffic pipeline that rewrites edge weights.</em> If you can sketch those three subsystems and explain why each leans on precomputation, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Three systems, one app</b><span>Tiles (bandwidth), routing (CPU), traffic (throughput) — different scaling stories.</span></div>
+        <div class="tk"><span class="num">02</span><b>Read-mostly → precompute</b><span>Map data changes slowly; do expensive work offline, keep the request cheap.</span></div>
+        <div class="tk"><span class="num">03</span><b>Tile pyramid</b><span>Quadtree of z/x/y tiles; client fetches only the visible few.</span></div>
+        <div class="tk"><span class="num">04</span><b>Serve tiles from a CDN</b><span>Immutable URLs + long TTL; origin sees only misses; version to update.</span></div>
+        <div class="tk"><span class="num">05</span><b>Roads → weighted graph</b><span>Nodes = intersections, edges = segments, weight = travel time.</span></div>
+        <div class="tk"><span class="num">06</span><b>A* steers the search</b><span>f = g + h with an admissible straight-line heuristic beats blind Dijkstra.</span></div>
+        <div class="tk"><span class="num">07</span><b>CH for continent scale</b><span>Precomputed shortcuts + bidirectional upward search → sub-ms queries.</span></div>
+        <div class="tk"><span class="num">08</span><b>Shard routing by region</b><span>Locality keeps queries in one shard; stitch at boundary nodes.</span></div>
+        <div class="tk"><span class="num">09</span><b>Traffic = live stream</b><span>Probes → Kafka → map-match → Flink → edge weights → next query.</span></div>
+        <div class="tk"><span class="num">10</span><b>Fall back gracefully</b><span>Stale traffic → historical speeds; dead shard → replica failover.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why must map tiles be precomputed and served from a CDN rather than rendered per request — and how does the <code>z/x/y</code> pyramid let the client fetch only what it needs?<br>(2) Why are edge weights travel time, not distance, and how does that make one graph serve both routing and ETA?<br>(3) How does A* steer the search toward the goal, what does "admissible heuristic" mean, and why does it still matter on top of Dijkstra?<br>(4) Why is even A* too slow across a continent, and how do contraction hierarchies fix it?<br>(5) Walk the live-traffic pipeline end to end, and explain how a jam changes both the ETA and the chosen route.<br>(6) Name two failure modes (traffic pipeline stalls; a routing shard dies) and the fallback for each.<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw the architecture from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 34 · DESIGN GOOGLE MAPS · interactive edition · ref BBG V2·C3 · SG context: Grab<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* A* routing */
+  makeStepper(document.getElementById('fig-astar'), [
+    {text:"A route request arrives — origin O, destination G, weighted by travel time.", active:["a-req","a-graph"], path:"a-p1"},
+    {text:"The router loads the relevant region graph, already held in RAM.", active:["a-graph","a-search"], path:"a-p2"},
+    {text:"A* expands nodes toward the goal: f = g + h, where h is straight-line time. It steers, instead of fanning out everywhere.", active:["a-search"]},
+    {text:"A shortest path is found, and its ETA is the sum of the edge weights along it.", active:["a-search","a-path","a-eta"], path:"a-p4"},
+    {text:"Live traffic bumps an edge weight (+5 min on a jam) — the next query reroutes around it.", active:["a-jam","a-search"], path:"a-p5"}
+  ]);
+
+  /* live-traffic pipeline */
+  makeStepper(document.getElementById('fig-traffic'), [
+    {text:"Driver phones emit GPS probes every few seconds — a relentless firehose.", active:["t-probe","t-kafka"], path:"t-p1"},
+    {text:"Probes land on a partitioned Kafka log, decoupling the spiky writes from processing.", active:["t-kafka","t-match"], path:"t-p2"},
+    {text:"Map-matching snaps noisy points onto the actual road edges they traversed.", active:["t-match","t-flink"], path:"t-p3"},
+    {text:"Flink aggregates matched observations per edge over a sliding window into a current speed, then writes it to a fast store.", active:["t-flink","t-store"], path:"t-p4"},
+    {text:"The routing service reads the fresh edge weights on its next query — so the slowdown raises the ETA and can trigger a reroute.", active:["t-store","t-route"], path:"t-p5", reject:true}
+  ]);
+</script>
+</body>
+</html>

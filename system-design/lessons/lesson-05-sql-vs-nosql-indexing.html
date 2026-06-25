@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 05 — SQL vs NoSQL &amp; Indexing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1c2733;border:1px solid #2c3a48;border-radius:10px;
+    overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;color:#d6e2ee;}
+  pre .c{color:#7e93a6;} pre .kw{color:#7fb2e0;} pre .str{color:#c3a878;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">SQL vs NoSQL<br>&amp; Indexing</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Choose by access pattern</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>What relational gives you</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Where SQL hits a wall</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The four NoSQL families</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>ACID vs BASE</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The decision, distilled</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>What an index really is</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>B-tree: read-optimized</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>LSM-tree: write-optimized ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Read vs write amplification</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>The cost of an index</span></a></li>
+      <li><a href="#s11"><span class="n">11</span><span>Denormalize vs join</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">05</span><span>Lesson · System Design Interview</span></div>
+      <h1>SQL vs NoSQL &amp; Indexing</h1>
+      <p class="lede">The right datastore falls out of your access pattern, not out of the hype cycle. This lesson gives you a defensible way to choose between relational and NoSQL stores — then opens the engine itself: B-tree versus LSM-tree, what an index actually costs you on every write, and the moment when duplicating data quietly beats a clean join.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on a standard, widely-documented engineering topic — relational versus non-relational stores and how their indexes work. Every explanation, number, example, and diagram here is my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the LSM write path.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The decision</div>
+      <h2>Choose by access pattern, not by trend</h2>
+      <p>The fastest way to get a database question wrong in an interview is to answer "SQL or NoSQL?" with a preference instead of a reason. Both families are mature, both scale to enormous workloads, and both back trillion-dollar companies. The honest answer is that neither is "better" — they make opposite bets, and the right bet depends entirely on <strong>how your data is read and written</strong>.</p>
+      <p>So lead with the decision, then justify it. The single most useful question to ask out loud is: <em>"What is the dominant access pattern?"</em> Concretely:</p>
+      <ul>
+        <li><strong>Shape of the queries.</strong> Do you fetch one entity by its key, or join five tables and aggregate across them?</li>
+        <li><strong>Read/write ratio.</strong> A read-heavy product catalogue and a write-heavy event log want very different engines underneath.</li>
+        <li><strong>Consistency need.</strong> Can two users briefly see different balances, or must a wallet debit be correct to the cent, always?</li>
+        <li><strong>Scale and growth.</strong> Will one machine hold this in three years, or are you already planning to spread it across a hundred nodes?</li>
+        <li><strong>Schema volatility.</strong> Is the shape of a record fixed, or does every new feature add fields?</li>
+      </ul>
+      <p>Hold those five questions in mind for the rest of the lesson — every trade-off we hit maps back to one of them. We'll build up the relational story first, watch it strain, introduce NoSQL as the response, and then drop a level into the indexes that make either choice fast. The index is where the real performance story lives.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="A single access-pattern question fanning out into two database family choices">
+            <rect class="node-b" x="210" y="22" width="220" height="54" rx="10"/>
+            <text class="lbl" x="320" y="44" text-anchor="middle">What is the dominant</text>
+            <text class="lbl" x="320" y="62" text-anchor="middle">access pattern?</text>
+            <path class="flow" d="M260 78 C 200 110, 160 120, 140 150" marker-end="url(#arrow)"/>
+            <path class="flow" d="M380 78 C 440 110, 480 120, 500 150" marker-end="url(#arrow)"/>
+            <rect class="node" x="30" y="152" width="220" height="80" rx="10"/>
+            <text class="lbl" x="140" y="178" text-anchor="middle">Relations · joins</text>
+            <text class="lbl" x="140" y="196" text-anchor="middle">correctness-critical</text>
+            <text class="lbl-sm" x="140" y="216" text-anchor="middle">→ relational (SQL)</text>
+            <rect class="node-r" x="390" y="152" width="220" height="80" rx="10"/>
+            <text class="lbl" x="500" y="178" text-anchor="middle">Huge scale · simple</text>
+            <text class="lbl" x="500" y="196" text-anchor="middle">lookups · high writes</text>
+            <text class="lbl-sm" x="500" y="216" text-anchor="middle">→ NoSQL</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the datastore choice is downstream of one question, asked honestly</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The baseline</div>
+      <h2>What relational gives you</h2>
+      <p>Start with the default, because for most products it is the correct default. A <strong>relational database</strong> (an <strong>RDBMS</strong>) stores data in tables of rows and columns, with a <strong>fixed schema</strong> declared up front: each column has a type, and rows must conform. PostgreSQL, MySQL, and cloud-managed flavours like Amazon Aurora and Google Cloud SQL are the workhorses here. You query with <strong>SQL</strong>, a declarative language where you describe <em>what</em> you want and the engine's query planner decides <em>how</em> to get it.</p>
+
+      <h3>Joins: model relationships once, query them many ways</h3>
+      <p>The defining strength is the <strong>join</strong>. You store each fact exactly once — users in a <code>users</code> table, orders in an <code>orders</code> table linked by a <code>user_id</code> <strong>foreign key</strong> — a design called <strong>normalization</strong>. There is one source of truth for a user's name; change it in one place and every query sees the new value. The join then stitches normalized tables back together at read time:</p>
+      <pre><span class="c">-- Shopee SG: list a seller's recent orders with the buyer's city</span>
+<span class="kw">SELECT</span> o.id, o.total_cents, u.city, o.created_at
+<span class="kw">FROM</span> orders o
+<span class="kw">JOIN</span> users u <span class="kw">ON</span> u.id = o.buyer_id
+<span class="kw">WHERE</span> o.seller_id = <span class="str">'S-99214'</span>
+  <span class="kw">AND</span> o.created_at &gt; now() - <span class="kw">interval</span> <span class="str">'7 days'</span>
+<span class="kw">ORDER BY</span> o.created_at <span class="kw">DESC</span>;</pre>
+      <p>You never anticipated this exact query when you designed the schema, and it doesn't matter — the relational model lets you ask new questions of existing data without reshaping it. That flexibility at <em>query</em> time is the trade you make for rigidity at <em>schema</em> time.</p>
+
+      <h3>ACID transactions: correctness under concurrency</h3>
+      <p>The second pillar is <strong>ACID transactions</strong> — the property an interviewer most wants to hear named for anything touching money. ACID stands for:</p>
+      <ul>
+        <li><strong>Atomicity</strong> — a transaction is all-or-nothing. Debit a GrabPay wallet and credit a merchant either both happen or neither does; a crash mid-way leaves no half-transfer.</li>
+        <li><strong>Consistency</strong> — every committed transaction moves the database from one valid state to another, respecting constraints (a balance can't go negative if you declared a <code>CHECK</code>).</li>
+        <li><strong>Isolation</strong> — concurrent transactions don't step on each other; the result is as if they ran one after another (the strength is tunable via <em>isolation levels</em>).</li>
+        <li><strong>Durability</strong> — once committed, the write survives a power loss, because it was flushed to a write-ahead log on disk first.</li>
+      </ul>
+      <p>This is exactly the property a payment ledger lives or dies by. If a SeaMoney transfer can ever leave money in neither account, you don't have a payments product — you have a lawsuit. Relational engines have spent forty years making ACID correct and fast, which is why correctness-critical data overwhelmingly lives in SQL.</p>
+
+      <h3>How it scales: up, then out via replicas</h3>
+      <p>A relational database scales <strong>vertically</strong> first — give the single primary node more CPU, RAM, and faster disks. This is simple and gets you remarkably far; a well-tuned Postgres on a large instance handles many thousands of transactions per second. When reads outgrow the primary, you add <strong>read replicas</strong>: copies that asynchronously follow the primary and absorb read traffic, while all writes still funnel to the one primary.</p>
+      <div class="callout">
+        <span class="k">Under the hood</span>
+        <p>Replicas stay current by streaming the primary's <strong>write-ahead log</strong> (the <code>WAL</code> in Postgres, the <em>binlog</em> in MySQL) and replaying it. Because replay is asynchronous, a replica lags the primary by milliseconds to seconds — so a user who writes then immediately reads from a replica can see stale data (the <em>read-your-own-writes</em> problem). This is the first crack we widen in the next section.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The bottleneck</div>
+      <h2>Where SQL hits a wall</h2>
+      <p>Read replicas solve read scaling but do nothing for write scaling — every write still hits the one primary. So the question becomes: what happens when the write volume, or the raw data size, outgrows the biggest single machine you can buy? You have to <strong>shard</strong>: split the data across many independent database servers, each holding a slice keyed by some <strong>shard key</strong> (say <code>user_id mod 64</code>).</p>
+      <p>Sharding a relational database is where the pain begins, and naming that pain precisely earns interview points:</p>
+      <ul>
+        <li><strong>Joins across shards break down.</strong> A join is cheap when both tables sit on one machine. Once <code>users</code> live on shard 3 and their <code>orders</code> on shard 17, the join becomes a cross-network scatter-gather — slow, fragile, and something most SQL engines won't do for you automatically.</li>
+        <li><strong>Transactions across shards get expensive.</strong> ACID across machines needs a distributed-commit protocol (two-phase commit), which adds latency and a coordinator that can stall the whole transaction if it dies mid-flight.</li>
+        <li><strong>Rebalancing is operationally heavy.</strong> Adding a shard means migrating live data and updating routing while traffic flows. It's doable, but it's a project, not a config change.</li>
+      </ul>
+      <p>The deeper issue is that the relational model's best feature — cross-entity joins and multi-row transactions — is exactly the feature that doesn't survive being spread across a network. The fixed schema also bites: an <code>ALTER TABLE</code> to add a column on a billion-row table can lock or rewrite the table, a genuinely dangerous operation at scale.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="A join becoming a slow cross-network operation once two tables live on separate shards">
+            <rect x="40" y="40" width="230" height="150" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="155" y="34" text-anchor="middle">Shard 3</text>
+            <rect class="node-b" x="80" y="70" width="150" height="44" rx="8"/>
+            <text class="lbl" x="155" y="97" text-anchor="middle">users</text>
+            <rect x="370" y="40" width="230" height="150" rx="10" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="485" y="34" text-anchor="middle">Shard 17</text>
+            <rect class="node-b" x="410" y="120" width="150" height="44" rx="8"/>
+            <text class="lbl" x="485" y="147" text-anchor="middle">orders</text>
+            <path class="flow-r" d="M230 100 C 300 100, 320 130, 408 138" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="320" y="86" text-anchor="middle" fill="#B0532F">JOIN over network</text>
+            <text class="lbl-sm" x="320" y="210" text-anchor="middle" fill="#B0532F">scatter-gather: slow, fragile, no atomicity</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — the join, SQL's best trick, is the first thing sharding takes away</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>Don't say "SQL doesn't scale" — that's wrong and the interviewer will pounce. Say "<em>relational stores scale reads cheaply with replicas and scale up vertically, but scaling writes means sharding, and sharding is where joins and cross-shard transactions get hard.</em>" That sentence shows you know exactly where the boundary is.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The response</div>
+      <h2>The four NoSQL families</h2>
+      <p><strong>NoSQL</strong> ("not only SQL") isn't one thing — it's a label for stores that drop some relational guarantees in exchange for <strong>horizontal scalability</strong> and <strong>flexible schemas</strong>. The unifying move is the same: design the storage <em>around</em> the access pattern so that the common query is a single, cheap lookup that lands on exactly one node — which is precisely what makes spreading across many nodes painless. There are four families, and you should be able to name a use case for each.</p>
+
+      <h3>Key-value: the dictionary at scale</h3>
+      <p>A <strong>key-value store</strong> is a giant distributed hash map: you put a value under a key and get it back by that key, with no querying inside the value. <strong>Redis</strong> (in-memory) and <strong>Amazon DynamoDB</strong> are the canonical examples. Perfect for session tokens, feature flags, shopping carts, and caches — anything where you always know the exact key. A Grab driver's live location keyed by <code>driver_id</code> is a textbook fit: millions of tiny writes per second, every read by key.</p>
+
+      <h3>Document: JSON objects you can query inside</h3>
+      <p>A <strong>document store</strong> like <strong>MongoDB</strong> (or DynamoDB used document-style) holds self-describing JSON-like documents. Unlike key-value, you <em>can</em> query and index fields inside the document. Each document carries its own shape, so adding a field to new records needs no migration — ideal for product catalogues where a phone has different attributes than a sofa, or a user profile that grows feature by feature.</p>
+
+      <h3>Wide-column: rows with billions of dynamic columns</h3>
+      <p>A <strong>wide-column store</strong> like <strong>Apache Cassandra</strong> or <strong>Google Bigtable</strong> organizes data by a row key, and within a row you can have an enormous, sparse set of columns. It's built for massive write throughput and time-series-shaped data: every GrabPay transaction event, or every "driver moved" ping, partitioned by key and time. You design the table for one query and it serves that query at any scale.</p>
+
+      <h3>Graph: when the relationships <em>are</em> the data</h3>
+      <p>A <strong>graph database</strong> like <strong>Neo4j</strong> stores nodes and edges as first-class citizens and is optimized for traversing relationships — "friends of friends who like this restaurant," fraud rings, recommendation paths. Ironically this is the case where deep <em>relationship</em> queries are faster than in a relational database, because the edges are stored as direct pointers rather than rediscovered by joining on keys each time.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Four NoSQL families shown as labeled boxes with a representative store and use case for each">
+            <rect class="node-r" x="30" y="30" width="270" height="90" rx="10"/>
+            <text class="lbl" x="165" y="58" text-anchor="middle">Key-Value</text>
+            <text class="lbl-sm" x="165" y="80" text-anchor="middle">Redis · DynamoDB</text>
+            <text class="lbl-sm" x="165" y="100" text-anchor="middle">sessions, carts, locations</text>
+            <rect class="node-r" x="340" y="30" width="270" height="90" rx="10"/>
+            <text class="lbl" x="475" y="58" text-anchor="middle">Document</text>
+            <text class="lbl-sm" x="475" y="80" text-anchor="middle">MongoDB</text>
+            <text class="lbl-sm" x="475" y="100" text-anchor="middle">catalogues, profiles</text>
+            <rect class="node-r" x="30" y="135" width="270" height="90" rx="10"/>
+            <text class="lbl" x="165" y="163" text-anchor="middle">Wide-Column</text>
+            <text class="lbl-sm" x="165" y="185" text-anchor="middle">Cassandra · Bigtable</text>
+            <text class="lbl-sm" x="165" y="205" text-anchor="middle">event logs, time-series</text>
+            <rect class="node-r" x="340" y="135" width="270" height="90" rx="10"/>
+            <text class="lbl" x="475" y="163" text-anchor="middle">Graph</text>
+            <text class="lbl-sm" x="475" y="185" text-anchor="middle">Neo4j</text>
+            <text class="lbl-sm" x="475" y="205" text-anchor="middle">social, fraud, recs</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — four families, each shaped around a different access pattern</figcaption>
+      </figure>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The guarantee trade</div>
+      <h2>ACID vs BASE</h2>
+      <p>The reason NoSQL stores scale horizontally so easily is that many of them relax ACID in favour of a softer contract called <strong>BASE</strong>: <strong>B</strong>asically <strong>A</strong>vailable, <strong>S</strong>oft state, <strong>E</strong>ventually consistent. Instead of guaranteeing every reader sees the latest write instantly, the system promises only that, absent new writes, all replicas <em>will converge</em> on the same value given a little time. This is <strong>eventual consistency</strong>, and it's the price of partition tolerance and high availability at scale (the deep version is the CAP theorem, a lesson of its own).</p>
+
+      <h3>How eventual consistency plays out</h3>
+      <p>Picture a Shopee product's review count stored in Cassandra, replicated across three data centres. A new review increments the count on one replica and the update propagates to the others over the next few hundred milliseconds. For a moment, a user in Singapore might see "1,204 reviews" while a user in Jakarta sees "1,203." Nobody is harmed; the numbers reconcile shortly. That tiny, acceptable staleness is what buys you the ability to keep serving reads even when a replica is briefly unreachable.</p>
+      <p>Now run the same logic on a wallet balance. Two concurrent withdrawals each read "S$50 available," each approve, and the account goes to −S$30. <em>That</em> is why money doesn't live in an eventually-consistent store without extra machinery. The rule of thumb: eventual consistency is fine when a stale read is merely cosmetic; it's unacceptable when a stale read lets you violate an invariant.</p>
+      <div class="vs">
+        <div class="col"><h4>ACID (typical SQL)</h4><ul>
+          <li>Strong consistency: every read sees the latest committed write</li>
+          <li>Atomic multi-row transactions across entities</li>
+          <li>Correctness-first — right for payments, orders, inventory</li>
+          <li>Harder to spread writes across many nodes</li>
+        </ul></div>
+        <div class="col"><h4>BASE (typical NoSQL)</h4><ul>
+          <li>Eventual consistency: replicas converge after a short delay</li>
+          <li>Stays available and fast even under partition or node loss</li>
+          <li>Scales writes horizontally with little coordination</li>
+          <li>App must tolerate (or repair) brief staleness and conflicts</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Nuance worth stating</span>
+        <p>The ACID/BASE split is a spectrum, not a wall. Many NoSQL stores offer <strong>tunable consistency</strong> — DynamoDB lets you request a strongly consistent read per call, and Cassandra lets you pick <code>QUORUM</code> (a majority of replicas must agree) for stronger guarantees at higher latency. Meanwhile "NewSQL" stores like CockroachDB and Google Spanner deliver ACID transactions <em>across</em> a horizontally sharded cluster. So the modern honest line is "pick the consistency you need per operation," not "SQL is consistent, NoSQL isn't."</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The verdict</div>
+      <h2>The decision, distilled</h2>
+      <p>Now collapse everything above into a decision you can deliver in fifteen seconds. The table is the version to memorize; the guide below it is the version to say out loud.</p>
+      <div class="vs">
+        <div class="col"><h4>Reach for SQL when…</h4><ul>
+          <li>Data is highly relational and you query it many different ways</li>
+          <li>Correctness is non-negotiable — payments, ledgers, orders, inventory</li>
+          <li>You need multi-row ACID transactions and strong consistency</li>
+          <li>The schema is well-understood and stable</li>
+          <li>Current scale fits one primary plus read replicas</li>
+        </ul></div>
+        <div class="col"><h4>Reach for NoSQL when…</h4><ul>
+          <li>The access pattern is simple and known — lookups by a key</li>
+          <li>You need massive horizontal scale or very high write throughput</li>
+          <li>The schema is flexible or evolving (catalogues, profiles, events)</li>
+          <li>Brief staleness is acceptable for the data in question</li>
+          <li>Data is naturally denormalized or self-contained per record</li>
+        </ul></div>
+      </div>
+
+      <h3>The polyglot reality</h3>
+      <p>Real super-apps don't choose <em>one</em> — they use <strong>polyglot persistence</strong>, the right store per workload. A single Grab request might touch PostgreSQL for the payment ledger, Redis for the driver's session and surge cache, Cassandra for the stream of location pings, and a graph store for matching heuristics. The interview-grade insight is that "which database" is the wrong framing; "which database <em>for this access pattern</em>" is the right one. Name the workload, name the store, justify with the access pattern.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up that's always coming</span>
+        <p>Whatever store you pick, the interviewer's reflex question is <em>"what's your shard key / partition key?"</em> Have an answer ready: it should spread load evenly (avoid hot keys) and match your most common query so that query hits a single partition. Picking <code>user_id</code> when you mostly query by user is good; picking <code>country</code> when 80% of users are in one country is a hot-shard disaster.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The engine half</div>
+      <h2>What an index really is</h2>
+      <p>We've chosen a store. Now the harder, more impressive half of the topic: <em>why</em> is a lookup fast, and what makes one store read-fast versus write-fast? The answer is the <strong>index</strong>, and it's the same idea in SQL and NoSQL.</p>
+      <p>Without an index, finding the rows where <code>email = 'tan@example.sg'</code> means a <strong>full table scan</strong>: read every row and check. On a 50-million-row <code>users</code> table that's tens of millions of reads for one answer — hopelessly slow for a login endpoint. An <strong>index</strong> is a separate, sorted data structure that maps a column's values to the locations of the matching rows, so the engine can jump straight to the answer instead of scanning.</p>
+      <p>The mental model: an index is the alphabetical index at the back of a textbook. To find every mention of "Cassandra" you don't read all 600 pages — you flip to the index, find the word (it's sorted, so that's fast), and it tells you the page numbers. The table is the book; the index is the back-matter that points into it. Crucially, the index is <em>extra</em> — it's maintained alongside the data, which is the cost we'll quantify in step 10.</p>
+      <p>Two structures dominate how indexes are built, and they sit at opposite ends of a trade-off. The <strong>B-tree</strong> optimizes for reads and is the relational default. The <strong>LSM-tree</strong> optimizes for writes and powers Cassandra, RocksDB, and friends. Understanding both — and the single trade-off that separates them — is the heart of this lesson.</p>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Read-optimized</div>
+      <h2>B-tree: the read-optimized default</h2>
+      <p>A <strong>B-tree</strong> (more precisely a B+tree, the variant real databases use) is a <em>balanced</em> tree that keeps keys sorted and guarantees every lookup touches the same shallow number of levels. It's the index structure behind PostgreSQL, MySQL's InnoDB, Oracle, and SQL Server — essentially the relational world.</p>
+
+      <h3>How it works under the hood</h3>
+      <p>The tree is built from fixed-size <strong>pages</strong> (commonly 4 KB or 8 KB), each holding a sorted batch of keys. To find a key you start at the <strong>root page</strong>, which divides the whole key range into sub-ranges and points to child pages; you pick the child whose range contains your key, descend, and repeat until you reach a <strong>leaf page</strong> holding the key and a pointer to the row (or the row itself). Because each page fans out to hundreds of children, the tree stays extremely shallow: a B-tree over a billion keys is typically only <strong>three or four levels deep</strong>. That means a point lookup is three or four page reads — effectively constant time no matter how big the table gets.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="A three-level B-tree with a root page, internal pages, and sorted leaf pages linked in order">
+            <rect class="node-b" x="250" y="20" width="140" height="42" rx="7"/>
+            <text class="lbl" x="320" y="38" text-anchor="middle">root page</text>
+            <text class="lbl-sm" x="320" y="54" text-anchor="middle">&lt;K | K–P | &gt;P</text>
+            <path class="flow" d="M280 62 C 230 80, 200 90, 170 100" marker-end="url(#arrow)"/>
+            <path class="flow" d="M320 62 V 100" marker-end="url(#arrow)"/>
+            <path class="flow" d="M360 62 C 410 80, 440 90, 470 100" marker-end="url(#arrow)"/>
+            <rect class="node" x="90" y="102" width="150" height="38" rx="7"/>
+            <text class="lbl-sm" x="165" y="125" text-anchor="middle">internal page</text>
+            <rect class="node" x="245" y="102" width="150" height="38" rx="7"/>
+            <text class="lbl-sm" x="320" y="125" text-anchor="middle">internal page</text>
+            <rect class="node" x="400" y="102" width="150" height="38" rx="7"/>
+            <text class="lbl-sm" x="475" y="125" text-anchor="middle">internal page</text>
+            <rect class="node-b" x="40" y="180" width="100" height="40" rx="6"/>
+            <text class="lbl-sm" x="90" y="204" text-anchor="middle">leaf 1–9</text>
+            <rect class="node-b" x="150" y="180" width="100" height="40" rx="6"/>
+            <text class="lbl-sm" x="200" y="204" text-anchor="middle">leaf 10–19</text>
+            <rect class="node-b" x="270" y="180" width="100" height="40" rx="6"/>
+            <text class="lbl-sm" x="320" y="204" text-anchor="middle">leaf 20–29</text>
+            <rect class="node-b" x="390" y="180" width="100" height="40" rx="6"/>
+            <text class="lbl-sm" x="440" y="204" text-anchor="middle">leaf 30–39</text>
+            <rect class="node-b" x="500" y="180" width="100" height="40" rx="6"/>
+            <text class="lbl-sm" x="550" y="204" text-anchor="middle">leaf 40–49</text>
+            <path class="flow-d" d="M140 200 H 150"/>
+            <path class="flow-d" d="M250 200 H 270"/>
+            <path class="flow-d" d="M370 200 H 390"/>
+            <path class="flow-d" d="M490 200 H 500"/>
+            <text class="lbl-sm" x="320" y="240" text-anchor="middle">leaves linked in sorted order → fast range scans</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — a shallow, balanced tree: a billion keys in ~3–4 page reads</figcaption>
+      </figure>
+
+      <h3>Why it's great for ranges and sorts</h3>
+      <p>Because the leaf pages are kept in sorted order and linked together, a B-tree shines at <strong>range scans</strong> and ordered queries — "all orders between two dates," or "next 20 listings sorted by price." You seek to the start of the range once, then walk the linked leaves sequentially. An <code>ORDER BY</code> on an indexed column comes nearly for free, since the data is already in order.</p>
+
+      <h3>The cost: in-place random writes</h3>
+      <p>The catch is on the write side. To insert a key, the engine must place it in the <em>correct leaf page</em> to preserve sort order — an <strong>in-place update</strong> at a specific spot on disk, which is a random write. If the target page is full it must <strong>split</strong>: allocate a new page, move half the keys over, and update the parent — occasionally cascading splits up the tree. So writes scatter across the disk and occasionally do extra page-rewriting work. On spinning disks this was brutal; on SSDs it's tolerable but still the structure's weak spot.</p>
+      <div class="callout">
+        <span class="k">Under the hood</span>
+        <p>To make a B-tree crash-safe, engines write changes to a <strong>write-ahead log</strong> first, then update the pages. So a single logical insert can mean: append to the WAL, modify a leaf page, and (on a split) modify a parent page — several physical writes for one logical write. Hold that thought; it's the seed of "write amplification" in step 09.</p>
+      </div>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Write-optimized</div>
+      <h2>LSM-tree: trade read work for write speed</h2>
+      <p>What if your workload is write-dominated — a firehose of GrabPay transaction events or Cassandra location pings, where you ingest far more than you read back? The B-tree's random in-place writes become the bottleneck. The <strong>Log-Structured Merge-tree (LSM-tree)</strong> is the answer, and it powers Cassandra, RocksDB, LevelDB, and the storage layer of many modern stores.</p>
+
+      <h3>How it works under the hood</h3>
+      <p>The core insight: <em>sequential writes are dramatically faster than random writes</em>, so never write randomly. Instead:</p>
+      <ul>
+        <li>Incoming writes first land in an in-memory sorted structure called the <strong>memtable</strong> (and are appended to a small on-disk commit log for durability). This makes a write a cheap memory operation — that's the speed.</li>
+        <li>When the memtable fills, it's flushed to disk in one big <strong>sequential write</strong> as an immutable, sorted file called an <strong>SSTable</strong> (Sorted String Table). It's never modified afterward.</li>
+        <li>Over time, many SSTables accumulate. A background process called <strong>compaction</strong> merges them — combining sorted files, dropping superseded versions and deletions — to keep read costs and disk usage in check.</li>
+      </ul>
+      <p>Updates and deletes never overwrite. An update is just a newer write of the same key in a later SSTable; a delete writes a <strong>tombstone</strong> marker. The newest version always wins, and compaction eventually garbage-collects the old ones.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-lsm">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive LSM-tree write path: writes hit the memtable, flush to an SSTable, then merge during compaction">
+            <g class="st" id="lsm-write"><rect class="node" x="20" y="100" width="100" height="46" rx="8"/><text class="lbl" x="70" y="128" text-anchor="middle">write</text></g>
+            <g class="st" id="lsm-mem"><rect class="node-r" x="180" y="92" width="150" height="62" rx="9"/><text class="lbl" x="255" y="116" text-anchor="middle">memtable</text><text class="lbl-sm" x="255" y="135" text-anchor="middle">(memory, sorted)</text></g>
+            <g class="st" id="lsm-s1"><rect class="node-b" x="400" y="24" width="150" height="40" rx="7"/><text class="lbl-sm" x="475" y="48" text-anchor="middle">SSTable 1 (disk)</text></g>
+            <g class="st" id="lsm-s2"><rect class="node-b" x="400" y="100" width="150" height="40" rx="7"/><text class="lbl-sm" x="475" y="124" text-anchor="middle">SSTable 2 (disk)</text></g>
+            <g class="st" id="lsm-merged"><rect class="node-b" x="400" y="184" width="150" height="44" rx="8"/><text class="lbl-sm" x="475" y="204" text-anchor="middle">merged SSTable</text><text class="lbl-sm" x="475" y="220" text-anchor="middle">(compacted)</text></g>
+            <path id="lsm-p1" class="flow" d="M120 123 H 178" marker-end="url(#arrow)"/>
+            <path id="lsm-p2" class="flow" d="M330 110 C 370 90, 385 70, 398 56" marker-end="url(#arrow)"/>
+            <path id="lsm-p3" class="flow-d" d="M475 140 V 182" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="338" y="46" text-anchor="middle">flush</text>
+            <text class="lbl-sm" x="505" y="166" text-anchor="middle">compact</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: memtable → sequential flush to SSTable → background compaction</figcaption>
+      </figure>
+
+      <h3>The cost: reads must check several places</h3>
+      <p>The price of cheap writes is paid on reads. To read a key, the engine must check the memtable first, then potentially several SSTables (newest to oldest), because the key could live in any of them. To keep this from being slow, each SSTable carries a <strong>Bloom filter</strong> — a tiny probabilistic structure that answers "is this key definitely <em>not</em> here?" so most SSTables are skipped without a disk read. A <strong>sparse index</strong> per SSTable then narrows the search within the ones that might match. Even so, a read can touch multiple files, which is why LSM trades read effort for write throughput.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up to rehearse</span>
+        <p>Expect: <em>"What happens during compaction, and what's the downside?"</em> Compaction is essential but consumes CPU, disk I/O, and bandwidth in the background, and a poorly-timed compaction storm can spike read latency. Also flag the <strong>tombstone trap</strong>: in Cassandra, a workload that deletes a lot can leave the store wading through tombstones until compaction clears them, hurting read latency — a real, frequently-asked failure mode.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> The core trade-off</div>
+      <h2>Read vs write amplification</h2>
+      <p>Here is the single idea that ties B-tree and LSM-tree together, and the one to state crisply in an interview. Every storage engine pays a tax measured in two currencies:</p>
+      <ul>
+        <li><strong>Read amplification</strong> — how many physical reads (pages, files) you must do to answer one logical read.</li>
+        <li><strong>Write amplification</strong> — how many physical bytes you actually write to disk for one logical write (counting WAL, page rewrites, and compaction re-writes).</li>
+      </ul>
+      <p>You cannot minimize both at once; the two structures pick opposite corners. The <strong>B-tree minimizes read amplification</strong> (a lookup is a handful of page reads) at the cost of higher write amplification (in-place writes plus the WAL, plus page splits). The <strong>LSM-tree minimizes write amplification at ingest</strong> (writes are buffered and flushed sequentially) at the cost of higher read amplification (a read may scan memtable plus several SSTables) — though note that compaction quietly re-writes data, so LSM has its own write-amplification over the data's lifetime, just deferred and sequential.</p>
+      <div class="vs">
+        <div class="col"><h4>B-tree (read-optimized)</h4><ul>
+          <li>Fast point reads and range scans — data is sorted in place</li>
+          <li>Predictable reads: ~3–4 page hits regardless of size</li>
+          <li>Writes are random, in-place; page splits add work</li>
+          <li>Default for relational stores: PostgreSQL, MySQL/InnoDB</li>
+          <li>Best when reads dominate or you need ordered queries</li>
+        </ul></div>
+        <div class="col"><h4>LSM-tree (write-optimized)</h4><ul>
+          <li>Very high write throughput — sequential flushes, no random I/O</li>
+          <li>Great for write-heavy, append-style workloads</li>
+          <li>Reads may touch many SSTables; Bloom filters mitigate</li>
+          <li>Background compaction costs CPU and I/O; tombstones can bite</li>
+          <li>Used by Cassandra, RocksDB, LevelDB, ScyllaDB</li>
+        </ul></div>
+      </div>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 190" role="img" aria-label="A trade-off line showing B-tree favoring low read amplification and LSM favoring low write amplification">
+            <line x1="60" y1="120" x2="580" y2="120" stroke="#999" stroke-width="1.5"/>
+            <rect class="node-b" x="60" y="68" width="180" height="46" rx="8"/>
+            <text class="lbl" x="150" y="90" text-anchor="middle">B-tree</text>
+            <text class="lbl-sm" x="150" y="107" text-anchor="middle">low read-amp</text>
+            <rect class="node-r" x="400" y="68" width="180" height="46" rx="8"/>
+            <text class="lbl" x="490" y="90" text-anchor="middle">LSM-tree</text>
+            <text class="lbl-sm" x="490" y="107" text-anchor="middle">low write-amp (ingest)</text>
+            <text class="lbl-sm" x="150" y="148" text-anchor="middle" fill="#B0532F">pays in write-amp ↑</text>
+            <text class="lbl-sm" x="490" y="148" text-anchor="middle" fill="#B0532F">pays in read-amp ↑</text>
+            <text class="lbl-sm" x="320" y="40" text-anchor="middle">you optimize one by spending the other</text>
+            <circle cx="320" cy="120" r="8" fill="#1F4E79"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — the whole indexing debate in one line: read-amp traded for write-amp</figcaption>
+      </figure>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> The hidden tax</div>
+      <h2>What an index actually costs</h2>
+      <p>Indexes feel free because they make the slow query fast and you see the win immediately. The cost is invisible and arrives on the <em>write</em> path. Here's the rule to internalize: <strong>an index speeds reads but slows every write, because every insert, update, or delete must also update every index on that table.</strong></p>
+
+      <h3>The worked cost</h3>
+      <p>Suppose the Shopee <code>orders</code> table has five indexes — on <code>buyer_id</code>, <code>seller_id</code>, <code>status</code>, <code>created_at</code>, and a composite one. A single <code>INSERT</code> of one order now does six writes: one to the table and one to each of the five index structures (each potentially triggering a B-tree page split). At a peak of, say, 8,000 orders per second during a flash sale, that's roughly 48,000 physical writes per second — 8,000 to the table plus 40,000 across the five indexes — all generated by 8,000 logical inserts. Add the storage: each index is a full extra copy of its column(s) plus row pointers, so heavily-indexed tables can hold more bytes in indexes than in the data itself.</p>
+      <p>So indexing is a deliberate trade, not a default-on optimization. The discipline:</p>
+      <ul>
+        <li><strong>Index only what you query.</strong> An index that no query uses is pure write-and-storage tax with zero benefit. Audit and drop unused indexes.</li>
+        <li><strong>Composite-index column order matters.</strong> An index on <code>(seller_id, created_at)</code> serves "this seller's orders, newest first" perfectly and also serves "this seller's orders" (the leftmost prefix). It does <em>not</em> efficiently serve a query on <code>created_at</code> alone — you can't skip the leading column. Order the columns by how you filter.</li>
+        <li><strong>Use a covering index</strong> when it pays. A <strong>covering index</strong> includes every column a query needs, so the engine answers entirely from the index and never touches the table — an "index-only scan." It costs more storage but eliminates the second lookup.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="One logical insert fanning out into writes to the base table and to multiple index structures">
+            <rect class="node" x="40" y="92" width="130" height="46" rx="8"/>
+            <text class="lbl" x="105" y="114" text-anchor="middle">1 INSERT</text>
+            <text class="lbl-sm" x="105" y="130" text-anchor="middle">(logical)</text>
+            <rect class="node-b" x="300" y="20" width="170" height="34" rx="7"/>
+            <text class="lbl-sm" x="385" y="42" text-anchor="middle">table row</text>
+            <rect class="node-r" x="300" y="62" width="170" height="32" rx="7"/>
+            <text class="lbl-sm" x="385" y="82" text-anchor="middle">idx: buyer_id</text>
+            <rect class="node-r" x="300" y="102" width="170" height="32" rx="7"/>
+            <text class="lbl-sm" x="385" y="122" text-anchor="middle">idx: seller_id</text>
+            <rect class="node-r" x="300" y="142" width="170" height="32" rx="7"/>
+            <text class="lbl-sm" x="385" y="162" text-anchor="middle">idx: created_at</text>
+            <rect class="node-r" x="300" y="182" width="170" height="32" rx="7"/>
+            <text class="lbl-sm" x="385" y="202" text-anchor="middle">idx: status</text>
+            <path class="flow-d" d="M170 104 C 240 70, 260 48, 298 38" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M170 110 C 240 95, 260 84, 298 78" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M170 116 C 240 118, 260 118, 298 118" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M170 122 C 240 142, 260 150, 298 158" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M170 128 C 235 172, 260 188, 298 198" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="540" y="110" text-anchor="middle" fill="#B0532F">1 logical write</text>
+            <text class="lbl-sm" x="540" y="128" text-anchor="middle" fill="#B0532F">= 5 physical writes</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — every index multiplies the work of every write; index deliberately</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">The follow-up to expect</span>
+        <p><em>"This table is write-heavy and has eight indexes — what would you do?"</em> The strong answer: question every index against an actual query, drop the unused ones, consider whether a write-optimized engine (LSM) fits the workload better than a B-tree, and remember that on a write-heavy table each extra index is a recurring tax paid on every single insert — not a one-time setup cost.</p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <div class="steptag"><b>11</b> The scale move</div>
+      <h2>Denormalize vs join</h2>
+      <p>The last bottleneck connects indexing back to the SQL/NoSQL choice. We saw that joins are SQL's superpower — but joins across <em>huge</em> tables, especially across shards, are expensive: the engine reads from multiple places and combines on the fly, for every read. When a read happens millions of times per second, paying that join cost each time is wasteful.</p>
+
+      <h3>The move: precompute and duplicate</h3>
+      <p><strong>Denormalization</strong> is the deliberate opposite of normalization: instead of storing each fact once and joining at read time, you <em>duplicate</em> the data into the shape your read needs, so the read becomes a single lookup with no join. You trade write-time work and storage for read-time speed.</p>
+      <p>Concrete example. To render a Shopee order-history screen, the normalized way joins <code>orders</code> to <code>users</code>, <code>products</code>, and <code>sellers</code> every time the screen loads. The denormalized way stores a ready-made <code>order_view</code> document that already embeds the buyer's name, each product's title and thumbnail, and the seller's shop name — so loading the screen is one <code>GET</code> by key. This is exactly why document and wide-column stores are popular for read-heavy product surfaces: the access pattern is "fetch this one assembled view," and that's a single-partition lookup.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Left: a read joining three tables. Right: a single precomputed denormalized document fetched by key">
+            <text class="lbl-sm" x="160" y="22" text-anchor="middle">Normalized: join at read time</text>
+            <rect class="node-b" x="40" y="40" width="100" height="34" rx="6"/>
+            <text class="lbl-sm" x="90" y="62" text-anchor="middle">orders</text>
+            <rect class="node-b" x="40" y="92" width="100" height="34" rx="6"/>
+            <text class="lbl-sm" x="90" y="114" text-anchor="middle">users</text>
+            <rect class="node-b" x="40" y="144" width="100" height="34" rx="6"/>
+            <text class="lbl-sm" x="90" y="166" text-anchor="middle">products</text>
+            <path class="flow" d="M140 57 C 200 70, 210 90, 250 104" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 109 H 250" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 161 C 200 148, 210 126, 250 114" marker-end="url(#arrow)"/>
+            <rect class="node" x="252" y="92" width="62" height="40" rx="6"/>
+            <text class="lbl-sm" x="283" y="116" text-anchor="middle">JOIN</text>
+            <text class="lbl-sm" x="283" y="150" text-anchor="middle" fill="#B0532F">×N reads</text>
+            <line x1="345" y1="30" x2="345" y2="200" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="490" y="22" text-anchor="middle">Denormalized: one lookup</text>
+            <rect class="node-r" x="400" y="68" width="180" height="92" rx="9"/>
+            <text class="lbl" x="490" y="98" text-anchor="middle">order_view</text>
+            <text class="lbl-sm" x="490" y="118" text-anchor="middle">buyer + items +</text>
+            <text class="lbl-sm" x="490" y="134" text-anchor="middle">seller, pre-joined</text>
+            <text class="lbl-sm" x="490" y="186" text-anchor="middle" fill="#1F4E79">GET by key → 1 read</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 8 — duplicate into the read's shape so the read is a single lookup</figcaption>
+      </figure>
+
+      <h3>The cost: keeping the copies in sync</h3>
+      <p>Denormalization isn't free — you've now stored the buyer's name in many <code>order_view</code> documents. When the buyer renames their shop you must update <em>every</em> copy, or accept that they drift apart. That synchronization is the real cost, and it's where bugs live. Practical patterns to manage it:</p>
+      <ul>
+        <li><strong>Write-time fan-out:</strong> on a change, push updates to all derived copies (often asynchronously via a message queue), accepting brief eventual consistency.</li>
+        <li><strong>Periodic rebuild:</strong> recompute the denormalized views in the background, tolerating staleness between rebuilds.</li>
+        <li><strong>Pick fields that rarely change</strong> to duplicate; avoid duplicating volatile data unless the read win is worth the sync pain.</li>
+      </ul>
+      <p>This is precisely the trade-off behind <strong>news-feed precomputation</strong>: rather than assembling each user's feed by joining "who I follow" with "their recent posts" on every page load (a read-time join), high-scale feeds precompute and fan out each post into followers' feed lists at write time, so opening the feed is a single read. Same principle, same trade — write-time work and duplicated storage bought you a cheap read. We'll build that fan-out in full in the news-feed lesson.</p>
+      <div class="callout">
+        <span class="k">When to denormalize</span>
+        <p>The honest default is to start <strong>normalized</strong> in a relational store — it keeps data correct and is easy to reason about — and denormalize only where a measured, hot read path demands it. Premature denormalization spreads the same fact across the system before you know which reads matter, and then every write becomes a consistency hazard. Normalize for correctness; denormalize for a specific, proven read bottleneck.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to two sentences. <em>Choose the store from the access pattern: relational for relationships and correctness, NoSQL for scale, simple lookups, and flexible schemas.</em> And underneath: <em>every index trades write cost for read speed, B-trees and LSM-trees trade read-amp against write-amp, and at scale you duplicate data so the hot read is a single lookup.</em> If you can defend a store choice and explain why a lookup is fast, you can carry the question.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Pattern, not trend</b><span>Lead with "what's the dominant access pattern?" then justify the store.</span></div>
+        <div class="tk"><span class="num">02</span><b>SQL = relations + ACID</b><span>Joins and atomic transactions; the right default for correctness-critical data.</span></div>
+        <div class="tk"><span class="num">03</span><b>Sharding breaks joins</b><span>SQL scales reads via replicas; cross-shard joins and txns are the wall.</span></div>
+        <div class="tk"><span class="num">04</span><b>Four NoSQL families</b><span>Key-value, document, wide-column, graph — each shaped for one pattern.</span></div>
+        <div class="tk"><span class="num">05</span><b>ACID vs BASE</b><span>Strong consistency vs eventual; stale is fine until it breaks an invariant.</span></div>
+        <div class="tk"><span class="num">06</span><b>Index = sorted shortcut</b><span>Avoids the full scan; it's an extra structure maintained beside the data.</span></div>
+        <div class="tk"><span class="num">07</span><b>B-tree reads fast</b><span>Balanced, shallow, sorted; great for ranges; random in-place writes.</span></div>
+        <div class="tk"><span class="num">08</span><b>LSM writes fast</b><span>Memtable → sequential SSTable flush → compaction; reads check many files.</span></div>
+        <div class="tk"><span class="num">09</span><b>Read-amp vs write-amp</b><span>You optimize one by spending the other; that's the whole engine debate.</span></div>
+        <div class="tk"><span class="num">10</span><b>Indexes tax writes</b><span>Every write updates every index; index only what you query.</span></div>
+        <div class="tk"><span class="num">11</span><b>Denormalize hot reads</b><span>Duplicate into the read's shape; the cost is keeping copies in sync.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) What single question should drive the SQL-vs-NoSQL choice, and what two strengths of relational do you give up when you shard?<br>(2) Name the four NoSQL families with a use case each, and explain ACID vs BASE with a money example.<br>(3) Why is a B-tree lookup roughly constant time, and what makes its writes slow?<br>(4) Walk the LSM write path memtable → SSTable → compaction, and explain why its reads are slower.<br>(5) Define read amplification and write amplification, and say which structure optimizes which.<br>(6) Why does adding an index slow writes, and when would you denormalize instead of joining — what does denormalization cost?<br>Any fuzzy answer → re-read that section, replay the LSM diagram, and redraw the B-tree and the denormalization sketch from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 05 · SQL VS NOSQL &amp; INDEXING · interactive edition<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* LSM write path */
+  makeStepper(document.getElementById('fig-lsm'), [
+    {text:"A write arrives. It will go to memory first — never a random disk write.", active:["lsm-write","lsm-mem"], path:"lsm-p1"},
+    {text:"It lands in the in-memory memtable (kept sorted), plus a commit log for durability.", active:["lsm-mem"]},
+    {text:"When the memtable fills, it is flushed to disk as one immutable, sorted SSTable.", active:["lsm-mem","lsm-s1"], path:"lsm-p2"},
+    {text:"More flushes create more SSTables; updates and deletes just append newer versions.", active:["lsm-s1","lsm-s2"]},
+    {text:"Compaction merges SSTables in the background, dropping superseded rows and tombstones.", active:["lsm-s1","lsm-s2","lsm-merged"], path:"lsm-p3"}
+  ]);
+</script>
+</body>
+</html>

@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 17 — Design a Distributed Message Queue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1d2b38;border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;color:#dce6ef;}
+  pre .c{color:#7fa3bd;} pre .k{color:#e0a26b;} pre .s{color:#9ecf8f;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Distributed<br>Message Queue</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why a durable log?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope sizing</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The log abstraction</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Producers, brokers, groups ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Replication &amp; the ISR</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>On-disk storage</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Consumer rebalancing</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Delivery guarantees</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Scaling &amp; failure at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">17</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Distributed Message Queue</h1>
+      <p class="lede">Build a Kafka-like distributed commit log: a durable, partitioned, replayable stream of records that many producers write into and many consumer groups read out of, each at its own pace. Almost the entire design follows from one idea — an append-only log split into partitions, with each reader tracking its own offset.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on distributed message queues and commit logs — a standard, widely-documented engineering topic. The explanations, examples, numbers, and diagrams here are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch a record travel from producer to consumer.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why a durable log?</h2>
+      <p>Start with a concrete pain. At a super-app like Grab, a single tap of "confirm ride" fans out into a dozen reactions: charge the wallet, notify the driver, update the ETA service, write to the fraud model, append to the data-warehouse pipeline, refresh the loyalty points. If the ride service called all of those <em>synchronously</em>, one slow downstream — say the analytics warehouse is busy — would stall the user's ride confirmation. And if a downstream is <em>down</em>, the event is simply lost.</p>
+      <p>The fix is to put a buffer in the middle: the ride service writes one <strong>event</strong> ("ride 88421 confirmed") to a queue and returns immediately; every interested system reads that event on its own schedule. This decouples producers from consumers in time, in throughput, and in failure domain. That buffer is a <strong>message queue</strong>.</p>
+      <p>But a naive in-memory queue that deletes a message the instant it is read is too weak for the jobs above. We need more:</p>
+      <ul>
+        <li><strong>Durability</strong> — if a broker restarts, the ride-confirmed event must still be there. Money and audit trails cannot evaporate.</li>
+        <li><strong>Replay</strong> — when the fraud team ships a new model, they want to re-process the last 7 days of events from the beginning. A delete-on-read queue makes that impossible.</li>
+        <li><strong>Independent consumers</strong> — the warehouse pipeline reading slowly must not block the driver-notification service reading fast.</li>
+      </ul>
+      <p>The data structure that satisfies all three is a <strong>distributed commit log</strong>: an append-only, ordered, replicated sequence of records that is kept on disk for a configurable window and read by position rather than consumed-and-deleted. This is the model behind <strong>Apache Kafka</strong>, AWS <strong>Kinesis</strong>, and <strong>Apache Pulsar</strong>, and it is what we will design.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="One producer event fanned out to many independent consumers through a durable log">
+            <rect class="node" x="20" y="100" width="120" height="50" rx="8"/>
+            <text class="lbl" x="80" y="122" text-anchor="middle">Ride svc</text>
+            <text class="lbl-sm" x="80" y="139" text-anchor="middle">(producer)</text>
+            <rect class="node-b" x="210" y="92" width="150" height="66" rx="10"/>
+            <text class="lbl" x="285" y="118" text-anchor="middle">Durable log</text>
+            <text class="lbl-sm" x="285" y="137" text-anchor="middle">append-only</text>
+            <path class="flow" d="M140 125 H 208" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="174" y="115" text-anchor="middle">event</text>
+            <rect class="node" x="470" y="20" width="150" height="40" rx="8"/>
+            <text class="lbl-sm" x="545" y="44" text-anchor="middle">Wallet charge</text>
+            <rect class="node" x="470" y="105" width="150" height="40" rx="8"/>
+            <text class="lbl-sm" x="545" y="129" text-anchor="middle">Driver notify</text>
+            <rect class="node" x="470" y="190" width="150" height="40" rx="8"/>
+            <text class="lbl-sm" x="545" y="214" text-anchor="middle">Fraud / warehouse</text>
+            <path class="flow-d" d="M360 110 C 410 80, 430 55, 468 45" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M360 125 H 468" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M360 140 C 410 170, 430 195, 468 205" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="405" y="244" text-anchor="middle">each reads at its own pace</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one write, many independent readers; the log absorbs slow and failed consumers</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Queue vs. log — the distinction to land</span>
+        <p>A classic <strong>message queue</strong> (RabbitMQ, AWS SQS) deletes a message once a consumer acknowledges it, and competing consumers each take different messages. A <strong>log</strong> keeps every record for a retention window and lets each consumer read the whole stream by tracking a position. Interviewers test whether you know which one the question asks for. "Kafka-like, replayable, multiple independent readers" means <em>log</em>.</p>
+      </div>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Before drawing a single box, narrow the problem out loud. A distributed log can be tuned for very different points, and the interviewer wants to see you state assumptions rather than guess.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Publish</strong> — a producer appends a record (an opaque byte payload, optionally with a key) to a named <strong>topic</strong>.</li>
+        <li><strong>Subscribe &amp; consume</strong> — a consumer reads records from a topic in order, starting from a position it chooses (earliest, latest, or a specific offset).</li>
+        <li><strong>Consumer groups</strong> — many independent applications (a <strong>consumer group</strong> each) read the same topic without interfering. Within one group, work is split across members.</li>
+        <li><strong>Retention</strong> — records persist for a configurable window (by time, e.g. 7 days, or by size, e.g. 500 GB per partition), then are discarded.</li>
+        <li><strong>Replay</strong> — a group can reset its position backwards and re-read history that is still within retention.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>High throughput</strong> — millions of writes and reads per second, with payloads from tens of bytes to a few KB.</li>
+        <li><strong>Durability</strong> — an acknowledged record survives the loss of a machine. We replicate.</li>
+        <li><strong>Ordering</strong> — guaranteed <em>within a partition</em>, not across the whole topic (we will justify this hard limit in Step 04).</li>
+        <li><strong>At-least-once delivery</strong> by default — no record is silently dropped; duplicates are possible and consumers must tolerate them. We will discuss exactly-once later.</li>
+        <li><strong>Horizontal scalability</strong> — add brokers to add capacity; no single machine is the ceiling.</li>
+        <li><strong>Low end-to-end latency</strong> — single-digit-to-tens of milliseconds from publish to available-for-consumption.</li>
+      </ul>
+      <h3>Explicit non-goals</h3>
+      <p>Stating what you will <em>not</em> build is as valuable as stating what you will. We will not promise global total ordering across a topic, we will not do per-message priority or selective deletion of an individual record, and we will not implement complex routing logic (topic-exchange-binding rules) the way RabbitMQ does — the log model deliberately keeps the broker dumb and pushes logic to clients.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames this whole design: <em>"This is a partitioned, append-only commit log; ordering and parallelism both come from the partition, and each consumer group tracks its own offset."</em> Say it early — everything that follows is an elaboration of it.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimate</div>
+      <h2>Back-of-envelope sizing</h2>
+      <p>A quick estimate justifies why we partition and replicate at all, and roughly how many machines we need. Take a plausible Shopee-style event firehose: order events, click events, inventory updates, and payment events flowing into one analytics platform.</p>
+      <h3>Throughput</h3>
+      <ul>
+        <li>Assume <strong>1 million records/second</strong> at peak across all topics — a reasonable regional super-app firehose.</li>
+        <li>Average record size <strong>1 KB</strong> (a JSON-ish event with some context).</li>
+        <li>Write bandwidth in: <code>1,000,000 &times; 1 KB = 1 GB/s</code>.</li>
+      </ul>
+      <h3>Replication multiplies the write</h3>
+      <p>With a <strong>replication factor</strong> of 3 (one leader, two followers — the standard for durability), every byte is written three times across the cluster: <code>1 GB/s &times; 3 = 3 GB/s</code> of disk write traffic, and 2 GB/s of inter-broker replication network traffic. This alone tells the interviewer we cannot live on one disk.</p>
+      <h3>Read amplification</h3>
+      <p>Reads multiply by the number of consumer groups. If 5 independent teams each consume the full firehose (analytics, fraud, search indexer, billing reconciliation, ML features), read bandwidth out is <code>1 GB/s &times; 5 = 5 GB/s</code>. Plus catch-up readers replaying history spike this further. Reads dominate, which is exactly why the log keeps data on disk and serves it sequentially (Step 07).</p>
+      <h3>Storage from retention</h3>
+      <ul>
+        <li>Retain <strong>7 days</strong>. Seconds in a week: <code>7 &times; 86,400 &approx; 604,800 s</code>.</li>
+        <li>Raw data at rest: <code>1 GB/s &times; 604,800 s &approx; 605 TB</code>.</li>
+        <li>With replication factor 3: <code>605 TB &times; 3 &approx; 1.8 PB</code>.</li>
+      </ul>
+      <p>Roughly <strong>1.8 petabytes</strong> of disk for one week of one firehose. At, say, 10 TB usable per broker after overhead, that is around <strong>180 brokers</strong> just for storage — before considering CPU or network headroom. The numbers scream <em>partition the data and spread it across many machines</em>, which is the heart of the design.</p>
+      <div class="callout">
+        <span class="k">What the estimate buys you</span>
+        <p>You do not need these figures exact. You need them to <em>motivate the architecture</em>: write amplification &rarr; replication is expensive, so tune the ack level; storage in PB &rarr; you must partition and shard; reads dominate &rarr; sequential disk + page cache + zero-copy matter. Each number points at a later design decision.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>The API &amp; data model</h2>
+      <p>Pin down the interface next. The log's surface is deliberately tiny: append, fetch, and commit-offset. Going past the book, here is a concrete contract.</p>
+      <h3>Producer API</h3>
+      <pre><span class="c"># Append one record to a topic. The broker picks the partition</span>
+<span class="c"># from the key (hash), or round-robins if no key is given.</span>
+<span class="k">POST</span> /topics/<span class="s">{topic}</span>/records
+{
+  <span class="s">"key"</span>: <span class="s">"ride_88421"</span>,        <span class="c">// optional; controls partition + ordering</span>
+  <span class="s">"value"</span>: <span class="s">"&lt;base64 payload&gt;"</span>,
+  <span class="s">"headers"</span>: { <span class="s">"trace_id"</span>: <span class="s">"abc"</span> }
+}
+<span class="c">// 200 OK</span>
+{ <span class="s">"partition"</span>: 3, <span class="s">"offset"</span>: 90412, <span class="s">"timestamp"</span>: 1717142400123 }</pre>
+      <p>The response is the heart of the contract: the broker returns the <strong>partition</strong> the record landed in and the <strong>offset</strong> — the record's permanent, monotonically increasing position within that partition. That pair, <code>(partition, offset)</code>, uniquely and forever names the record. Producers may also <strong>batch</strong> many records into one request to amortize network and disk cost; this is the single biggest throughput lever in practice.</p>
+      <h3>Consumer API</h3>
+      <pre><span class="c"># Fetch a batch starting at an offset, blocking up to max_wait_ms.</span>
+<span class="k">GET</span> /topics/<span class="s">{topic}</span>/partitions/<span class="s">{p}</span>/records?offset=90412&amp;max_bytes=1048576
+
+<span class="c"># Commit the position this group has finished processing.</span>
+<span class="k">POST</span> /groups/<span class="s">{group}</span>/offsets
+{ <span class="s">"topic"</span>: <span class="s">"rides"</span>, <span class="s">"partition"</span>: 3, <span class="s">"offset"</span>: 90460 }</pre>
+      <p>Note what is <em>not</em> here: there is no "delete this message" and no "acknowledge message X." A consumer simply moves a cursor. Committing offset <code>90460</code> means "this group has durably processed everything up to and including 90459; on restart, resume at 90460."</p>
+      <h3>Core entities</h3>
+      <ul>
+        <li><strong>Topic</strong> — a named stream, e.g. <code>rides</code>, <code>payments</code>. Purely logical.</li>
+        <li><strong>Partition</strong> — a topic is split into <code>N</code> partitions; each is an independent ordered log. The unit of parallelism and ordering.</li>
+        <li><strong>Record</strong> — <code>{partition, offset, key, value, headers, timestamp}</code>. Immutable once written.</li>
+        <li><strong>Broker</strong> — a server that hosts a set of partition replicas on its disks.</li>
+        <li><strong>Consumer group</strong> — a set of consumers sharing a group id; the cluster stores one committed offset per <code>(group, topic, partition)</code>.</li>
+      </ul>
+      <p>Where are committed offsets stored? Cleverly, in the log itself — a special internal compacted topic (Kafka calls it <code>__consumer_offsets</code>) keyed by <code>(group, topic, partition)</code>. The system reuses its own durable, replicated primitive to store consumer state, so offsets survive broker failure for free.</p>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The core idea</div>
+      <h2>The log abstraction</h2>
+      <p>Everything rests on one structure. A <strong>log</strong> is an append-only, totally-ordered sequence of records. You can only do two things to it: append a record to the end, and read records from a given position forward. There is no random insert, no update, no delete-in-the-middle. That radical simplicity is what makes it fast and replicable.</p>
+      <h3>Offsets: a record's permanent address</h3>
+      <p>Each record appended to a partition is assigned the next integer in sequence — its <strong>offset</strong>. Offsets are monotonic and never reused within a partition. The offset is not stored inside the record; it is implied by the record's position, which (as we will see in Step 07) lets the broker locate any record by arithmetic. Reading "from offset 90412" means "give me records 90412, 90413, 90414, …" — a sequential scan, the friendliest possible access pattern for a disk.</p>
+      <h3>Partitions: parallelism and the ordering trade-off</h3>
+      <p>A single log on a single machine has a hard throughput ceiling — one disk, one CPU. So we split a topic into <code>N</code> <strong>partitions</strong>, each an independent log living (potentially) on a different broker. Producers spread writes across partitions; consumers in a group spread reads across partitions. Throughput now scales with partition count.</p>
+      <p>But this is where the central trade-off bites: <strong>ordering is guaranteed only within a single partition</strong>, never across partitions of a topic. Records in partition 0 and partition 1 have independent offset sequences and no defined relative order. There is no cheap way to maintain a global order across machines without a global serialization bottleneck — which would destroy the parallelism we just bought.</p>
+      <h3>Keys: buying per-entity ordering back</h3>
+      <p>So how does GrabPay keep all events for one wallet in order while still spreading load? With the <strong>partition key</strong>. The producer hashes the record key and maps it to a partition: <code>partition = hash(key) % N</code>. Use <code>wallet_id</code> as the key and every event for that wallet lands in the <em>same</em> partition, hence in strict order — while different wallets scatter across partitions for parallelism. You get per-entity ordering exactly where it matters, and global parallelism everywhere else.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="A topic split into partitions, each an append-only log with monotonic offsets">
+            <text class="lbl-sm" x="20" y="28" text-anchor="start">topic: payments  ·  hash(wallet_id) % 3 chooses the partition</text>
+            <text class="lbl-sm" x="20" y="64" text-anchor="start">P0</text>
+            <g>
+              <rect class="node-b" x="60" y="46" width="40" height="34" rx="4"/><text class="lbl-sm" x="80" y="67" text-anchor="middle">0</text>
+              <rect class="node-b" x="104" y="46" width="40" height="34" rx="4"/><text class="lbl-sm" x="124" y="67" text-anchor="middle">1</text>
+              <rect class="node-b" x="148" y="46" width="40" height="34" rx="4"/><text class="lbl-sm" x="168" y="67" text-anchor="middle">2</text>
+              <rect class="node-b" x="192" y="46" width="40" height="34" rx="4"/><text class="lbl-sm" x="212" y="67" text-anchor="middle">3</text>
+              <rect class="node" x="236" y="46" width="40" height="34" rx="4"/><text class="lbl-sm" x="256" y="67" text-anchor="middle">4</text>
+            </g>
+            <text class="lbl-sm" x="20" y="124" text-anchor="start">P1</text>
+            <g>
+              <rect class="node-b" x="60" y="106" width="40" height="34" rx="4"/><text class="lbl-sm" x="80" y="127" text-anchor="middle">0</text>
+              <rect class="node-b" x="104" y="106" width="40" height="34" rx="4"/><text class="lbl-sm" x="124" y="127" text-anchor="middle">1</text>
+              <rect class="node" x="148" y="106" width="40" height="34" rx="4"/><text class="lbl-sm" x="168" y="127" text-anchor="middle">2</text>
+            </g>
+            <text class="lbl-sm" x="20" y="184" text-anchor="start">P2</text>
+            <g>
+              <rect class="node-b" x="60" y="166" width="40" height="34" rx="4"/><text class="lbl-sm" x="80" y="187" text-anchor="middle">0</text>
+              <rect class="node-b" x="104" y="166" width="40" height="34" rx="4"/><text class="lbl-sm" x="124" y="187" text-anchor="middle">1</text>
+              <rect class="node-b" x="148" y="166" width="40" height="34" rx="4"/><text class="lbl-sm" x="168" y="187" text-anchor="middle">2</text>
+              <rect class="node-b" x="192" y="166" width="40" height="34" rx="4"/><text class="lbl-sm" x="212" y="187" text-anchor="middle">3</text>
+            </g>
+            <path class="flow" d="M276 63 H 320" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="360" y="60" text-anchor="start">&larr; new appends go to the tail</text>
+            <text class="lbl-sm" x="360" y="120" text-anchor="start">offsets are per-partition,</text>
+            <text class="lbl-sm" x="360" y="138" text-anchor="start">monotonic, never reused</text>
+            <text class="lbl-sm" x="360" y="184" text-anchor="start" fill="#B0532F">order holds inside a</text>
+            <text class="lbl-sm" x="360" y="202" text-anchor="start" fill="#B0532F">partition, not across them</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — a topic is N independent ordered logs; the key decides which one a record joins</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "How do you guarantee ordering?"</span>
+        <p>The crisp answer: ordering is per-partition only, and you route related records to the same partition by choosing a key (<code>wallet_id</code>, <code>user_id</code>). If a question demands strict global ordering, you must use a <strong>single partition</strong> — and then honestly admit you have capped that topic's throughput at one machine. Naming that trade-off out loud is the point.</p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The roles &amp; the flow</div>
+      <h2>Producers, brokers, consumer groups</h2>
+      <p>Three roles cooperate around the log. <strong>Producers</strong> append records to partitions. <strong>Brokers</strong> are the servers that store partitions on disk and serve reads and writes. <strong>Consumers</strong> belong to a <strong>consumer group</strong>; within a group, each partition is owned by exactly one consumer, and that consumer tracks the group's committed offset for the partitions it owns.</p>
+      <h3>Why the consumer pulls (and stores its own offset)</h3>
+      <p>A subtle but crucial design choice: consumers <strong>pull</strong> batches from the broker rather than the broker <strong>pushing</strong> to consumers. Pull means a slow consumer simply asks for data less often — it cannot be overwhelmed, and there is no need for the broker to track per-consumer flow control. It also makes batching natural: a consumer fetches as much as it can handle in one round trip.</p>
+      <p>Because the <em>consumer</em> owns its offset, the broker is stateless about consumption. The broker does not know or care who has read what; it just stores bytes. This is why one topic can feed five consumer groups with zero coordination between them — each group's offset is independent. It is also why <strong>replay</strong> is trivial: rewind your committed offset to an earlier value and re-read.</p>
+      <p>The interactive diagram below walks one record end to end: producer appends &rarr; it lands at the next offset &rarr; it replicates to follower replicas &rarr; a consumer in a group reads it and commits its offset.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-flow">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive end-to-end flow of one record from producer to consumer">
+            <g class="st" id="f-prod"><rect class="node" x="14" y="98" width="96" height="50" rx="8"/><text class="lbl" x="62" y="120" text-anchor="middle">Producer</text><text class="lbl-sm" x="62" y="137" text-anchor="middle">append</text></g>
+            <g class="st" id="f-lead">
+              <rect class="node-b" x="190" y="80" width="106" height="50" rx="9"/>
+              <text class="lbl" x="243" y="110" text-anchor="middle">Leader</text>
+              <rect class="node-b" x="300" y="92" width="22" height="26" rx="3"/><text class="lbl-sm" x="311" y="110" text-anchor="middle">90</text>
+              <rect class="node" x="326" y="92" width="22" height="26" rx="3"/><text class="lbl-sm" x="337" y="110" text-anchor="middle">91</text>
+            </g>
+            <g class="st" id="f-foll"><rect class="node-r" x="200" y="168" width="150" height="44" rx="9"/><text class="lbl-sm" x="275" y="194" text-anchor="middle">Followers (ISR)</text></g>
+            <g class="st" id="f-cons"><rect class="node" x="470" y="80" width="150" height="50" rx="8"/><text class="lbl" x="545" y="103" text-anchor="middle">Consumer</text><text class="lbl-sm" x="545" y="120" text-anchor="middle">group: fraud</text></g>
+            <g class="st" id="f-off"><rect class="node-r" x="478" y="168" width="142" height="44" rx="9"/><text class="lbl-sm" x="549" y="188" text-anchor="middle">commit offset</text><text class="lbl-sm" x="549" y="204" text-anchor="middle">= 92</text></g>
+            <path id="f-p1" class="flow" d="M110 122 H 188" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="149" y="112" text-anchor="middle">record</text>
+            <path id="f-p2" class="flow-d" d="M270 132 V 166" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="318" y="152" text-anchor="middle">replicate</text>
+            <path id="f-p3" class="flow" d="M350 105 H 468" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="414" y="95" text-anchor="middle">fetch</text>
+            <path id="f-p4" class="flow-r" d="M545 130 V 166" marker-end="url(#arrow-r)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: append &rarr; assign offset &rarr; replicate to ISR &rarr; consumer reads &amp; commits</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Pull-based consumers</h4><ul>
+          <li>Slow consumers self-throttle; no broker-side flow control</li>
+          <li>Natural batching for high throughput</li>
+          <li>Broker stays stateless about who read what</li>
+          <li>Cost: extra latency when idle (mitigated by long-poll <code>max_wait_ms</code>)</li>
+        </ul></div>
+        <div class="col"><h4>Push-based brokers</h4><ul>
+          <li>Lower latency when data is flowing steadily</li>
+          <li>Broker must track and respect each consumer's rate</li>
+          <li>A burst can overwhelm a slow consumer unless backpressure is added</li>
+          <li>Replay is harder — the broker owns delivery state</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Durability</div>
+      <h2>Replication &amp; the in-sync replica set</h2>
+      <p>One disk can fail; one broker can die. To make an acknowledged record survive that, each partition is stored as several copies — a <strong>replication factor</strong> of typically 3. One replica is elected <strong>leader</strong>; the others are <strong>followers</strong>. All writes and reads for a partition go through its leader; followers exist only to stay caught up so one of them can take over.</p>
+      <h3>How replication works under the hood</h3>
+      <p>The mechanism is pull-based, just like consumers: each follower continuously fetches new records from the leader and appends them to its own copy of the log, in the same offset order. A follower that is keeping up — within a configurable lag bound — is a member of the <strong>in-sync replica set (ISR)</strong>. The ISR is the set of replicas that currently hold (or are about to hold) all the leader's committed data.</p>
+      <p>A record is considered <strong>committed</strong> — and only then visible to consumers — once all members of the ISR have it. The leader advances a marker called the <strong>high-water mark</strong> to the highest offset that the entire ISR has replicated. Consumers can never read past the high-water mark, so they never see a record that could vanish if the leader died.</p>
+      <h3>The acks knob: latency vs. durability</h3>
+      <p>The producer chooses how much confirmation to wait for via the <strong>acks</strong> setting. This is the single most important durability lever, and a guaranteed interview question.</p>
+      <ul>
+        <li><code>acks=0</code> — fire and forget. The producer does not wait at all. Lowest latency, highest throughput, but a record can be lost before it ever lands. Fine for non-critical telemetry (a Grab heat-map ping).</li>
+        <li><code>acks=1</code> — wait for the <em>leader</em> to write it. Survives a consumer crash but <em>not</em> a leader crash that happens before followers caught up. A middle ground.</li>
+        <li><code>acks=all</code> — wait for the whole ISR to have it. Strongest durability; a committed record survives any single (and, with care, multiple) broker failures. The right choice for a GrabPay wallet debit. Higher latency.</li>
+      </ul>
+      <p>Pair <code>acks=all</code> with <code>min.insync.replicas=2</code>: the producer's write fails if fewer than 2 replicas are in sync, so you never accept a write that only one machine holds.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Leader and follower replicas with an in-sync replica set and high-water mark">
+            <rect class="node" x="14" y="100" width="96" height="46" rx="8"/>
+            <text class="lbl" x="62" y="128" text-anchor="middle">Producer</text>
+            <path class="flow" d="M110 122 H 188" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="149" y="112" text-anchor="middle">acks=all</text>
+            <rect class="node-b" x="190" y="92" width="160" height="62" rx="10"/>
+            <text class="lbl" x="270" y="116" text-anchor="middle">Leader (P0)</text>
+            <text class="lbl-sm" x="270" y="136" text-anchor="middle">high-water mark</text>
+            <rect class="node-r" x="430" y="30" width="180" height="44" rx="9"/>
+            <text class="lbl-sm" x="520" y="50" text-anchor="middle">Follower A</text><text class="lbl-sm" x="520" y="65" text-anchor="middle">in sync &#10003;</text>
+            <rect class="node-r" x="430" y="100" width="180" height="44" rx="9"/>
+            <text class="lbl-sm" x="520" y="120" text-anchor="middle">Follower B</text><text class="lbl-sm" x="520" y="135" text-anchor="middle">in sync &#10003;</text>
+            <rect class="node" x="430" y="170" width="180" height="44" rx="9"/>
+            <text class="lbl-sm" x="520" y="190" text-anchor="middle">Follower C</text><text class="lbl-sm" x="520" y="205" text-anchor="middle" fill="#B0532F">lagging &mdash; out of ISR</text>
+            <path class="flow-d" d="M350 110 C 390 80, 405 60, 428 54" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M350 123 H 428" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M350 136 C 390 165, 405 185, 428 192" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="300" y="180" text-anchor="middle">ISR = {Leader, A, B}</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — committed = replicated to the whole ISR; a lagging replica falls out and is not waited on</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "What happens when the leader dies?"</span>
+        <p>A controller (in Kafka, the cluster's <strong>KRaft</strong>/controller quorum; historically ZooKeeper) detects the leader is gone and <strong>promotes one of the in-sync followers</strong> to leader for that partition. Because every ISR member holds all committed records up to the high-water mark, no acknowledged data is lost. Producers and consumers discover the new leader via metadata refresh and reconnect. The danger to name: <strong>unclean leader election</strong> — if you allow an out-of-sync replica to become leader (to restore availability faster), you trade away durability and can lose committed records. Default is to stay unavailable rather than lose data.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Storage</div>
+      <h2>On-disk storage: why a log is fast</h2>
+      <p>A common objection: "disk is slow, so won't a disk-backed queue be slow?" The answer is the most elegant part of the design, and it hinges on <em>how</em> the log writes and reads.</p>
+      <h3>Sequential writes beat random writes by orders of magnitude</h3>
+      <p>Because a partition is append-only, every write goes to the <strong>end</strong> of the current file — the disk head (or the SSD controller) never seeks to a random location. Sequential disk throughput is enormous; on commodity disks it rivals memory bandwidth, while random I/O is hundreds of times slower. The log's append-only constraint is not just for simplicity — it is precisely what turns "disk" into "fast." This is why the system can sustain gigabytes per second on spinning rust, let alone SSDs.</p>
+      <h3>Segment files and how a read finds a record</h3>
+      <p>A partition is not one giant file; it is a series of <strong>segment files</strong>, each capped at, say, 1 GB or 1 hour. The newest segment is the <strong>active segment</strong> being appended to; older segments are sealed and immutable. Alongside each segment sits an <strong>index file</strong> mapping offset &rarr; byte position. To serve "read from offset 90412," the broker finds the right segment (segment file names encode their base offset, so this is a binary search over file names), looks up the byte position in that segment's index, and starts a sequential read from there. No scanning from the beginning.</p>
+      <p>Splitting into segments is also what makes <strong>retention</strong> cheap: to drop data older than 7 days, the broker just deletes whole sealed segment files whose newest record is past the retention bound. No per-record bookkeeping, no expensive compaction of a single huge file.</p>
+      <h3>Page cache + zero-copy: the read fast path</h3>
+      <p>Two operating-system tricks make reads nearly free. First, the broker does not maintain its own data cache; it relies on the OS <strong>page cache</strong>. Records just written sit in RAM as dirty pages; a consumer reading the tail of the log (the common case) is served straight from page cache, never touching the disk. Second, <strong>zero-copy</strong>: to send bytes from a segment file to a consumer's socket, the broker uses a <code>sendfile</code>-style system call that moves data from page cache to the network card without copying it through user-space application buffers. Fewer copies, fewer context switches, far higher throughput. The broker is, in effect, a thin shim that points the kernel at the right bytes.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="A partition stored as sealed segment files plus an active segment, with an offset index">
+            <text class="lbl-sm" x="20" y="30" text-anchor="start">partition P0 on disk &mdash; oldest &rarr; newest</text>
+            <rect class="node" x="20" y="50" width="120" height="60" rx="8"/>
+            <text class="lbl-sm" x="80" y="74" text-anchor="middle">segment</text>
+            <text class="lbl-sm" x="80" y="90" text-anchor="middle">base 0</text>
+            <text class="lbl-sm" x="80" y="105" text-anchor="middle" fill="#B0532F">expiring</text>
+            <rect class="node" x="160" y="50" width="120" height="60" rx="8"/>
+            <text class="lbl-sm" x="220" y="74" text-anchor="middle">segment</text>
+            <text class="lbl-sm" x="220" y="90" text-anchor="middle">base 50k</text>
+            <text class="lbl-sm" x="220" y="105" text-anchor="middle">sealed</text>
+            <rect class="node-b" x="300" y="50" width="140" height="60" rx="8"/>
+            <text class="lbl-sm" x="370" y="74" text-anchor="middle">active segment</text>
+            <text class="lbl-sm" x="370" y="90" text-anchor="middle">base 90k</text>
+            <text class="lbl-sm" x="370" y="105" text-anchor="middle">appends here &rarr;</text>
+            <path class="flow" d="M440 80 H 500" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="470" y="70" text-anchor="middle">tail</text>
+            <rect class="node-r" x="300" y="150" width="140" height="50" rx="8"/>
+            <text class="lbl-sm" x="370" y="171" text-anchor="middle">offset index</text>
+            <text class="lbl-sm" x="370" y="187" text-anchor="middle">90412 &rarr; byte 4096</text>
+            <path class="flow-d" d="M370 150 V 112" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="120" y="170" text-anchor="start">retention: delete whole</text>
+            <text class="lbl-sm" x="120" y="186" text-anchor="start">sealed segments past the</text>
+            <text class="lbl-sm" x="120" y="202" text-anchor="start">time/size bound</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — append to the active segment; index gives O(1)-ish lookup; retention drops whole old segments</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood: log compaction</span>
+        <p>Time/size retention is not the only mode. <strong>Log compaction</strong> keeps only the <em>latest</em> record per key and discards older ones, turning the log into a durable changelog of "current value per key." This is how the internal <code>__consumer_offsets</code> topic stays bounded, and how teams ship a compacted topic of "latest known wallet balance per user" that a new service can read from offset 0 to rebuild full state. The interviewer who asks "how would a brand-new service bootstrap current state?" is fishing for compaction.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Elasticity</div>
+      <h2>Consumer-group rebalancing</h2>
+      <p>Within a consumer group, every partition is owned by exactly one member, so the group's reading is parallelized without two consumers double-processing the same partition. But membership changes: a consumer instance is deployed, crashes, or autoscaling adds capacity for a Shopee flash sale. When that happens, partition ownership must be re-divided. That process is a <strong>rebalance</strong>.</p>
+      <h3>How a rebalance works under the hood</h3>
+      <p>One broker is designated the <strong>group coordinator</strong> for a given group. Each consumer sends periodic <strong>heartbeats</strong> to it. If a consumer joins, or stops heartbeating (crash, or a long GC pause exceeding <code>session.timeout.ms</code>), the coordinator triggers a rebalance: all members pause, re-register, and the coordinator (or an elected group leader) assigns partitions across the new membership. Each consumer then resumes from the <em>committed offset</em> of whatever partitions it now owns — which is why offsets live in the durable log, not in any single consumer's memory.</p>
+      <p>Worked example: GrabFood's order-events topic has 12 partitions and the kitchen-routing service runs 4 consumer instances, so each owns 3 partitions. A dinner-rush autoscale adds 2 more instances &rarr; rebalance &rarr; each of the 6 now owns 2 partitions. One instance later OOM-crashes &rarr; its 2 partitions are reassigned across the surviving 5. Note the ceiling: with 12 partitions, a 13th consumer instance would sit <strong>idle</strong> — partition count caps useful consumer parallelism, so you choose it generously up front.</p>
+      <h3>The cost: stop-the-world pauses</h3>
+      <p>The naive rebalance is "stop the world": every consumer stops processing while assignments are recomputed. During a flapping deploy this causes repeated pauses and latency spikes. Real systems mitigate with <strong>incremental cooperative rebalancing</strong> (only the partitions that actually need to move are revoked, the rest keep flowing) and <strong>static membership</strong> (a restarting instance reclaims its old partitions without triggering a full rebalance). Knowing these two mitigations by name signals production experience.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Partitions reassigned across consumers when a new consumer joins the group">
+            <text class="lbl-sm" x="120" y="26" text-anchor="middle">before: 2 consumers</text>
+            <text class="lbl-sm" x="470" y="26" text-anchor="middle">after join: 3 consumers</text>
+            <rect class="node-b" x="40" y="46" width="40" height="28" rx="4"/><text class="lbl-sm" x="60" y="65" text-anchor="middle">P0</text>
+            <rect class="node-b" x="86" y="46" width="40" height="28" rx="4"/><text class="lbl-sm" x="106" y="65" text-anchor="middle">P1</text>
+            <rect class="node-b" x="132" y="46" width="40" height="28" rx="4"/><text class="lbl-sm" x="152" y="65" text-anchor="middle">P2</text>
+            <rect class="node" x="40" y="92" width="60" height="34" rx="6"/><text class="lbl-sm" x="70" y="113" text-anchor="middle">C1</text>
+            <rect class="node" x="112" y="92" width="60" height="34" rx="6"/><text class="lbl-sm" x="142" y="113" text-anchor="middle">C2</text>
+            <path class="flow-d" d="M60 74 V 90" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M106 74 C 95 82, 80 84, 72 90" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M152 74 V 90" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="70" y="150" text-anchor="middle">P0,P1</text>
+            <text class="lbl-sm" x="142" y="150" text-anchor="middle">P2</text>
+            <path class="flow-r" d="M250 100 H 320" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="285" y="90" text-anchor="middle" fill="#B0532F">rebalance</text>
+            <rect class="node-b" x="380" y="46" width="40" height="28" rx="4"/><text class="lbl-sm" x="400" y="65" text-anchor="middle">P0</text>
+            <rect class="node-b" x="426" y="46" width="40" height="28" rx="4"/><text class="lbl-sm" x="446" y="65" text-anchor="middle">P1</text>
+            <rect class="node-b" x="472" y="46" width="40" height="28" rx="4"/><text class="lbl-sm" x="492" y="65" text-anchor="middle">P2</text>
+            <rect class="node" x="372" y="92" width="50" height="34" rx="6"/><text class="lbl-sm" x="397" y="113" text-anchor="middle">C1</text>
+            <rect class="node" x="430" y="92" width="50" height="34" rx="6"/><text class="lbl-sm" x="455" y="113" text-anchor="middle">C2</text>
+            <rect class="node" x="488" y="92" width="50" height="34" rx="6"/><text class="lbl-sm" x="513" y="113" text-anchor="middle">C3 new</text>
+            <path class="flow-d" d="M400 74 C 400 82, 398 84, 397 90" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M446 74 C 450 82, 453 84, 455 90" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M492 74 C 500 82, 510 84, 513 90" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="455" y="150" text-anchor="middle">one partition each &mdash; balanced</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — joining the group triggers a rebalance; ownership is re-divided, resuming from committed offsets</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up: "How does a consumer resume after a crash?"</span>
+        <p>It does not resume in its own memory — its memory is gone. The coordinator reassigns the dead consumer's partitions to a surviving member, which reads the <strong>last committed offset</strong> from the durable offsets topic and continues from there. The nuance: any records the dead consumer <em>processed but had not yet committed</em> get re-delivered to the new owner. That is precisely the source of <strong>at-least-once</strong> duplicates — and the cue to discuss idempotency next.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Guarantees</div>
+      <h2>What you can and cannot promise</h2>
+      <p>Delivery semantics are where interviews get sharp, because the honest answer is full of trade-offs. There are three possible promises, and they come from <em>when</em> a consumer commits its offset relative to <em>when</em> it does its work.</p>
+      <h3>At-most-once</h3>
+      <p>Commit the offset <em>before</em> processing. If the consumer crashes mid-work, the offset already moved past the record, so it is never retried — the record is effectively lost. Zero duplicates, possible loss. Acceptable only for data you can afford to drop (a metrics sample).</p>
+      <h3>At-least-once (the default)</h3>
+      <p>Commit the offset <em>after</em> processing succeeds. If the consumer crashes after processing but before committing, the new owner re-reads from the old committed offset and re-processes those records. No loss, but <strong>duplicates</strong> are possible. This is the practical default, and it pushes the burden onto consumers: make processing <strong>idempotent</strong>. For a GrabPay debit, that means deduplicating on a stable <code>event_id</code> so replaying "debit ride 88421" twice still charges the wallet once.</p>
+      <h3>Exactly-once — really?</h3>
+      <p>Yes, but with asterisks, and saying it carefully is the win. True exactly-once across arbitrary external systems is impossible (the consumer might write to a database and crash before committing its offset; those two writes cannot be made atomic in general). What systems like Kafka actually provide is <strong>exactly-once within the platform</strong>, via two mechanisms: an <strong>idempotent producer</strong> (each producer gets an id and per-partition sequence numbers, so the broker silently drops a retried duplicate append) and <strong>transactions</strong> (a consume-process-produce cycle that atomically commits the output records and the input offsets together, so it is all-or-nothing). The moment your consumer's side effect lands in an <em>external</em> store, you are back to needing idempotency there. The honest interview answer: <em>"exactly-once is real inside the log's own read-process-write loop; for external side effects, you still design idempotent consumers."</em></p>
+      <div class="vs">
+        <div class="col"><h4>At-least-once</h4><ul>
+          <li>Commit after processing</li>
+          <li>No data loss</li>
+          <li>Duplicates possible &rarr; consumers must be idempotent</li>
+          <li>Simple, the right default for most pipelines</li>
+        </ul></div>
+        <div class="col"><h4>Exactly-once (in-platform)</h4><ul>
+          <li>Idempotent producer + transactions</li>
+          <li>No loss, no duplicates within the log read-process-write loop</li>
+          <li>Higher latency and complexity; transactional overhead</li>
+          <li>Breaks down at non-transactional external side effects</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Ordering &times; delivery, together</span>
+        <p>Combine the guarantees you can actually offer: <em>per-partition ordering</em> plus <em>at-least-once</em> delivery, with optional in-platform exactly-once. You cannot offer global ordering across partitions, and you cannot offer exactly-once over arbitrary external systems. Stating both the promises and their precise limits is what separates a strong answer from a hand-wave.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Scale &amp; failure</div>
+      <h2>Scaling &amp; what breaks at 10x</h2>
+      <p>Assemble the full picture and stress it. Producers and consumers discover, via cluster metadata, which broker leads each partition and connect directly to it. Partitions are spread across brokers so that load and storage are balanced, and a controller quorum tracks broker liveness and partition leadership. Now push the system 10x and name what cracks first.</p>
+      <h3>The hot partition</h3>
+      <p>The most common real failure is skew. If you key payment events by <code>merchant_id</code> and one mega-merchant (a national e-wallet top-up partner during a Shopee 12.12 sale) generates 40% of traffic, its single partition becomes a bottleneck — one leader, one disk, one consumer must absorb 40% of the firehose while the others idle. The fix is a better key (compound key like <code>merchant_id:hour</code>, or salting the hottest keys across sub-partitions), or simply increasing partition count to dilute. Naming the hot-partition problem unprompted is a strong signal.</p>
+      <h3>Backpressure and lag</h3>
+      <p>When consumers fall behind producers, <strong>consumer lag</strong> (high-water mark minus committed offset) grows. The log absorbs the gap up to the retention limit — this is its superpower — but if lag exceeds retention, the consumer's next read finds its offset has been deleted and it skips forward, <strong>silently losing data</strong>. So you monitor lag as a first-class metric and alert before it approaches the retention window. Mitigations: scale out consumers (up to the partition ceiling), increase retention to buy time, or shed load.</p>
+      <h3>Failure modes to name</h3>
+      <ul>
+        <li><strong>Broker dies</strong> &rarr; controller promotes an in-sync follower to leader for each partition the dead broker led; clients refresh metadata and reconnect. Under-replicated partitions trigger re-replication to restore the replication factor.</li>
+        <li><strong>Whole AZ/datacenter dies</strong> &rarr; if replicas are placed across availability zones (rack-aware placement), surviving AZs hold complete copies and serve through. This is why you spread the 3 replicas across 3 zones.</li>
+        <li><strong>Disk fills</strong> &rarr; retention deletion frees space, but a runaway producer can outrun it; quota throttling on producers protects the cluster.</li>
+        <li><strong>Network partition splits the controller quorum</strong> &rarr; the side without quorum stops electing leaders; you favor consistency over availability for metadata.</li>
+      </ul>
+      <p>Adding a broker is the scaling move: it can host new partition replicas, and a <strong>partition reassignment</strong> migrates some existing replicas onto it to rebalance storage and load — a background copy that throttles itself so it does not starve live traffic.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Full cluster: producers and consumers connect to partition leaders spread across brokers under a controller">
+            <rect class="node" x="20" y="30" width="100" height="40" rx="8"/><text class="lbl-sm" x="70" y="54" text-anchor="middle">Producers</text>
+            <rect class="node" x="20" y="170" width="100" height="40" rx="8"/><text class="lbl-sm" x="70" y="194" text-anchor="middle">Consumers</text>
+            <rect x="180" y="20" width="290" height="200" rx="12" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="325" y="38" text-anchor="middle">broker cluster (across 3 AZs)</text>
+            <rect class="node-b" x="200" y="52" width="120" height="44" rx="8"/><text class="lbl-sm" x="260" y="73" text-anchor="middle">Broker 1</text><text class="lbl-sm" x="260" y="88" text-anchor="middle">P0(L) P3(F)</text>
+            <rect class="node-b" x="200" y="108" width="120" height="44" rx="8"/><text class="lbl-sm" x="260" y="129" text-anchor="middle">Broker 2</text><text class="lbl-sm" x="260" y="144" text-anchor="middle">P1(L) P0(F)</text>
+            <rect class="node-b" x="330" y="80" width="120" height="44" rx="8"/><text class="lbl-sm" x="390" y="101" text-anchor="middle">Broker 3</text><text class="lbl-sm" x="390" y="116" text-anchor="middle">P3(L) P1(F)</text>
+            <rect class="node-r" x="330" y="150" width="120" height="44" rx="8"/><text class="lbl-sm" x="390" y="171" text-anchor="middle">Controller</text><text class="lbl-sm" x="390" y="186" text-anchor="middle">quorum</text>
+            <rect class="node" x="540" y="100" width="80" height="40" rx="8"/><text class="lbl-sm" x="580" y="124" text-anchor="middle">+Broker N</text>
+            <path class="flow" d="M120 50 C 150 50, 170 64, 198 70" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M198 130 C 160 150, 150 175, 120 185" marker-end="url(#arrow-r)"/>
+            <path class="flow-d" d="M450 100 H 538" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="495" y="92" text-anchor="middle">reassign</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — leaders and followers spread across brokers and AZs; add a broker, reassign partitions to scale</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">The 10x question, in one breath</span>
+        <p>"At 10x, the first thing to crack is a <strong>hot partition</strong> from key skew — fix it with a better/compound key or more partitions. The second is <strong>consumer lag exceeding retention</strong>, which silently loses data — monitor lag and scale consumers up to the partition ceiling. Storage and write-amplification grow linearly, so add brokers and reassign partitions across AZs for both capacity and fault tolerance."</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The entire system compresses to one sentence: <em>a topic is a set of append-only partitioned logs; the partition gives you both ordering and parallelism, replication gives you durability, and each consumer group reads independently by tracking its own offset.</em> If you can derive every other piece — keys, ISR, segments, rebalancing, delivery semantics — from that sentence, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Log, not queue</b><span>Append-only, retained, replayable, read-by-position — many groups read the same stream.</span></div>
+        <div class="tk"><span class="num">02</span><b>Partition = unit of everything</b><span>Parallelism and ordering both live in the partition; order holds only within one.</span></div>
+        <div class="tk"><span class="num">03</span><b>Key buys ordering back</b><span>hash(key) % N routes related records to one partition for per-entity order.</span></div>
+        <div class="tk"><span class="num">04</span><b>Offsets are the consumer's</b><span>Consumers pull and commit their own offset; the broker stays stateless about reads.</span></div>
+        <div class="tk"><span class="num">05</span><b>ISR + acks = durability</b><span>Committed once the in-sync set has it; acks=0/1/all trades latency for safety.</span></div>
+        <div class="tk"><span class="num">06</span><b>Sequential disk is fast</b><span>Append-only + page cache + zero-copy make a disk log run at memory-like speeds.</span></div>
+        <div class="tk"><span class="num">07</span><b>Segments + retention</b><span>Whole old segment files are deleted by time/size; compaction keeps latest-per-key.</span></div>
+        <div class="tk"><span class="num">08</span><b>Rebalance on membership</b><span>Coordinator re-divides partitions; survivors resume from committed offsets.</span></div>
+        <div class="tk"><span class="num">09</span><b>At-least-once default</b><span>Commit after processing; duplicates possible, so make consumers idempotent.</span></div>
+        <div class="tk"><span class="num">10</span><b>Hot partition + lag</b><span>Skew and lag-past-retention are the first failures at scale; monitor and re-key.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why a durable replayable log instead of a delete-on-read queue, and which real failure does it solve?<br>(2) Exactly what does the partition give you, and why is cross-partition ordering not free?<br>(3) How does a partition key let GrabPay keep one wallet's events ordered while still scaling?<br>(4) Walk the path of one record from <code>acks=all</code> append to committed, and define the ISR and high-water mark.<br>(5) Why is a disk-backed log fast — name sequential writes, page cache, and zero-copy.<br>(6) How does a consumer resume after a crash, where exactly does at-least-once duplication come from, and what is the honest limit of "exactly-once"?<br>Any fuzzy answer &rarr; re-read that section, replay FIG. 3, then redraw the partitioned log from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 17 · DESIGN A DISTRIBUTED MESSAGE QUEUE · interactive edition · ref BBG V2·C4<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* end-to-end record flow */
+  makeStepper(document.getElementById('fig-flow'), [
+    {text:"A producer appends a record to the partition's leader broker.", active:["f-prod","f-lead"], path:"f-p1"},
+    {text:"The leader assigns it the next offset (91) at the tail of the log.", active:["f-lead"]},
+    {text:"Followers in the ISR pull the record; once they all have it, it's committed.", active:["f-lead","f-foll"], path:"f-p2"},
+    {text:"A consumer in the 'fraud' group pulls the committed record by fetch.", active:["f-lead","f-cons"], path:"f-p3"},
+    {text:"After processing, the consumer commits its offset (92) durably — resume point on crash.", active:["f-cons","f-off"], path:"f-p4"}
+  ]);
+</script>
+</body>
+</html>

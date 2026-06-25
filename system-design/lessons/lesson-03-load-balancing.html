@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 03 — Load Balancing &amp; Reverse Proxies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Load<br>Balancing</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The single-server ceiling</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>One entry point: the VIP ▸</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>L4 vs L7 balancing</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Distribution algorithms</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Health checks &amp; draining ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Sticky sessions &amp; the fix</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The LB is a SPOF too</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>The reverse proxy, in depth</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Proxy vs LB vs API gateway</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Dies mid-request &amp; geo-routing</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">03</span><span>Lesson · System Design Interview</span></div>
+      <h1>Load Balancing &amp; Reverse Proxies</h1>
+      <p class="lede">The moment you run more than one server, something has to spread traffic across them, notice the instant one dies, and hide the whole fleet behind a single address. That something is the load balancer — and standing in the same doorway is its close cousin, the reverse proxy, the edge component that terminates TLS, caches, compresses, and shields your backends. The interview lives in the algorithm you choose, the health checks you wire up, the reason sticky sessions quietly sabotage horizontal scaling, and your ability to keep "reverse proxy", "load balancer", and "API gateway" cleanly apart.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on load balancing and reverse proxies — standard, widely-documented infrastructure fundamentals. The explanations, examples, numbers, config sketches, and diagrams here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>The single-server ceiling</h2>
+      <p>Start with the simplest possible deployment: one web server answering every request. It works beautifully right up until it doesn't. There are two failure modes baked into that one box, and both are dead ends.</p>
+      <p>First, it's a <strong>single point of failure</strong> (SPOF) — the one node whose death takes the entire service offline. A bad deploy, a kernel panic, a full disk, an out-of-memory kill, an availability-zone outage: any of them turns into total downtime because there is nowhere else for traffic to go. Availability is usually quoted in "nines" — 99.9% uptime is roughly 8.7 hours of allowed downtime a year, and a single box that reboots for ten minutes during a bad patch has already blown a tighter budget. A lone server simply cannot offer a high-availability number, because its expected failures have no fallback.</p>
+      <p>Second, it's a <strong>capacity ceiling</strong>. You can buy a bigger machine — that's <strong>vertical scaling</strong> (scaling up) — but CPU cores, RAM, network cards, and the operating system's open-file-descriptor and TCP-connection limits all top out, and the price curve goes vertical long before the performance does. A single box can also only be in one rack, in one data center, in one region: a user in Jakarta hitting a server in Frankfurt eats hundreds of milliseconds of unavoidable round-trip latency no matter how fast the CPU is. The answer is <strong>horizontal scaling</strong> (scaling out): run many ordinary servers instead of one heroic one.</p>
+      <p>But running many servers immediately creates a new problem. Clients can't be told to pick a server themselves — you'd be leaking your private fleet topology to the world, you'd have no clean way to skip a dead node, and every client would need to re-learn the fleet every time it changed. You need a single front door that accepts all traffic, spreads it evenly, and routes around failures. That front door is the <strong>load balancer</strong>.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 200" role="img" aria-label="A single web server is both a single point of failure and a capacity ceiling">
+            <rect class="node" x="24" y="78" width="110" height="46" rx="8"/>
+            <text class="lbl" x="79" y="106" text-anchor="middle">Clients</text>
+            <text class="lbl-sm" x="300" y="56" text-anchor="middle">all traffic → one box</text>
+            <path class="flow-r" d="M136 92 C 280 64, 360 76, 452 92" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M136 102 H 452" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M136 112 C 280 140, 360 124, 452 110" marker-end="url(#arrow-r)"/>
+            <rect x="456" y="54" width="160" height="116" rx="10" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="536" y="46" text-anchor="middle" fill="#B0532F">⚡ SPOF + ceiling</text>
+            <g transform="translate(514,82)">
+              <rect width="44" height="64" rx="6" fill="#69B34C"/>
+              <rect x="10" y="12" width="24" height="4" rx="2" fill="#fff"/>
+              <rect x="10" y="40" width="24" height="4" rx="2" fill="#fff"/>
+              <rect x="10" y="50" width="24" height="4" rx="2" fill="#fff"/>
+            </g>
+            <text class="lbl" x="536" y="162" text-anchor="middle">Web server</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one box: if it dies, everything is down, and it can only grow so far</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Why it matters</span>
+        <p>Almost every later decision in this lesson exists to make horizontal scaling actually safe: a smart algorithm so load lands evenly, health checks so a dead node is skipped, statelessness so any node can serve any request, and redundancy so the load balancer itself isn't the new SPOF. Keep that thread in mind — each section removes one obstacle to running many cheap boxes instead of one expensive one.</p>
+      </div>
+    </section>
+
+    <!-- 1 — INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> One entry point</div>
+      <h2>One entry point: the VIP</h2>
+      <p>The load balancer sits in front of the server fleet and is the only thing the outside world ever talks to. Clients resolve your domain — say <code>api.superpay.sg</code> — to a single public address called a <strong>virtual IP</strong> (VIP). The word "virtual" is the whole point: the VIP is not the hardware address of any one machine. It is an address the load balancer answers <em>on behalf of</em> the fleet, which is exactly why it can be moved to a different load balancer during a failover (we'll use that in step 06). Behind it, each application server lives on a <strong>private IP</strong> inside your virtual network — something like <code>10.0.0.11</code> — that is unroutable from the public internet and invisible to clients.</p>
+      <p>For every incoming connection the load balancer picks one healthy server and forwards the request, then relays the response back. The fleet's size, IP addresses, and which nodes are currently up are all hidden behind that single VIP. You can add servers during a traffic surge or pull a sick one out, and clients never notice — they keep hitting the same address. This indirection is what makes a fleet <strong>elastic</strong>: capacity becomes a dial you turn, not a migration you announce.</p>
+      <p>How does a client even find the VIP in the first place? Through DNS. Your authoritative DNS returns the VIP as the <code>A</code>/<code>AAAA</code> record for the hostname. Note the division of labor: DNS gets the client <em>to</em> the front door (and, as we'll see in step 09, can choose <em>which</em> regional front door), while the load balancer decides which server behind that door actually handles the request. DNS is coarse and slow to change because answers are cached; the load balancer is fine-grained and reacts in milliseconds. Keeping those two jobs distinct is a frequent source of interview clarity.</p>
+      <p>Walk the routing once, step by step. This is the canonical "draw the request path" the interviewer wants to see.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-route">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive: client hits the VIP, the load balancer picks a healthy server and forwards the request">
+            <g class="st" id="r-client"><rect class="node" x="20" y="100" width="96" height="46" rx="8"/><text class="lbl" x="68" y="122" text-anchor="middle">Client</text><text class="lbl-sm" x="68" y="138" text-anchor="middle">→ VIP</text></g>
+            <g class="st" id="r-lb"><rect class="node-b" x="184" y="92" width="132" height="62" rx="9"/><text class="lbl" x="250" y="116" text-anchor="middle">Load bal.</text><text class="lbl-sm" x="250" y="134" text-anchor="middle">public VIP</text></g>
+            <g class="st" id="r-s1"><rect class="node" x="404" y="22" width="150" height="42" rx="8"/><text class="lbl" x="479" y="42" text-anchor="middle">Server 1</text><text class="lbl-sm" x="479" y="57" text-anchor="middle">10.0.0.11</text></g>
+            <g class="st" id="r-s2"><rect class="node" x="404" y="102" width="150" height="42" rx="8"/><text class="lbl" x="479" y="122" text-anchor="middle">Server 2</text><text class="lbl-sm" x="479" y="137" text-anchor="middle">10.0.0.12</text></g>
+            <g class="st" id="r-s3"><rect class="node" x="404" y="182" width="150" height="42" rx="8"/><text class="lbl" x="479" y="202" text-anchor="middle">Server 3</text><text class="lbl-sm" x="479" y="217" text-anchor="middle">10.0.0.13</text></g>
+            <path id="r-p1" class="flow" d="M116 123 H 182" marker-end="url(#arrow)"/>
+            <path id="r-p2" class="flow" d="M316 116 C 360 110, 380 60, 402 47" marker-end="url(#arrow)"/>
+            <path id="r-p3" class="flow" d="M316 124 H 402" marker-end="url(#arrow)"/>
+            <path id="r-p4" class="flow" d="M316 132 C 360 138, 380 190, 402 200" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="148" y="113" text-anchor="middle">request</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 4</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: one public VIP fronts a fleet of private-IP servers</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Why it matters</span>
+        <p>The VIP is the abstraction that makes everything else in this lesson possible. Because clients bind to the VIP and never to a server, the fleet becomes elastic — you can scale it up and down and replace dead nodes without touching DNS, app config, or the client at all. Every "what if a server dies / we deploy / we autoscale" follow-up has the same root answer: the client only ever knew the VIP, so the change is invisible to it.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Which layer?</div>
+      <h2>L4 vs L7 balancing</h2>
+      <p>Load balancers come in two flavors, named after the OSI layer they operate on. The first decision an interviewer probes is which one you'd pick and why — and a strong answer explains <em>how each one actually forwards a packet</em>, not just what it can route on.</p>
+
+      <h3>How an L4 balancer forwards</h3>
+      <p>A <strong>Layer 4 (L4)</strong> load balancer works at the transport layer. It routes by <code>IP</code> and <code>port</code> only and never reads the request body — it doesn't even know the bytes flowing through are HTTP. Mechanically, the common mode is <strong>NAT</strong>-style connection forwarding: a client opens a TCP connection to the VIP, the balancer picks a backend, rewrites the destination address (and tracks the flow in a connection table so every subsequent packet of that connection goes to the same backend), and forwards the packets. The balancer relays packets; it does not terminate the client's TCP connection and open a fresh one. Because it parses almost nothing, it is extremely fast, cheap on CPU, and works for <em>any</em> protocol — TCP, UDP, a game socket, a database wire protocol, MQTT. <strong>AWS Network Load Balancer (NLB)</strong> is the canonical managed L4; it advertises handling millions of requests per second at ultra-low latency precisely because it does so little per packet.</p>
+      <div class="callout">
+        <span class="k">Under the hood — Direct Server Return</span>
+        <p>An advanced L4 trick is <strong>Direct Server Return</strong> (DSR). Normally the response retraces its path back through the balancer. With DSR, the request goes <em>in</em> through the balancer but each backend replies <em>directly</em> to the client, bypassing the balancer on the way out. Since responses are usually far larger than requests (think a 2&nbsp;KB request fetching a 2&nbsp;MB video chunk), removing the balancer from the egress path massively raises throughput. The cost is operational complexity — the backends must be configured to answer for the VIP — which is why DSR shows up in high-throughput, hand-tuned L4 setups rather than everyday web tiers.</p>
+      </div>
+
+      <h3>How an L7 balancer forwards</h3>
+      <p>A <strong>Layer 7 (L7)</strong> load balancer works at the application layer. It does something fundamentally different from L4: it <strong>terminates</strong> the client's TCP (and TLS) connection itself, fully reads and parses the HTTP request, then opens a <em>separate</em> connection to the chosen backend and forwards a possibly-rewritten request. There are effectively two connections — client↔balancer and balancer↔backend — which is exactly what lets the balancer pool and reuse backend connections, buffer slow clients, and inspect everything in between. Because it understands HTTP, it can read the URL path, headers, and cookies and route on them: send <code>/api/*</code> to the order-service pool and <code>/static/*</code> to a different pool, or split by <code>Host</code> header so <code>shop.example.com</code> and <code>pay.example.com</code> reach different fleets from one VIP. It can also terminate TLS, rewrite headers, cache, and compress. All that inspection costs a little latency and CPU. <strong>AWS Application Load Balancer (ALB)</strong>, <strong>NGINX</strong>, <strong>HAProxy</strong>, and <strong>Envoy</strong> are the everyday L7 workhorses.</p>
+      <div class="vs">
+        <div class="col"><h4>Layer 4 — transport</h4><ul>
+          <li>Routes by <code>IP</code> / <code>port</code>; no payload inspection</li>
+          <li>Forwards/NATs packets — does not terminate the connection</li>
+          <li>Very fast, low CPU, low latency; DSR can skip the return path</li>
+          <li>Protocol-agnostic — TCP, UDP, anything</li>
+          <li>Can't route by path, header, or cookie</li>
+          <li>Can't terminate TLS, cache, or compress</li>
+        </ul></div>
+        <div class="col"><h4>Layer 7 — application</h4><ul>
+          <li>Understands HTTP: path, headers, cookies, <code>Host</code></li>
+          <li>Terminates the connection, opens a fresh one to the backend</li>
+          <li>Content routing (<code>/api</code> vs <code>/static</code>, host-based)</li>
+          <li>Can terminate TLS, rewrite headers, cache, compress</li>
+          <li>Enables auth, buffering, and observability at the edge</li>
+          <li>Slightly more overhead; HTTP-aware only</li>
+        </ul></div>
+      </div>
+      <p>The practical rule: reach for <strong>L7</strong> for normal web and API traffic, where smart routing and TLS termination are worth the small overhead — this is what fronts a typical Shopee or Grab API tier, where one VIP needs to fan <code>/orders</code>, <code>/payments</code>, and <code>/static</code> to different services. Reach for <strong>L4</strong> when you need raw throughput, a non-HTTP protocol (a real-time game socket, a Postgres proxy, a gRPC stream you don't want to terminate), or the lowest possible latency. A very common real-world pattern stacks both: an L4 NLB takes the internet-facing punishment and spreads connections across a fleet of L7 proxies, each doing the HTTP-aware work.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="L7 load balancer routing by URL path to an API pool and a static-asset pool">
+            <rect class="node" x="20" y="88" width="96" height="46" rx="8"/>
+            <text class="lbl" x="68" y="116" text-anchor="middle">Client</text>
+            <rect class="node-b" x="170" y="80" width="150" height="62" rx="9"/>
+            <text class="lbl" x="245" y="104" text-anchor="middle">L7 load bal.</text>
+            <text class="lbl-sm" x="245" y="122" text-anchor="middle">reads URL path</text>
+            <path class="flow" d="M116 111 H 168" marker-end="url(#arrow)"/>
+            <rect class="node" x="430" y="26" width="184" height="48" rx="8"/>
+            <text class="lbl" x="522" y="46" text-anchor="middle">API pool</text>
+            <text class="lbl-sm" x="522" y="62" text-anchor="middle">/api/*</text>
+            <rect class="node" x="430" y="148" width="184" height="48" rx="8"/>
+            <text class="lbl" x="522" y="168" text-anchor="middle">Static pool</text>
+            <text class="lbl-sm" x="522" y="184" text-anchor="middle">/static/*</text>
+            <path class="flow" d="M320 100 C 380 80, 400 56, 428 50" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="378" y="62" text-anchor="middle">/api/orders</text>
+            <path class="flow" d="M320 122 C 380 142, 400 166, 428 172" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="378" y="170" text-anchor="middle">/static/logo.png</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — only an L7 balancer can split traffic by path because it reads HTTP</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"If the L7 balancer terminates TLS, what does the backend see as the client's IP?" The backend sees the <em>balancer's</em> IP, because the balancer opened the connection. The fix is header injection — the balancer adds <code>X-Forwarded-For</code> (the real client IP) and <code>X-Forwarded-Proto</code> (was it HTTPS?) so the app can recover the truth. We unpack that mechanism in the reverse-proxy section, but flagging it here shows you understand the consequence of terminating the connection.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> How to pick a server</div>
+      <h2>Distribution algorithms</h2>
+      <p>Once the balancer has a pool of healthy servers, it needs a rule for choosing one per request. The choice trades simplicity against how evenly real load actually lands, and each rule has a characteristic way of going wrong. Walk them with the mechanism and the failure mode in mind.</p>
+      <ul>
+        <li><strong>Round-robin</strong> — hand requests out in a rotating cycle: server 1, 2, 3, 1, 2, 3… The balancer keeps a single rotating index; that's the entire mechanism, which is why it's the default almost everywhere. It's even <em>by request count</em>. Where it goes wrong: it's blind to how heavy each request is, so if one server lands on three slow report-generation calls while peers get cheap key lookups, round-robin keeps feeding the busy one — the queue on that node grows while others idle.</li>
+        <li><strong>Weighted round-robin</strong> — give beefier machines a higher weight so they receive proportionally more traffic (a weight-3 box gets three turns in the cycle to a weight-1 box's one). Useful when the fleet is heterogeneous — some 16-core boxes, some 4-core — or during a canary deploy where you send 5% of traffic to the new version. Where it goes wrong: weights are static, so they don't react if a "big" box is momentarily slow.</li>
+        <li><strong>Least-connections</strong> — send the next request to the server with the fewest open connections right now. The balancer tracks a live connection count per backend and picks the minimum. This adapts to real load and is a great default when request durations vary a lot (long-lived connections, slow queries, streaming responses). Where it goes wrong: "fewest connections" isn't "least loaded" if connections do wildly different amounts of work — but it's far better than counting requests.</li>
+        <li><strong>Least-response-time</strong> — pick the server with the best blend of active connections and recent latency. The most load-aware option; the balancer must measure per-backend timings. Where it goes wrong: a freshly added (cold-cache) node can briefly look fast and get flooded before it warms up.</li>
+        <li><strong>IP-hash / consistent hashing</strong> — hash a key (the client IP, or a user ID) to deterministically map it to a server, so the same key keeps landing on the same node. <strong>Plain modulo hashing</strong> (<code>hash(key) % N</code>) gives stickiness but reshuffles almost every key when <code>N</code> changes — add or remove one server and nearly all keys move, which is catastrophic for caches. <strong>Consistent hashing</strong> places servers and keys on a ring so that adding or removing a node moves only a small slice of keys; it's the standard way to get cache affinity (route a user to the node that already cached their data) without a mass reshuffle. That property earns it its own lesson later — here, just know it's the right tool when you want <em>stickiness by key with minimal churn</em>, and that naive IP-hash is the seed of the sticky-session trap in step 05.</li>
+      </ul>
+      <div class="vs">
+        <div class="col"><h4>Round-robin family</h4><ul>
+          <li>Trivial to implement and reason about</li>
+          <li>Even by request count; weights handle uneven hardware</li>
+          <li>Blind to request cost and current server load</li>
+          <li>Good when requests are short and uniform</li>
+        </ul></div>
+        <div class="col"><h4>Least-connections / -response-time</h4><ul>
+          <li>Adapts to real-time load, not just count</li>
+          <li>Best when request durations vary widely</li>
+          <li>Needs the LB to track per-server state</li>
+          <li>The safer default for mixed, bursty API traffic</li>
+        </ul></div>
+      </div>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 200" role="img" aria-label="Round-robin sends requests in a rotating cycle while least-connections favors the least-busy server">
+            <text class="lbl-sm" x="120" y="26" text-anchor="middle">round-robin: 1 → 2 → 3 → 1 …</text>
+            <rect class="node-b" x="60" y="78" width="120" height="44" rx="9"/>
+            <text class="lbl" x="120" y="105" text-anchor="middle">Load bal.</text>
+            <rect class="node" x="250" y="34" width="120" height="36" rx="7"/>
+            <text class="lbl-sm" x="310" y="56" text-anchor="middle">S1 · 2 conns</text>
+            <rect class="node" x="250" y="82" width="120" height="36" rx="7"/>
+            <text class="lbl-sm" x="310" y="104" text-anchor="middle">S2 · 9 conns</text>
+            <rect class="node" x="250" y="130" width="120" height="36" rx="7"/>
+            <text class="lbl-sm" x="310" y="152" text-anchor="middle">S3 · 4 conns</text>
+            <path class="flow-d" d="M180 92 C 210 70, 220 58, 248 52" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M180 100 H 248" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M180 108 C 210 130, 220 142, 248 148" marker-end="url(#arrow-s)"/>
+            <path class="flow" d="M372 52 C 460 70, 500 90, 560 100" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="500" y="58" text-anchor="middle" fill="#1F4E79">least-conns picks S1</text>
+            <text class="lbl-sm" x="520" y="150" text-anchor="middle">(fewest open)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — round-robin rotates blindly; least-connections steers toward the idle server</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"When would round-robin distribute load <em>unevenly</em>?" Answer: whenever request cost varies — one server lands on three slow report-generation calls while the others get cheap reads, yet round-robin keeps feeding the busy one. That's the cue to mention <strong>least-connections</strong> as the load-aware upgrade. A sharper follow-up: "and when would you choose consistent hashing?" — when you need cache affinity (sticky-by-key) but can't afford a full reshuffle every time the fleet size changes.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Detecting failure</div>
+      <h2>Health checks &amp; draining</h2>
+      <p>Spreading load is only half the job. The whole point of a fleet is that one node can die without taking the service down — but that only works if the balancer <em>knows</em> a node is dead and stops sending it traffic. That's what <strong>health checks</strong> are for, and the interview reward is in describing the mechanism and its dials precisely.</p>
+
+      <h3>Active vs passive probing</h3>
+      <p>There are two styles, usually combined. An <strong>active health check</strong> has the balancer probe each server on a schedule — typically an HTTP <code>GET</code> to a lightweight <code>/health</code> (or <code>/healthz</code>) endpoint every few seconds. The probe is governed by three dials worth naming explicitly: the <strong>interval</strong> (how often to probe — say every 5s), the <strong>unhealthy threshold</strong> (how many consecutive failures before ejecting — say 3), and the <strong>healthy threshold</strong> (how many consecutive successes before re-admitting — say 2). Miss enough probes and the node is marked unhealthy and <strong>ejected</strong> from the pool; pass enough and it's restored. A <strong>passive health check</strong> watches real live traffic instead: if a server starts returning connection errors, resets, or 5xx responses, the balancer infers it's sick and pulls it out without waiting for the next scheduled probe. Passive is faster to react (it uses traffic you're already sending) but can't tell you a freshly-ejected node has recovered — only an active probe can safely re-admit it. That's why mature setups run both.</p>
+      <p>A subtlety the best candidates raise: a <em>shallow</em> health check (does the process answer at all?) versus a <em>deep</em> one (can the server actually reach its database and dependencies?). A deep check catches a server that's up but cut off from its datastore, but if every node shares one sick dependency, a deep check can eject the entire fleet at once. The pragmatic middle ground is a shallow liveness check for ejection and richer readiness signals for routing decisions.</p>
+
+      <h3>Outlier detection &amp; circuit breaking</h3>
+      <p>The modern, more granular form of passive checking is <strong>outlier detection</strong> (Envoy's term) or <strong>circuit breaking</strong>. Instead of a single up/down verdict, the proxy watches each backend's live error and latency rates and temporarily ejects a node that is statistically misbehaving relative to its peers — then probes it back in after a cooldown. A <strong>circuit breaker</strong> generalizes this: once errors to a backend cross a threshold, the proxy "opens the circuit" and fails fast (returning an error immediately) instead of piling more doomed requests onto a struggling dependency, giving it room to recover. This is the failure-containment mechanism that keeps one sick service from dragging down everything calling it.</p>
+
+      <h3>Connection draining (graceful shutdown)</h3>
+      <p>Failure isn't the only reason to remove a node — deploys and scale-downs do it on purpose. Yanking a server instantly would kill every request it's mid-way through. The fix is <strong>connection draining</strong> (a.k.a. graceful shutdown). The mechanism: the balancer marks the node "draining", immediately stops sending it <em>new</em> requests, but lets existing in-flight ones finish — up to a configured <strong>drain timeout</strong> (commonly 30–300 seconds), after which any stragglers are forcibly cut. In Kubernetes this is the same dance the <code>preStop</code> hook plus <code>terminationGracePeriodSeconds</code> orchestrate. Get it right and you can deploy a new version of the Grab order service in the middle of peak dinner-time traffic with zero dropped requests; get it wrong (drain timeout of zero) and every user mid-checkout on the retiring node sees an error.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-health">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive: the load balancer probes servers, ejects an unhealthy one, and reroutes its traffic">
+            <g class="st" id="h-lb"><rect class="node-b" x="40" y="96" width="130" height="58" rx="9"/><text class="lbl" x="105" y="120" text-anchor="middle">Load bal.</text><text class="lbl-sm" x="105" y="138" text-anchor="middle">probes /health</text></g>
+            <g class="st" id="h-s1"><rect class="node" x="360" y="20" width="150" height="44" rx="8"/><text class="lbl" x="435" y="40" text-anchor="middle">Server 1</text><text class="lbl-sm" x="435" y="56" text-anchor="middle">200 OK</text></g>
+            <g class="st" id="h-s2"><rect class="node-r" x="360" y="102" width="150" height="44" rx="8"/><text class="lbl" x="435" y="122" text-anchor="middle" fill="#B0532F">Server 2</text><text class="lbl-sm" x="435" y="138" text-anchor="middle" fill="#B0532F">timeout ✕</text></g>
+            <g class="st" id="h-s3"><rect class="node" x="360" y="184" width="150" height="44" rx="8"/><text class="lbl" x="435" y="204" text-anchor="middle">Server 3</text><text class="lbl-sm" x="435" y="220" text-anchor="middle">200 OK</text></g>
+            <path id="h-p1" class="flow-d" d="M170 116 C 250 90, 300 56, 358 44" marker-end="url(#arrow-s)"/>
+            <path id="h-p2" class="flow-d" d="M170 124 H 358" marker-end="url(#arrow-s)"/>
+            <path id="h-p3" class="flow-d" d="M170 132 C 250 158, 300 196, 358 204" marker-end="url(#arrow-s)"/>
+            <path id="h-p4" class="flow-r" d="M170 128 H 358" marker-end="url(#arrow-r)"/>
+            <path id="h-p5" class="flow" d="M170 120 C 250 158, 300 196, 358 204" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="262" y="240" text-anchor="middle">healthy nodes share the load</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: probe, eject the failing node, and reroute its traffic to healthy peers</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How fast do you detect a dead node, and what's the trade-off?" Detection time is roughly <em>interval × unhealthy-threshold</em> — tight intervals and low thresholds detect failure faster but risk <strong>flapping</strong>: ejecting a node over a transient blip (a single GC pause), then re-admitting it, then ejecting it again, thrashing the pool. Looser settings are stable but leave a dead node taking traffic longer. Naming this tension (detection speed vs false positives) — and adding that outlier detection plus a healthy-threshold hysteresis dampens flapping — is the point.</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The stickiness trap</div>
+      <h2>Sticky sessions &amp; the fix</h2>
+      <p>Here's a problem the fleet creates for itself. Suppose each server keeps a user's login <strong>session</strong> in its own local memory. Now request #1 from a user lands on Server 1 and creates a session there; request #2 round-robins to Server 2, which has never heard of this user — and the user is suddenly logged out. The very load-spreading you wanted has broken correctness.</p>
+
+      <h3>The patch: session affinity, and its two mechanisms</h3>
+      <p>The quick patch is a <strong>sticky session</strong> (session affinity): the balancer pins each client to one server so every request from that client returns to the node that holds its session. There are two ways to implement it, and the difference matters. <strong>Cookie-based affinity</strong> has the L7 balancer set its own cookie (NGINX's <code>sticky cookie</code>, ALB's <code>AWSALB</code> cookie) encoding which backend to use; the client echoes the cookie on every request and the balancer reads it. It's precise and survives the client changing networks. <strong>IP-hash affinity</strong> instead hashes the client's source IP to a backend — no cookie needed, works for non-HTTP traffic, but breaks when many users share one NAT/proxy IP (they all pin to one node) or when a mobile user's IP changes mid-session. Either way, stickiness fights everything else you've built:</p>
+      <ul>
+        <li><strong>Uneven load.</strong> Once clients are pinned, the balancer can no longer freely spread work — a few "whale" users on one node can hot-spot it while others idle, and least-connections is powerless to correct it.</li>
+        <li><strong>Breaks on node death.</strong> If the pinned server dies, every session it held is gone; those users are logged out and must start over — the exact downtime the fleet was supposed to prevent.</li>
+        <li><strong>Fights autoscaling.</strong> Add a new server during a spike and existing clients stay glued to old nodes, so the new capacity barely helps the hot ones. Scale <em>down</em> and you drop live sessions.</li>
+      </ul>
+
+      <h3>The real fix: externalize state, make servers stateless</h3>
+      <p>The real fix is to stop storing session state on the server at all. Push it into a <strong>shared store</strong> — a distributed cache like <strong>Redis</strong>, or a database — that every server can read. The mechanism: on login the server writes <code>session:&lt;id&gt; → {user, expiry}</code> to Redis and hands the client a session ID (in a cookie or a signed JWT); on every later request <em>any</em> server looks the ID up in Redis and gets the same answer. Now the servers are <strong>stateless</strong> — they hold no per-user data that can't be reconstructed from a shared source — so any node can serve any request. Stickiness becomes unnecessary, load spreads freely, a dying server takes no sessions with it, and autoscaling works cleanly. (This is exactly the stateless-services principle from Lesson 02 — externalizing session state is what makes horizontal scaling actually work. The cost is one extra Redis lookup per request, which is microseconds and well worth it.)</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Sticky sessions pin a client to one server, versus stateless servers sharing an external session store">
+            <text class="lbl-sm" x="160" y="22" text-anchor="middle" fill="#B0532F">sticky: state on the server</text>
+            <rect class="node-b" x="30" y="70" width="80" height="40" rx="8"/>
+            <text class="lbl-sm" x="70" y="94" text-anchor="middle">LB</text>
+            <rect class="node-r" x="170" y="44" width="120" height="40" rx="7"/>
+            <text class="lbl-sm" x="230" y="68" text-anchor="middle" fill="#B0532F">S1 · session A</text>
+            <rect class="node" x="170" y="100" width="120" height="40" rx="7"/>
+            <text class="lbl-sm" x="230" y="124" text-anchor="middle">S2 · (none)</text>
+            <path class="flow-r" d="M110 88 C 140 70, 150 66, 168 64" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="150" y="160" text-anchor="middle" fill="#B0532F">pinned ✕ if S1 dies</text>
+            <line x1="320" y1="20" x2="320" y2="210" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="480" y="22" text-anchor="middle" fill="#1F4E79">stateless: shared store</text>
+            <rect class="node-b" x="350" y="70" width="74" height="40" rx="8"/>
+            <text class="lbl-sm" x="387" y="94" text-anchor="middle">LB</text>
+            <rect class="node" x="450" y="44" width="74" height="34" rx="7"/>
+            <text class="lbl-sm" x="487" y="65" text-anchor="middle">S1</text>
+            <rect class="node" x="450" y="102" width="74" height="34" rx="7"/>
+            <text class="lbl-sm" x="487" y="123" text-anchor="middle">S2</text>
+            <rect class="node-r" x="450" y="160" width="150" height="44" rx="8"/>
+            <text class="lbl-sm" x="525" y="182" text-anchor="middle">shared cache</text>
+            <text class="lbl-sm" x="525" y="197" text-anchor="middle">(sessions)</text>
+            <path class="flow" d="M424 86 C 436 74, 440 70, 448 66" marker-end="url(#arrow)"/>
+            <path class="flow" d="M424 94 C 436 108, 440 114, 448 120" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M487 78 C 500 110, 510 130, 518 158" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M487 136 C 500 146, 510 150, 518 158" marker-end="url(#arrow-s)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — pinning clients hurts; externalizing session state makes every server interchangeable</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Why it matters</span>
+        <p>"Make your servers stateless" is one of the highest-leverage sentences in a system-design interview. Statelessness is precisely what lets the load balancer use a smart algorithm, autoscale freely, and survive a node death — three things sticky sessions quietly take away. When an interviewer pushes "but we have sessions", the senior answer is "I'll keep the <em>server</em> stateless and move the session to Redis, not pin clients with stickiness."</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Who balances the balancer?</div>
+      <h2>The LB is a SPOF too</h2>
+      <p>We added the load balancer to eliminate the single point of failure — but if you stop here, you've just <em>moved</em> the SPOF. Now every request funnels through one box, and when it dies, the whole fleet behind it becomes unreachable even though every server is perfectly healthy. The balancer must be made redundant too.</p>
+
+      <h3>Active-passive with a floating IP</h3>
+      <p>The classic answer is an <strong>active-passive pair</strong>. Two load balancers run side by side; the active one serves all traffic while the passive one stands by. They share a <strong>floating IP</strong> — the VIP isn't nailed to either box's network card but assigned to whichever is currently active. The mechanism that moves it is <strong>VRRP</strong> (Virtual Router Redundancy Protocol), implemented by tools like <strong>keepalived</strong>: the two nodes exchange a constant <strong>heartbeat</strong> (multicast advertisements every second or so). While the passive keeps hearing the active's heartbeat, it stays quiet. The instant the heartbeat stops, the passive concludes the active is dead, promotes itself, and claims the floating IP — at the link layer it broadcasts a <strong>gratuitous ARP</strong> so the local network updates its ARP cache and starts delivering the VIP's packets to the new box. That's a <strong>failover</strong>, and it typically completes in a few seconds. Clients keep hitting the same address and barely notice.</p>
+      <p>The cost of active-passive is honest: the standby sits idle, so you're paying for capacity you only use during failures. And you must guard against <strong>split-brain</strong> — if the heartbeat link (not the active node) is what failed, both nodes could think they're active and fight over the VIP; a separate heartbeat path and quorum logic prevent that.</p>
+
+      <h3>Active-active</h3>
+      <p>The richer option is <strong>active-active</strong>: multiple balancers all serve traffic at once. They're fronted either by DNS handing out several VIPs (round-robin or weighted), or by an upstream L4 layer / <strong>anycast</strong>, where the same IP is advertised from multiple locations and the network's <strong>ECMP</strong> (equal-cost multi-path) routing naturally spreads flows across them. You get more aggregate capacity and use both machines instead of paying for an idle standby — at the cost of more coordination, and the need for every balancer to share or independently derive the same view of backend health.</p>
+
+      <h3>What managed cloud LBs do for you</h3>
+      <p>In practice you rarely hand-roll keepalived anymore. A managed load balancer — <strong>AWS ALB/NLB</strong>, <strong>GCP Cloud Load Balancing</strong>, <strong>Cloudflare</strong> — <em>is</em> a horizontally-scaled, multi-AZ, self-healing fleet behind a single endpoint; the provider runs the redundancy for you. You still must understand the active-passive model, because it explains <em>why</em> a managed LB can survive a node loss and what "the LB is highly available" actually means under the hood.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Active-passive load balancer pair sharing a floating IP, with failover on heartbeat loss">
+            <rect class="node" x="24" y="92" width="96" height="46" rx="8"/>
+            <text class="lbl" x="72" y="120" text-anchor="middle">Clients</text>
+            <ellipse cx="220" cy="115" rx="46" ry="30" fill="#FDFBF6" stroke="#1F4E79" stroke-width="2"/>
+            <text class="lbl-sm" x="220" y="110" text-anchor="middle">floating</text>
+            <text class="lbl-sm" x="220" y="126" text-anchor="middle">VIP</text>
+            <path class="flow" d="M120 115 H 172" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="380" y="34" width="160" height="52" rx="9"/>
+            <text class="lbl" x="460" y="56" text-anchor="middle">LB · active</text>
+            <text class="lbl-sm" x="460" y="74" text-anchor="middle">holds the VIP</text>
+            <rect class="node" x="380" y="146" width="160" height="52" rx="9"/>
+            <text class="lbl" x="460" y="168" text-anchor="middle">LB · passive</text>
+            <text class="lbl-sm" x="460" y="186" text-anchor="middle">standby</text>
+            <path class="flow" d="M266 104 C 320 80, 340 68, 378 60" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M460 86 V 144" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="512" y="118" text-anchor="middle" fill="#B0532F">VRRP heartbeat</text>
+            <path class="flow-r" d="M266 128 C 320 158, 340 168, 378 174" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="318" y="200" text-anchor="middle" fill="#B0532F">on failover → claims VIP</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 7 — a standby balancer claims the floating IP the moment the VRRP heartbeat stops</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"What happens during failover — do clients drop?" In-flight TCP connections on the dead balancer are lost and those clients reconnect, but the floating IP moves in seconds and new connections succeed immediately. Add the nuance that this is why managed LBs (AWS ELB/ALB, GCP LB) are attractive — they hide failover entirely behind a redundant, horizontally-scaled fleet — so you rarely build active-passive by hand, but you must be able to explain VRRP, the heartbeat, and the gratuitous ARP if pressed.</p>
+      </div>
+    </section>
+
+    <!-- 7 — NEW: deep reverse proxy -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> The edge component</div>
+      <h2>The reverse proxy, in depth</h2>
+      <p>So far the box in front of the fleet has worn one hat — distributing traffic. But that same box almost always does a lot more, and the term for the more-general role is <strong>reverse proxy</strong>. This is the part interviewers find candidates rush, so we'll slow right down.</p>
+
+      <h3>Forward proxy vs reverse proxy: who is being hidden?</h3>
+      <p>Both are intermediaries that relay requests, but they sit on opposite ends and hide opposite parties. A <strong>forward proxy</strong> sits in front of the <em>clients</em> and represents them to the internet — the servers it talks to see the proxy's IP, not the real client's. A <strong>reverse proxy</strong> sits in front of the <em>servers</em> and represents them to clients — the clients it talks to see the proxy as if it were the origin, never the real backends. One sentence to memorize: <em>a forward proxy hides the clients; a reverse proxy hides the servers.</em></p>
+      <ul>
+        <li><strong>Forward-proxy example.</strong> A corporate office routes all employee web traffic through a company proxy that enforces policy, filters malware, and caches popular downloads. To <code>shopee.sg</code>, every employee looks like one IP — the proxy. The proxy serves the clients.</li>
+        <li><strong>Reverse-proxy example.</strong> <code>api.superpay.sg</code> resolves to an NGINX box; that box terminates TLS, checks a cache, and forwards surviving requests to a private fleet of app servers. The client believes it is talking to SuperPay's server; it's actually talking to the proxy, which serves the servers.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Side by side: a forward proxy fronts the clients to the internet, a reverse proxy fronts the servers to clients">
+            <text class="lbl-sm" x="160" y="20" text-anchor="middle" fill="#1F4E79">forward proxy — hides the CLIENTS</text>
+            <rect class="node" x="24" y="44" width="64" height="34" rx="7"/>
+            <text class="lbl-sm" x="56" y="65" text-anchor="middle">client</text>
+            <rect class="node" x="24" y="86" width="64" height="34" rx="7"/>
+            <text class="lbl-sm" x="56" y="107" text-anchor="middle">client</text>
+            <rect class="node" x="24" y="128" width="64" height="34" rx="7"/>
+            <text class="lbl-sm" x="56" y="149" text-anchor="middle">client</text>
+            <rect class="node-b" x="128" y="86" width="78" height="40" rx="8"/>
+            <text class="lbl-sm" x="167" y="110" text-anchor="middle">fwd proxy</text>
+            <path class="flow" d="M88 61 C 105 80, 115 90, 126 100" marker-end="url(#arrow)"/>
+            <path class="flow" d="M88 103 H 126" marker-end="url(#arrow)"/>
+            <path class="flow" d="M88 145 C 105 126, 115 116, 126 106" marker-end="url(#arrow)"/>
+            <rect class="node" x="244" y="86" width="64" height="40" rx="8"/>
+            <text class="lbl-sm" x="276" y="110" text-anchor="middle">internet</text>
+            <path class="flow" d="M206 106 H 242" marker-end="url(#arrow)"/>
+            <line x1="320" y1="14" x2="320" y2="236" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="480" y="20" text-anchor="middle" fill="#B0532F">reverse proxy — hides the SERVERS</text>
+            <rect class="node" x="344" y="86" width="64" height="40" rx="8"/>
+            <text class="lbl-sm" x="376" y="110" text-anchor="middle">clients</text>
+            <rect class="node-r" x="436" y="86" width="84" height="40" rx="8"/>
+            <text class="lbl-sm" x="478" y="110" text-anchor="middle">rev proxy</text>
+            <path class="flow-r" d="M408 106 H 434" marker-end="url(#arrow-r)"/>
+            <rect class="node" x="558" y="44" width="64" height="34" rx="7"/>
+            <text class="lbl-sm" x="590" y="65" text-anchor="middle">server</text>
+            <rect class="node" x="558" y="86" width="64" height="34" rx="7"/>
+            <text class="lbl-sm" x="590" y="107" text-anchor="middle">server</text>
+            <rect class="node" x="558" y="128" width="64" height="34" rx="7"/>
+            <text class="lbl-sm" x="590" y="149" text-anchor="middle">server</text>
+            <path class="flow-r" d="M520 100 C 535 88, 545 78, 556 68" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M520 106 H 556" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M520 112 C 535 124, 545 134, 556 144" marker-end="url(#arrow-r)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 8 — a forward proxy represents the clients; a reverse proxy represents the servers</figcaption>
+      </figure>
+
+      <h3>The jobs a reverse proxy does — each with its mechanism</h3>
+      <p>Because the reverse proxy terminates the client's connection and stands between the client and your backends, it's the natural place to put cross-cutting concerns once, instead of in every app server. The full set of jobs:</p>
+      <ul>
+        <li><strong>TLS / SSL termination.</strong> The proxy holds the certificate and private key, decrypts inbound HTTPS once at the edge, and talks plain HTTP to the backends. Mechanism: it does the expensive TLS handshake and symmetric decryption so each app server doesn't have to; certificates are managed (and rotated) in <em>one</em> place instead of on every box. The trade-off is real: traffic on the internal hop is now plaintext, so anyone who breaches your network can read it. The hardened answer is to <strong>re-encrypt</strong> to the backend (TLS again, or full <strong>mTLS</strong> where proxy and backend mutually authenticate) — the classic "TLS termination vs TLS passthrough vs re-encryption" decision.</li>
+        <li><strong>Response caching.</strong> The proxy keeps recent responses keyed by URL (plus relevant headers) and serves a repeated request straight from its cache without touching the origin. Mechanism: it honors <code>Cache-Control</code> / <code>ETag</code> or your explicit rules; a cache <em>hit</em> never reaches the app server, so a popular Shopee category page that's expensive to render once is then served thousands of times for free. This is also the foundation of a CDN — a globally distributed fleet of caching reverse proxies.</li>
+        <li><strong>Compression.</strong> The proxy compresses responses with <strong>gzip</strong> or <strong>brotli</strong> at the edge based on the client's <code>Accept-Encoding</code>, shrinking a JSON or HTML payload by 60–80% so it crosses the wire faster — without every backend re-implementing compression.</li>
+        <li><strong>Request buffering / absorbing slow clients.</strong> The proxy reads the <em>entire</em> slow request from the client into its own buffer before bothering the backend, and drip-feeds the response to a slow reader the same way. Mechanism: an event-driven proxy like NGINX handles tens of thousands of idle/slow connections cheaply, whereas a backend app worker tied up waiting on a trickling client is one fewer worker for real work. This is the direct defense against a <strong>Slowloris</strong> attack, where an adversary opens many connections and sends headers one byte at a time to exhaust your worker pool — the proxy soaks that up so the backend never sees it.</li>
+        <li><strong>Static-content serving.</strong> The proxy can serve files (images, CSS, JS, the SPA bundle) directly off disk or cache, so the application servers only ever handle dynamic requests. One config line offloads a whole class of traffic.</li>
+        <li><strong>Header rewriting &amp; <code>X-Forwarded-*</code>.</strong> Because the proxy terminated the connection, the backend's socket shows the <em>proxy's</em> IP, not the client's. The proxy fixes this by injecting headers the backend can trust: <code>X-Forwarded-For</code> carries the real client IP (appended as the chain grows), <code>X-Forwarded-Proto</code> records whether the original request was <code>https</code>, and <code>X-Forwarded-Host</code> the original host. The modern standardized equivalent is the <code>Forwarded</code> header. This is how a backend behind a TLS-terminating proxy still logs the true client IP and still knows to issue secure cookies. (Security note: only trust these headers from your own proxy, or an attacker can spoof them.)</li>
+        <li><strong>Origin hiding &amp; security.</strong> A single hardened ingress means there's exactly one place to patch, one place to run a <strong>WAF</strong> (web application firewall) that blocks SQL-injection and known exploit patterns, one place to rate-limit and absorb DDoS. The backends' private IPs and topology never appear on the public internet, shrinking the attack surface to the proxy you've hardened.</li>
+        <li><strong>HTTP/2, multiplexing &amp; keep-alive pooling.</strong> The proxy can speak modern <strong>HTTP/2</strong> (or HTTP/3) to the client — multiplexing many streams over one connection — while maintaining a warm pool of reused <strong>keep-alive</strong> connections to the backends. Mechanism: TCP and TLS setup is expensive, so reusing a handful of long-lived proxy↔backend connections for thousands of client requests slashes connection-setup overhead and protects backends from connection storms.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="One reverse proxy in front of a fleet doing TLS termination, caching, and compression with labeled responsibilities">
+            <rect class="node" x="20" y="100" width="86" height="46" rx="8"/>
+            <text class="lbl" x="63" y="122" text-anchor="middle">Client</text>
+            <text class="lbl-sm" x="63" y="138" text-anchor="middle">HTTPS</text>
+            <path class="flow" d="M106 123 H 192" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="149" y="114" text-anchor="middle">TLS in</text>
+            <rect class="node-b" x="194" y="58" width="190" height="132" rx="11"/>
+            <text class="lbl" x="289" y="82" text-anchor="middle">Reverse proxy</text>
+            <text class="lbl-sm" x="289" y="104" text-anchor="middle">① TLS termination</text>
+            <text class="lbl-sm" x="289" y="122" text-anchor="middle">② cache · ③ gzip/brotli</text>
+            <text class="lbl-sm" x="289" y="140" text-anchor="middle">④ buffer slow clients</text>
+            <text class="lbl-sm" x="289" y="158" text-anchor="middle">⑤ +X-Forwarded-For</text>
+            <text class="lbl-sm" x="289" y="176" text-anchor="middle">⑥ WAF · keep-alive pool</text>
+            <rect class="node" x="470" y="34" width="150" height="40" rx="7"/>
+            <text class="lbl-sm" x="545" y="58" text-anchor="middle">app server 1</text>
+            <rect class="node" x="470" y="104" width="150" height="40" rx="7"/>
+            <text class="lbl-sm" x="545" y="128" text-anchor="middle">app server 2</text>
+            <rect class="node" x="470" y="174" width="150" height="40" rx="7"/>
+            <text class="lbl-sm" x="545" y="198" text-anchor="middle">app server 3</text>
+            <path class="flow" d="M384 100 C 430 78, 445 62, 468 54" marker-end="url(#arrow)"/>
+            <path class="flow" d="M384 124 H 468" marker-end="url(#arrow)"/>
+            <path class="flow" d="M384 148 C 430 170, 445 186, 468 194" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="430" y="118" text-anchor="middle">plain HTTP, pooled</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 9 — one edge proxy concentrates TLS, caching, compression, buffering, and security in front of the fleet</figcaption>
+      </figure>
+
+      <h3>The tools, and what a config conceptually says</h3>
+      <p>The dominant reverse proxies: <strong>NGINX</strong> (the default workhorse — fast event loop, great at static files, TLS, and caching), <strong>HAProxy</strong> (extremely strong L4/L7 load balancing and health checking), <strong>Envoy</strong> (the modern, dynamically-configurable proxy that powers service meshes and supports outlier detection and rich observability), and <strong>Caddy</strong> (developer-friendly with automatic HTTPS via Let's Encrypt). Managed equivalents — <strong>Cloudflare</strong> and <strong>AWS ALB</strong> — give you the same edge jobs without running the box.</p>
+      <p>Conceptually, an NGINX reverse-proxy config expresses two ideas: a named <em>upstream</em> (the pool of backends, with an algorithm and health checks) and a <em>server</em> block that terminates TLS and forwards matching requests to that upstream while injecting the forwarding headers. An original, illustrative sketch:</p>
+      <pre style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.55;background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;overflow-x:auto;color:var(--ink);"><span style="color:var(--blueprint-soft);"># the fleet behind the proxy — chosen algorithm + passive ejection</span>
+upstream superpay_api {
+    least_conn;
+    server 10.0.0.11:8080 max_fails=3 fail_timeout=10s;
+    server 10.0.0.12:8080 max_fails=3 fail_timeout=10s;
+    keepalive 32;          <span style="color:var(--blueprint-soft);"># warm pooled connections to backends</span>
+}
+
+server {
+    listen 443 ssl http2;                 <span style="color:var(--blueprint-soft);"># TLS terminates here, HTTP/2 to client</span>
+    ssl_certificate     /etc/ssl/superpay.crt;
+    gzip on;                              <span style="color:var(--blueprint-soft);"># compress at the edge</span>
+
+    location / {
+        proxy_pass http://superpay_api;   <span style="color:var(--blueprint-soft);"># forward to the upstream (plain HTTP)</span>
+        proxy_set_header X-Forwarded-For   $remote_addr;   <span style="color:var(--blueprint-soft);"># real client IP</span>
+        proxy_set_header X-Forwarded-Proto $scheme;        <span style="color:var(--blueprint-soft);"># was https?</span>
+    }
+}</pre>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"You terminate TLS at the proxy — isn't the internal hop now insecure?" Yes, and the answer separates juniors from seniors: inside a trusted VPC many teams accept plaintext on the internal hop for simplicity and performance; in a zero-trust or regulated (payments) environment you <strong>re-encrypt</strong> to the backend or run <strong>mTLS</strong> so the proxy↔backend link is authenticated and encrypted too. State the trade-off explicitly — "TLS termination buys central cert management and cheap backends; re-encryption / mTLS buys defense-in-depth at some CPU cost" — and you've nailed it.</p>
+      </div>
+    </section>
+
+    <!-- 8 — NEW: proxy vs LB vs gateway -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Keeping the terms straight</div>
+      <h2>Proxy vs LB vs API gateway</h2>
+      <p>These three terms overlap, and interviewers test whether you can hold them apart cleanly. The trick is to see them as <em>layers of added responsibility on the same base component</em>, not three unrelated boxes.</p>
+      <p>Start from the base. A <strong>reverse proxy</strong> is a server that fronts your application servers, forwards client requests to them, and returns the responses — so to the client it looks like the origin. Its defining job is to be the front door and intermediary; distribution across many servers is <em>not</em> its essence, which is why a reverse proxy can sit usefully in front of a <em>single</em> server purely to terminate TLS, cache, or compress.</p>
+      <p>A <strong>load balancer's</strong> defining job is narrower and additive: <strong>distribute</strong> incoming traffic across multiple backends and route around unhealthy ones. The cleanest way to relate it to the proxy: <em>an L7 load balancer IS a reverse proxy that also distributes.</em> It terminates the connection and forwards it (reverse-proxy behavior) and on top of that picks among many backends with an algorithm and health checks (load-balancer behavior). An L4 load balancer, by contrast, is purer distribution — it forwards packets without terminating, so it isn't really acting as a reverse proxy at all. That's the precise relationship: at L7 the two roles merge in one box.</p>
+      <p>An <strong>API gateway</strong> is the next layer out: <em>a reverse proxy (usually also load-balancing) that adds API-specific concerns.</em> On top of fronting and distributing, it handles <strong>authentication / authorization</strong> (validate the JWT or API key once at the edge), <strong>rate limiting</strong> (the subject of a later lesson), <strong>request aggregation / composition</strong> (fan one client call out to several microservices and stitch the results), <strong>API versioning and routing</strong> (<code>/v1</code> vs <code>/v2</code>, path-to-service mapping), request/response transformation, and per-consumer metering. Tools: <strong>Kong</strong>, <strong>AWS API Gateway</strong>, and Envoy-based gateways. The mental model is a strict nesting:</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Nested layers: reverse proxy is the base, an L7 load balancer adds distribution, an API gateway adds API concerns">
+            <rect x="40" y="30" width="560" height="190" rx="14" fill="none" stroke="#B0532F" stroke-width="2"/>
+            <text class="lbl" x="320" y="52" text-anchor="middle" fill="#B0532F">API gateway</text>
+            <text class="lbl-sm" x="320" y="70" text-anchor="middle" fill="#B0532F">+ auth · rate limit · aggregation · versioning</text>
+            <rect x="92" y="84" width="456" height="118" rx="12" fill="none" stroke="#1F4E79" stroke-width="2"/>
+            <text class="lbl" x="320" y="106" text-anchor="middle" fill="#1F4E79">L7 load balancer</text>
+            <text class="lbl-sm" x="320" y="124" text-anchor="middle" fill="#1F4E79">+ distribute across backends · health checks</text>
+            <rect class="node" x="160" y="138" width="320" height="50" rx="10"/>
+            <text class="lbl" x="320" y="160" text-anchor="middle">Reverse proxy (base)</text>
+            <text class="lbl-sm" x="320" y="178" text-anchor="middle">front door · TLS · cache · compress · buffer</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 10 — same base component, growing rings of responsibility: proxy ⊂ L7 LB ⊂ API gateway</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Reverse proxy vs Load balancer</h4><ul>
+          <li>Proxy: front door; useful with one backend</li>
+          <li>LB: distribution; pointless with one backend</li>
+          <li>An L7 LB <em>is</em> a reverse proxy that distributes</li>
+          <li>Same product (NGINX/Envoy) usually does both</li>
+        </ul></div>
+        <div class="col"><h4>Load balancer vs API gateway</h4><ul>
+          <li>LB: spread traffic, route around dead nodes</li>
+          <li>Gateway: + auth, rate limit, aggregation, versioning</li>
+          <li>Gateway is API-aware; an LB needn't be</li>
+          <li>Gateway often sits in front of, or wraps, an LB</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Land this line</span>
+        <p>"They're concentric, not separate: a reverse proxy is the front-door intermediary; an L7 load balancer is a reverse proxy that also distributes across backends; an API gateway is that plus API-specific concerns like auth, rate limiting, and request aggregation. In practice one product — NGINX, Envoy, an ALB, or Kong — plays whichever roles you turn on." Saying it as nesting, with one example product, is the answer interviewers reward.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> The hard follow-ups</div>
+      <h2>Dies mid-request &amp; geo-routing</h2>
+      <p>Two questions come up almost every time, and a crisp answer to each sets you apart.</p>
+      <h3>"What happens when a server dies mid-request?"</h3>
+      <p>The honest answer has two halves. For the <em>request already in flight</em> on the dead node, the connection breaks and that one request fails — there's no magic recovery of work the dead box was doing. But the system contains the blast radius. The health check ejects the node within seconds (step 04) so no <em>new</em> requests go to it, and the failed request is often recoverable in two ways. First, if it was <strong>idempotent</strong> — a <code>GET</code>, or a write keyed by an <strong>idempotency token</strong> so a replay can't double-apply — the client or the LB can simply <strong>retry</strong> on another server. Second, because the server was <strong>stateless</strong> (step 05), any healthy node can serve that retry without needing whatever the dead node held in memory.</p>
+      <p>The subtlety worth surfacing: <em>safe retries require idempotency.</em> Auto-retrying a non-idempotent <code>POST /charge</code> can double-charge a customer. For a payments app like <strong>GrabPay</strong>, the client sends an idempotency key (say a UUID) with the charge; the server records "this key already succeeded" so a retry of the same key returns the original result instead of charging again. That single mechanism is what makes the retry safe — which is exactly why statelessness, health checks, and idempotency keep showing up together. (Beware naive blanket retries, too: retrying everything during an overload can amplify the load and cause a <em>retry storm</em>; production clients add exponential backoff and jitter.)</p>
+      <h3>"How do you balance across regions?"</h3>
+      <p>Everything so far balances <em>within</em> one data center. To send a user in Singapore to the Singapore region and a user in Jakarta to the Jakarta region, you balance one level up with <strong>global server load balancing</strong> (GSLB), usually via <strong>DNS</strong>. Mechanism: when a client resolves <code>api.superpay.sg</code>, a geo-aware DNS service (AWS Route 53, Cloudflare, NS1) inspects the resolver's location and the health of each region, and returns the VIP of the <em>nearest healthy</em> region — cutting latency and giving region-level failover (if a whole region goes dark, DNS stops handing out its address). Each region then runs its own local load balancer doing the in-region distribution from this lesson — GSLB is a balancer of balancers.</p>
+      <p>The catch to name explicitly: DNS answers are cached by resolvers and clients for the record's <code>TTL</code>, so DNS-based failover is <em>slower</em> than the second-scale floating-IP failover inside a region. A 60-second TTL means a client can keep hitting a dead region for up to a minute after you've pulled it from DNS. Lower TTLs speed failover but increase DNS query load and can defeat caching; this is the central trade-off of the GSLB tier. (The latency-zero alternative is <strong>anycast</strong> — advertising the same IP from every region and letting the network route to the nearest — which sidesteps TTL caching but needs control of the routing layer, which is why CDNs and big clouds use it.)</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="DNS-based global server load balancing routing users to the nearest regional load balancer">
+            <rect class="node" x="20" y="36" width="96" height="42" rx="8"/>
+            <text class="lbl-sm" x="68" y="54" text-anchor="middle">User · SG</text>
+            <text class="lbl-sm" x="68" y="70" text-anchor="middle"></text>
+            <rect class="node" x="20" y="138" width="96" height="42" rx="8"/>
+            <text class="lbl-sm" x="68" y="156" text-anchor="middle">User · ID</text>
+            <g transform="translate(190,84)">
+              <circle cx="24" cy="24" r="24" fill="#FDFBF6" stroke="#666" stroke-width="2.5"/>
+              <ellipse cx="24" cy="24" rx="10" ry="24" fill="none" stroke="#666" stroke-width="1.5"/>
+              <line x1="0" y1="24" x2="48" y2="24" stroke="#666" stroke-width="2"/>
+              <line x1="4" y1="13" x2="44" y2="13" stroke="#666" stroke-width="1.2"/>
+              <line x1="4" y1="35" x2="44" y2="35" stroke="#666" stroke-width="1.2"/>
+              <text x="24" y="29" text-anchor="middle" fill="#444" font-family="'JetBrains Mono',monospace" font-size="12" font-weight="600">DNS</text>
+            </g>
+            <text class="lbl-sm" x="214" y="156" text-anchor="middle">geo-aware</text>
+            <path class="flow" d="M116 60 C 150 80, 170 92, 188 100" marker-end="url(#arrow)"/>
+            <path class="flow" d="M116 158 C 150 138, 170 126, 188 118" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="380" y="30" width="170" height="50" rx="9"/>
+            <text class="lbl" x="465" y="51" text-anchor="middle">SG region LB</text>
+            <text class="lbl-sm" x="465" y="68" text-anchor="middle">→ local fleet</text>
+            <rect class="node-b" x="380" y="138" width="170" height="50" rx="9"/>
+            <text class="lbl" x="465" y="159" text-anchor="middle">ID region LB</text>
+            <text class="lbl-sm" x="465" y="176" text-anchor="middle">→ local fleet</text>
+            <path class="flow" d="M238 100 C 320 70, 340 60, 378 54" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="320" y="58" text-anchor="middle">nearest VIP</text>
+            <path class="flow" d="M238 118 C 320 150, 340 158, 378 163" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 11 — GSLB picks the nearest healthy region by DNS; each region balances locally</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Land this line</span>
+        <p>"Within a region I use a redundant L7 load balancer with health checks, least-connections, and stateless servers; mid-request failures are contained by ejection plus idempotent retry. Across regions I use DNS-based GSLB for latency and region failover, knowing DNS <code>TTL</code> caching makes that tier slower to fail over than the in-region floating-IP path." Saying both tiers, the failure containment, and the trade-off of each is exactly the structured answer interviewers reward.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one chain: <em>one server is a SPOF and a ceiling, so put many behind a single VIP; spread traffic with the right algorithm; health-check to route around the dead; keep servers stateless so any node can serve any request; make the balancer itself redundant; and recognize that the box doing all this is a reverse proxy that also terminates TLS, caches, and shields the fleet.</em> If you can draw that chain and name what each link fixes, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">00</span><b>Escape the single box</b><span>One server is a SPOF and a hard capacity ceiling — scale out, not just up.</span></div>
+        <div class="tk"><span class="num">01</span><b>Hide the fleet behind a VIP</b><span>Clients hit one public VIP; servers stay on private IPs and stay elastic.</span></div>
+        <div class="tk"><span class="num">02</span><b>L4 vs L7</b><span>L4 NATs packets fast; L7 terminates the connection to route by path and terminate TLS.</span></div>
+        <div class="tk"><span class="num">03</span><b>Pick a smart algorithm</b><span>Round-robin is blind; least-connections adapts; consistent hashing gives cache affinity.</span></div>
+        <div class="tk"><span class="num">04</span><b>Health-check &amp; drain</b><span>Probe with thresholds, eject (or circuit-break) dead nodes, drain in-flight on deploy.</span></div>
+        <div class="tk"><span class="num">05</span><b>Go stateless</b><span>Externalize sessions to Redis so any node serves any request — sticky sessions fight scaling.</span></div>
+        <div class="tk"><span class="num">06</span><b>Make the LB redundant</b><span>Active-passive with a floating IP + VRRP heartbeat, or active-active, kills the new SPOF.</span></div>
+        <div class="tk"><span class="num">07</span><b>The reverse proxy</b><span>Fronts servers; terminates TLS, caches, compresses, buffers, hides origin, adds X-Forwarded-For.</span></div>
+        <div class="tk"><span class="num">08</span><b>Proxy ⊂ LB ⊂ gateway</b><span>An L7 LB is a distributing reverse proxy; a gateway adds auth, rate limiting, aggregation.</span></div>
+        <div class="tk"><span class="num">09</span><b>Mid-request &amp; geo</b><span>Idempotent retry on a stateless node; DNS-based GSLB across regions, TTL the trade-off.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why is a single web server unacceptable, and what does putting a VIP in front of a fleet buy you?<br>(2) How does an L4 balancer forward a packet differently from an L7 balancer, and what can L7 do that L4 can't because of that difference?<br>(3) Name the seven jobs a reverse proxy does, and explain the security trade-off of TLS termination plus the fix.<br>(4) Forward proxy vs reverse proxy — who does each hide? And how do reverse proxy, L7 load balancer, and API gateway nest?<br>(5) Why do sticky sessions hurt horizontal scaling, what are the two affinity mechanisms, and what's the real fix?<br>(6) The load balancer is now a SPOF — how does active-passive failover work mechanically (VIP, VRRP, heartbeat), and what makes a mid-request retry safe?<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 03 · LOAD BALANCING &amp; REVERSE PROXIES · interactive edition<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* request routing through the VIP */
+  makeStepper(document.getElementById('fig-route'), [
+    {text:"A client resolves the domain to the public VIP and sends its request there.", active:["r-client","r-lb"], path:"r-p1"},
+    {text:"The load balancer holds the VIP; the real servers sit on private IPs behind it.", active:["r-lb","r-s1","r-s2","r-s3"]},
+    {text:"It picks one healthy server by its algorithm — here, Server 2.", active:["r-lb","r-s2"], path:"r-p3"},
+    {text:"The request is forwarded to Server 2, which replies; the client only ever saw the VIP.", active:["r-lb","r-s2"], path:"r-p3"}
+  ]);
+
+  /* health checks: probe, eject, reroute */
+  makeStepper(document.getElementById('fig-health'), [
+    {text:"The load balancer probes each server's /health endpoint on a schedule.", active:["h-lb","h-s1","h-s2","h-s3"], path:"h-p2"},
+    {text:"Servers 1 and 3 answer 200 OK and stay in the pool.", active:["h-lb","h-s1","h-s3"], path:"h-p1"},
+    {text:"Server 2 misses its probes (timeout), so the LB marks it unhealthy and ejects it.", active:["h-lb","h-s2"], path:"h-p4", reject:true},
+    {text:"No new traffic goes to Server 2 — it's out of the pool.", active:["h-lb","h-s1","h-s3"]},
+    {text:"Its share of traffic reroutes to the healthy nodes, so users never notice.", active:["h-lb","h-s1","h-s3"], path:"h-p5"}
+  ]);
+</script>
+</body>
+</html>

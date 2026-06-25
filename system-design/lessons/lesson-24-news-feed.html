@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 24 — Design a News Feed System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;margin:24px 0;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;color:var(--ink);}
+  pre code{background:none;color:var(--ink);padding:0;font-size:13px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .vs.tri{grid-template-columns:1fr 1fr 1fr;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;} .vs.tri{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Design a<br>News Feed</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>What a feed really is</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimation</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Fan-out on write (push) ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The celebrity write storm</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Fan-out on read (pull)</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>The hybrid &amp; read-merge ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Feed store &amp; pagination</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Ranking: chrono vs ML</span></a></li>
+      <li><a href="#s11"><span class="n">11</span><span>Scale, failure &amp; 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">24</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a News Feed System</h1>
+      <p class="lede">The home feed is the canonical fan-out problem. When someone posts, do you precompute the feed of every follower right away — fast reads, brutal writes — or do you assemble the feed fresh on each read — cheap writes, slow reads? The senior answer refuses to pick: it pushes for ordinary accounts, pulls for celebrities, and merges the two at read time.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on news-feed system design — a standard, widely-documented interview topic. The explanations, numbers, examples, and diagrams here are my own; nothing is copied from any paid course or book. Singapore super-app context (TikTok, Shopee, Grab) is woven in for flavor. Three diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>What a feed really is</h2>
+      <p>Open the TikTok "Following" tab, the Shopee Feed, or any home timeline and you see a list: the recent posts from accounts you follow, newest-ish first. That list is the <strong>news feed</strong> — a per-user, continuously updating view assembled from the activity of everyone in your <strong>social graph</strong> (the network of who-follows-whom). It looks trivial. It is one of the hardest read-scaling problems in consumer software.</p>
+      <p>The difficulty is a mismatch of fan-out. One post by one user must eventually appear in the feeds of <em>all</em> of that user's followers. If you have 300 followers that is 300 places the post might need to land; if you are a creator with 30 million followers it is 30 million places. Meanwhile the read side is relentless: hundreds of millions of users refresh their feed many times a day, and each refresh must feel instant. So the system is <strong>extremely read-heavy</strong>, the work-per-write is wildly uneven across users, and the whole thing has to return in tens of milliseconds.</p>
+      <p>The entire interview is a fight over <em>when</em> you do the expensive merge work — at write time (when content is posted) or at read time (when a feed is requested) — and how you special-case the users who break whichever choice you made. Everything below is built from that single tension.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="One post by one author fanning out into the feeds of many followers">
+            <rect class="node-b" x="40" y="100" width="120" height="52" rx="9"/>
+            <text class="lbl" x="100" y="123" text-anchor="middle">Author</text>
+            <text class="lbl-sm" x="100" y="140" text-anchor="middle">posts once</text>
+            <path class="flow" d="M162 110 C 260 50, 320 46, 430 40" marker-end="url(#arrow)"/>
+            <path class="flow" d="M162 118 C 260 90, 320 86, 430 92" marker-end="url(#arrow)"/>
+            <path class="flow" d="M162 126 H 430" marker-end="url(#arrow)"/>
+            <path class="flow" d="M162 134 C 260 162, 320 166, 430 158" marker-end="url(#arrow)"/>
+            <path class="flow" d="M162 142 C 260 200, 320 206, 430 210" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="290" y="26" text-anchor="middle">fan-out to every follower's feed</text>
+            <rect class="node" x="432" y="24" width="170" height="34" rx="7"/><text class="lbl" x="517" y="46" text-anchor="middle">Follower A feed</text>
+            <rect class="node" x="432" y="76" width="170" height="34" rx="7"/><text class="lbl" x="517" y="98" text-anchor="middle">Follower B feed</text>
+            <rect class="node" x="432" y="128" width="170" height="34" rx="7"/><text class="lbl" x="517" y="150" text-anchor="middle">Follower C feed</text>
+            <rect class="node" x="432" y="180" width="170" height="34" rx="7"/><text class="lbl" x="517" y="202" text-anchor="middle">Follower D feed</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one write must reach many reads; the cost of that fan-out is the whole problem</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Before drawing boxes, narrow the problem out loud. "News feed" hides a dozen products; the interviewer wants to see you carve out a tractable v1 and name what you are deferring.</p>
+      <h3>Functional requirements (what it does)</h3>
+      <ul>
+        <li><strong>Publish a post.</strong> A user creates a post — text, plus maybe an image, video, or product link. It is durably stored and timestamped.</li>
+        <li><strong>Follow / unfollow.</strong> A user can follow another user. Following is <em>directed</em> (asymmetric): you can follow an account that does not follow you back. This defines the social graph that drives every feed.</li>
+        <li><strong>View the home feed.</strong> A user opens the app and gets a list of recent posts from the people they follow, in reverse-chronological or ranked order, paginated as they scroll.</li>
+      </ul>
+      <p>Things I will explicitly defer so v1 stays sharp: comments and reactions, notifications (a separate lesson), media transcoding and storage internals, the recommendation/"For You" engine, and direct messaging. I will gesture at ranking at the end because it changes the read path, but the core design is the fan-out.</p>
+      <h3>Non-functional requirements (what makes it hard)</h3>
+      <ul>
+        <li><strong>Low-latency reads.</strong> Opening the feed should feel instant — a p99 of well under ~200&nbsp;ms for the first page. This is the dominant constraint and it pushes us toward precomputation.</li>
+        <li><strong>Read-heavy.</strong> People look far more than they post. A read:write ratio of roughly 100:1 is typical, so we optimize the read path hard and are willing to do more work on write.</li>
+        <li><strong>High availability.</strong> A feed that is a few seconds stale is fine; a feed that fails to load is not. We will favor <strong>eventual consistency</strong> — a new post showing up a second or two late is acceptable.</li>
+        <li><strong>Scale.</strong> Tens of millions of daily users, and — critically — a follower distribution with an extreme long tail: most accounts have a few hundred followers, a handful have tens of millions.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>Say the magic sentence early: <em>"this is read-heavy and latency-sensitive, so I'll precompute feeds — but I have to handle celebrity accounts specially or precomputation explodes."</em> That single line tells the interviewer you already see the trap that the rest of the interview is about, and it earns you room to build toward the hybrid.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-envelope estimation</h2>
+      <p>Numbers turn vague intuitions into design constraints. Pick round figures and state them so the interviewer can follow your arithmetic. Imagine a regional super-app feed, say at Shopee scale.</p>
+      <h3>Traffic: reads dwarf writes</h3>
+      <ul>
+        <li><strong>DAU:</strong> 100 million daily active users.</li>
+        <li><strong>Posts (writes):</strong> assume each user posts on average twice a day. 100M × 2 = <strong>200M posts/day</strong> → ≈ 2,300 writes/sec average, call it <strong>~7,000 writes/sec at peak</strong> (a 3× peak factor).</li>
+        <li><strong>Feed views (reads):</strong> assume each user opens the feed ~10 times a day. 100M × 10 = <strong>1B feed reads/day</strong> → ≈ 11,600 reads/sec average, <strong>~35,000 reads/sec at peak</strong>.</li>
+      </ul>
+      <p>So the read:write ratio is about <strong>5:1 in request volume</strong> — and if you count the <em>posts surfaced</em> rather than requests, far higher, because one feed read returns dozens of posts. This is why we are willing to pay extra at write time to make reads cheap.</p>
+      <h3>The follower distribution is the real story</h3>
+      <p>Averages lie here. Suppose the median account has <strong>~200 followers</strong>, so an average post fans out to a couple hundred feeds — totally fine. But a top creator has <strong>30M+ followers</strong>. When that one account posts, a naive precompute design must write that one post into 30 million feeds. At a few thousand celebrity posts a day across the platform, that is the difference between a calm system and a write tsunami. Hold onto this number; it is what forces the hybrid.</p>
+      <h3>Storage: feeds are cheap, posts are not</h3>
+      <ul>
+        <li>A precomputed feed stores <strong>post IDs</strong>, not post bodies. An ID is ~8&nbsp;bytes; cache ~500 IDs per user → ~4&nbsp;KB/user. For 100M users that is <strong>~400&nbsp;GB</strong> of feed index — a comfortable fit in a Redis cluster.</li>
+        <li>The posts themselves (text + metadata) at ~1&nbsp;KB each × 200M/day ≈ <strong>200&nbsp;GB/day</strong> of new post data, before media. Media (images/video) goes to <strong>object storage</strong> (S3-style) plus a CDN and dwarfs everything else, but it is out of the feed's hot path — the feed only stores references.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Why this matters</span>
+        <p>The estimation already dictates the architecture: store the feed as a small list of <strong>IDs</strong> in fast memory (Redis), keep post bodies and media in durable stores reached by ID, and design the write path around the worst-case fan-out, not the average. We separate "what order do I show?" (the feed index) from "what is the content?" (the post store) — and that separation is the backbone of every design that follows.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contracts</div>
+      <h2>API &amp; data model</h2>
+      <p>Sketch the contract before the architecture so everyone agrees on the shapes moving around. Three operations cover v1: post, follow, and read-feed.</p>
+      <h3>The API</h3>
+      <pre><code>POST /v1/posts
+  Authorization: Bearer &lt;token&gt;        # author = current user
+  { "text": "GrabFood lunch run, who's in?",
+    "media_ids": ["m_8842"] }           # media uploaded separately
+  -> 201 { "post_id": "p_91f3", "created_at": 1717200000 }
+
+POST /v1/users/{target_id}/follow      # current user follows target
+  -> 204
+
+GET  /v1/feed?limit=20&amp;cursor=&lt;opaque&gt;  # the home feed, paginated
+  -> 200 {
+       "items": [ { "post_id": "p_91f3", "author_id": "u_77",
+                    "text": "...", "created_at": 1717200000,
+                    "media": [...] }, ... ],
+       "next_cursor": "eyJ0cyI6MTcxNzE5..." # null when no more
+     }</code></pre>
+      <p>Note the read endpoint takes a <strong>cursor</strong>, not a page number — we will see in step 09 why offset pagination breaks on a feed that is constantly changing.</p>
+      <h3>The data model</h3>
+      <p>Three logical stores, each chosen for what it must do well:</p>
+      <ul>
+        <li><strong>Posts</strong> — the source of truth for content. Keyed by <code>post_id</code>, holding <code>author_id</code>, <code>text</code>, <code>media_ids</code>, <code>created_at</code>. This is append-heavy and read-by-ID, a great fit for a wide-column store like <strong>Cassandra</strong> or a key-value store like <strong>DynamoDB</strong>, partitioned by <code>post_id</code>.</li>
+        <li><strong>Social graph (follows)</strong> — who follows whom. The two queries that matter: "give me everyone <code>U</code> follows" (the read/pull path) and "give me everyone who follows <code>U</code>" (the write/fan-out path). You need <em>both</em> directions, so store the edge twice or use a graph/adjacency design.</li>
+        <li><strong>Feed cache</strong> — the precomputed per-user list of <code>post_id</code>s, newest first. This is the thing that makes reads instant. Natural fit: a <strong>Redis sorted set or list</strong> keyed <code>feed:{user_id}</code>, capped at ~500 entries.</li>
+      </ul>
+      <pre><code>-- social graph, stored in BOTH directions for O(1) lookups
+followers(user_id, follower_id, created_at)   -- "who follows user_id?"  (fan-out)
+following(user_id, followee_id, created_at)   -- "who does user_id follow?" (pull)
+
+-- feed cache (Redis), per user, capped &amp; sorted by time
+feed:{user_id}  ->  ZSET { post_id : created_at_score }   -- newest-first</code></pre>
+      <div class="callout">
+        <span class="k">Under the hood — why store follows twice</span>
+        <p>A relational <code>follows(follower, followee)</code> table can answer both questions, but only one of them with an index hit; the other needs a second index or a scan. At feed scale you query both directions millions of times a second, so you <strong>denormalize</strong>: maintain a <code>followers</code> list and a <code>following</code> list and update both on every follow/unfollow. You trade write amplification and a consistency burden (keep the two in sync) for two cheap, symmetric reads. That trade — pay on write to make reads cheap — is the exact pattern the whole feed is built on.</p>
+      </div>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The skeleton</div>
+      <h2>High-level architecture</h2>
+      <p>Split the system cleanly into two flows, because they have opposite cost profiles. The <strong>write path</strong> (posting) and the <strong>read path</strong> (viewing) share storage but otherwise barely touch — and decoupling them is what lets us scale each independently.</p>
+      <p>On the write path, a <code>POST /posts</code> hits the <strong>Post service</strong>, which persists the post, then hands off to a <strong>Fanout service</strong> via a <strong>message queue</strong> (Kafka). The queue matters: fan-out can be slow and bursty, so we do not make the user wait for it. The author gets their <code>201</code> the moment the post is durably stored; the fan-out happens asynchronously behind the queue.</p>
+      <p>On the read path, <code>GET /feed</code> hits the <strong>Feed service</strong>, which reads the precomputed list of post IDs from the <strong>Feed cache</strong> (Redis), then <strong>hydrates</strong> them — fetches the actual post bodies and author info from the post store (with its own cache) — and returns the assembled page. The two paths meet only at storage.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-arch">
+          <svg viewBox="0 0 640 280" role="img" aria-label="Interactive high-level news feed architecture, write path and read path">
+            <g class="st" id="a-client"><rect class="node" x="16" y="120" width="92" height="44" rx="8"/><text class="lbl" x="62" y="147" text-anchor="middle">Client</text></g>
+            <g class="st" id="a-post"><rect class="node-b" x="150" y="30" width="120" height="46" rx="9"/><text class="lbl" x="210" y="52" text-anchor="middle">Post svc</text><text class="lbl-sm" x="210" y="68" text-anchor="middle">write</text></g>
+            <g class="st" id="a-q"><rect x="312" y="30" width="96" height="46" rx="9" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/><text class="lbl" x="360" y="58" text-anchor="middle">Kafka</text></g>
+            <g class="st" id="a-fan"><rect class="node-b" x="446" y="30" width="120" height="46" rx="9"/><text class="lbl" x="506" y="52" text-anchor="middle">Fanout svc</text><text class="lbl-sm" x="506" y="68" text-anchor="middle">async</text></g>
+            <g class="st" id="a-cache"><rect class="node-r" x="446" y="118" width="120" height="48" rx="9"/><text class="lbl" x="506" y="140" text-anchor="middle">Feed cache</text><text class="lbl-sm" x="506" y="156" text-anchor="middle">Redis</text></g>
+            <g class="st" id="a-feed"><rect class="node-b" x="150" y="118" width="120" height="48" rx="9"/><text class="lbl" x="210" y="140" text-anchor="middle">Feed svc</text><text class="lbl-sm" x="210" y="156" text-anchor="middle">read</text></g>
+            <g class="st" id="a-db"><rect class="node" x="300" y="208" width="130" height="48" rx="9"/><text class="lbl" x="365" y="230" text-anchor="middle">Post store</text><text class="lbl-sm" x="365" y="246" text-anchor="middle">Cassandra</text></g>
+            <!-- write path -->
+            <path id="a-w1" class="flow" d="M108 132 C 120 100, 130 65, 148 53" marker-end="url(#arrow)"/>
+            <path id="a-w2" class="flow" d="M270 53 H 310" marker-end="url(#arrow)"/>
+            <path id="a-w3" class="flow" d="M408 53 H 444" marker-end="url(#arrow)"/>
+            <path id="a-w4" class="flow" d="M506 78 V 116" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M210 78 V 116" marker-end="url(#arrow-s)"/>
+            <!-- read path -->
+            <path id="a-r1" class="flow" d="M108 150 H 148" marker-end="url(#arrow)"/>
+            <path id="a-r2" class="flow" d="M270 142 H 444" marker-end="url(#arrow)"/>
+            <path id="a-r3" class="flow" d="M225 168 C 250 200, 270 210, 298 222" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="190" y="100" text-anchor="middle">post</text>
+            <text class="lbl-sm" x="130" y="172" text-anchor="middle">feed</text>
+            <text class="lbl-sm" x="350" y="134" text-anchor="middle">read IDs</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: a queue decouples the slow async fan-out from the fast write ack</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Why a queue between Post and Fanout?" Because fan-out for a popular author can take seconds and touch millions of keys — you cannot block the author's request on it. The queue gives you <strong>async decoupling</strong> (the post is acknowledged immediately), <strong>buffering</strong> (absorb spikes), <strong>retry</strong> (if a fan-out worker dies, the message is redelivered), and <strong>independent scaling</strong> (add fan-out workers without touching the post API).</p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Strategy A · push</div>
+      <h2>Fan-out on write (push)</h2>
+      <p><strong>Fan-out on write</strong>, also called the <strong>push model</strong>, does the merge work the instant a post is created. When user <code>U</code> posts, the fan-out service looks up <em>every follower of</em> <code>U</code> and writes the new <code>post_id</code> into each follower's precomputed feed list. The feed is fully assembled and waiting before anyone reads it.</p>
+      <h3>How it works, step by step</h3>
+      <ul>
+        <li>Post service persists the post in the post store and emits a <code>post_created</code> event onto Kafka.</li>
+        <li>A fan-out worker consumes the event, reads <code>followers(U)</code> from the social graph.</li>
+        <li>For each follower <code>F</code>, it prepends <code>post_id</code> to <code>feed:{F}</code> in Redis and trims the list back to the cap (say 500). This is a tight loop of cheap Redis writes — often pipelined or batched.</li>
+        <li>Later, when <code>F</code> opens the app, the feed read is almost free: read <code>feed:{F}</code>, hydrate the IDs, done. No graph traversal at read time.</li>
+      </ul>
+      <h3>Worked example</h3>
+      <p>A home cook on the Shopee Feed with <strong>800 followers</strong> posts a recipe. Fan-out writes 800 entries across the Redis cluster — a few milliseconds of background work spread over the shards. When any of those 800 followers later refreshes, their feed is already built; the read is a single list fetch plus hydration. For the overwhelming majority of accounts, this is exactly what you want: reads are instant and writes are trivially cheap.</p>
+      <h3>The tools, and the knobs that matter</h3>
+      <p>In practice the fan-out workers consume from <strong>Kafka</strong> (partitioned by author so ordering per author is preserved) and write to a <strong>Redis</strong> cluster. The knobs you tune: the <strong>feed cap</strong> (how many IDs to retain — bigger caps cost memory but let users scroll deeper before a rebuild); <strong>pipelining / batching</strong> of the Redis writes (one round trip carrying many <code>ZADD</code>s instead of one round trip each, which is the difference between a fan-out worker keeping up and falling behind); the <strong>worker pool size</strong> and Kafka <strong>partition count</strong> (your fan-out throughput ceiling); and the <strong>active-follower optimization</strong> — only fanning out eagerly to recently-active followers and lazily rebuilding feeds for users who return after a long absence, so you stop burning writes on dormant accounts.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-push">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Interactive fan-out on write: an author's post is pushed into each follower's feed cache">
+            <g class="st" id="p-author"><rect class="node-b" x="20" y="110" width="110" height="50" rx="9"/><text class="lbl" x="75" y="132" text-anchor="middle">Author U</text><text class="lbl-sm" x="75" y="148" text-anchor="middle">posts p_91</text></g>
+            <g class="st" id="p-fan"><rect class="node-b" x="190" y="108" width="120" height="54" rx="9"/><text class="lbl" x="250" y="130" text-anchor="middle">Fanout svc</text><text class="lbl-sm" x="250" y="146" text-anchor="middle">read followers(U)</text></g>
+            <g class="st" id="p-fa"><rect class="node-r" x="400" y="24" width="210" height="40" rx="8"/><text class="lbl-sm" x="505" y="48" text-anchor="middle">feed:A  [ p_91 , ... ]</text></g>
+            <g class="st" id="p-fb"><rect class="node-r" x="400" y="80" width="210" height="40" rx="8"/><text class="lbl-sm" x="505" y="104" text-anchor="middle">feed:B  [ p_91 , ... ]</text></g>
+            <g class="st" id="p-fc"><rect class="node-r" x="400" y="150" width="210" height="40" rx="8"/><text class="lbl-sm" x="505" y="174" text-anchor="middle">feed:C  [ p_91 , ... ]</text></g>
+            <g class="st" id="p-fd"><rect class="node-r" x="400" y="206" width="210" height="40" rx="8"/><text class="lbl-sm" x="505" y="230" text-anchor="middle">feed:D  [ p_91 , ... ]</text></g>
+            <path id="p-in" class="flow" d="M130 134 H 188" marker-end="url(#arrow)"/>
+            <path id="p-a" class="flow" d="M312 120 C 350 70, 370 50, 398 46" marker-end="url(#arrow)"/>
+            <path id="p-b" class="flow" d="M312 128 C 350 108, 370 102, 398 100" marker-end="url(#arrow)"/>
+            <path id="p-c" class="flow" d="M312 142 C 350 162, 370 168, 398 170" marker-end="url(#arrow)"/>
+            <path id="p-d" class="flow" d="M312 150 C 350 206, 370 222, 398 226" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="340" y="262" text-anchor="middle">write post_id into every follower's feed</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the post is pushed into each follower's precomputed feed at write time</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Strengths</h4><ul>
+          <li>Reads are blazing fast — just fetch a precomputed list, no graph work</li>
+          <li>Read cost is constant regardless of how many people you follow</li>
+          <li>The expensive work runs async, off the user's critical path</li>
+        </ul></div>
+        <div class="col"><h4>Watch-outs</h4><ul>
+          <li>Writes are expensive and amplify by follower count</li>
+          <li>Wasted effort fanning out to inactive followers who may never read</li>
+          <li>Catastrophic for celebrities — see the next step</li>
+          <li>New post takes a moment to appear (fan-out lag)</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Where push breaks</div>
+      <h2>The celebrity write storm</h2>
+      <p>Push is wonderful until a popular account posts. Recall the estimation: a top creator has <strong>30 million followers</strong>. Under pure fan-out-on-write, that single post must be written into <strong>30 million feed lists</strong>. This is the <strong>celebrity problem</strong> (sometimes the "hot key" or "thundering herd" of fan-out), and it is the single most important thing to name in this interview.</p>
+      <h3>Why it is catastrophic, concretely</h3>
+      <ul>
+        <li><strong>Write amplification.</strong> One logical write becomes 30M physical writes. Even at 100k Redis writes/sec per node, a 30M fan-out monopolizes serious capacity, and you may have several celebrities posting in the same minute.</li>
+        <li><strong>Latency &amp; staleness.</strong> Fan-out that takes tens of seconds means a follower who refreshes early <em>misses</em> the post until their slice of the loop completes — the feed becomes inconsistent across followers.</li>
+        <li><strong>Wasted work at scale.</strong> Of those 30M followers, perhaps a few percent are active today. You burned millions of writes for feeds nobody will read before the entry is trimmed away.</li>
+        <li><strong>Queue backpressure.</strong> A burst of celebrity posts floods the fan-out queue, delaying fan-out for <em>ordinary</em> users stuck behind them in line.</li>
+      </ul>
+      <h3>Failure mode</h3>
+      <p>When a mega-creator and several large accounts post within seconds — say during a live shopping event on TikTok Shop — the fan-out workers saturate, the Kafka lag climbs into the minutes, hot Redis shards holding popular feeds get CPU-bound, and <em>every</em> user's new posts are delayed because the workers are busy servicing the giants. One account's popularity degrades the whole platform's freshness. Pure push does not gracefully degrade here; it falls over.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"What happens when a user with 30 million followers posts?" The wrong answer is "the fan-out service writes 30 million entries." The right answer names the write storm, the queue backpressure, and the wasted work on inactive followers — and then pivots: <em>"so for high-fan-out accounts I won't push at all. I'll pull their posts in at read time. Let me show the pull model, then the hybrid that combines both."</em></p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Strategy B · pull</div>
+      <h2>Fan-out on read (pull)</h2>
+      <p><strong>Fan-out on read</strong>, the <strong>pull model</strong>, is push's mirror image: do nothing special at write time, and assemble the feed fresh when it is requested. When <code>U</code> posts, you simply store the post. Done. When a viewer opens their feed, the feed service looks up everyone the viewer follows, fetches each of those authors' recent posts, merges them by time, and returns the top slice.</p>
+      <h3>How it works, step by step</h3>
+      <ul>
+        <li>On write: persist the post. No fan-out, no follower lookup, no Redis writes. Posting a celebrity update costs exactly the same as posting from a brand-new account.</li>
+        <li>On read: read <code>following(viewer)</code> — the list of accounts the viewer follows.</li>
+        <li>For each followee, fetch their N most recent posts (ideally from a per-author recent-posts cache).</li>
+        <li><strong>Merge</strong> all those posts by <code>created_at</code> (a k-way merge of sorted lists), take the top page, hydrate, return.</li>
+      </ul>
+      <h3>Why pull is great for celebrities and bad for everyone reading</h3>
+      <p>A celebrity's post is now free to publish — that completely kills the write storm. But the read becomes expensive and grows with how many accounts you follow. A user following <strong>2,000 accounts</strong> triggers, in the worst case, 2,000 lookups merged on every single refresh — multiplied by 35,000 reads/sec. The read path is now the bottleneck, and reads are exactly what we promised would be fast. Pull also wastes effort: you re-merge the same feed every refresh even when nothing changed.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Fan-out on read: at read time the feed service queries each followed author and merges by time">
+            <rect class="node-b" x="20" y="100" width="110" height="50" rx="9"/>
+            <text class="lbl" x="75" y="122" text-anchor="middle">Viewer</text>
+            <text class="lbl-sm" x="75" y="138" text-anchor="middle">GET /feed</text>
+            <rect class="node-b" x="190" y="98" width="120" height="54" rx="9"/>
+            <text class="lbl" x="250" y="120" text-anchor="middle">Feed svc</text>
+            <text class="lbl-sm" x="250" y="136" text-anchor="middle">merge by time</text>
+            <path class="flow" d="M130 124 H 188" marker-end="url(#arrow)"/>
+            <rect class="node" x="400" y="22" width="210" height="34" rx="7"/><text class="lbl-sm" x="505" y="44" text-anchor="middle">posts of followee 1</text>
+            <rect class="node" x="400" y="70" width="210" height="34" rx="7"/><text class="lbl-sm" x="505" y="92" text-anchor="middle">posts of followee 2</text>
+            <rect class="node" x="400" y="118" width="210" height="34" rx="7"/><text class="lbl-sm" x="505" y="140" text-anchor="middle">posts of followee 3</text>
+            <rect class="node" x="400" y="166" width="210" height="34" rx="7"/><text class="lbl-sm" x="505" y="188" text-anchor="middle">... up to thousands</text>
+            <path class="flow-r" d="M312 116 C 350 70, 370 48, 398 42" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M312 122 C 350 100, 370 92, 398 88" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M312 130 C 350 138, 370 138, 398 136" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M312 138 C 350 176, 370 186, 398 184" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="350" y="232" text-anchor="middle" fill="#B0532F">one read fans out across every followee → slow</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — pull pays nothing on write but does a costly k-way merge on every read</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Strengths</h4><ul>
+          <li>Writes are cheap and constant — celebrity posts cost nothing extra</li>
+          <li>No wasted work for inactive users (you only build a feed someone asks for)</li>
+          <li>Always fresh — you see the latest posts the moment you refresh</li>
+          <li>No storage for precomputed feeds</li>
+        </ul></div>
+        <div class="col"><h4>Watch-outs</h4><ul>
+          <li>Reads are slow and scale with how many accounts you follow</li>
+          <li>Repeated, redundant merging — same feed rebuilt every refresh</li>
+          <li>Hard to hit a tight read p99 — the opposite of our top requirement</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> The senior answer · hybrid</div>
+      <h2>The hybrid &amp; read-time merge</h2>
+      <p>Neither pure model wins. Push gives fast reads but dies on celebrities; pull survives celebrities but gives slow reads. The senior answer is the <strong>hybrid</strong>: <strong>push for ordinary accounts, pull for celebrities, and merge the two at read time.</strong></p>
+      <h3>How the hybrid works</h3>
+      <ul>
+        <li><strong>Classify authors.</strong> Tag each author with a follower count. If they sit above a <strong>fan-out threshold</strong> (say 100k–1M followers), mark them a <em>celebrity</em>. This flag lives on the user record and is cheap to check.</li>
+        <li><strong>On write</strong> — if the author is ordinary, fan out on write (push) as in step 05. If the author is a celebrity, <strong>skip fan-out entirely</strong>; just store the post in the author's own recent-posts list. No write storm.</li>
+        <li><strong>On read</strong> — start from the viewer's precomputed <code>feed:{viewer}</code> (which already contains all the pushed posts from ordinary accounts they follow). Then look at which <em>celebrities</em> the viewer follows, <strong>pull</strong> those celebrities' recent posts, and <strong>merge</strong> them by time into the precomputed list. Return the top page.</li>
+      </ul>
+      <p>This gets the best of both: the precomputed base makes reads mostly cheap, the celebrity pull is bounded (a viewer follows only a handful of celebrities, not thousands), and the catastrophic write storm is gone because nobody fans out a giant account.</p>
+      <h3>Bounding and caching the celebrity pull</h3>
+      <p>The pull half could still get heavy if a viewer follows dozens of celebrities, so two refinements keep it tight. First, <strong>shared per-celebrity lists</strong>: each celebrity's recent posts are cached once in a single <code>recent:{celeb_id}</code> list, and every viewer who follows that celebrity reads the <em>same</em> cached list. One pull serves millions of viewers — the merge cost is per-read, but the underlying data fetch is amortized across everyone. Second, a <strong>cap on celebrity pulls per read</strong>: if a viewer somehow follows 200 celebrities, you do not pull all 200 synchronously on a tight feed request; you pull the most relevant subset and accept that an obscure celebrity's brand-new post may surface a beat late. Both refinements convert an unbounded read into a bounded, cacheable one.</p>
+      <h3>Failure mode of the hybrid</h3>
+      <p>The subtle risk is the <strong>threshold boundary</strong>. An account that crosses from ordinary to celebrity (or back) changes how its posts are delivered mid-stream — followers who were getting pushed copies suddenly need to pull instead, and old pushed entries linger in their feed. The fix is to reconcile at hydration: a post is shown if it is either in the precomputed list <em>or</em> in a followed celebrity's recent list, deduplicated by <code>post_id</code>. Because dedup happens at read time on IDs, a brief window where a post exists in both places is harmless — the viewer sees it exactly once.</p>
+      <h3>Worked example — TikTok-style</h3>
+      <p>You follow 480 ordinary creators and 6 mega-celebrities. The 480 ordinary creators push into your feed continuously, so their posts are already sitting in <code>feed:{you}</code>. When you open the app, the feed service grabs that precomputed list, then pulls recent posts from just those 6 celebrities and merges. Six small reads, not 486 — and zero celebrity fan-out at write time.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-hybrid">
+          <svg viewBox="0 0 640 280" role="img" aria-label="Interactive hybrid model: precomputed feed merged with freshly pulled celebrity posts at read time">
+            <g class="st" id="h-viewer"><rect class="node-b" x="16" y="120" width="100" height="48" rx="9"/><text class="lbl" x="66" y="142" text-anchor="middle">Viewer</text><text class="lbl-sm" x="66" y="158" text-anchor="middle">GET /feed</text></g>
+            <g class="st" id="h-feed"><rect class="node-b" x="158" y="116" width="120" height="56" rx="9"/><text class="lbl" x="218" y="138" text-anchor="middle">Feed svc</text><text class="lbl-sm" x="218" y="154" text-anchor="middle">merge</text></g>
+            <g class="st" id="h-base"><rect class="node-r" x="340" y="36" width="270" height="58" rx="9"/><text class="lbl" x="475" y="58" text-anchor="middle">Precomputed feed (push)</text><text class="lbl-sm" x="475" y="78" text-anchor="middle">feed:viewer = ordinary authors' posts</text></g>
+            <g class="st" id="h-celeb"><rect class="node" x="340" y="118" width="270" height="58" rx="9"/><text class="lbl" x="475" y="140" text-anchor="middle">Celebrity recent posts (pull)</text><text class="lbl-sm" x="475" y="160" text-anchor="middle">few celebs the viewer follows</text></g>
+            <g class="st" id="h-out"><rect class="node-b" x="200" y="216" width="240" height="46" rx="9"/><text class="lbl" x="320" y="238" text-anchor="middle">Merged feed page</text><text class="lbl-sm" x="320" y="254" text-anchor="middle">time-sorted, hydrated</text></g>
+            <path id="h-in" class="flow" d="M116 144 H 156" marker-end="url(#arrow)"/>
+            <path id="h-pull1" class="flow" d="M280 134 C 310 90, 320 72, 338 66" marker-end="url(#arrow)"/>
+            <path id="h-pull2" class="flow-r" d="M280 150 C 310 150, 320 148, 338 147" marker-end="url(#arrow-r)"/>
+            <path id="h-merge" class="flow" d="M218 174 C 230 200, 250 210, 280 216" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="276" y="104" text-anchor="end">read base</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: a precomputed push base is merged with a small celebrity pull at read time</figcaption>
+      </figure>
+      <div class="vs tri">
+        <div class="col"><h4>Push (write)</h4><ul>
+          <li>+ Instant reads</li>
+          <li>+ Cheap, constant-cost reads</li>
+          <li>− Write storm for celebrities</li>
+          <li>− Wasted fan-out to inactive users</li>
+        </ul></div>
+        <div class="col"><h4>Pull (read)</h4><ul>
+          <li>+ Cheap, constant-cost writes</li>
+          <li>+ Always fresh, no waste</li>
+          <li>− Slow reads, scales with following</li>
+          <li>− Redundant repeated merges</li>
+        </ul></div>
+        <div class="col"><h4>Hybrid</h4><ul>
+          <li>+ Fast reads (push base)</li>
+          <li>+ No celebrity write storm (pull)</li>
+          <li>+ Bounded read merge</li>
+          <li>− More moving parts; pick the threshold</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Where exactly is the cutover?" There is no universal number — it is a tuned <strong>fan-out threshold</strong> (often somewhere between 100k and a few million followers) chosen so that the cost of fanning the account out exceeds the cost of pulling it on read for its active followers. Be ready to say it is configurable, can be adjusted per-author, and that a tiny fraction of accounts cross it — but those accounts cause the overwhelming majority of fan-out load, which is exactly why special-casing them pays off.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> The read side</div>
+      <h2>Feed store &amp; pagination</h2>
+      <p>The precomputed feed lives in <strong>Redis</strong>, and the natural structures are a <strong>list</strong> (<code>LPUSH</code> + <code>LTRIM</code>) or, better, a <strong>sorted set</strong> (<code>ZADD</code> with the timestamp as the score). The sorted set is nice because it keeps entries ordered by time automatically and lets you slice a range cheaply. We cap each feed at a few hundred IDs — nobody scrolls past that in a session, and capping bounds memory.</p>
+      <h3>Hydration</h3>
+      <p>The feed list holds only <code>post_id</code>s. To return a page you <strong>hydrate</strong>: take the top ~20 IDs and batch-fetch the post bodies and author info — first from a post cache, falling back to the post store on a miss. Hydration is a <code>MGET</code>-style multi-get, one round trip for the whole page. Keeping the feed as IDs (not full posts) means an edited or deleted post is reflected at hydration time, and a popular post's body is cached once and reused across millions of feeds instead of copied into each.</p>
+      <h3>Cursor pagination — and why offset breaks</h3>
+      <p>The classic <code>LIMIT 20 OFFSET 40</code> pagination assumes the list is stable between page requests. A feed is the opposite: new posts arrive at the top constantly. If you fetch page 1, then someone you follow posts three times, then you fetch "page 2 = offset 20," everything shifted down by three — you re-see items from page 1 (<strong>duplicates</strong>) or skip items (<strong>gaps</strong>). The fix is <strong>cursor-based pagination</strong>: the cursor encodes a stable position — typically the <code>created_at</code> timestamp (and <code>post_id</code> tiebreaker) of the last item you saw. Page 2 asks for "items older than this cursor," so new arrivals at the top never disturb your scroll.</p>
+      <pre><code># write: prepend new post, keep newest 500
+ZADD  feed:u_77  1717200000  p_91f3
+ZREMRANGEBYRANK  feed:u_77  0  -501      # trim the tail
+
+# read page: items strictly older than the cursor score, newest first
+ZREVRANGEBYSCORE  feed:u_77  (1717199990  -inf  LIMIT 0 20
+# next_cursor = created_at of the 20th item returned</code></pre>
+      <div class="callout">
+        <span class="k">Under the hood — the empty-feed bootstrap</span>
+        <p>What about a brand-new user, or a feed that was evicted from cache? Their <code>feed:{user}</code> is empty, so push has nothing to show. You <strong>rebuild on demand</strong>: fall back to the pull path once — query who they follow, merge recent posts, populate <code>feed:{user}</code>, and serve from it thereafter. This same rebuild path is your recovery mechanism when the feed cache loses data, which is why pull never fully goes away even in a push-first design.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How do you paginate a feed that is changing under the user?" Name offset's duplicate/gap problem, then describe a cursor that pins a stable position by timestamp + ID. Bonus: explain that new posts appearing <em>above</em> your scroll position are surfaced by a separate "new posts" pill at the top, not by shifting the page you are reading.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Ordering</div>
+      <h2>Ranking: chronological vs ML</h2>
+      <p>So far the feed is <strong>reverse-chronological</strong> — newest first, full stop. That is simple, predictable, and easy to reason about, and it is exactly what a "Following" tab usually is. But the modern default for an engagement-driven home feed (TikTok's "For You," the main Instagram/Facebook feed) is <strong>ML-ranked</strong>: instead of pure time order, a model scores each candidate post for <em>this</em> viewer by predicted engagement (likelihood of watch, like, comment, share) and reorders accordingly.</p>
+      <h3>How ranking layers onto the design</h3>
+      <p>Crucially, ranking does not replace the fan-out architecture — it sits <em>on top</em> of it. The feed store becomes a <strong>candidate generator</strong>: it produces the pool of posts you <em>could</em> see (from push + celebrity pull). A separate <strong>ranking service</strong> then takes that candidate set, computes features (post age, author affinity, the viewer's past behavior, content signals), runs the model, and returns the reordered top slice. The split is "retrieve candidates cheaply, then rank them" — and the fan-out work we designed is the retrieval half.</p>
+      <div class="vs">
+        <div class="col"><h4>Reverse-chronological</h4><ul>
+          <li>+ Simple, cheap, predictable</li>
+          <li>+ Easy to cache and paginate by time</li>
+          <li>+ Transparent — users trust the order</li>
+          <li>− Lower engagement; misses content you'd love but posted hours ago</li>
+        </ul></div>
+        <div class="col"><h4>ML-ranked</h4><ul>
+          <li>+ Higher engagement &amp; relevance per view</li>
+          <li>+ Surfaces the best content regardless of post time</li>
+          <li>− Heavy infra: feature store, model serving, training pipelines</li>
+          <li>− Harder to cache (score is per-viewer, time-varying) and to debug</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Bridge to L31 (Ranking)</span>
+        <p>In an interview, build the chronological hybrid first and get it solid — then say "if we want a 'For You'-style ranked feed, I'd add a ranking service that consumes this same candidate set." That separation of <strong>retrieval</strong> (this lesson) from <strong>ranking</strong> (a feature-store + model-serving problem) is the senior framing, and it keeps the scope honest. The deep dive on scoring, feature stores, and online model serving is its own lesson.</p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <div class="steptag"><b>11</b> Resilience</div>
+      <h2>Scale, failure &amp; what breaks at 10x</h2>
+      <p>The hybrid is the answer; now defend it under stress.</p>
+      <h3>Cache sizing &amp; hot keys</h3>
+      <p>Cap feeds (~500 IDs) and shard Redis by <code>user_id</code> so feeds spread evenly across the cluster. The danger is a <strong>hot key</strong>: a single post by a giant account, or a viral post, gets hydrated by millions of feeds at once, hammering whichever shard holds that post's cached body. Mitigate by caching popular post bodies behind a <strong>read-through cache</strong> with replicas, and by adding a small local in-process cache on the feed servers for the hottest posts so the same body is not re-fetched from Redis on every request.</p>
+      <h3>Rebuilding a feed</h3>
+      <p>Feeds in Redis are a <em>cache</em>, not the source of truth — the post store and social graph are. If a Redis shard fails or a feed is evicted, you do not lose data; you <strong>rebuild</strong> the affected feeds from the durable stores using the pull path (query the user's follows, merge recent posts, repopulate). This is why we keep both code paths: pull is simultaneously a strategy for celebrities and the disaster-recovery mechanism for push. Rebuilds are also how you backfill when a user follows someone new — you can lazily pull that author in on the next read rather than retroactively fanning out their history.</p>
+      <h3>Failure modes to name</h3>
+      <ul>
+        <li><strong>Fanout worker dies mid-loop.</strong> Because fan-out is driven off Kafka with consumer offsets, the message is redelivered and reprocessed. Make the feed write <strong>idempotent</strong> (a <code>ZADD</code> of the same <code>post_id</code> is a no-op), so a partial-then-retried fan-out is safe.</li>
+        <li><strong>Feed cache (Redis) outage.</strong> Reads fall back to pull-and-rebuild — slower, but available. Favor availability: a degraded, slightly slow feed beats an error page.</li>
+        <li><strong>Post store unavailable.</strong> Writes are buffered in the queue and applied when it recovers; reads serve whatever is already hydrated/cached. The async decoupling we built in step 04 is what makes this survivable.</li>
+      </ul>
+      <h3>What breaks at 10x</h3>
+      <p>Push the platform to a billion DAU and the strains shift. The <strong>fan-out fleet</strong> becomes the dominant cost — more accounts cross the celebrity threshold as the network densifies, so you may lower the threshold and shift more authors to pull. <strong>Hydration bandwidth</strong> balloons (you are fetching far more post bodies), so the post cache and CDN for media matter more than the feed index itself. And the <strong>k-way merge</strong> at read time for users who follow thousands of accounts plus dozens of celebrities gets heavy — you cap the number of celebrity pulls per read and pre-merge celebrities' posts into shared, cacheable per-celebrity lists so many viewers reuse the same pulled data. The architecture holds; you re-tune the threshold and add caching layers rather than redesigning.</p>
+      <div class="callout tip">
+        <span class="k">Deep-dive the interviewer may push for</span>
+        <p><strong>Consistency &amp; ordering:</strong> two posts created milliseconds apart on different servers can land out of order — use a monotonic timestamp source or a snowflake-style ID so ordering is stable. <strong>Deletes &amp; privacy:</strong> a deleted or now-private post must vanish from feeds — easy if feeds store IDs and you check visibility at hydration time, painful if you copied bodies. <strong>Unfollow:</strong> you don't scrub the unfollowed author's posts from the feed list eagerly; you filter them at hydration or let them age out. Each of these is a reason the feed stores <em>IDs and resolves at read time</em>, not full content.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>precompute feeds at write time for fast reads, but special-case the celebrities whose follower counts would make that precomputation explode — push for the masses, pull for the giants, merge at read time.</em> If you can derive the hybrid from the push and pull failure modes, and explain cursor pagination and feed rebuilds, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Feed = fan-out problem</b><span>One write must reach many follower feeds; the cost of that is the whole design.</span></div>
+        <div class="tk"><span class="num">02</span><b>Read-heavy, latency-first</b><span>~100:1 reads:posts and a tight p99 push you to precompute on write.</span></div>
+        <div class="tk"><span class="num">03</span><b>Store IDs, not bodies</b><span>Feed holds post IDs in Redis; hydrate bodies on read for dedupe, edits, deletes.</span></div>
+        <div class="tk"><span class="num">04</span><b>Queue the fan-out</b><span>Kafka decouples slow async fan-out from the instant write ack.</span></div>
+        <div class="tk"><span class="num">05</span><b>Push = fast reads</b><span>Write the post into every follower's feed; reads are trivial, writes amplify.</span></div>
+        <div class="tk"><span class="num">06</span><b>Celebrities break push</b><span>30M followers = 30M writes per post: a write storm and queue backpressure.</span></div>
+        <div class="tk"><span class="num">07</span><b>Pull = cheap writes</b><span>Build the feed on read; great for celebrities, but reads grow with following.</span></div>
+        <div class="tk"><span class="num">08</span><b>Hybrid is the answer</b><span>Push ordinary accounts, pull celebrities, merge at read time. Tune the threshold.</span></div>
+        <div class="tk"><span class="num">09</span><b>Cursor, not offset</b><span>A changing feed makes offsets duplicate/skip; pin position by timestamp + ID.</span></div>
+        <div class="tk"><span class="num">10</span><b>Ranking sits on top</b><span>Fan-out retrieves candidates; an ML ranker reorders them — bridge to L31.</span></div>
+        <div class="tk"><span class="num">11</span><b>Pull = recovery too</b><span>Feeds are a cache; rebuild lost feeds from durable stores via the pull path.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why is a news feed described as read-heavy, and how does that shape the design?<br>(2) Walk through fan-out on write — what exactly happens when an ordinary user posts?<br>(3) Why does pure push fall apart for a celebrity with 30M followers, and what specifically breaks?<br>(4) Describe the hybrid model and explain where the push/pull cutover lives.<br>(5) Why store post IDs in the feed instead of full post bodies — name two things it makes easy.<br>(6) Why does offset pagination break on a feed, and what replaces it?<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 24 · DESIGN A NEWS FEED SYSTEM · interactive edition · ref BBG V1·C11<br>
+      Original study notes on standard system-design fundamentals · SG super-app context (TikTok / Shopee / Grab) · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* high-level architecture */
+  makeStepper(document.getElementById('fig-arch'), [
+    {text:"A client posts. The request hits the Post service on the write path.", active:["a-client","a-post"], path:"a-w1"},
+    {text:"The post is persisted, then a post_created event is published to Kafka.", active:["a-post","a-q"], path:"a-w2"},
+    {text:"The Fanout service consumes the event asynchronously — off the user's critical path.", active:["a-q","a-fan"], path:"a-w3"},
+    {text:"Fanout writes the post id into each follower's precomputed feed cache (Redis).", active:["a-fan","a-cache"], path:"a-w4"},
+    {text:"Later, a read: the client asks the Feed service for its home feed.", active:["a-client","a-feed"], path:"a-r1"},
+    {text:"Feed service reads the precomputed list of post ids from the feed cache (Redis).", active:["a-feed","a-cache"], path:"a-r2"},
+    {text:"It then hydrates those ids — fetching the post bodies from the post store — and returns the page.", active:["a-feed","a-db"], path:"a-r3"}
+  ]);
+
+  /* fan-out on write (push) */
+  makeStepper(document.getElementById('fig-push'), [
+    {text:"Ordinary author U (800 followers) posts p_91 — the fan-out service is notified.", active:["p-author","p-fan"], path:"p-in"},
+    {text:"Fanout reads followers(U) from the social graph: A, B, C, D, ...", active:["p-fan"]},
+    {text:"It prepends p_91 to follower A's feed cache.", active:["p-fan","p-fa"], path:"p-a"},
+    {text:"...and into follower B's feed.", active:["p-fan","p-fb"], path:"p-b"},
+    {text:"...and C's...", active:["p-fan","p-fc"], path:"p-c"},
+    {text:"...and D's. Every follower's feed is now precomputed — reads will be instant.", active:["p-fan","p-fa","p-fb","p-fc","p-fd"], path:"p-d"}
+  ]);
+
+  /* hybrid read-time merge */
+  makeStepper(document.getElementById('fig-hybrid'), [
+    {text:"Viewer opens the app and requests the home feed.", active:["h-viewer","h-feed"], path:"h-in"},
+    {text:"Feed service reads the precomputed base: posts already pushed from ordinary authors.", active:["h-feed","h-base"], path:"h-pull1"},
+    {text:"It then pulls recent posts from just the few celebrities the viewer follows (no write storm).", active:["h-feed","h-celeb"], path:"h-pull2"},
+    {text:"The two sources are merged by timestamp into one ordered list.", active:["h-feed","h-base","h-celeb"]},
+    {text:"The top page is hydrated and returned to the viewer.", active:["h-feed","h-out"], path:"h-merge"},
+    {text:"Result: fast reads from the push base, no celebrity write storm from the pull — the hybrid.", active:["h-base","h-celeb","h-out"]}
+  ]);
+</script>
+</body>
+</html>

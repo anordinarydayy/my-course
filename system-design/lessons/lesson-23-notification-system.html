@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 23 — Design a Notification System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:#1c2b38;color:#e7eef5;border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;}
+  pre .c{color:#7fa6c4;} pre .k{color:#e0a06a;} pre .s{color:#9fcf8f;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Notification<br>System</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why it is hard</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimation</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>High-level architecture ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Per-channel queues ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Exactly-once &amp; dedup</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Retries, backoff &amp; DLQ ▸</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>User preferences</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Tokens, templating, tracking</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Scale &amp; failure at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">23</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Notification System</h1>
+      <p class="lede">A notification system takes a single event — "your GrabFood order is on the way" — and fans it out to the right people across push, SMS, and email. The deceptively simple ask hides the real work: per-channel queues that absorb bursts, the reliability machinery that guarantees delivery without double-paging anyone, and a preference layer that keeps you from spamming the very users you're trying to serve.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on designing a notification system — a standard, widely-documented engineering topic. The explanations, examples, numbers, and diagrams are my own; nothing is copied from any paid course or book. Three diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why it is hard</h2>
+      <p>On the surface, "send a notification" is one HTTP call to Apple or Google and you are done. That intuition survives until the first real day of traffic. The hard parts of a <strong>notification system</strong> — a service that delivers messages to users across multiple channels in response to events — are not about sending one message; they are about sending <em>millions</em> of them, through providers you do not control, without ever lying to the user (claiming delivery that never happened) or annoying them (sending the same alert twice).</p>
+      <p>Consider what goes wrong without a deliberate design:</p>
+      <ul>
+        <li><strong>Bursts overwhelm providers.</strong> A flash sale on Shopee fires a "5-minute deal!" push to 8 million users at 8:00:00pm. If you call Firebase as fast as your servers can loop, you blow past the provider's rate limit and get throttled — or worse, silently dropped.</li>
+        <li><strong>One slow channel blocks the others.</strong> If email and push share one worker pool and the email provider stalls, push notifications queue up behind it. The channels must be isolated.</li>
+        <li><strong>Failures cause duplicates.</strong> A worker sends a push, then crashes before recording success. On restart it retries — and the user gets paged twice. For a payment confirmation, that is alarming; for a "Suspicious login" alert, it is a support ticket.</li>
+        <li><strong>You spam people.</strong> Without preference checks, a user who muted marketing still gets the 2am promo. They uninstall. The most expensive notification is the one that makes someone churn.</li>
+      </ul>
+      <p>So the system is really an exercise in <strong>decoupling</strong> (queues between you and bursts/providers), <strong>reliability</strong> (retries, dedup, dead-letter handling), and <strong>respect</strong> (preferences, quiet hours, frequency caps). The rest of this lesson builds it bottleneck by bottleneck.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A single event fanning out to many users across push, SMS, and email">
+            <rect class="node-b" x="24" y="86" width="120" height="48" rx="9"/>
+            <text class="lbl" x="84" y="108" text-anchor="middle">1 event</text>
+            <text class="lbl-sm" x="84" y="124" text-anchor="middle">order shipped</text>
+            <text class="lbl-sm" x="300" y="34" text-anchor="middle">fan-out to N users × 3 channels</text>
+            <path class="flow" d="M146 100 C 260 56, 320 60, 452 56" marker-end="url(#arrow)"/>
+            <path class="flow" d="M146 108 C 260 108, 320 108, 452 108" marker-end="url(#arrow)"/>
+            <path class="flow" d="M146 116 C 260 160, 320 156, 452 160" marker-end="url(#arrow)"/>
+            <rect class="node" x="456" y="36" width="160" height="40" rx="8"/>
+            <text class="lbl" x="536" y="61" text-anchor="middle">Push (APNs/FCM)</text>
+            <rect class="node" x="456" y="88" width="160" height="40" rx="8"/>
+            <text class="lbl" x="536" y="113" text-anchor="middle">SMS (Twilio)</text>
+            <rect class="node" x="456" y="140" width="160" height="40" rx="8"/>
+            <text class="lbl" x="536" y="165" text-anchor="middle">Email (SES)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one event, many users, three independent delivery channels</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>The interviewer drops a one-line prompt; your first job is to turn it into a bounded problem. Spend the opening two minutes asking questions and stating assumptions out loud — it shows judgment and stops you from designing the wrong thing.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Channels.</strong> Deliver <strong>push</strong> (mobile via APNs for iOS and FCM for Android), <strong>SMS</strong> (via an aggregator like Twilio), and <strong>email</strong> (via a provider like Amazon SES). We will design so a new channel — say WhatsApp or in-app inbox — can be added later without touching the core.</li>
+        <li><strong>Many event sources.</strong> Notifications are triggered by other services: an order service ("delivered"), a payments service ("GrabPay top-up succeeded"), a fraud service ("new device login"), and scheduled/marketing campaigns. We expose an internal API they all call.</li>
+        <li><strong>Templating &amp; localization.</strong> A notification is content + data; the system renders it from a versioned template in the user's language (English, Bahasa, Thai, Vietnamese for an SEA super-app).</li>
+        <li><strong>Preferences.</strong> Users opt in/out per channel and per category, set do-not-disturb windows, and are protected by frequency caps.</li>
+        <li><strong>Tracking.</strong> Record per-notification lifecycle: <code>queued → sent → delivered → opened</code> (or <code>failed</code>).</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Reliability.</strong> Critical notifications (OTP, payment receipt) must not be lost. We target <strong>at-least-once</strong> delivery with <strong>deduplication</strong> so the effective experience is exactly-once.</li>
+        <li><strong>No double-paging.</strong> A user must never receive the same logical notification twice, even when retries and crashes happen.</li>
+        <li><strong>High throughput, bursty.</strong> Campaigns produce sharp spikes; the system must absorb them without dropping or melting providers.</li>
+        <li><strong>Low latency where it matters.</strong> An OTP should arrive in seconds; a weekly digest can take minutes. We will not give them the same priority.</li>
+        <li><strong>Scalable &amp; available.</strong> Horizontally scalable workers; no single point of failure; degrade gracefully when a provider is down.</li>
+      </ul>
+      <p>Two scoping decisions worth stating explicitly: this is <em>server-driven</em> outbound notification (not real-time chat — that is a different lesson), and we treat the third-party gateways (APNs, FCM, Twilio, SES) as black boxes we must respect, not rebuild.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design: <em>"the interesting parts are the per-channel queues, the reliability machinery, and the preference layer — not the actual call to FCM."</em> Say that early and the interviewer will let you drive.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>Back-of-envelope estimation</h2>
+      <p>Numbers turn a hand-wave into a design. Assume a regional super-app with <strong>50 million users</strong>, of whom <strong>20 million are daily active</strong>. We size three things: send rate, fan-out, and storage.</p>
+      <h3>Daily volume &amp; average QPS</h3>
+      <p>Suppose each active user receives on average <strong>5 notifications a day</strong> across all channels — order updates, payment receipts, a promo or two. That is:</p>
+      <ul>
+        <li>20M × 5 = <strong>100M notifications/day</strong>.</li>
+        <li>100M ÷ 86,400s ≈ <strong>~1,160 notifications/sec average</strong>.</li>
+        <li>Real traffic is spiky. A peak factor of 10× (dinner rush, a campaign) gives <strong>~11,600/sec peak</strong>. Provider-bound bursts can be far higher for a few seconds.</li>
+      </ul>
+      <h3>The fan-out multiplier</h3>
+      <p>One <em>campaign</em> event is not one notification. A marketing push to a 5M-user segment is a single API call that fans out to 5M deliveries. So the <strong>fan-out</strong> — deliveries produced per inbound event — ranges from 1 (a personal order update) to millions (a broadcast). The architecture must treat "expand the audience" as its own stage, because a single call can dwarf a whole day of organic traffic in seconds.</p>
+      <h3>Per-channel split &amp; provider limits</h3>
+      <p>Roughly 80% push, 15% email, 5% SMS is typical (push is free and instant; SMS costs real money). The constraint that actually shapes the design is the <strong>provider rate limit</strong>:</p>
+      <ul>
+        <li><strong>FCM</strong> accepts very high throughput but rewards batching (up to 500 tokens per multicast request).</li>
+        <li><strong>SMS aggregators</strong> are throttled hard — often a few hundred messages/sec per number/short-code, and each message costs cents.</li>
+        <li><strong>Email (SES)</strong> has an account send-rate quota (e.g. a configured messages-per-second cap) that you must stay under or get throttled.</li>
+      </ul>
+      <h3>Storage</h3>
+      <p>If we log every notification's metadata (~500 bytes: ids, channel, status, timestamps) and keep it 30 days: 100M/day × 500B × 30 ≈ <strong>1.5 TB</strong> of hot tracking data. Device tokens for 50M users with ~1.5 devices each at ~200 bytes ≈ <strong>15 GB</strong> — small and cacheable. The tracking log is the heavy table; it wants a write-optimized store and a TTL.</p>
+      <div class="callout">
+        <span class="k">Why these numbers matter</span>
+        <p>The average QPS sizes your steady-state workers; the <strong>peak and fan-out</strong> size your queues. The whole reason queues exist here is the gap between "11,600/sec arrives" and "SMS provider accepts 300/sec." Estimation is how you justify that gap to the interviewer.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Before drawing boxes, pin down the contract. This is where you go past the book: show a concrete request shape and the core tables.</p>
+      <h3>The send API</h3>
+      <p>Event sources call one internal endpoint. Crucially it accepts a caller-supplied <strong>idempotency key</strong> so a source that retries does not create a second notification.</p>
+      <pre><span class="c"># POST /v1/notifications  (called by order, payments, fraud services...)</span>
+{
+  <span class="k">"idempotency_key"</span>: <span class="s">"order-evt-88231-shipped"</span>,   <span class="c"># dedup at ingest</span>
+  <span class="k">"recipient"</span>:       { <span class="k">"user_id"</span>: <span class="s">"u_50231"</span> },     <span class="c"># or a segment_id for campaigns</span>
+  <span class="k">"category"</span>:        <span class="s">"order_status"</span>,             <span class="c"># used for preference + caps</span>
+  <span class="k">"priority"</span>:        <span class="s">"transactional"</span>,            <span class="c"># vs "marketing"</span>
+  <span class="k">"channels"</span>:        [<span class="s">"push"</span>, <span class="s">"email"</span>],          <span class="c"># desired; filtered by prefs</span>
+  <span class="k">"template_id"</span>:     <span class="s">"order_shipped_v3"</span>,
+  <span class="k">"data"</span>:             { <span class="k">"order_id"</span>: <span class="s">"88231"</span>, <span class="k">"eta_min"</span>: 25 }
+}
+<span class="c"># 202 Accepted -> { "notification_id": "n_af91c2" }  (async; not "delivered")</span></pre>
+      <p>Note it returns <code>202 Accepted</code>, not <code>200 OK</code> — delivery is asynchronous and we are only promising to <em>attempt</em> it. We also expose <code>GET /v1/notifications/{id}</code> for status and <code>PUT /v1/users/{id}/preferences</code> for the preference center.</p>
+      <h3>Data model sketch</h3>
+      <p>Four entities carry the system. Two are write-heavy (notifications, device tokens), two are read-heavy and cacheable (preferences, templates).</p>
+      <pre><span class="c">-- device tokens: which devices to push to (cleaned up when stale)</span>
+device_token(user_id, token, platform, app_version, last_seen_at, valid)
+
+<span class="c">-- per-user, per-category channel preferences + quiet hours</span>
+preference(user_id, category, channel, enabled, dnd_start, dnd_end, tz)
+
+<span class="c">-- versioned, localized message templates</span>
+template(template_id, version, channel, locale, subject, body, vars)
+
+<span class="c">-- the tracking log: one row per delivery attempt outcome</span>
+notification(notification_id, user_id, channel, category, status,
+             dedup_key, provider_msg_id, created_at, sent_at, opened_at)</pre>
+      <p>The <code>dedup_key</code> column on <code>notification</code> carries a uniqueness constraint — it is the backstop that makes duplicate delivery impossible even when everything upstream misbehaves (Step 06). The <code>notification</code> table is the 1.5 TB monster from estimation; it belongs in a write-scalable store like <strong>Cassandra</strong> or <strong>DynamoDB</strong>, partitioned by <code>user_id</code> with a TTL. Preferences and templates fit comfortably in <strong>PostgreSQL</strong> fronted by a <strong>Redis</strong> cache.</p>
+    </section>
+
+    <!-- 4 — INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The skeleton</div>
+      <h2>High-level architecture</h2>
+      <p>Now the picture. The flow has five logical stages, and the ordering is deliberate — each stage exists because the previous one created a problem.</p>
+      <ul>
+        <li><strong>Event sources</strong> call the send API. They should not know anything about channels or providers.</li>
+        <li>The <strong>Notification Service</strong> (the brain) does ingest-dedup, expands the audience (fan-out), checks preferences, picks templates, and routes each delivery to the right channel. It owns no provider logic.</li>
+        <li><strong>Per-channel queues</strong> sit between the brain and the workers. They decouple the spiky producer from the rate-limited consumer — this is the single most important structural decision.</li>
+        <li><strong>Channel workers</strong> pull from their queue, render the final payload, and call the gateway. Each pool scales independently.</li>
+        <li><strong>Third-party gateways</strong> (APNs, FCM, Twilio, SES) do the last-mile delivery to the device or inbox.</li>
+      </ul>
+      <p>Walk the diagram below step by step: an event enters, the service builds and checks it, it is dropped onto a channel queue, a worker drains the queue at a safe rate, and the provider delivers. Pause on the queue step — that buffer is what lets the producer spike to 11,600/sec while the SMS worker calmly sips at 300/sec.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-hld">
+          <svg viewBox="0 0 640 260" role="img" aria-label="Interactive high-level architecture: source, notification service, channel queue, worker, provider">
+            <g class="st" id="h-src"><rect class="node" x="16" y="104" width="96" height="50" rx="8"/><text class="lbl" x="64" y="126" text-anchor="middle">Event</text><text class="lbl-sm" x="64" y="142" text-anchor="middle">source</text></g>
+            <g class="st" id="h-svc"><rect class="node-b" x="150" y="98" width="120" height="62" rx="9"/><text class="lbl" x="210" y="123" text-anchor="middle">Notif.</text><text class="lbl" x="210" y="141" text-anchor="middle">Service</text></g>
+            <g class="st" id="h-q"><rect x="306" y="98" width="104" height="62" rx="9" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/><text class="lbl" x="358" y="123" text-anchor="middle" fill="#4b3c78">Push</text><text class="lbl-sm" x="358" y="141" text-anchor="middle" fill="#6E59A5">queue</text></g>
+            <g class="st" id="h-wkr"><rect class="node" x="446" y="98" width="96" height="62" rx="9"/><text class="lbl" x="494" y="123" text-anchor="middle">Push</text><text class="lbl-sm" x="494" y="141" text-anchor="middle">worker</text></g>
+            <g class="st" id="h-prov"><rect class="node-r" x="556" y="98" width="74" height="62" rx="9"/><text class="lbl-sm" x="593" y="124" text-anchor="middle">FCM /</text><text class="lbl-sm" x="593" y="140" text-anchor="middle">APNs</text></g>
+            <path id="h-p1" class="flow" d="M112 129 H 148" marker-end="url(#arrow)"/>
+            <path id="h-p2" class="flow" d="M270 129 H 304" marker-end="url(#arrow)"/>
+            <path id="h-p3" class="flow" d="M410 129 H 444" marker-end="url(#arrow)"/>
+            <path id="h-p4" class="flow" d="M542 129 H 554" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="358" y="186" text-anchor="middle" fill="#6E59A5">buffer absorbs bursts</text>
+            <text class="lbl-sm" x="210" y="84" text-anchor="middle">dedup · prefs · template</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: event → service → channel queue → worker → provider</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood</span>
+        <p>The Notification Service is stateless and horizontally scaled behind a load balancer. All durable state lives in the datastores (tokens, prefs, tracking) and the queues. That statelessness is what lets you add workers during a campaign and remove them after, without coordination.</p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The core decision</div>
+      <h2>Per-channel queues &amp; the fan-out</h2>
+      <p>Here is the bottleneck that justifies the whole shape of the design. The producer (campaigns, event spikes) is <strong>bursty and fast</strong>; the consumers (providers) are <strong>steady and rate-limited</strong>, and each at a <em>different</em> rate. If you call providers synchronously inside the request, three things break: the source's request hangs for seconds, a provider outage takes your service down with it, and a burst slams straight into the provider's rate limit.</p>
+      <h3>Why a queue, and why one per channel</h3>
+      <p>A <strong>message queue</strong> between service and worker fixes all three. It is durable (survives a worker crash), it lets the producer fire-and-forget, and it lets the consumer pull at whatever rate it can safely sustain. We give <strong>each channel its own queue</strong> so they are isolated: if SES is throttling, email piles up in <em>its</em> queue while push and SMS keep flowing. One shared queue would let the slowest channel back up everyone — exactly the failure we are trying to avoid.</p>
+      <p>The same principle suggests a second axis of separation: a <strong>priority</strong> split. Transactional notifications (OTP, payment) get their own fast lane; marketing rides a separate, lower-priority queue so a 5M-user promo campaign cannot delay someone's login code.</p>
+      <h3>Fan-out happens before the queues</h3>
+      <p>A campaign event names a <em>segment</em>, not a user. The service (or a dedicated fan-out worker) expands the segment into individual deliveries and enqueues each one. For a 5M-user push that is 5M small messages dropped onto the push queue — which is precisely why the queue must be able to swallow a huge burst and meter it out. Walk the stepper: the service expands and routes; each channel queue buffers; each worker drains at its own safe pace.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-fanout">
+          <svg viewBox="0 0 640 260" role="img" aria-label="Interactive fan-out: notification service routes to three per-channel queues feeding their own workers and providers">
+            <g class="st" id="f-svc"><rect class="node-b" x="20" y="100" width="120" height="60" rx="9"/><text class="lbl" x="80" y="125" text-anchor="middle">Notif.</text><text class="lbl" x="80" y="143" text-anchor="middle">Service</text></g>
+            <g class="st" id="f-qp"><rect x="220" y="20" width="110" height="44" rx="8" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/><text class="lbl-sm" x="275" y="40" text-anchor="middle" fill="#4b3c78">Push queue</text><text class="lbl-sm" x="275" y="55" text-anchor="middle" fill="#6E59A5">high rate</text></g>
+            <g class="st" id="f-qs"><rect x="220" y="106" width="110" height="44" rx="8" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/><text class="lbl-sm" x="275" y="126" text-anchor="middle" fill="#4b3c78">SMS queue</text><text class="lbl-sm" x="275" y="141" text-anchor="middle" fill="#6E59A5">~300/s cap</text></g>
+            <g class="st" id="f-qe"><rect x="220" y="192" width="110" height="44" rx="8" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/><text class="lbl-sm" x="275" y="212" text-anchor="middle" fill="#4b3c78">Email queue</text><text class="lbl-sm" x="275" y="227" text-anchor="middle" fill="#6E59A5">SES quota</text></g>
+            <g class="st" id="f-wp"><rect class="node" x="392" y="20" width="96" height="44" rx="8"/><text class="lbl-sm" x="440" y="46" text-anchor="middle">Push wkr</text></g>
+            <g class="st" id="f-ws"><rect class="node" x="392" y="106" width="96" height="44" rx="8"/><text class="lbl-sm" x="440" y="132" text-anchor="middle">SMS wkr</text></g>
+            <g class="st" id="f-we"><rect class="node" x="392" y="192" width="96" height="44" rx="8"/><text class="lbl-sm" x="440" y="218" text-anchor="middle">Email wkr</text></g>
+            <g class="st" id="f-pp"><rect class="node-r" x="540" y="20" width="84" height="44" rx="8"/><text class="lbl-sm" x="582" y="46" text-anchor="middle">FCM/APNs</text></g>
+            <g class="st" id="f-ps"><rect class="node-r" x="540" y="106" width="84" height="44" rx="8"/><text class="lbl-sm" x="582" y="132" text-anchor="middle">Twilio</text></g>
+            <g class="st" id="f-pe"><rect class="node-r" x="540" y="192" width="84" height="44" rx="8"/><text class="lbl-sm" x="582" y="218" text-anchor="middle">SES</text></g>
+            <path id="f-rp" class="flow" d="M140 116 C 175 70, 185 50, 218 44" marker-end="url(#arrow)"/>
+            <path id="f-rs" class="flow" d="M140 130 H 218" marker-end="url(#arrow)"/>
+            <path id="f-re" class="flow" d="M140 144 C 175 190, 185 210, 218 214" marker-end="url(#arrow)"/>
+            <path id="f-dp" class="flow" d="M330 42 H 390" marker-end="url(#arrow)"/>
+            <path class="flow" d="M330 128 H 390" marker-end="url(#arrow)"/>
+            <path class="flow" d="M330 214 H 390" marker-end="url(#arrow)"/>
+            <path class="flow" d="M488 42 H 538" marker-end="url(#arrow)"/>
+            <path class="flow" d="M488 128 H 538" marker-end="url(#arrow)"/>
+            <path class="flow" d="M488 214 H 538" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: one event fans out to three isolated channel lanes</figcaption>
+      </figure>
+      <h3>What to build it on</h3>
+      <p><strong>Kafka</strong> shines as the durable backbone — high throughput, partitioned, retains messages so you can replay after a bug. <strong>RabbitMQ</strong> or <strong>AWS SQS</strong> are friendlier for simple per-channel work queues with built-in retry and dead-letter support. A common pattern: Kafka as the ingest/fan-out log, then SQS (with a DLQ) per channel for the worker stage. Workers apply <strong>per-provider rate limiting</strong> (a token bucket keyed by provider) so the queue, not the provider, holds the backlog.</p>
+      <div class="vs">
+        <div class="col"><h4>One queue per channel</h4><ul>
+          <li>Channels are isolated — a slow SES never blocks push</li>
+          <li>Independent scaling and rate limits per channel</li>
+          <li>Clear, per-channel metrics and DLQs</li>
+          <li>More queues and workers to operate</li>
+        </ul></div>
+        <div class="col"><h4>One shared queue</h4><ul>
+          <li>Simpler to set up and operate</li>
+          <li>Fewer moving parts, one consumer group</li>
+          <li>Head-of-line blocking: slowest channel stalls all</li>
+          <li>Can't rate-limit or scale channels separately</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"What happens when a campaign dumps 5 million messages into the push queue?" Answer: the queue absorbs them (that is its job), the worker drains at FCM's safe rate, transactional traffic rides a <em>separate priority queue</em> so it is unaffected, and queue depth / consumer lag is the metric you alarm on. The backlog is visible and bounded — it never reaches the provider as a flood.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Reliability</div>
+      <h2>Exactly-once that you actually build as at-least-once + dedup</h2>
+      <p>Distributed systems cannot give you true exactly-once delivery — networks drop acks, workers crash mid-send. What they give you is a choice between <strong>at-most-once</strong> (never retry; risk losing messages) and <strong>at-least-once</strong> (always retry; risk duplicates). For notifications, losing an OTP is unacceptable, so we choose <strong>at-least-once</strong> and then add <strong>deduplication</strong> to suppress the duplicates it inevitably produces. The combination <em>looks</em> exactly-once to the user.</p>
+      <h3>Where duplicates come from</h3>
+      <p>Two independent sources, each needing its own guard:</p>
+      <ul>
+        <li><strong>Source-side retries.</strong> The order service POSTs to our API, times out before the response arrives, and POSTs again. We block this with the caller's <code>idempotency_key</code>: on ingest we do an atomic "insert if not exists" on that key (a unique index, or <code>SET key NX</code> in Redis). The second POST sees the key exists and returns the original <code>notification_id</code> instead of creating a new notification.</li>
+        <li><strong>Worker-side retries.</strong> A worker sends the push, then crashes before recording success or acking the queue message. The queue redelivers; a second worker is about to send again. We block this with a <strong>dedup key</strong> at the send step.</li>
+      </ul>
+      <h3>How the dedup key works under the hood</h3>
+      <p>Construct a deterministic key per logical delivery — e.g. <code>{notification_id}:{user_id}:{channel}</code>. Before calling the provider, the worker does an atomic check-and-set against Redis: <code>SET dedup:{key} 1 NX EX 86400</code>. If the command succeeds (the key did not exist), this worker "won" and proceeds to send. If it fails (key already set), a previous attempt already sent — the worker drops this copy and acks the queue. The 24-hour TTL bounds memory and matches how long a duplicate could plausibly resurface.</p>
+      <p>The unique constraint on <code>notification.dedup_key</code> in the durable store is the second line of defense for when Redis itself is lost. Belt and suspenders, because the cost of a duplicate "your card was charged" alert is real user alarm.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="Two worker attempts race on the same dedup key; the second is suppressed">
+            <rect class="node" x="20" y="36" width="120" height="44" rx="8"/>
+            <text class="lbl-sm" x="80" y="56" text-anchor="middle">Worker A</text>
+            <text class="lbl-sm" x="80" y="71" text-anchor="middle">(retry)</text>
+            <rect class="node" x="20" y="128" width="120" height="44" rx="8"/>
+            <text class="lbl-sm" x="80" y="148" text-anchor="middle">Worker B</text>
+            <text class="lbl-sm" x="80" y="163" text-anchor="middle">(redelivery)</text>
+            <rect class="node-r" x="246" y="78" width="150" height="54" rx="9"/>
+            <text class="lbl" x="321" y="100" text-anchor="middle" fill="#B0532F">Redis SETNX</text>
+            <text class="lbl-sm" x="321" y="118" text-anchor="middle">dedup:{key}</text>
+            <path class="flow" d="M140 60 C 190 70, 210 80, 244 92" marker-end="url(#arrow)"/>
+            <path class="flow" d="M140 148 C 190 138, 210 128, 244 116" marker-end="url(#arrow)"/>
+            <path class="flow" d="M396 92 C 470 70, 500 64, 560 60" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="486" y="50" text-anchor="middle">A wins → send</text>
+            <rect class="node" x="556" y="38" width="74" height="44" rx="8"/>
+            <text class="lbl-sm" x="593" y="64" text-anchor="middle">Provider</text>
+            <path class="flow-r" d="M396 116 C 460 140, 500 150, 560 150" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="490" y="170" text-anchor="middle" fill="#B0532F">B loses → drop</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — an atomic SETNX lets exactly one attempt win; the duplicate is dropped</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>At-least-once + dedup</h4><ul>
+          <li>Never loses a critical notification</li>
+          <li>Duplicates suppressed → effectively exactly-once</li>
+          <li>Needs a fast atomic store (Redis) on the send path</li>
+        </ul></div>
+        <div class="col"><h4>At-most-once</h4><ul>
+          <li>Simple — no dedup machinery</li>
+          <li>No risk of double-paging</li>
+          <li>Drops messages on any failure — unacceptable for OTP</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How do you avoid sending the same notification twice?" Land all three layers: <em>idempotency key at ingest, dedup key with atomic SETNX before the provider call, and a unique constraint in the durable store as a backstop.</em> Then note the honest caveat: if the provider <em>did</em> deliver but the ack was lost, you cannot perfectly know — the dedup key prevents a second <em>send</em>, which is the best a distributed system can do.</p>
+      </div>
+    </section>
+
+    <!-- 7 — INTERACTIVE -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Reliability</div>
+      <h2>Retries, backoff &amp; the dead-letter queue</h2>
+      <p>Providers fail transiently all the time: a timeout, a 503, a momentary rate-limit rejection. A worker must not give up on the first failure, nor hammer a struggling provider into the ground. The discipline is <strong>retry with exponential backoff and jitter</strong>, capped, with a <strong>dead-letter queue</strong> as the final resting place.</p>
+      <h3>How the retry loop works</h3>
+      <p>When a send fails with a <em>retryable</em> error, the worker does not block and sleep — that would waste a worker. Instead it re-enqueues the message with a computed delay: attempt 1 retries after ~1s, attempt 2 after ~2s, attempt 3 after ~4s, doubling each time (<strong>exponential backoff</strong>). To stop thousands of failed sends from retrying in lockstep and creating a synchronized thundering herd, each delay gets random <strong>jitter</strong> added. SQS supports this natively via per-message visibility timeout / delay; with Kafka you publish to a delay topic.</p>
+      <p>Critically, you distinguish error classes. A <strong>retryable</strong> error (network timeout, 429, 5xx) goes back for another attempt. A <strong>permanent</strong> error (FCM says the token is <code>NotRegistered</code>, SES says the address is invalid) is pointless to retry — you mark it failed immediately and, for a bad device token, trigger token cleanup (Step 09).</p>
+      <h3>The dead-letter queue</h3>
+      <p>After a capped number of attempts (say 5), the message is moved to a <strong>dead-letter queue (DLQ)</strong> — a separate queue for messages that could not be delivered. Nothing is silently dropped; the DLQ is monitored, alerts fire when it grows, and engineers can inspect, fix, and replay messages. The DLQ turns "lost notification" into "parked notification we can recover," which is the difference between a 3am page and a morning ticket.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-retry">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive retry loop with exponential backoff and a dead-letter queue after max attempts">
+            <g class="st" id="r-q"><rect x="20" y="100" width="104" height="56" rx="9" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/><text class="lbl-sm" x="72" y="124" text-anchor="middle" fill="#4b3c78">Channel</text><text class="lbl-sm" x="72" y="140" text-anchor="middle" fill="#6E59A5">queue</text></g>
+            <g class="st" id="r-wkr"><rect class="node" x="180" y="98" width="110" height="60" rx="9"/><text class="lbl" x="235" y="123" text-anchor="middle">Worker</text><text class="lbl-sm" x="235" y="141" text-anchor="middle">attempt n</text></g>
+            <g class="st" id="r-prov"><rect class="node-r" x="346" y="20" width="120" height="50" rx="9"/><text class="lbl-sm" x="406" y="42" text-anchor="middle">Provider</text><text class="lbl-sm" x="406" y="58" text-anchor="middle">(timeout/503)</text></g>
+            <g class="st" id="r-ok"><rect class="node" x="346" y="100" width="120" height="50" rx="9"/><text class="lbl-sm" x="406" y="122" text-anchor="middle">delivered</text><text class="lbl-sm" x="406" y="138" text-anchor="middle">→ ack</text></g>
+            <g class="st" id="r-dlq"><rect class="node-r" x="346" y="182" width="120" height="50" rx="9"/><text class="lbl-sm" x="406" y="204" text-anchor="middle" fill="#B0532F">Dead-letter</text><text class="lbl-sm" x="406" y="220" text-anchor="middle" fill="#B0532F">queue</text></g>
+            <path id="r-p1" class="flow" d="M124 128 H 178" marker-end="url(#arrow)"/>
+            <path id="r-p2" class="flow" d="M290 116 C 320 80, 330 60, 344 50" marker-end="url(#arrow)"/>
+            <path id="r-p3" class="flow-r" d="M346 56 C 230 78, 150 82, 100 96" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="160" y="42" text-anchor="middle" fill="#B0532F">fail → backoff + jitter, re-enqueue</text>
+            <path id="r-p4" class="flow" d="M290 130 H 344" marker-end="url(#arrow)"/>
+            <path id="r-p5" class="flow-r" d="M290 150 C 320 180, 330 195, 344 202" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="250" y="175" text-anchor="middle" fill="#B0532F">max attempts</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: retry with backoff, succeed and ack, or land in the DLQ</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood — backpressure</span>
+        <p>When a provider degrades, retries pile back into the queue and consumer lag grows. That lag <em>is</em> backpressure: the worker can detect a rising 429/timeout rate and deliberately slow its consumption (open a circuit breaker), letting the queue hold the backlog instead of flooding a sick provider. The queue depth, not lost data, is what absorbs the outage.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Respect the user</div>
+      <h2>User preferences, quiet hours &amp; frequency caps</h2>
+      <p>A technically perfect delivery system that ignores preferences is a churn machine. The <strong>preference layer</strong> is a mandatory gate that runs <em>before</em> a notification is enqueued — it is cheaper to drop a message early than to render, route, and send it only to violate a user's wishes.</p>
+      <h3>The three checks</h3>
+      <ul>
+        <li><strong>Channel opt-in/opt-out per category.</strong> A user may want order updates on push but not email, and no marketing on any channel. The preference row keys on <code>(user_id, category, channel)</code>. The service intersects the notification's requested channels with the user's enabled channels; if nothing remains for a non-critical category, it drops the notification entirely.</li>
+        <li><strong>Do-not-disturb (quiet hours).</strong> A user in Singapore who set DND 22:00–08:00 (SGT) should not be buzzed at 3am about a promo. The service compares "now" in the user's timezone against their DND window. A marketing notification inside the window is <strong>deferred</strong> (scheduled for the window's end) or dropped; a transactional one (OTP, fraud alert) <strong>bypasses</strong> DND because safety beats silence.</li>
+        <li><strong>Frequency capping.</strong> Even opted-in users tire of too many pings. A cap like "≤ 3 marketing pushes per user per day" is enforced with a Redis counter: <code>INCR cap:{user_id}:{date}</code> with a daily TTL; if it exceeds the cap, the message is suppressed. This is what stops a buggy campaign from sending one user forty pushes.</li>
+      </ul>
+      <h3>Transactional always wins</h3>
+      <p>The recurring rule: <strong>priority decides who gets bypassed.</strong> Caps and DND apply to marketing/digest traffic. Transactional notifications — payment receipts, OTPs, security alerts — skip caps and DND, because their value is in arriving, not in being polite. Encoding <code>priority</code> on the request (Step 03) is what makes this distinction enforceable.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Preference gate: a notification passes channel opt-in, DND, and frequency cap checks before enqueue">
+            <rect class="node-b" x="16" y="86" width="96" height="48" rx="8"/>
+            <text class="lbl-sm" x="64" y="106" text-anchor="middle">notif.</text>
+            <text class="lbl-sm" x="64" y="121" text-anchor="middle">candidate</text>
+            <rect class="node" x="150" y="84" width="96" height="52" rx="9"/>
+            <text class="lbl-sm" x="198" y="106" text-anchor="middle">opt-in?</text>
+            <text class="lbl-sm" x="198" y="121" text-anchor="middle">per channel</text>
+            <rect class="node" x="284" y="84" width="96" height="52" rx="9"/>
+            <text class="lbl-sm" x="332" y="106" text-anchor="middle">DND</text>
+            <text class="lbl-sm" x="332" y="121" text-anchor="middle">window?</text>
+            <rect class="node" x="418" y="84" width="96" height="52" rx="9"/>
+            <text class="lbl-sm" x="466" y="106" text-anchor="middle">freq.</text>
+            <text class="lbl-sm" x="466" y="121" text-anchor="middle">cap?</text>
+            <rect x="552" y="84" width="78" height="52" rx="9" fill="#EFEAF7" stroke="#6E59A5" stroke-width="2"/>
+            <text class="lbl-sm" x="591" y="106" text-anchor="middle" fill="#4b3c78">enqueue</text>
+            <text class="lbl-sm" x="591" y="121" text-anchor="middle" fill="#6E59A5">→ queue</text>
+            <path class="flow" d="M112 110 H 148" marker-end="url(#arrow)"/>
+            <path class="flow" d="M246 110 H 282" marker-end="url(#arrow)"/>
+            <path class="flow" d="M380 110 H 416" marker-end="url(#arrow)"/>
+            <path class="flow" d="M514 110 H 550" marker-end="url(#arrow)"/>
+            <path class="flow-r" d="M198 136 V 184" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M332 136 V 184" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M466 136 V 184" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="332" y="202" text-anchor="middle" fill="#B0532F">fail any gate → drop / defer (marketing) · bypass (transactional)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — every notification passes three gates before it is ever enqueued</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How do you honor user preferences and rate caps at scale?" Key points: <em>check before enqueue (cheap), cache preferences in Redis (read-heavy, rarely changing), enforce caps with an atomic INCR + daily TTL, store DND in the user's timezone, and let transactional priority bypass both.</em> Mention the failure mode: if the preference store is unreachable, you <strong>fail closed for marketing</strong> (don't risk spamming) but <strong>fail open for transactional</strong> (an OTP must go out).</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> The details that bite</div>
+      <h2>Device tokens, templating &amp; tracking</h2>
+      <p>Three supporting concerns separate a toy from a production system. Each has a sharp failure mode interviewers probe.</p>
+      <h3>Device-token management</h3>
+      <p>To push to a phone you need its <strong>device token</strong> — an opaque per-app-install address issued by APNs or FCM. The app registers its token on login and re-registers when it rotates (OS updates, reinstall). The pain is <strong>stale tokens</strong>: a user uninstalls, but you still hold the old token and keep trying to push to a dead address. The fix is feedback-driven cleanup: when the provider responds with a permanent error like FCM's <code>NotRegistered</code> or APNs' <code>Unregistered</code>, the worker marks that token <code>valid = false</code> and stops using it. Skipping cleanup means a slowly rising share of your push volume is wasted on phantom devices — and your "delivered" rate quietly rots.</p>
+      <h3>Templating &amp; localization</h3>
+      <p>You do not hand-write copy per notification; you store a <strong>versioned, localized template</strong> and render it with the event's <code>data</code>. <code>order_shipped_v3</code> for locale <code>vi-VN</code> reads <code>"Đơn {{order_id}} đang giao, dự kiến {{eta_min}} phút"</code>. Versioning lets you change wording without redeploying senders, and lets analytics compare <code>v2</code> vs <code>v3</code> open rates. The render step happens in the worker, just before the provider call, so templates can be edited live and only ever applied to messages not yet sent.</p>
+      <h3>Tracking the lifecycle</h3>
+      <p>Each notification moves through states: <code>queued → sent → delivered → opened</code>, or <code>failed</code>. The transitions come from different sources — the worker records <code>sent</code> when the provider accepts; <strong>delivery/open receipts</strong> arrive asynchronously via provider webhooks/callbacks (an email open pixel, an APNs delivery receipt, an SMS DLR). These events flow back into the <code>notification</code> tracking table (and a stream like Kafka → a warehouse for analytics). This is how you answer "what's our delivery rate by channel?" and detect a provider silently dropping messages.</p>
+      <div class="callout">
+        <span class="k">Under the hood — sent ≠ delivered</span>
+        <p>Be precise about vocabulary in the interview. <strong>Sent</strong> means the provider accepted the request from us. <strong>Delivered</strong> means it reached the device/inbox — confirmed only by a later callback. <strong>Opened</strong> means the user engaged. Conflating them is the most common mistake; a high "sent" rate with a low "delivered" rate usually means stale tokens or a provider problem.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Wrap-up</div>
+      <h2>Scaling &amp; failure: what breaks at 10x</h2>
+      <p>Take the design to 1 billion notifications a day and ask what gives first. Each answer reuses a piece we already built.</p>
+      <h3>A provider goes down</h3>
+      <p>APNs has an outage. Workers see timeouts; the retry+backoff loop (Step 07) keeps re-enqueuing, the circuit breaker slows consumption, and messages accumulate in the push queue rather than being lost. When APNs recovers, the workers drain the backlog. If you run multiple SMS aggregators, a worker can <strong>failover</strong> to a secondary provider on sustained errors. The user-visible effect is delay, not loss — exactly what queues buy you. <em>"What happens when APNs is down?"</em> → the queue absorbs, retries ride it out, optionally failover; nothing drops.</p>
+      <h3>A worker dies</h3>
+      <p>Because workers are stateless and pull from a durable queue, a dead worker just means its in-flight messages become visible again (visibility timeout expires) and another worker picks them up. The dedup key (Step 06) ensures the redelivered message is not double-sent if the original actually went out. Autoscaling on queue depth spins up replacements.</p>
+      <h3>Hot partitions &amp; the tracking firehose</h3>
+      <p>At 10x, the <code>notification</code> table takes ~10B writes/day. Partition it by <code>user_id</code> (or a hash) in Cassandra/DynamoDB so writes spread evenly; a TTL expires old rows automatically. Beware a <strong>celebrity/hot-segment</strong> problem: a single huge segment fanned out can hot-spot one fan-out worker — shard the fan-out work itself by splitting the segment into chunks processed in parallel.</p>
+      <h3>The thundering-herd campaign</h3>
+      <p>A "11.11 sale starts NOW" push to 50M users is the worst case. Mitigations: pre-expand the segment ahead of time, enqueue with the campaign onto the <em>low-priority</em> queue so transactional traffic is untouched, meter delivery with per-provider rate limiting, and consider deliberate <strong>jittered scheduling</strong> (spread the 50M sends over a few minutes) so you neither melt the provider nor self-DDoS your own app when everyone taps at once.</p>
+      <div class="callout tip">
+        <span class="k">The follow-ups, in one breath</span>
+        <p><em>Avoid duplicates?</em> idempotency key + dedup SETNX + unique constraint. <em>APNs down?</em> queues absorb, retry/backoff, optional failover, no loss. <em>Honor preferences?</em> gate before enqueue, cached prefs, atomic cap counters, DND in user tz, transactional bypasses. <em>Absorb a spike?</em> per-channel + priority queues meter bursts into rate-limited providers. If you can rattle those off, you have the lesson.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole system compresses to one sentence: <em>fan one event out to many users across isolated, rate-limited channels — with queues to absorb bursts, at-least-once + dedup so nobody is paged twice, and a preference gate so nobody is spammed.</em> If you can draw the five-stage pipeline and name the bottleneck each piece solves, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>It's decouple, not "call FCM"</b><span>The work is queues, reliability, and respecting users — not the provider call.</span></div>
+        <div class="tk"><span class="num">02</span><b>Scope channels + NFRs</b><span>Push/SMS/email, many sources, reliable, no duplicates, bursty.</span></div>
+        <div class="tk"><span class="num">03</span><b>Estimate the gap</b><span>~100M/day; bursty peaks vs rate-limited providers justify queues.</span></div>
+        <div class="tk"><span class="num">04</span><b>Async API, 202</b><span>Accept an idempotency key; promise an attempt, not delivery.</span></div>
+        <div class="tk"><span class="num">05</span><b>Per-channel queues</b><span>Isolate channels + a priority lane so slow/marketing never blocks fast.</span></div>
+        <div class="tk"><span class="num">06</span><b>At-least-once + dedup</b><span>SETNX dedup key + unique constraint = effectively exactly-once.</span></div>
+        <div class="tk"><span class="num">07</span><b>Backoff + DLQ</b><span>Retry retryable errors with jitter; park the rest in a monitored DLQ.</span></div>
+        <div class="tk"><span class="num">08</span><b>Gate before enqueue</b><span>Opt-in, DND in user tz, atomic frequency caps; transactional bypasses.</span></div>
+        <div class="tk"><span class="num">09</span><b>Tokens · templates · tracking</b><span>Clean stale tokens; versioned localized templates; sent ≠ delivered.</span></div>
+        <div class="tk"><span class="num">10</span><b>Queues absorb failure</b><span>Provider down → delay not loss; stateless workers; partition the log.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why does each channel get its own queue instead of one shared queue, and what does a priority split add?<br>(2) How do you avoid sending the same notification twice — name all three layers?<br>(3) What happens, step by step, when APNs is down — and why is nothing lost?<br>(4) How do retries, exponential backoff with jitter, and the DLQ fit together, and when do you <em>not</em> retry?<br>(5) How do you honor channel opt-out, do-not-disturb, and frequency caps — and what bypasses them?<br>(6) What's the difference between <em>sent</em>, <em>delivered</em>, and <em>opened</em>, and why does it matter?<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 23 · DESIGN A NOTIFICATION SYSTEM · interactive edition<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* high-level architecture */
+  makeStepper(document.getElementById('fig-hld'), [
+    {text:"An event source calls the send API — it knows nothing about channels or providers.", active:["h-src","h-svc"], path:"h-p1"},
+    {text:"The Notification Service dedups, checks preferences, picks the template, and routes.", active:["h-svc","h-q"], path:"h-p2"},
+    {text:"The message lands on the push queue, which buffers the burst durably.", active:["h-q","h-wkr"], path:"h-p3"},
+    {text:"A push worker drains the queue at a rate the provider can safely accept.", active:["h-wkr","h-prov"], path:"h-p4"},
+    {text:"FCM / APNs delivers to the device. Service stays stateless; the queue holds the load.", active:["h-q","h-wkr","h-prov"]}
+  ]);
+
+  /* fan-out across channels */
+  makeStepper(document.getElementById('fig-fanout'), [
+    {text:"One event arrives; the service expands the audience into individual deliveries.", active:["f-svc"]},
+    {text:"Push deliveries are routed to the high-rate push queue, then drained by push workers to FCM/APNs.", active:["f-svc","f-qp","f-wp","f-pp"], path:"f-rp"},
+    {text:"SMS deliveries go to a separate queue capped near ~300/sec, sipped by the SMS worker to Twilio.", active:["f-svc","f-qs","f-ws","f-ps"], path:"f-rs"},
+    {text:"Email deliveries take their own lane, metered under the SES quota by the email worker.", active:["f-svc","f-qe","f-we","f-pe"], path:"f-re"},
+    {text:"Three isolated lanes: a slow or throttled channel never blocks the others.", active:["f-qp","f-qs","f-qe","f-wp","f-ws","f-we","f-pp","f-ps","f-pe"], path:"f-dp"}
+  ]);
+
+  /* retry + DLQ */
+  makeStepper(document.getElementById('fig-retry'), [
+    {text:"A worker pulls a message off the channel queue (attempt n).", active:["r-q","r-wkr"], path:"r-p1"},
+    {text:"It calls the provider — which returns a retryable error (timeout / 503 / 429).", active:["r-wkr","r-prov"], path:"r-p2", reject:true},
+    {text:"The worker re-enqueues with exponential backoff + jitter — no synchronized retry storm.", active:["r-wkr","r-q"], path:"r-p3", reject:true},
+    {text:"On a later attempt the provider accepts; the worker records 'sent' and acks the message.", active:["r-wkr","r-ok"], path:"r-p4"},
+    {text:"If it keeps failing past max attempts, the message is parked in the monitored DLQ — never silently dropped.", active:["r-wkr","r-dlq"], path:"r-p5", reject:true}
+  ]);
+</script>
+</body>
+</html>

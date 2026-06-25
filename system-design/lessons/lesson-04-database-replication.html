@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 04 — Database Replication</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  pre{background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;color:var(--ink);margin:24px 0;}
+  pre .c{color:var(--blueprint-soft);} pre .k{color:var(--rust);}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Database<br>Replication</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>One database is a cliff edge</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Leader &amp; followers ▸</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>How the change log streams</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Sync vs async replication</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Replication lag &amp; stale reads</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Read-your-own-writes</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>When the leader dies ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Split-brain &amp; fencing</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Why not multi-leader?</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>The read/write API split</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>What breaks at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">04</span><span>Lesson · System Design Interview</span></div>
+      <h1>Database Replication</h1>
+      <p class="lede">A single database is two problems wearing one trench coat: it is the one machine whose death takes the whole product down, and it is the hard ceiling on how many reads you can serve. Replication copies your data onto more machines so reads scale and the system survives a lost node — but it hands you back lag, stale reads, and the genuinely hard question of what to do the instant the leader stops answering.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on database replication — a standard, widely-documented engineering topic. The explanations, examples, numbers, and diagrams here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow, including the failover branch.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>One database is a cliff edge</h2>
+      <p>Start with the simplest possible setup: one application server talking to one database. It works beautifully until two forces collide with it. The first is a <strong>single point of failure</strong> (SPOF) — a component whose failure brings down the entire system because nothing else can take over its job. If that one database loses power, corrupts a disk, or its host gets reaped by a cloud provider, every read and every write stops cold. Your GrabPay wallet balances, your Shopee order history, your Agoda bookings — all unreachable until someone restores from backup, which can take minutes to hours.</p>
+      <p>The second force is the <strong>read ceiling</strong>. A single machine has a fixed number of CPU cores, a fixed amount of RAM for the buffer pool, and a fixed disk throughput. Past some queries-per-second it saturates, and latency climbs from single-digit milliseconds into the hundreds. You can buy a bigger box — <strong>vertical scaling</strong> — but that runs out fast and gives you exactly zero redundancy: a bigger SPOF is still a SPOF.</p>
+      <p>Here is the lever that makes the fix obvious: <strong>most real workloads are read-heavy</strong>. A user browsing the Shopee catalogue, opening a chat thread, refreshing a feed, or checking a wallet balance issues many reads for every write. A read:write ratio of 9:1 is common; for content and catalogue systems it is often 50:1 or higher. So if you could spread reads across several machines, you would relieve the bottleneck for the bulk of your traffic and gain redundancy at the same time. That is exactly what <strong>replication</strong> does: keep multiple copies of the same data on different nodes.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A single database serving all reads and writes, marked as a single point of failure">
+            <rect class="node" x="24" y="84" width="120" height="50" rx="8"/>
+            <text class="lbl" x="84" y="105" text-anchor="middle">App servers</text>
+            <text class="lbl-sm" x="84" y="123" text-anchor="middle">(read-heavy)</text>
+            <path class="flow" d="M146 100 H 372" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="259" y="90" text-anchor="middle">all reads + writes</text>
+            <rect x="392" y="50" width="180" height="120" rx="10" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="482" y="42" text-anchor="middle" fill="#B0532F">⚡ single point of failure</text>
+            <g transform="translate(458,74)">
+              <path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#2E73B8"/>
+              <ellipse cx="24" cy="8" rx="24" ry="8" fill="#3E86CF"/>
+              <text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text>
+            </g>
+            <text class="lbl" x="482" y="160" text-anchor="middle">Database</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one box absorbs every read and every write, and its death is the whole outage</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Why it matters</span>
+        <p>Replication is the cheapest first win in scaling a stateful system. It targets the <em>read</em> side and <em>availability</em> at once. It does <em>not</em> by itself help write throughput — every copy still has to absorb every write — which is the bottleneck that eventually forces sharding (covered in Lesson 10). Keep that boundary crisp: replication scales reads and survivability; sharding scales writes and storage.</p>
+      </div>
+    </section>
+
+    <!-- 1 — INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The core topology</div>
+      <h2>Leader and followers</h2>
+      <p>The standard answer is the <strong>leader–follower</strong> topology, also called <strong>primary–replica</strong> (older docs say master–slave). The rule is short and you should be able to recite it: one node is designated the <strong>leader</strong>, and <strong>all writes go to the leader</strong>. Every other node is a <strong>follower</strong> (replica) that holds a copy of the same data. <strong>Reads can be served by any node</strong> — usually you offload them to the followers so the leader is freed up for writes.</p>
+      <p>The leader keeps the followers in step by continuously sending them a stream of every change it makes — its <strong>replication log</strong> (we unpack exactly what flows in the next step). A follower receives that stream and applies the same changes in the same order to its own copy, so it converges on the leader's state.</p>
+      <h3>Why this shape and not something else</h3>
+      <p>Putting writes through one node is a deliberate simplification: it gives you a single, unambiguous order of writes. There is exactly one place that decides "first this update happened, then that one," so there are no write-write conflicts to resolve. Followers just replay that order. That single-writer discipline is what makes leader–follower the easiest replication model to reason about, and it is why it is the default in PostgreSQL, MySQL, SQL Server, MongoDB, and managed services like Amazon RDS and Aurora.</p>
+      <p>Adding a follower buys you two things at once. It is one more node that can answer reads, so your read capacity grows roughly linearly with replica count. And it is a hot copy of the data, so if the leader dies a follower can be promoted to take its place (Step 06). Walk the flow below — note especially the dashed failover branch at the end.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-topo">
+          <svg viewBox="0 0 640 280" role="img" aria-label="Interactive leader and follower topology with a write path, replication, a read path, and a failover branch">
+            <g class="st" id="t-app"><rect class="node" x="18" y="116" width="96" height="48" rx="8"/><text class="lbl" x="66" y="138" text-anchor="middle">App</text><text class="lbl-sm" x="66" y="154" text-anchor="middle">servers</text></g>
+            <g class="st" id="t-leader"><rect class="node-b" x="232" y="22" width="150" height="56" rx="9"/><text class="lbl" x="307" y="46" text-anchor="middle">Leader</text><text class="lbl-sm" x="307" y="63" text-anchor="middle">(accepts writes)</text></g>
+            <g class="st" id="t-f1"><rect class="node" x="232" y="120" width="150" height="44" rx="8"/><text class="lbl" x="307" y="147" text-anchor="middle">Follower 1</text></g>
+            <g class="st" id="t-f2"><rect class="node" x="232" y="200" width="150" height="44" rx="8"/><text class="lbl" x="307" y="227" text-anchor="middle">Follower 2</text></g>
+            <g class="st" id="t-reader"><rect class="node" x="498" y="178" width="120" height="48" rx="8"/><text class="lbl" x="558" y="200" text-anchor="middle">Read</text><text class="lbl-sm" x="558" y="216" text-anchor="middle">request</text></g>
+            <!-- write in -->
+            <path id="t-write" class="flow" d="M114 130 C 170 90, 200 60, 230 52" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="158" y="74" text-anchor="middle">write</text>
+            <!-- replication streams -->
+            <path id="t-rep1" class="flow-d" d="M307 80 V 118" marker-end="url(#arrow-s)"/>
+            <path id="t-rep2" class="flow-d" d="M290 80 C 250 130, 250 160, 270 198" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="360" y="100" text-anchor="middle">log stream</text>
+            <!-- read from follower -->
+            <path id="t-read" class="flow" d="M498 200 C 440 180, 410 160, 384 150" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="450" y="148" text-anchor="middle">read</text>
+            <!-- failover branch -->
+            <path id="t-promote" class="flow-r" d="M307 120 V 82" marker-end="url(#arrow-r)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: writes hit the leader, stream to followers, reads come off a follower, and a follower is promoted if the leader dies</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>Open with the rule in one breath: <em>"single leader for writes, fan reads out to followers, leader ships its change log to keep them in sync."</em> Then immediately name the two payoffs — read scaling and redundancy — and the one thing it does <em>not</em> fix — write throughput. That framing tells the interviewer you know exactly what problem this tool is and isn't for.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The mechanism</div>
+      <h2>How the change log streams</h2>
+      <p>"The leader ships its changes" is the line that gets you partial credit. To get full credit, you should be able to say <em>what</em> actually travels over the wire, because the choice has real consequences. Under the hood, a leader writes every committed change into an append-only log on disk, and followers pull from that log and replay it. There are three common things that log can contain.</p>
+      <h3>Statement-based replication</h3>
+      <p>The simplest idea: ship the literal SQL statements (<code>UPDATE wallets SET balance = balance - 50 WHERE user_id = 7</code>) and have each follower re-run them. It is compact, but it is dangerous because non-deterministic functions diverge: <code>NOW()</code>, <code>RAND()</code>, or an auto-increment that depends on timing will produce <em>different</em> results on each replica. MySQL historically defaulted to this and accumulated a long list of caveats. Mostly abandoned for general use.</p>
+      <h3>Write-ahead log (WAL) shipping</h3>
+      <p>Ship the low-level, physical log the storage engine already writes for crash recovery — the <strong>write-ahead log</strong>, the byte-level record of which pages and bytes changed on disk. PostgreSQL's streaming replication works this way: the follower replays the exact same physical changes. It is precise and cheap to produce, but it is tightly coupled to the storage format, so the leader and follower generally must run the same engine and often the same major version, which complicates zero-downtime upgrades.</p>
+      <h3>Logical (row-based) replication</h3>
+      <p>The pragmatic middle ground: ship a <strong>logical description of the row change</strong> — "in table <code>wallets</code>, the row with primary key 7 changed column <code>balance</code> from 200 to 150." This is decoupled from the physical storage format, so it survives version differences and can even feed a different system entirely. MySQL's row-based binlog and PostgreSQL's logical replication use this. It is also the foundation of <strong>change data capture</strong> (CDC): tools like Debezium tail the binlog/WAL and publish each row change onto Kafka, so a SeaMoney transactions table can fan out to a search index, an analytics warehouse, and a fraud-detection stream — all from the same replication log.</p>
+      <pre><span class="c">// A logical replication event, conceptually</span>
+{
+  <span class="k">"op"</span>: "UPDATE",
+  <span class="k">"table"</span>: "wallets",
+  <span class="k">"key"</span>:   { "user_id": 7 },
+  <span class="k">"before"</span>: { "balance": 200 },
+  <span class="k">"after"</span>:  { "balance": 150 },
+  <span class="k">"lsn"</span>: "0/16B3748"   <span class="c">// log sequence number = position in the stream</span>
+}</pre>
+      <p>Two details matter for later sections. First, every entry has a monotonic position — PostgreSQL calls it the <strong>log sequence number</strong> (LSN), MySQL the binlog coordinates, MongoDB the <strong>oplog</strong> timestamp. A follower's position in this stream is exactly how you measure how far behind it is. Second, replication can be a <strong>pull</strong> model (the follower asks the leader for everything after position X) which is robust because a follower that disconnects can reconnect and catch up from where it left off, as long as the leader still retains that segment of the log.</p>
+      <div class="callout">
+        <span class="k">Under the hood — catch-up after a disconnect</span>
+        <p>Say Follower 2 in a Grab cluster reboots for a kernel patch and is offline for 90 seconds. On restart it tells the leader its last applied LSN and streams everything since. This works only while the leader still has those log segments; if the follower was down long enough that the log was recycled (PostgreSQL <code>wal_keep_size</code> / replication slots, MySQL <code>binlog_expire_logs_seconds</code>), the follower can't catch up incrementally and must be re-seeded from a fresh base snapshot. Sizing log retention is therefore an availability decision, not a housekeeping one.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The durability dial</div>
+      <h2>Synchronous vs asynchronous</h2>
+      <p>The instant you have a leader streaming to followers, a timing question appears: when a client sends a write and the leader commits it, <em>does the leader wait for the followers to confirm they received it before telling the client "done"?</em> The answer is a dial, not a switch, and it trades durability against latency.</p>
+      <h3>Synchronous replication</h3>
+      <p>In <strong>synchronous replication</strong>, the leader does not acknowledge the write to the client until at least one designated follower confirms it has the change. The payoff is strong durability: the moment the client sees success, the data exists on two machines, so even if the leader's disk evaporates a microsecond later, the write is not lost. The cost is latency and fragility — every write now pays a network round trip to the follower, and if that follower is slow, GC-pausing, or unreachable, the write <em>stalls</em>. A naive fully-synchronous setup means one sick follower can freeze all writes for the whole system.</p>
+      <h3>Asynchronous replication</h3>
+      <p>In <strong>asynchronous replication</strong>, the leader writes locally, acknowledges the client immediately, and ships the change to followers in the background. Writes are fast and a slow follower never blocks the leader — you can add many followers cheaply. The catch is a durability hole: if the leader crashes after acknowledging a write but before any follower received it, that write is <strong>lost</strong>. This is the model behind most read-scaling deployments precisely because it keeps write latency low.</p>
+      <h3>Semi-synchronous — the middle ground</h3>
+      <p><strong>Semi-synchronous replication</strong> is the setting most production systems actually use. You make <em>one</em> follower synchronous and the rest asynchronous. Now every acknowledged write is guaranteed on at least two nodes (no data loss if the leader alone dies), but you only ever wait on the single fastest sync follower, and the async followers scale reads without dragging on write latency. PostgreSQL exposes this directly via <code>synchronous_commit</code> and <code>synchronous_standby_names</code>; MySQL has a semi-sync plugin with a configurable timeout that automatically falls back to async if the sync follower goes quiet for too long.</p>
+      <div class="vs">
+        <div class="col"><h4>Synchronous</h4><ul>
+          <li><strong>+</strong> No data loss — acked writes survive a leader crash</li>
+          <li><strong>+</strong> Followers are guaranteed current at ack time</li>
+          <li><strong>−</strong> Every write pays a follower round trip → higher latency</li>
+          <li><strong>−</strong> A slow or dead sync follower can stall all writes</li>
+        </ul></div>
+        <div class="col"><h4>Asynchronous</h4><ul>
+          <li><strong>+</strong> Low write latency — leader acks immediately</li>
+          <li><strong>+</strong> A slow follower never blocks writes; scales to many replicas</li>
+          <li><strong>−</strong> Recent acked writes can be lost if the leader dies first</li>
+          <li><strong>−</strong> Followers lag, so reads can be stale (Step 04)</li>
+        </ul></div>
+      </div>
+      <p>For a SeaMoney funds transfer you lean synchronous (or semi-sync) — losing a confirmed payment is unacceptable. For a Shopee product-view counter or an Agoda "recently viewed" list you happily run async — a lost increment is invisible and speed wins. The interview move is to tie the dial to the <em>business cost of a lost write</em>, not to pick one globally.</p>
+      <div class="callout tip">
+        <span class="k">Follow-up the interviewer will ask</span>
+        <p><em>"With one synchronous follower, what happens if that follower itself dies?"</em> Most systems automatically demote the requirement to async (or promote another follower into the sync slot) so writes keep flowing — otherwise the sync follower becomes its own SPOF. The honest answer names that trade: while running degraded, you have briefly given up the no-data-loss guarantee in exchange for staying available.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The cost of async</div>
+      <h2>Replication lag and stale reads</h2>
+      <p>Asynchronous replication's free lunch comes with a bill: <strong>replication lag</strong> — the delay between a write committing on the leader and that same write being applied on a follower. Under healthy conditions lag is a few milliseconds. Under load — a follower replaying a heavy batch, a network blip, or a long-running query holding things up — it can spike to seconds or, in pathological cases, minutes.</p>
+      <p>Lag produces <strong>stale reads</strong>: a read served by a follower that hasn't yet caught up returns an <em>older</em> version of the data. Because the system is correct eventually but not instantly, this is <strong>eventual consistency</strong> — read a key on two different followers a moment apart and you may get two different answers, both of which were once true on the leader.</p>
+      <h3>A worked example: the lagging follower</h3>
+      <p>A Shopee seller updates a listing price from S$25 to S$20 at <code>t=0</code>. The write commits on the leader instantly. Follower A is 50ms behind and Follower B is, right now, 4 seconds behind because it's chewing through a big replay queue.</p>
+      <ul>
+        <li>A buyer's app reads the price at <code>t=100ms</code> and the load balancer routes it to Follower A → it sees <strong>S$20</strong>. Correct.</li>
+        <li>Another buyer reads at <code>t=200ms</code> and gets routed to Follower B → it still sees <strong>S$25</strong>. Stale.</li>
+        <li>At <code>t=4s</code> Follower B finishes catching up and now also serves S$20.</li>
+      </ul>
+      <p>For a price display that flicker is usually tolerable. For a "you have S$0 balance" message shown to a user who just topped up, it is alarming. The size of the problem is entirely about <em>which data</em> is being read stale.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Timeline showing a write on the leader and two followers applying it at different times, with a stale read window">
+            <text class="lbl-sm" x="36" y="34" text-anchor="start">Leader</text>
+            <line x1="120" y1="30" x2="610" y2="30" stroke="#1F4E79" stroke-width="1.5"/>
+            <circle cx="150" cy="30" r="6" fill="#1F4E79"/>
+            <text class="lbl-sm" x="150" y="18" text-anchor="middle">write price=20 (t=0)</text>
+            <text class="lbl-sm" x="36" y="100" text-anchor="start">Follower A</text>
+            <line x1="120" y1="96" x2="610" y2="96" stroke="#4A7BA6" stroke-width="1.5"/>
+            <circle cx="176" cy="96" r="6" fill="#4A7BA6"/>
+            <text class="lbl-sm" x="176" y="84" text-anchor="middle">applied (+50ms)</text>
+            <text class="lbl-sm" x="36" y="166" text-anchor="start">Follower B</text>
+            <line x1="120" y1="162" x2="610" y2="162" stroke="#4A7BA6" stroke-width="1.5"/>
+            <circle cx="470" cy="162" r="6" fill="#4A7BA6"/>
+            <text class="lbl-sm" x="470" y="150" text-anchor="middle">applied (+4s)</text>
+            <rect x="176" y="120" width="294" height="62" rx="7" fill="rgba(176,83,47,.07)" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="323" y="200" text-anchor="middle" fill="#B0532F">stale-read window on Follower B: reads here still see price=25</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — the same write lands on followers at different times; reads inside the window see old data</figcaption>
+      </figure>
+      <h3>Measuring and bounding lag</h3>
+      <p>You measure lag with the log positions from Step 02. PostgreSQL exposes <code>pg_stat_replication</code> with each follower's <code>replay_lsn</code> versus the leader's current LSN; the byte gap (or a time estimate) is your lag. MySQL reports <code>Seconds_Behind_Source</code>. The operational rule: <strong>monitor lag and eject over-lagged followers from the read pool</strong>. Many routing layers (ProxySQL, Vitess, AWS RDS Proxy) will stop sending reads to a replica whose lag exceeds a threshold, so a sick follower degrades read capacity rather than serving wrong answers.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Taming staleness</div>
+      <h2>Read-your-own-writes</h2>
+      <p>The most jarring form of stale read is when a user can't see their <em>own</em> action. A GrabPay user tops up S$50, the success screen appears, the app immediately re-fetches the balance from a lagging follower, and it shows the <em>old</em> balance. To the user the top-up looks like it failed. The guarantee you need here has a name: <strong>read-your-own-writes consistency</strong> (also called read-after-write) — a user is always guaranteed to see updates <em>they themselves</em> just made, even though they may still see other users' updates with some lag.</p>
+      <p>This is a weaker, cheaper promise than full strong consistency, and there are several standard ways to deliver it.</p>
+      <h3>Route the writer to the leader for a window</h3>
+      <p>The bluntest fix: for a short period after a user performs a write (say a few seconds), route <em>that user's</em> reads of the affected data to the <strong>leader</strong> instead of a follower. The leader is always current, so they always see their own change. After the window, assume followers have caught up and resume reading from them. Simple and effective; the downside is it pushes read load back onto the leader, so you keep the window tight and scope it to the data the user just touched.</p>
+      <h3>Track a write version and wait for it</h3>
+      <p>The more surgical fix uses the log positions again. When a user performs a write, the app remembers the leader's log position at that moment (an LSN / token). On the next read, it only accepts a follower whose <code>replay_lsn</code> has reached or passed that token — otherwise it waits briefly, retries another follower, or falls back to the leader. This delivers read-your-own-writes without permanently pinning the user to the leader.</p>
+      <pre><span class="c">// pseudo-flow for read-after-write via a version token</span>
+token = leader.write(topUp)        <span class="c">// returns LSN, e.g. "0/16B3748"</span>
+session.lastWriteLSN = token
+
+<span class="c">// on the next read for this user:</span>
+f = pickFollower()
+<span class="k">if</span> (f.replayLSN &gt;= session.lastWriteLSN) read(f)   <span class="c">// caught up → safe</span>
+<span class="k">else</span>                                       read(leader) <span class="c">// fall back</span></pre>
+      <h3>The cross-device wrinkle</h3>
+      <p>"Their own writes" gets harder when a user has two devices, or when the write and the read arrive at different datacentres. A user who tops up on their phone and immediately checks the balance on the web should still see the new value — so the version token must travel with the <em>user</em> (in their session / a centralised store), not just the single TCP connection. This is exactly the kind of nuance an interviewer probes to separate "I memorised the term" from "I've built it."</p>
+      <div class="callout tip">
+        <span class="k">Classic interview question</span>
+        <p><em>"A user just posted a comment and reloads the page — how do you make sure they see it?"</em> Walk the menu: pin their reads to the leader briefly, or carry a write-version token and only read from a caught-up follower. Then note the harder variant — <strong>monotonic reads</strong> (a user should never see time go backwards by hopping between followers at different lag) — which you fix by routing a given user consistently to the same follower (e.g. hash the user id to a replica).</p>
+      </div>
+    </section>
+
+    <!-- 6 — INTERACTIVE -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The failure mode</div>
+      <h2>When the leader dies</h2>
+      <p>Everything above assumes a healthy leader. The whole reason we replicated, though, was to survive losing it — so what actually happens the moment the leader stops responding? This process is <strong>failover</strong>: detecting the leader is gone, choosing a follower to take over, and rewiring the system around the new leader. It is the single hardest and most-probed part of replication, because every sub-step has a way to go wrong.</p>
+      <h3>The four moves of failover</h3>
+      <ul>
+        <li><strong>Detect.</strong> Decide the leader is actually dead, not merely slow. Done with timeouts and heartbeats — a monitor (or the followers themselves) pings the leader, and after it misses responses for some window (say 10–30 seconds) it's declared down. Too short a timeout causes false alarms during a GC pause or a network hiccup; too long extends the outage. There is no perfect value.</li>
+        <li><strong>Choose.</strong> Pick which follower becomes the new leader. The best candidate is the one with the <em>most up-to-date</em> data — the highest applied log position — to minimise lost writes. Picking the new leader requires agreement among the surviving nodes, which is a <strong>consensus</strong> problem (Raft/Paxos under the hood in modern systems).</li>
+        <li><strong>Promote &amp; redirect.</strong> Promote the chosen follower to leader and point all writes at it. Clients and the other followers must learn the new leader's address — via a coordinator, a virtual IP, DNS, or a service-discovery layer. Until they do, writes fail.</li>
+        <li><strong>Reconfigure &amp; recover.</strong> The remaining followers start replicating from the new leader. When the old leader eventually comes back, it must <em>not</em> resume as leader; it rejoins as a follower and catches up.</li>
+      </ul>
+      <p>Step through the full lifecycle — the first three steps are the happy path, and the last three are the failover branch.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-fail">
+          <svg viewBox="0 0 640 280" role="img" aria-label="Interactive failover: leader handles writes, replicates, then dies and a follower is promoted">
+            <g class="st" id="f-app"><rect class="node" x="18" y="120" width="96" height="48" rx="8"/><text class="lbl" x="66" y="142" text-anchor="middle">App</text><text class="lbl-sm" x="66" y="158" text-anchor="middle">servers</text></g>
+            <g class="st" id="f-leader"><rect class="node-b" x="232" y="26" width="160" height="56" rx="9"/><text class="lbl" x="312" y="50" text-anchor="middle">Leader</text><text class="lbl-sm" x="312" y="67" text-anchor="middle">(writes)</text></g>
+            <g class="st" id="f-f1"><rect class="node" x="232" y="124" width="160" height="46" rx="8"/><text class="lbl" x="312" y="152" text-anchor="middle">Follower 1</text></g>
+            <g class="st" id="f-f2"><rect class="node" x="232" y="204" width="160" height="46" rx="8"/><text class="lbl" x="312" y="232" text-anchor="middle">Follower 2</text></g>
+            <g class="st" id="f-coord"><rect class="node-r" x="486" y="26" width="132" height="56" rx="9"/><text class="lbl" x="552" y="50" text-anchor="middle">Coordinator</text><text class="lbl-sm" x="552" y="67" text-anchor="middle">(detect/elect)</text></g>
+            <!-- write -->
+            <path id="f-write" class="flow" d="M114 134 C 170 100, 200 66, 230 58" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="158" y="80" text-anchor="middle">write</text>
+            <!-- replicate -->
+            <path id="f-rep" class="flow-d" d="M312 82 V 122" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="372" y="104" text-anchor="middle">log</text>
+            <!-- heartbeat -->
+            <path id="f-beat" class="flow-d" d="M486 54 H 394" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="440" y="44" text-anchor="middle">heartbeat</text>
+            <!-- promotion -->
+            <path id="f-promote" class="flow-r" d="M312 124 V 84" marker-end="url(#arrow-r)"/>
+            <!-- redirect writes to new leader (F1) -->
+            <path id="f-redirect" class="flow" d="M114 144 C 170 150, 200 150, 230 148" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: a coordinator detects the dead leader, promotes the most-current follower, and writes redirect</figcaption>
+      </figure>
+      <h3>RPO and RTO — the two numbers to quote</h3>
+      <p>Frame failover quality with two metrics. <strong>RPO (Recovery Point Objective)</strong> is how much data you can afford to lose, measured in time — with async replication, RPO equals the replication lag at the moment the leader died (the un-replicated tail of writes is gone). <strong>RTO (Recovery Time Objective)</strong> is how long you can be down, measured from failure to a working new leader — dominated by detection timeout plus promotion time. Synchronous replication pushes RPO toward zero at the cost of write latency; faster detection lowers RTO at the cost of more false failovers. Saying "with semi-sync our RPO is near zero and our RTO is about 30 seconds" is exactly the language interviewers want.</p>
+      <div class="callout">
+        <span class="k">Failure within the failure — lost writes</span>
+        <p>Under async, the dead leader may have acknowledged writes that no follower received. Those writes are lost on promotion (that's your RPO). Worse, if the old leader rejoins and naively replays its un-replicated changes onto a timeline the new leader has already advanced, you get conflicting data. The standard guard: when the old node returns, it discards any local writes ahead of the new leader's branch point (PostgreSQL's <code>pg_rewind</code> does exactly this) and re-syncs as a follower.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> The dangerous failure</div>
+      <h2>Split-brain and fencing</h2>
+      <p>The nastiest failover bug isn't losing a leader — it's accidentally ending up with <em>two</em>. <strong>Split-brain</strong> is the situation where two nodes both believe they are the leader and both accept writes. It usually happens when detection is wrong: a <strong>network partition</strong> cuts the original leader off from the monitor, so the monitor declares it dead and promotes a follower — but the original leader is alive and well on the other side of the partition, still taking writes from clients that can reach it. Now you have two divergent write histories, and merging them later means real, possibly unresolvable, data corruption — duplicate payment records, conflicting balances.</p>
+      <h3>Quorum: require a majority to act</h3>
+      <p>The first defence is to never let a minority promote. Require a <strong>quorum</strong> — a majority of nodes must agree before a new leader is elected. In a 3-node cluster you need 2 votes; in 5 you need 3. During a partition only the side holding the majority can elect a leader, so the minority side (which may include the old leader) can't keep operating as a leader. This is why clusters are sized to odd numbers: it guarantees exactly one side can ever have a majority.</p>
+      <h3>Fencing: forcibly silence the old leader</h3>
+      <p>Quorum stops a <em>new</em> bad leader, but you also have to be sure the <em>old</em> one stops. <strong>Fencing</strong> (memorably, STONITH — "shoot the other node in the head") forcibly prevents the deposed leader from accepting any more writes — by revoking its access, cutting its network, or refusing its writes at the storage layer. A common software version is a monotonic <strong>fencing token</strong>: every leadership term gets an increasing number, the shared resource records the highest token it has seen, and it rejects any write stamped with an older token. So even if a zombie old leader wakes up and tries to write, its stale token is bounced.</p>
+      <p>This is why real systems lean on a dedicated coordination service rather than home-grown heartbeats: <strong>ZooKeeper</strong>, <strong>etcd</strong>, or <strong>Consul</strong> provide consensus, leader election, and fencing tokens as primitives. Patroni (for PostgreSQL) builds HA on top of etcd/ZooKeeper; MongoDB's replica sets run their own Raft-based election internally; Redis uses Sentinel or Cluster for the same job.</p>
+      <div class="callout tip">
+        <span class="k">The question that separates levels</span>
+        <p><em>"You set the heartbeat timeout to 5 seconds to fail over fast. What goes wrong?"</em> Strong answer: a transient network blip or a stop-the-world GC pause longer than 5s triggers a needless failover, and during the chaos you risk split-brain if the old leader is only briefly unreachable. The real fix isn't a magic timeout — it's quorum plus fencing so that <em>even a wrong detection can't cause two active leaders.</em> Detection makes failover faster; fencing makes it <em>safe.</em></p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> The road not taken</div>
+      <h2>Why not multiple leaders?</h2>
+      <p>A natural question: if one leader is a write bottleneck and a failover risk, why not just have several leaders, each accepting writes? This is <strong>multi-leader replication</strong>, and it is genuinely useful in two cases — <em>multi-datacentre</em> setups where you want a local leader in each region so writes don't pay a cross-ocean round trip (a Grab leader in Singapore and another in Jakarta), and <em>offline-capable clients</em> where each device is effectively its own leader that syncs later.</p>
+      <h3>The price: write conflicts</h3>
+      <p>Multi-leader's fatal complication is the <strong>write conflict</strong>. Two leaders can accept conflicting writes to the same record concurrently, and because each accepted locally before learning about the other, there is no single authority to say which one "wins." Imagine the Singapore leader sets a user's display name to "Toan" while, at the same instant, the Jakarta leader sets it to "TVT." Both commit. When the streams meet, the system has two equally valid truths and must resolve the conflict — last-write-wins (which silently discards data), application-defined merge logic, or conflict-free data types (CRDTs). All of these are extra complexity that single-leader simply doesn't have.</p>
+      <p>So the honest framing in an interview: single-leader is the default precisely because it sidesteps write conflicts by funnelling all writes through one ordering authority. Reach for multi-leader only when geographic write latency or offline operation forces your hand — and the moment you do, conflict resolution becomes the central design problem.</p>
+      <div class="vs">
+        <div class="col"><h4>Single-leader</h4><ul>
+          <li><strong>+</strong> One write order — no conflicts to resolve</li>
+          <li><strong>+</strong> Simple to reason about and operate</li>
+          <li><strong>−</strong> Write throughput capped by one node</li>
+          <li><strong>−</strong> Cross-region writers pay a round trip to the leader</li>
+        </ul></div>
+        <div class="col"><h4>Multi-leader</h4><ul>
+          <li><strong>+</strong> Local writes per region → low write latency</li>
+          <li><strong>+</strong> Tolerates a region or link going down</li>
+          <li><strong>−</strong> Write conflicts are unavoidable and hard to resolve</li>
+          <li><strong>−</strong> Much more operational and reasoning complexity</li>
+        </ul></div>
+      </div>
+      <p>There is a third branch worth naming so the interviewer sees you know the map: <strong>leaderless replication</strong> (the Dynamo style used by Cassandra and DynamoDB), where clients write to several nodes directly and reads use quorums (<code>R + W &gt; N</code>) to paper over staleness. That deserves its own lesson; here, just place it as "the other end of the spectrum from single-leader."</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> The concrete contract</div>
+      <h2>The read/write API split</h2>
+      <p>Bring it down to code. The clean way to use a replicated database is to make the <strong>read path and write path explicit</strong> in your data-access layer: writes always target the leader's connection; reads target a replica pool. This split is what actually delivers the read scaling — if your code accidentally sends reads to the leader, you've gained redundancy but not capacity.</p>
+      <pre><span class="c">// Data layer routes by operation type</span>
+<span class="k">class</span> WalletStore {
+  read(userId)  { <span class="k">return</span> replicaPool.query(SELECT_BALANCE, userId); }
+  write(userId, delta) { <span class="k">return</span> leader.exec(UPDATE_BALANCE, userId, delta); }
+
+  <span class="c">// read-your-own-writes: caller can force the leader</span>
+  readFresh(userId) { <span class="k">return</span> leader.query(SELECT_BALANCE, userId); }
+}</pre>
+      <p>How is this wired in practice? Three layers do it. <strong>Application-level</strong>: many ORMs and drivers support a primary plus read-replica config and route by the SQL verb. <strong>A proxy</strong>: ProxySQL, MaxScale, PgBouncer/Pgpool, or AWS RDS Proxy sit between app and database, sending <code>SELECT</code> to replicas and writes to the primary, and transparently failing over the primary endpoint. <strong>A connection-string convention</strong>: managed services give you a single writer endpoint and a separate reader endpoint (Aurora's reader endpoint load-balances across all replicas) so the app just picks the right URL.</p>
+      <h3>The trap: read-after-write through a naive split</h3>
+      <p>The split reintroduces the staleness problem from Step 05 in a sneaky way: a request that writes then immediately reads will send the write to the leader and the read to a (lagging) replica, and read its own stale data. That's why the <code>readFresh</code> escape hatch exists — for the narrow set of reads that must reflect the caller's just-made write, force them to the leader (or use the version-token check). Designing that escape hatch deliberately, rather than discovering it as a bug in production, is the senior move.</p>
+      <div class="callout">
+        <span class="k">Failure mode of the split itself</span>
+        <p>What if the entire replica pool is lagging or down? You need a policy: do reads <em>fail open</em> by falling back to the leader (protecting correctness and availability, but risking overloading the leader), or do they <em>fail closed</em>? Most systems fall back to the leader for reads when no healthy replica exists — accepting temporary extra leader load as cheaper than an outage. Decide it on purpose and document the threshold.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> The next ceiling</div>
+      <h2>What breaks at 10x</h2>
+      <p>Replication scaled your reads and made you resilient. Now imagine the product 10x's its <em>write</em> volume — a Shopee 9.9 sale, a payday surge of SeaMoney transfers, a viral moment on a feed. Where does the design break?</p>
+      <ul>
+        <li><strong>The single leader saturates.</strong> Every write still goes through exactly one node, and adding followers does nothing for write throughput — in fact each new follower adds replication work to the leader. The leader's CPU, write IOPS, and the <code>fsync</code> on its commit path become the wall.</li>
+        <li><strong>Replication lag worsens.</strong> Followers must replay the same write stream the leader produces. As write rate climbs, followers fall behind, stale-read windows widen, and read-your-own-writes gets harder. The very thing scaling your reads now struggles to keep them correct.</li>
+        <li><strong>Failover gets scarier.</strong> A higher write rate under async means a larger un-replicated tail at any instant — your RPO grows precisely when an incident is most likely.</li>
+      </ul>
+      <p>The fix is the next tool, not more of this one: <strong>sharding</strong> (horizontal partitioning) — split the data across multiple independent leader sets by a partition key (<code>user_id</code>, <code>wallet_id</code>, region), so each shard absorbs only its slice of writes. Sharding scales <em>writes</em> and storage; replication scales <em>reads</em> and survivability — and you use them together: each shard is itself a small leader-follower cluster. That combination is the backbone of essentially every large-scale stateful system, and it's the subject of Lesson 10.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Sharding combined with replication: data split across two shards, each a leader-follower cluster">
+            <rect x="30" y="30" width="260" height="170" rx="10" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="160" y="22" text-anchor="middle">Shard A · users 0–4</text>
+            <rect class="node-b" x="100" y="46" width="120" height="42" rx="8"/><text class="lbl" x="160" y="72" text-anchor="middle">Leader A</text>
+            <rect class="node" x="60" y="128" width="92" height="40" rx="8"/><text class="lbl-sm" x="106" y="152" text-anchor="middle">Follower</text>
+            <rect class="node" x="168" y="128" width="92" height="40" rx="8"/><text class="lbl-sm" x="214" y="152" text-anchor="middle">Follower</text>
+            <path class="flow-d" d="M150 88 V 126" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M172 88 C 200 108, 210 116, 214 126" marker-end="url(#arrow-s)"/>
+            <rect x="350" y="30" width="260" height="170" rx="10" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="480" y="22" text-anchor="middle">Shard B · users 5–9</text>
+            <rect class="node-b" x="420" y="46" width="120" height="42" rx="8"/><text class="lbl" x="480" y="72" text-anchor="middle">Leader B</text>
+            <rect class="node" x="380" y="128" width="92" height="40" rx="8"/><text class="lbl-sm" x="426" y="152" text-anchor="middle">Follower</text>
+            <rect class="node" x="488" y="128" width="92" height="40" rx="8"/><text class="lbl-sm" x="534" y="152" text-anchor="middle">Follower</text>
+            <path class="flow-d" d="M470 88 V 126" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M492 88 C 520 108, 528 116, 534 126" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="320" y="216" text-anchor="middle">writes split by key across shards · each shard replicates internally</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — at 10x writes, shard to split the write load; each shard stays a leader-follower cluster for reads and HA</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Where the interviewer takes it next</span>
+        <p>Expect the bridge question: <em>"Replication didn't help your writes — so now what?"</em> The answer is sharding, and the moment you say it you've opened the next set of trade-offs: choosing a partition key that spreads load evenly (avoiding hot shards), handling cross-shard queries and transactions, and rebalancing when you add shards (which is exactly where consistent hashing earns its keep).</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one chain: <em>one database is a SPOF and a read ceiling → copy the data onto followers → choose how synchronously to copy it → accept that async copies lag and serve stale reads → patch the user-visible cases (read-your-own-writes) → and design carefully for the moment the leader dies, where consensus, quorum, and fencing keep you from losing or duplicating data.</em> If you can draw the leader-follower diagram, name what flows in the log, and reason about lag and failover out loud, you can carry this question.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Replicate the read side</b><span>One DB is a SPOF and a read ceiling; copies scale reads and add redundancy — not writes.</span></div>
+        <div class="tk"><span class="num">02</span><b>One leader for writes</b><span>All writes hit the leader; reads fan out to followers fed by the leader's change log.</span></div>
+        <div class="tk"><span class="num">03</span><b>Logical log + LSN</b><span>Ship row-level changes; the log position measures how far behind a follower is.</span></div>
+        <div class="tk"><span class="num">04</span><b>Sync vs async dial</b><span>Sync = no lost writes, higher latency; async = fast, but a crashed leader loses its tail.</span></div>
+        <div class="tk"><span class="num">05</span><b>Semi-sync default</b><span>One sync follower for durability, the rest async for read-scale without stalling writes.</span></div>
+        <div class="tk"><span class="num">06</span><b>Lag → stale reads</b><span>Async followers fall behind; reads inside the lag window see old data. Monitor and eject.</span></div>
+        <div class="tk"><span class="num">07</span><b>Read-your-own-writes</b><span>Pin a writer to the leader briefly, or carry a version token to a caught-up follower.</span></div>
+        <div class="tk"><span class="num">08</span><b>Failover = detect/elect/redirect</b><span>Quote RPO (≈ lag at crash) and RTO (≈ detect + promote) as the quality metrics.</span></div>
+        <div class="tk"><span class="num">09</span><b>Quorum + fencing</b><span>Majority vote prevents two leaders; fencing tokens silence the zombie old leader.</span></div>
+        <div class="tk"><span class="num">10</span><b>Shard at write scale</b><span>Replication caps at one leader's write rate; partition by key to scale writes (L10).</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) What two problems does replication solve, and which one does it pointedly <em>not</em> solve?<br>(2) What can flow in the replication log, and what's the risk of statement-based replication?<br>(3) Contrast synchronous and asynchronous replication, and explain why semi-sync is the usual default.<br>(4) What is replication lag, how do you measure it, and how would you handle the lag for a user who just topped up their wallet?<br>(5) Walk the four steps of failover, and define RPO and RTO in terms of replication.<br>(6) What is split-brain, how does a network partition cause it, and how do quorum and fencing prevent two active leaders?<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw the topology from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 04 · DATABASE REPLICATION · interactive edition<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* leader-follower topology + failover branch */
+  makeStepper(document.getElementById('fig-topo'), [
+    {text:"All writes go to the single leader — the one authority for write order.", active:["t-app","t-leader"], path:"t-write"},
+    {text:"The leader streams its change log to every follower to keep them in sync.", active:["t-leader","t-f1","t-f2"], path:"t-rep1"},
+    {text:"That same log also feeds Follower 2; followers converge on the leader's state.", active:["t-leader","t-f2"], path:"t-rep2"},
+    {text:"A read request is served by any follower, offloading the leader.", active:["t-reader","t-f1"], path:"t-read"},
+    {text:"Failure branch: the leader dies, so a current follower must take over.", active:["t-leader","t-f1"]},
+    {text:"Follower 1 is promoted to the new leader and writes redirect to it.", active:["t-f1","t-leader"], path:"t-promote", reject:true}
+  ]);
+
+  /* failover lifecycle */
+  makeStepper(document.getElementById('fig-fail'), [
+    {text:"Normal operation: the leader accepts every write.", active:["f-app","f-leader"], path:"f-write"},
+    {text:"The leader replicates each change to its followers.", active:["f-leader","f-f1","f-f2"], path:"f-rep"},
+    {text:"A coordinator heartbeats the leader to check it is alive.", active:["f-coord","f-leader"], path:"f-beat"},
+    {text:"The leader stops responding; after the timeout the coordinator declares it dead.", active:["f-coord","f-leader"], reject:true},
+    {text:"The most up-to-date follower (F1) is promoted to the new leader.", active:["f-coord","f-f1"], path:"f-promote", reject:true},
+    {text:"Writes redirect to the new leader; the old node will rejoin as a follower.", active:["f-app","f-f1"], path:"f-redirect"}
+  ]);
+</script>
+</body>
+</html>

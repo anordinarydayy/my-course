@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 27 — Design Full-Text Search (Inverted Index)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:var(--paper-2);border:1px solid var(--line);
+    border-left:4px solid var(--blueprint-soft);border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;color:var(--ink);}
+  pre .c{color:var(--ink-soft);} pre .k{color:var(--rust);} pre .s{color:var(--blueprint);}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Full-Text<br>Search</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why scanning fails</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Scope the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimate</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The inverted index</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The analyzer pipeline</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Query execution ▸</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Ranking: TF-IDF &amp; BM25</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Segments &amp; freshness</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Sharding &amp; scatter-gather ▸</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Filters, facets &amp; 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">27</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design Full-Text Search</h1>
+      <p class="lede">Type "red running shoes" into Shopee or Carousell and you get back relevance-ranked listings in tens of milliseconds — across hundreds of millions of items. One data structure makes that possible: the inverted index, a map from each word to the list of documents that contain it. Master it and you can whiteboard Elasticsearch, Lucene, and every product-search box.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on full-text search and the inverted index — a standard, widely-documented engineering topic. The explanations, examples, numbers, and diagrams here are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why scanning every row fails</h2>
+      <p>Imagine Carousell holds 200 million listings, and a user searches for <code>"vintage leather jacket"</code>. The naive approach is to scan every listing's title and description, check whether all three words appear, and return the matches. With a relational database this is a <code>WHERE description LIKE '%leather%'</code> query — and it is catastrophically slow, because a <strong>leading-wildcard <code>LIKE</code></strong> cannot use a B-tree index. The database must read every row, every time. At 200M rows that is a full table scan per keystroke in the search box.</p>
+      <p>The deeper issue is that a B-tree indexes whole column <em>values</em> in sorted order, which is perfect for <code>email = 'a@b.com'</code> or range queries, but useless when the thing you want is a <em>word buried inside</em> a longer text field. Search needs an index keyed by the words themselves, not by the documents. That inversion — from "document &rarr; its words" to "word &rarr; the documents containing it" — is the entire idea, and it gives the structure its name.</p>
+      <p>Beyond speed, plain matching also has no notion of <strong>relevance</strong>. A user searching "leather jacket" does not want results in random order; they want the best matches first. So full-text search is really two problems welded together: <em>find</em> the matching documents fast, then <em>rank</em> them well. We will build up to both.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="A LIKE query scanning every row of a 200 million row table versus a fast indexed lookup">
+            <rect class="node" x="24" y="84" width="104" height="46" rx="8"/>
+            <text class="lbl" x="76" y="105" text-anchor="middle">"leather"</text>
+            <text class="lbl-sm" x="76" y="122" text-anchor="middle">query</text>
+            <path class="flow-r" d="M130 107 H 214" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="172" y="97" text-anchor="middle" fill="#B0532F">LIKE '%..%'</text>
+            <rect x="218" y="40" width="184" height="138" rx="10" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="310" y="32" text-anchor="middle" fill="#B0532F">full table scan</text>
+            <g fill="#cfc7b6">
+              <rect x="234" y="54" width="152" height="9" rx="2"/>
+              <rect x="234" y="68" width="152" height="9" rx="2"/>
+              <rect x="234" y="82" width="152" height="9" rx="2"/>
+              <rect x="234" y="96" width="152" height="9" rx="2"/>
+              <rect x="234" y="110" width="152" height="9" rx="2"/>
+              <rect x="234" y="124" width="152" height="9" rx="2"/>
+              <rect x="234" y="138" width="152" height="9" rx="2"/>
+              <rect x="234" y="152" width="152" height="9" rx="2"/>
+            </g>
+            <text class="lbl-sm" x="310" y="172" text-anchor="middle" fill="#9a927f">200M rows · O(N)</text>
+            <path class="flow" d="M404 100 H 484" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="446" y="90" text-anchor="middle">invert it</text>
+            <rect class="node-b" x="488" y="80" width="128" height="52" rx="9"/>
+            <text class="lbl" x="552" y="103" text-anchor="middle">word → docs</text>
+            <text class="lbl-sm" x="552" y="121" text-anchor="middle">O(1) lookup</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — a wildcard LIKE scans every row; inverting the data turns it into a direct lookup</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify and scope the requirements</h2>
+      <p>Before drawing anything, narrow the problem out loud. "Search" can mean a Google-scale web crawler, a log-analytics system, or a product-search box — wildly different designs. For this lesson we will design <strong>product/document search</strong> in the spirit of Shopee or Carousell. State your assumptions and confirm them.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Keyword search</strong> over a corpus of documents (here, product listings: title, description, brand, category).</li>
+        <li><strong>Relevance ranking</strong> — return the best matches first, not an arbitrary order.</li>
+        <li><strong>Freshness</strong> — when a seller posts or edits a listing, it should become searchable within seconds, not hours.</li>
+        <li><strong>Filters and facets</strong> — narrow by price range, category, location, in-stock; show counts per facet ("Shoes (1,204)").</li>
+        <li><strong>Pagination</strong> — return the top-k and allow paging deeper.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Low latency</strong> — p99 search under ~100&nbsp;ms; the box should feel instant.</li>
+        <li><strong>High throughput</strong> — search is read-heavy and bursty (lunchtime, payday, 9.9 / 11.11 sales).</li>
+        <li><strong>Horizontal scalability</strong> — the corpus grows; a single machine's RAM cannot hold the whole index.</li>
+        <li><strong>High availability</strong> — a node dying must not take search down or lose data.</li>
+        <li><strong>Eventual consistency is fine.</strong> A listing appearing a second or two late is acceptable; search is not a bank ledger.</li>
+      </ul>
+      <h3>Explicitly out of scope</h3>
+      <p>Calling out non-goals is as valuable as listing goals — it shows judgement. We will <em>not</em> build the crawler/ingestion source of documents, autocomplete/typeahead (its own lesson), spell-correction, or semantic/vector search. We assume documents arrive from an upstream system (a catalog service emitting change events).</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design: <em>"Search is a read-heavy problem where we trade a moderately expensive write path — building the index — for an extremely cheap read path."</em> Everything that follows is a consequence of optimizing reads at the cost of writes.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimation</div>
+      <h2>A quick back-of-the-envelope</h2>
+      <p>Numbers turn a vague problem into a concrete one and tell you whether a single box can hold the index (it cannot). Assume the Carousell-style corpus:</p>
+      <ul>
+        <li><strong>Corpus:</strong> 200M listings, each averaging ~120 words of indexable text (title + description + attributes).</li>
+        <li><strong>Search traffic:</strong> 50M searches/day. Spread evenly that is ~<strong>580 QPS</strong>; with a 5&times; peak factor, budget for ~<strong>3,000 QPS</strong>.</li>
+        <li><strong>Write traffic:</strong> ~5M new/edited listings per day &asymp; <strong>60 writes/sec</strong> average. Reads outnumber writes ~10:1 even before peaks — confirming the read-heavy framing.</li>
+      </ul>
+      <h3>How big is the index?</h3>
+      <p>The dominant cost is the <strong>posting lists</strong> — the document IDs stored under each term. A useful rule of thumb: total postings &asymp; corpus size &times; average distinct terms per document. Say each listing has ~80 distinct terms after analysis: 200M &times; 80 = <strong>16 billion postings</strong>. A doc ID is ~4&ndash;8 bytes raw, but posting lists compress hard (delta + variable-byte encoding) down to roughly 1&ndash;2 bytes per posting. Call it ~24&nbsp;GB of postings, plus positions and the term dictionary — realistically <strong>40&ndash;80&nbsp;GB</strong> of index.</p>
+      <p>That comfortably exceeds the RAM you want on one node, and you also need replicas for availability. <strong>Conclusion: the index must be sharded.</strong> That single estimate justifies the entire distributed architecture in step 09 — which is exactly why interviewers want to see it.</p>
+      <div class="callout">
+        <span class="k">Why store the document twice</span>
+        <p>The inverted index answers "which docs contain this word" but does not store the listing to show the user. You also keep the <strong>source documents</strong> — title, price, image URL — in a forward store (object storage or a doc store) keyed by doc ID. Search returns ranked IDs; a second fetch hydrates them into result cards. Budget the forward store separately: 200M &times; ~2&nbsp;KB &asymp; <strong>400&nbsp;GB</strong>.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>The API and a data-model sketch</h2>
+      <p>Pin down the interface before the internals. A search service has two surfaces: a <strong>query API</strong> the storefront calls, and an <strong>indexing API</strong> the catalog service feeds. Sketching real endpoints (going past the book) keeps the rest of the design honest.</p>
+      <h3>Query endpoint</h3>
+      <pre><span class="c"># Search with ranking, filters, facets, and paging</span>
+GET /v1/search?q=red+running+shoes
+      &amp;filter=category:footwear,price:[0 TO 80]
+      &amp;facets=brand,price_bucket
+      &amp;from=0&amp;size=20
+
+<span class="c"># Response</span>
+{
+  <span class="s">"total"</span>: 1842,
+  <span class="s">"took_ms"</span>: 31,
+  <span class="s">"hits"</span>: [
+    { <span class="s">"doc_id"</span>: <span class="s">"lst_8841"</span>, <span class="s">"score"</span>: 14.7,
+      <span class="s">"title"</span>: <span class="s">"Nike Pegasus 41 red"</span>, <span class="s">"price"</span>: 72 },
+    ...
+  ],
+  <span class="s">"facets"</span>: {
+    <span class="s">"brand"</span>: [ {<span class="s">"Nike"</span>: 612}, {<span class="s">"Adidas"</span>: 488} ],
+    <span class="s">"price_bucket"</span>: [ {<span class="s">"0-50"</span>: 320}, {<span class="s">"50-100"</span>: 1102} ]
+  }
+}</pre>
+      <h3>Indexing endpoint</h3>
+      <pre>PUT /v1/index/listings/lst_8841
+{
+  <span class="s">"title"</span>:       <span class="s">"Nike Pegasus 41 — red running shoes"</span>,
+  <span class="s">"description"</span>: <span class="s">"Lightweight mesh, barely used ..."</span>,
+  <span class="s">"brand"</span>:       <span class="s">"Nike"</span>,
+  <span class="s">"category"</span>:    <span class="s">"footwear"</span>,
+  <span class="s">"price"</span>:       72,
+  <span class="s">"location"</span>:    <span class="s">"Tampines"</span>
+}
+
+DELETE /v1/index/listings/lst_8841     <span class="c"># soft-delete (tombstone)</span></pre>
+      <h3>Field mappings — the schema of search</h3>
+      <p>Each field gets a <strong>mapping</strong> declaring how it is treated. This is the equivalent of a table schema and it drives everything downstream.</p>
+      <ul>
+        <li><strong>Analyzed text</strong> (<code>title</code>, <code>description</code>): run through the analyzer and put into the inverted index. Used for relevance.</li>
+        <li><strong>Keyword</strong> (<code>brand</code>, <code>category</code>): stored verbatim, not tokenized. Used for exact filtering and facets.</li>
+        <li><strong>Numeric / range</strong> (<code>price</code>): stored in a structure that supports range filters (a BKD-tree in Lucene), not the inverted index.</li>
+      </ul>
+      <p>The lesson interviewers love: <em>the same field is often indexed two ways</em> — <code>brand</code> as analyzed text (so "nike" matches) <strong>and</strong> as a keyword (so the facet says exactly "Nike (612)"). Conflating the two is a classic mistake.</p>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The core structure</div>
+      <h2>The inverted index</h2>
+      <p>The <strong>inverted index</strong> is a map from each <strong>term</strong> (a normalized word) to its <strong>posting list</strong>: the set of documents that contain the term. It is "inverted" relative to the natural forward layout (document &rarr; words). Reading it is the inverse direction: word &rarr; documents.</p>
+      <h3>What lives in a posting list</h3>
+      <p>A posting is one entry for one (term, document) pair. At minimum it holds the <code>doc_id</code>. To support ranking and phrase queries it usually also carries:</p>
+      <ul>
+        <li><strong>Term frequency (<code>tf</code>)</strong> — how many times the term appears in that document. More mentions of "leather" suggests the doc is more about leather. This feeds ranking.</li>
+        <li><strong>Positions</strong> — the offsets where the term occurs (word 3, word 17, ...). Needed for <strong>phrase queries</strong> ("running shoes" as an exact phrase) and proximity scoring.</li>
+        <li><strong>Field</strong> — which field the term came from, so a title match can outrank a description match.</li>
+      </ul>
+      <p>Posting lists are stored <strong>sorted by doc ID</strong>. That ordering is not cosmetic — it is what makes the intersection in the next step fast, because two sorted lists can be merged in a single linear pass (a galloping/skip-list merge), the way you would zip two sorted arrays.</p>
+      <h3>The term dictionary</h3>
+      <p>To find a term's posting list you first look the term up in the <strong>term dictionary</strong> — a sorted, on-disk structure mapping each term to the byte offset of its postings. Lucene stores this as an <strong>FST</strong> (finite-state transducer), a compact trie-like structure that shares prefixes and suffixes, so a dictionary of tens of millions of terms fits in a few hundred MB and can stay memory-resident. The lookup is the search's first hop.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="An inverted index mapping the terms red, running, and shoes to sorted posting lists of document IDs">
+            <text class="lbl-sm" x="120" y="34" text-anchor="middle">TERM DICTIONARY</text>
+            <text class="lbl-sm" x="430" y="34" text-anchor="middle">POSTING LISTS (sorted doc IDs · tf)</text>
+
+            <rect class="node-b" x="40" y="52" width="160" height="44" rx="8"/>
+            <text class="lbl" x="120" y="79" text-anchor="middle">"red"</text>
+            <path class="flow" d="M200 74 H 256" marker-end="url(#arrow)"/>
+            <rect class="node" x="258" y="52" width="342" height="44" rx="8"/>
+            <text class="lbl-sm" x="429" y="79" text-anchor="middle">[ d3·2 ] [ d8·1 ] [ d8841·3 ] [ d9102·1 ]</text>
+
+            <rect class="node-b" x="40" y="116" width="160" height="44" rx="8"/>
+            <text class="lbl" x="120" y="143" text-anchor="middle">"running"</text>
+            <path class="flow" d="M200 138 H 256" marker-end="url(#arrow)"/>
+            <rect class="node" x="258" y="116" width="342" height="44" rx="8"/>
+            <text class="lbl-sm" x="429" y="143" text-anchor="middle">[ d8·1 ] [ d51·1 ] [ d8841·2 ]</text>
+
+            <rect class="node-b" x="40" y="180" width="160" height="44" rx="8"/>
+            <text class="lbl" x="120" y="207" text-anchor="middle">"shoes"</text>
+            <path class="flow" d="M200 202 H 256" marker-end="url(#arrow)"/>
+            <rect class="node" x="258" y="180" width="342" height="44" rx="8"/>
+            <text class="lbl-sm" x="429" y="207" text-anchor="middle">[ d8·1 ] [ d8841·1 ] [ d9102·2 ]</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — term &rarr; posting list; note d8 and d8841 appear under all three terms</figcaption>
+      </figure>
+      <div class="callout">
+        <span class="k">Under the hood — why posting lists compress so well</span>
+        <p>Because doc IDs in a list are sorted and ascending, you store <strong>deltas</strong> (gaps) instead of absolute IDs: <code>[8, 51, 8841]</code> becomes <code>[8, +43, +8790]</code>. Small gaps need few bits, and <strong>variable-byte</strong> or <strong>Frame-of-Reference</strong> encoding packs them tightly. A common term like "the" has billions of postings but tiny, near-constant gaps, so it compresses dramatically. This is why a 200M-doc index fits in tens of GB, not hundreds.</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Building terms</div>
+      <h2>The analyzer pipeline</h2>
+      <p>How do you decide what a "term" is? Raw text like <em>"Nike's Running SHOES!!"</em> must be turned into clean terms before indexing. The <strong>analyzer</strong> is the pipeline that does this, and the cardinal rule is: <strong>the exact same analyzer must run at index time and at query time.</strong> If you lowercase documents but not queries, a search for "Nike" will never match the indexed term "nike". This symmetry is the most common source of "why does my search return nothing" bugs.</p>
+      <h3>The stages, in order</h3>
+      <ul>
+        <li><strong>Character filtering</strong> — strip HTML, normalize punctuation, fold accents (café &rarr; cafe).</li>
+        <li><strong>Tokenization</strong> — split text into tokens on whitespace and punctuation: <em>"red running shoes"</em> &rarr; <code>[red, running, shoes]</code>.</li>
+        <li><strong>Lowercasing</strong> — fold case so "Shoes" and "shoes" are the same term.</li>
+        <li><strong>Stop-word removal</strong> — optionally drop ultra-common words (<em>the, a, of, dan, yang</em>) that carry little meaning and bloat posting lists. Modern systems often keep them, because BM25 already down-weights them and dropping them breaks phrases like "to be or not to be".</li>
+        <li><strong>Stemming / lemmatization</strong> — collapse word variants to a root. A <strong>stemmer</strong> (Porter, Snowball) chops mechanically: <em>running, runs, ran</em> &rarr; <code>run</code>. A <strong>lemmatizer</strong> uses a dictionary to find the true base form (<em>better</em> &rarr; <code>good</code>). Stemming is cheaper and usually enough.</li>
+        <li><strong>Synonyms</strong> — expand or fold equivalents: <em>sneakers</em> &rarr; <code>shoes</code>, <em>handphone</em> &rarr; <code>mobile phone</code> (very relevant for SG/SEA vernacular).</li>
+      </ul>
+      <h3>A worked example</h3>
+      <p>The listing title <em>"Nike's Running SHOES — barely used!"</em> flows through the pipeline to the term set <code>{nike, run, shoe, bare, use}</code> (after lowercasing, stemming, stop-word and punctuation removal). The query <em>"running shoe"</em> analyzed the same way becomes <code>{run, shoe}</code> — and now it matches, even though not a single surface form was identical. That is the whole payoff of analysis: matching by <em>meaning of the word form</em>, not by exact bytes.</p>
+      <h3>Tools and knobs</h3>
+      <p>In <strong>Elasticsearch / OpenSearch</strong> this is configured per field as an <code>analyzer</code> built from a <code>char_filter</code>, a <code>tokenizer</code>, and a chain of <code>token_filter</code>s (e.g. <code>lowercase</code>, <code>stop</code>, <code>porter_stem</code>, <code>synonym</code>). The underlying engine is <strong>Apache Lucene</strong>. For CJK or Thai text — common in this region — you swap in a language-specific tokenizer (<code>icu_tokenizer</code>, <code>kuromoji</code> for Japanese) because whitespace splitting fails when words are not space-separated.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>Expect: <em>"You changed the analyzer — added a synonym. Do existing documents pick it up?"</em> Answer: no. Analysis happens at index time, so the old documents hold the old terms. You must <strong>reindex</strong> the corpus (or at least the affected fields) for an analyzer change to take effect. This is why analyzer changes are treated like schema migrations.</p>
+      </div>
+    </section>
+
+    <!-- 6 — INTERACTIVE -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Reading the index</div>
+      <h2>Query execution, step by step</h2>
+      <p>Now the read path — the part that must be fast. A query for "red running shoes" is executed in four moves: <strong>analyze</strong> the query into terms (using the same analyzer), <strong>fetch</strong> each term's posting list, <strong>combine</strong> the lists with a boolean operation, then <strong>score and rank</strong> the survivors and return the top-k.</p>
+      <h3>Boolean combination: AND vs OR</h3>
+      <p>How you combine posting lists defines recall. An <strong>AND</strong> (intersection) keeps only documents present in <em>every</em> term's list — precise but can return zero results if one rare word knocks everything out. An <strong>OR</strong> (union) keeps documents in <em>any</em> list — high recall but noisy. Most search engines use a smart default: OR the terms but boost documents that match more of them, so "red running shoes" still surfaces a perfect 3-term match at the top while a "red shoes" listing ranks below it. The intersection of <em>sorted</em> posting lists is the hot loop, and it runs in roughly linear time in the size of the shorter list thanks to <strong>skip lists</strong> embedded in the postings.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-query">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive query execution: analyze red running shoes, fetch posting lists, intersect, score with BM25, return top-k">
+            <g class="st" id="q-analyze">
+              <rect class="node-b" x="20" y="20" width="170" height="48" rx="9"/>
+              <text class="lbl" x="105" y="40" text-anchor="middle">"red running shoes"</text>
+              <text class="lbl-sm" x="105" y="58" text-anchor="middle">analyze → red·run·shoe</text>
+            </g>
+            <g class="st" id="q-lists">
+              <rect class="node" x="230" y="14" width="180" height="26" rx="6"/>
+              <text class="lbl-sm" x="320" y="31" text-anchor="middle">red → d3 d8 d8841 d9102</text>
+              <rect class="node" x="230" y="46" width="180" height="26" rx="6"/>
+              <text class="lbl-sm" x="320" y="63" text-anchor="middle">run → d8 d51 d8841</text>
+              <rect class="node" x="230" y="78" width="180" height="26" rx="6"/>
+              <text class="lbl-sm" x="320" y="95" text-anchor="middle">shoe → d8 d8841 d9102</text>
+            </g>
+            <g class="st" id="q-merge">
+              <rect class="node" x="230" y="124" width="180" height="44" rx="8"/>
+              <text class="lbl-sm" x="320" y="143" text-anchor="middle">intersect (sorted merge)</text>
+              <text class="lbl" x="320" y="160" text-anchor="middle">{ d8, d8841 }</text>
+            </g>
+            <g class="st" id="q-score">
+              <rect class="node-b" x="230" y="186" width="180" height="48" rx="9"/>
+              <text class="lbl-sm" x="320" y="206" text-anchor="middle">BM25 score each</text>
+              <text class="lbl" x="320" y="223" text-anchor="middle">d8841: 14.7 · d8: 9.1</text>
+            </g>
+            <g class="st" id="q-topk">
+              <rect class="node-r" x="450" y="186" width="170" height="48" rx="9"/>
+              <text class="lbl" x="535" y="206" text-anchor="middle">top-k results</text>
+              <text class="lbl-sm" x="535" y="223" text-anchor="middle">d8841, d8, ...</text>
+            </g>
+            <path id="q-p1" class="flow" d="M192 44 H 228" marker-end="url(#arrow)"/>
+            <path id="q-p2" class="flow" d="M320 106 V 122" marker-end="url(#arrow)"/>
+            <path id="q-p3" class="flow" d="M320 170 V 184" marker-end="url(#arrow)"/>
+            <path id="q-p4" class="flow" d="M412 210 H 448" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: analyze &rarr; fetch lists &rarr; intersect &rarr; score &rarr; top-k</figcaption>
+      </figure>
+      <p>Notice the work is proportional to the size of the matching posting lists, not the size of the corpus. Whether you have 2M or 200M listings, "red running shoes" touches only the postings for those three terms. That is why search latency stays flat as the catalog grows — the defining win over the table scan in step 00.</p>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Ranking</div>
+      <h2>Relevance: TF-IDF and BM25</h2>
+      <p>Finding matches is half the job; ordering them is the other half, and where good search is won or lost. The classic scoring model is <strong>TF-IDF</strong>, and its modern refinement <strong>BM25</strong> is the default in Lucene/Elasticsearch. Both blend three intuitions.</p>
+      <h3>The three ingredients</h3>
+      <ul>
+        <li><strong>Term frequency (TF)</strong> — a document that mentions "leather" five times is probably more about leather than one that mentions it once. More occurrences &rarr; higher score.</li>
+        <li><strong>Inverse document frequency (IDF)</strong> — a term that appears in almost every document (<em>"shoes"</em> in a shoe catalog) is barely informative, while a rare term (<em>"Pegasus"</em>) is highly discriminating. IDF up-weights rare terms and down-weights common ones. It is computed as roughly <code>log(N / df)</code>, where <code>N</code> is the total docs and <code>df</code> is how many contain the term.</li>
+        <li><strong>Length normalization</strong> — without it, a 2,000-word listing would score high on everything just by being long. Normalizing by document length prevents verbose docs from dominating.</li>
+      </ul>
+      <h3>What BM25 fixes over plain TF-IDF</h3>
+      <p>Plain TF-IDF makes term frequency grow <em>linearly</em> — the 20th occurrence of "leather" counts as much as the 2nd, which over-rewards keyword stuffing (a real spam problem for marketplace sellers). <strong>BM25</strong> introduces <strong>saturation</strong>: TF contributes with diminishing returns, controlled by a knob <code>k1</code> (typically ~1.2), so going from 1&rarr;2 mentions matters a lot but 19&rarr;20 barely moves the needle. A second knob <code>b</code> (~0.75) tunes how aggressively length normalization is applied. These two parameters are the main relevance dials you tune in practice.</p>
+      <h3>A worked example</h3>
+      <p>Searching "Pegasus" across 200M listings: only ~5,000 contain it, so its IDF is high — a match is meaningful. Searching "shoes" matches 40M listings, so its IDF is near zero — matching "shoes" alone tells you almost nothing. For the query "Pegasus shoes", BM25 therefore lets the "Pegasus" match dominate the score, which is exactly what a shopper hunting that model wants: the Pegasus listings float to the top, generic shoes sink.</p>
+      <div class="vs">
+        <div class="col"><h4>TF-IDF</h4><ul>
+          <li>Simple, intuitive, easy to explain in an interview</li>
+          <li>Linear TF over-rewards repetition / keyword stuffing</li>
+          <li>Cruder length handling</li>
+        </ul></div>
+        <div class="col"><h4>BM25</h4><ul>
+          <li>TF saturates (<code>k1</code>) — resists stuffing</li>
+          <li>Tunable length normalization (<code>b</code>)</li>
+          <li>The industry default; better relevance out of the box</li>
+        </ul></div>
+      </div>
+      <h3>Going past lexical scoring</h3>
+      <p>Real product search rarely ranks on BM25 alone. The text score is one <strong>signal</strong> blended with business signals: recency, seller rating, conversion rate, price competitiveness, in-stock, and boosts ("sponsored"). A common pattern is two-phase: BM25 cheaply retrieves a top-few-hundred candidates, then a heavier <strong>learning-to-rank</strong> model re-scores just those. Mentioning this layering shows senior judgement.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"<em>How does BM25 rank?</em>" — answer in one breath: <em>"TF rewards repetition but saturates so stuffing doesn't help, IDF rewards rare/discriminating terms, and length normalization stops long docs from winning by sheer size; k1 and b are the tuning knobs."</em> Then add that in production BM25 is one input to a broader ranking model.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Writing the index</div>
+      <h2>Segments, merging, and freshness</h2>
+      <p>So far the index has been read-only in our heads. But listings change constantly, and here is the catch: an inverted index is <strong>terrible at in-place updates</strong>. Inserting one doc ID into a sorted, compressed posting list means rewriting that list. Doing this for every write would make the index a thrashing mess. The solution is the key architectural idea of Lucene, and the reason Elasticsearch behaves the way it does.</p>
+      <h3>Immutable segments</h3>
+      <p>The index is not one big file. It is a set of <strong>segments</strong> — each a small, complete, <em>immutable</em> mini-index. New documents are buffered in memory and periodically flushed as a brand-new segment; existing segments are never modified. A search runs across <em>all</em> segments and merges their results. Immutability is a gift: segments need no locks for readers, can be cached aggressively, and compress optimally because nothing ever changes inside them.</p>
+      <h3>Near-real-time indexing and the refresh interval</h3>
+      <p>A new doc is searchable only once its segment is visible. The <strong>refresh interval</strong> (default ~1&nbsp;second in Elasticsearch) controls how often the in-memory buffer is turned into a searchable segment. This is the freshness knob: shorter refresh = fresher results but more tiny segments and more CPU; longer refresh = cheaper indexing but staler search. For a flash sale you might lengthen it to survive the write storm; for live inventory you keep it short. Durability is handled separately by a <strong>translog</strong> (write-ahead log) that survives a crash before the segment is fsync'd.</p>
+      <h3>Updates and deletes via tombstones</h3>
+      <p>Since segments are immutable, you cannot delete a document in place. Instead you write a <strong>tombstone</strong> — a marker in a <code>.del</code> file saying "doc 8841 in segment 3 is dead." Queries skip tombstoned docs. An <em>update</em> is just a delete of the old version plus an insert of the new one as a fresh segment. The dead docs linger, taking space, until...</p>
+      <h3>Segment merging</h3>
+      <p>...a background <strong>merge</strong> runs. It combines several small segments into one larger segment, and crucially <em>drops tombstoned documents</em> while rewriting — reclaiming their space and keeping the segment count low (fewer segments = faster search, since each query touches every segment). Merging is I/O-heavy and competes with indexing for disk, so it is throttled. This is the classic <strong>LSM-tree pattern</strong> (also used by Cassandra and RocksDB): cheap appends, deferred compaction.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Indexing pipeline: documents buffered in memory, flushed to immutable segments on refresh, then background-merged into a larger segment dropping tombstones">
+            <rect class="node-b" x="24" y="92" width="120" height="56" rx="9"/>
+            <text class="lbl" x="84" y="114" text-anchor="middle">new docs</text>
+            <text class="lbl-sm" x="84" y="132" text-anchor="middle">in-mem buffer</text>
+            <path class="flow" d="M144 120 H 196" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="170" y="110" text-anchor="middle">refresh</text>
+
+            <rect class="node" x="200" y="40" width="120" height="40" rx="8"/>
+            <text class="lbl-sm" x="260" y="64" text-anchor="middle">segment 1</text>
+            <rect class="node" x="200" y="96" width="120" height="40" rx="8"/>
+            <text class="lbl-sm" x="260" y="120" text-anchor="middle">segment 2</text>
+            <rect class="node" x="200" y="152" width="120" height="40" rx="8"/>
+            <text class="lbl-sm" x="260" y="170" text-anchor="middle">segment 3</text>
+            <text class="lbl-sm" x="260" y="186" text-anchor="middle" fill="#B0532F">+ tombstones</text>
+
+            <path class="flow-d" d="M320 60 C 380 90, 400 100, 432 110" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M320 116 H 432" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M320 172 C 380 150, 400 140, 432 126" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="376" y="210" text-anchor="middle">background merge</text>
+
+            <rect class="node-r" x="436" y="84" width="170" height="68" rx="10"/>
+            <text class="lbl" x="521" y="112" text-anchor="middle">merged segment</text>
+            <text class="lbl-sm" x="521" y="132" text-anchor="middle">dead docs reclaimed</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — buffer &rarr; immutable segments on refresh &rarr; merge compacts and drops tombstones</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Short refresh interval</h4><ul>
+          <li>Fresher results — new listings appear in ~1s</li>
+          <li>Many small segments &rarr; slower queries</li>
+          <li>Higher CPU/IO from frequent flush + merge</li>
+        </ul></div>
+        <div class="col"><h4>Long refresh interval</h4><ul>
+          <li>Cheap, high-throughput indexing (bulk loads, sales)</li>
+          <li>Fewer, bigger segments &rarr; faster queries</li>
+          <li>Staler search — edits visible only after the interval</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"<em>How do you keep the index fresh as data changes?</em>" — answer: changes flow as events; documents buffer in memory and become searchable on each <strong>refresh</strong> (near-real-time, ~1s); deletes/updates use <strong>tombstones</strong>; background <strong>merges</strong> compact segments and reclaim dead docs. The freshness-vs-cost trade-off is the refresh interval.</p>
+      </div>
+    </section>
+
+    <!-- 9 — INTERACTIVE -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Scaling out</div>
+      <h2>Sharding and scatter-gather</h2>
+      <p>Step 02 proved the index is too big for one node. The fix is to <strong>shard</strong>: split the corpus into N partitions and put each shard's inverted index on a different node. The standard scheme is <strong>document-based partitioning</strong> — each document (and all its terms) lives entirely on one shard, chosen by <code>hash(doc_id) % N</code>. Every shard is a self-contained mini search engine over its slice of documents.</p>
+      <h3>Scatter-gather</h3>
+      <p>A query now cannot be answered by one shard, because matching documents are spread across all of them. So a <strong>coordinator</strong> node runs <strong>scatter-gather</strong>: it broadcasts the query to every shard (scatter), each shard searches its local index and returns <em>its own local top-k</em>, and the coordinator merges those partial lists into the global top-k (gather). To return the global top 20, each shard must return its top 20 — because a document ranked #18 on one shard could be the global #1. The coordinator then fetches the full documents for the winning IDs from the forward store and returns result cards.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-shard">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive scatter-gather: a coordinator broadcasts the query to three shards, each returns its local top-k, and the coordinator merges them into the global top-k">
+            <g class="st" id="g-client"><rect class="node" x="20" y="100" width="92" height="46" rx="8"/><text class="lbl" x="66" y="128" text-anchor="middle">query</text></g>
+            <g class="st" id="g-coord"><rect class="node-b" x="150" y="94" width="116" height="58" rx="9"/><text class="lbl" x="208" y="118" text-anchor="middle">Coordinator</text><text class="lbl-sm" x="208" y="136" text-anchor="middle">scatter-gather</text></g>
+            <g class="st" id="g-s1"><rect class="node" x="330" y="20" width="150" height="42" rx="8"/><text class="lbl" x="405" y="40" text-anchor="middle">Shard 1</text><text class="lbl-sm" x="405" y="56" text-anchor="middle">local top-k</text></g>
+            <g class="st" id="g-s2"><rect class="node" x="330" y="104" width="150" height="42" rx="8"/><text class="lbl" x="405" y="124" text-anchor="middle">Shard 2</text><text class="lbl-sm" x="405" y="140" text-anchor="middle">local top-k</text></g>
+            <g class="st" id="g-s3"><rect class="node" x="330" y="188" width="150" height="42" rx="8"/><text class="lbl" x="405" y="208" text-anchor="middle">Shard 3</text><text class="lbl-sm" x="405" y="224" text-anchor="middle">local top-k</text></g>
+            <g class="st" id="g-merge"><rect class="node-r" x="516" y="100" width="104" height="46" rx="9"/><text class="lbl" x="568" y="121" text-anchor="middle">global</text><text class="lbl-sm" x="568" y="138" text-anchor="middle">top-k merge</text></g>
+            <path id="g-p1" class="flow" d="M112 123 H 148" marker-end="url(#arrow)"/>
+            <path id="g-scatter" class="flow" d="M266 123 H 328" marker-end="url(#arrow)"/>
+            <path class="flow" d="M266 116 C 300 70, 312 60, 328 50" marker-end="url(#arrow)"/>
+            <path class="flow" d="M266 130 C 300 180, 312 196, 328 206" marker-end="url(#arrow)"/>
+            <path id="g-gather" class="flow-d" d="M480 125 H 514" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M480 44 C 510 90, 514 96, 518 108" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M480 206 C 510 160, 514 152, 518 140" marker-end="url(#arrow-s)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: scatter the query to all shards, gather their local top-k, merge to global top-k</figcaption>
+      </figure>
+      <h3>Document- vs term-based partitioning</h3>
+      <p>The alternative, <strong>term-based partitioning</strong> (each shard owns a slice of the <em>vocabulary</em>, so all postings for "shoes" live on one shard), sounds appealing — a single-term query hits one shard. But multi-term queries must ship whole posting lists between shards to intersect them, which is brutal at scale, and one hot term ("free") creates a hot shard. Document-based partitioning wins in practice precisely because it keeps each query <em>self-contained per shard</em> and spreads load evenly.</p>
+      <div class="vs">
+        <div class="col"><h4>Document-based (the default)</h4><ul>
+          <li>Each shard fully answers a query locally</li>
+          <li>Even load; trivially add shards as the corpus grows</li>
+          <li>Cost: every query fans out to all shards (more network)</li>
+          <li>IDF is per-shard, a slight ranking approximation</li>
+        </ul></div>
+        <div class="col"><h4>Term-based</h4><ul>
+          <li>Single-term query touches one shard</li>
+          <li>Multi-term queries ship posting lists across the network</li>
+          <li>Hot terms create hot shards (skew)</li>
+          <li>Rarely used at scale</li>
+        </ul></div>
+      </div>
+      <h3>Replicas, availability, and failure</h3>
+      <p>Each shard has one or more <strong>replicas</strong> on other nodes. Replicas serve reads (multiplying query throughput) and provide failover. <strong>What happens when a shard node dies?</strong> The coordinator routes that shard's queries to a surviving replica; results keep flowing. If a primary dies, a replica is promoted to primary and a new replica is rebuilt on another node from the existing data. The corpus stays fully searchable as long as one copy of each shard survives. This is exactly how Elasticsearch's primary/replica model behaves.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"<em>How do you search across shards?</em>" — scatter-gather: coordinator broadcasts, each shard returns its <strong>local</strong> top-k, coordinator merges to global top-k, then hydrates documents. The subtle trap: <strong>IDF is computed per shard</strong>, so scores aren't perfectly comparable across shards. For most corpora the skew is negligible; when it matters, a two-phase "dfs_query_then_fetch" first gathers global term statistics, then scores — at the cost of an extra round trip.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Wrap-up</div>
+      <h2>Filters, facets, and what breaks at 10x</h2>
+      <h3>Filters vs the full-text query</h3>
+      <p>A search like "red shoes under $80 in footwear" mixes a relevance query with hard <strong>filters</strong>. The crucial distinction: the text part is <em>scored</em> (BM25), but filters are pure yes/no and should be <strong>cached, not scored</strong>. Engines keep a <strong>filter cache</strong> (a bitset per filter, e.g. "category:footwear" &rarr; a bitmap of matching doc IDs) that is reused across queries and ANDed cheaply against the scored results. Putting <code>price</code> or <code>category</code> in the scoring clause instead of the filter clause is a common performance bug — it wastes scoring work and pollutes the relevance signal.</p>
+      <h3>Facets and their cost</h3>
+      <p><strong>Facets</strong> (aggregations) are the counts beside each filter: "Nike (612), Adidas (488)". Computing them means, for the matching result set, grouping by a field and counting. This needs the field values laid out <em>column-wise</em> — the inverse of the inverted index — so engines maintain <strong>doc values</strong>: a per-field, doc-ID-ordered columnar store optimized for aggregation and sorting. Facets over high-cardinality fields (every seller ID) are expensive and memory-hungry; cap them or precompute.</p>
+      <h3>What breaks at 10x</h3>
+      <ul>
+        <li><strong>Deep pagination.</strong> Asking for <code>from=100000&amp;size=20</code> forces every shard to compute and ship 100,020 results just to discard most. The fix is <strong>search-after</strong> (cursor-based paging on a sort key), not offset paging.</li>
+        <li><strong>Hot shards / skew.</strong> If a celebrity seller or one mega-category lands disproportionate traffic, document-hashing usually spreads it, but a bad shard count can concentrate load. Tune shard count to data and query volume; over-sharding adds coordinator overhead, under-sharding bottlenecks.</li>
+        <li><strong>Indexing storms.</strong> A bulk catalog import at 10x write rate floods refresh and merge. Mitigate by lengthening the refresh interval during bulk loads, using bulk APIs, and routing indexing to dedicated nodes so it doesn't starve queries.</li>
+        <li><strong>Thundering reads during a sale.</strong> 11.11 traffic spikes reads 10x. Add replica shards (reads scale horizontally with replicas), cache the hottest queries' results, and shed load gracefully.</li>
+        <li><strong>The IDF-per-shard skew</strong> grows visible with very uneven shard contents; rebalance or use global term stats.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Full architecture: catalog events flow through an indexer to sharded primaries and replicas; the search service queries shards via a coordinator and hydrates from a forward document store">
+            <rect class="node" x="20" y="24" width="120" height="44" rx="8"/>
+            <text class="lbl-sm" x="80" y="44" text-anchor="middle">catalog svc</text>
+            <text class="lbl-sm" x="80" y="60" text-anchor="middle">change events</text>
+            <rect class="node-b" x="20" y="100" width="120" height="44" rx="8"/>
+            <text class="lbl" x="80" y="120" text-anchor="middle">Indexer</text>
+            <text class="lbl-sm" x="80" y="136" text-anchor="middle">analyze + write</text>
+            <path class="flow" d="M80 68 V 98" marker-end="url(#arrow)"/>
+
+            <rect x="200" y="14" width="200" height="216" rx="12" fill="#FDFBF6" stroke="#444" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="300" y="34" text-anchor="middle">Search cluster</text>
+            <rect class="node" x="220" y="46" width="76" height="40" rx="7"/><text class="lbl-sm" x="258" y="70" text-anchor="middle">shard 1</text>
+            <rect class="node" x="304" y="46" width="76" height="40" rx="7"/><text class="lbl-sm" x="342" y="70" text-anchor="middle">replica</text>
+            <rect class="node" x="220" y="100" width="76" height="40" rx="7"/><text class="lbl-sm" x="258" y="124" text-anchor="middle">shard 2</text>
+            <rect class="node" x="304" y="100" width="76" height="40" rx="7"/><text class="lbl-sm" x="342" y="124" text-anchor="middle">replica</text>
+            <rect class="node" x="220" y="154" width="76" height="40" rx="7"/><text class="lbl-sm" x="258" y="178" text-anchor="middle">shard 3</text>
+            <rect class="node" x="304" y="154" width="76" height="40" rx="7"/><text class="lbl-sm" x="342" y="178" text-anchor="middle">replica</text>
+            <text class="lbl-sm" x="300" y="218" text-anchor="middle" fill="#B0532F">coordinator: scatter-gather</text>
+            <path class="flow-d" d="M140 122 H 198" marker-end="url(#arrow-s)"/>
+
+            <rect class="node" x="460" y="24" width="120" height="44" rx="8"/>
+            <text class="lbl-sm" x="520" y="44" text-anchor="middle">Search API</text>
+            <text class="lbl-sm" x="520" y="60" text-anchor="middle">q + filters</text>
+            <path class="flow" d="M460 50 H 402" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="460" y="150" width="120" height="56" rx="9"/>
+            <text class="lbl-sm" x="520" y="172" text-anchor="middle">forward store</text>
+            <text class="lbl-sm" x="520" y="188" text-anchor="middle">doc_id → card</text>
+            <path class="flow-d" d="M400 150 C 440 150, 450 160, 458 168" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="448" y="142" text-anchor="middle">hydrate</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — the whole system: events &rarr; indexer &rarr; sharded primaries/replicas; search API &rarr; coordinator &rarr; hydrate from the forward store</figcaption>
+      </figure>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>invert the data so words point to documents, analyze text consistently at index and query time, combine and rank posting lists with BM25, write into immutable segments for fresh near-real-time updates, and shard with scatter-gather so it scales.</em> If you can sketch the inverted index, the analyzer, the query flow, segments, and scatter-gather, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Scanning doesn't scale</b><span>A wildcard LIKE is O(N); search needs an index keyed by words, not rows.</span></div>
+        <div class="tk"><span class="num">02</span><b>Read-heavy trade</b><span>Pay on the write path (build the index) to make reads near-instant.</span></div>
+        <div class="tk"><span class="num">03</span><b>Estimate &rarr; shard</b><span>~16B postings, tens of GB; too big for one node, so it must be sharded.</span></div>
+        <div class="tk"><span class="num">04</span><b>Inverted index</b><span>Term &rarr; sorted posting list (doc_id, tf, positions); compresses via deltas.</span></div>
+        <div class="tk"><span class="num">05</span><b>Same analyzer twice</b><span>Tokenize, lowercase, stem, synonyms — identically at index &amp; query time.</span></div>
+        <div class="tk"><span class="num">06</span><b>Fetch &amp; intersect</b><span>Merge sorted posting lists; work scales with matches, not corpus size.</span></div>
+        <div class="tk"><span class="num">07</span><b>BM25 ranks</b><span>TF (saturating) + IDF (rare = informative) + length norm; k1 and b tune it.</span></div>
+        <div class="tk"><span class="num">08</span><b>Immutable segments</b><span>Refresh for freshness; tombstones for deletes; merge to compact.</span></div>
+        <div class="tk"><span class="num">09</span><b>Scatter-gather</b><span>Coordinator broadcasts; shards return local top-k; merge to global top-k.</span></div>
+        <div class="tk"><span class="num">10</span><b>Filter, don't score</b><span>Cache filters as bitsets; facets need columnar doc values.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why can't a relational <code>LIKE '%word%'</code> use an index, and what structure fixes it?<br>(2) What does a posting list contain beyond doc IDs, and why is it stored sorted?<br>(3) Why must the same analyzer run at both index and query time — give a concrete bug if it doesn't.<br>(4) How does BM25 rank, and what do <code>k1</code> and <code>b</code> control?<br>(5) Why are segments immutable, how do deletes work, and what does merging accomplish?<br>(6) Walk through scatter-gather, and explain the IDF-per-shard subtlety.<br>Any fuzzy answer &rarr; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 27 · DESIGN FULL-TEXT SEARCH (INVERTED INDEX) · interactive edition · Beyond BBG<br>
+      Original study notes on standard system-design fundamentals · SG context: Shopee / Carousell · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* query execution */
+  makeStepper(document.getElementById('fig-query'), [
+    {text:"Analyze the query 'red running shoes' with the same analyzer → terms red, run, shoe.", active:["q-analyze"], path:"q-p1"},
+    {text:"Fetch each term's posting list from the index.", active:["q-analyze","q-lists"], path:"q-p2"},
+    {text:"Intersect the sorted lists in one linear merge → candidates {d8, d8841}.", active:["q-lists","q-merge"], path:"q-p3"},
+    {text:"Score each candidate with BM25 (TF saturated, IDF-weighted, length-normalized).", active:["q-merge","q-score"], path:"q-p4"},
+    {text:"Return the top-k by score — d8841 first, then d8.", active:["q-score","q-topk"]}
+  ]);
+
+  /* sharded scatter-gather */
+  makeStepper(document.getElementById('fig-shard'), [
+    {text:"A query arrives at the coordinator node.", active:["g-client","g-coord"], path:"g-p1"},
+    {text:"Scatter: the coordinator broadcasts the query to every shard.", active:["g-coord","g-s1","g-s2","g-s3"], path:"g-scatter"},
+    {text:"Each shard searches its own inverted index and computes its local top-k.", active:["g-s1","g-s2","g-s3"]},
+    {text:"Gather: shards return their local top-k lists to the coordinator.", active:["g-s2","g-merge"], path:"g-gather"},
+    {text:"The coordinator merges the partials into the global top-k, then hydrates the docs.", active:["g-coord","g-merge"]}
+  ]);
+</script>
+</body>
+</html>

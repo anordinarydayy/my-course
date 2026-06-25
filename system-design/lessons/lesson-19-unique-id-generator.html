@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 19 — Distributed Unique ID Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  pre{background:#1d2b38;color:#e7eef5;border-radius:10px;padding:16px 18px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;margin:22px 0;}
+  pre .c{color:#7fa0b8;} pre .k{color:#e0a96d;} pre .s{color:#9cc78d;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Unique ID<br>Generator</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why IDs are hard</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify the requirements</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope estimate</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data-model sketch</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The three options ▸</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>UUID &amp; the ticket server</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Snowflake bit layout</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Assembling an ID ▸</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Assigning machine IDs ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Clock skew &amp; failure modes</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Scaling &amp; what breaks at 10x</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">19</span><span>Lesson · System Design Interview</span></div>
+      <h1>Distributed Unique ID Generator</h1>
+      <p class="lede">Almost every entity in a backend needs an identifier — an order, a payment, a chat message, a ride. The moment more than one machine creates those entities at once, you need IDs that are unique across the whole fleet, compact enough to index efficiently, and roughly ordered by time — all without a central referee that everyone has to wait on. This lesson builds up to the classic answer, Snowflake, one bottleneck at a time.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on distributed unique ID generation — a standard, widely-documented topic (reference tag <strong>BBG V1·C7</strong>). The explanations, numbers, and diagrams here are my own; nothing is copied from any paid course or book. Three diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why IDs are hard</h2>
+      <p>On a single database, a unique ID is a solved problem: you declare a column <code>AUTO_INCREMENT</code> (MySQL) or attach a <code>SEQUENCE</code> (PostgreSQL), and the database hands you 1, 2, 3, … in order. One process owns the counter, so there is no ambiguity. The trouble starts the day you outgrow one database.</p>
+      <p>Picture GrabPay during a Friday-evening surge. Payment requests land on dozens of application servers spread across two or three availability zones, and the transactions are written to a <em>sharded</em> ledger — no single database owns the sequence anymore. Now two servers can both want to mint "the next transaction ID" in the same instant. If they coordinate through one counter, that counter becomes a bottleneck and a single point of failure; if they don't, they risk handing out the same number twice. A <strong>distributed unique ID generator</strong> resolves exactly this tension: every machine can mint IDs locally, at high speed, that are still globally unique.</p>
+      <p>Beyond uniqueness, the IDs carry hidden requirements that an interviewer is testing whether you'll surface:</p>
+      <ul>
+        <li><strong>Compactness.</strong> An ID is stored on every row and copied into every foreign key and secondary index. A 64-bit integer is eight bytes and indexes beautifully in a B-tree; a 128-bit string is bulkier and slower.</li>
+        <li><strong>Rough time-ordering.</strong> If newer IDs are larger, you get cheap chronological sorting, natural pagination, and good index locality — newly written rows cluster together instead of scattering across the whole index.</li>
+        <li><strong>No coordination bottleneck.</strong> At tens of thousands of writes per second, you cannot afford a network round trip to a central service for every single ID.</li>
+      </ul>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Many application servers all needing to mint unique IDs at the same instant without a central counter">
+            <rect class="node" x="24" y="40" width="120" height="40" rx="8"/>
+            <text class="lbl" x="84" y="65" text-anchor="middle">App svr A</text>
+            <rect class="node" x="24" y="92" width="120" height="40" rx="8"/>
+            <text class="lbl" x="84" y="117" text-anchor="middle">App svr B</text>
+            <rect class="node" x="24" y="144" width="120" height="40" rx="8"/>
+            <text class="lbl" x="84" y="169" text-anchor="middle">App svr C</text>
+            <text class="lbl-sm" x="300" y="34" text-anchor="middle">all want "the next ID" at once</text>
+            <path class="flow-r" d="M146 60 C 250 70, 300 95, 396 108" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M146 112 H 396" marker-end="url(#arrow-r)"/>
+            <path class="flow-r" d="M146 164 C 250 154, 300 125, 396 116" marker-end="url(#arrow-r)"/>
+            <rect x="398" y="84" width="218" height="56" rx="10" fill="none" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 4"/>
+            <text class="lbl" x="507" y="108" text-anchor="middle" fill="#B0532F">collision?  bottleneck?</text>
+            <text class="lbl-sm" x="507" y="128" text-anchor="middle" fill="#B0532F">who owns the counter?</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the core tension: local speed versus global uniqueness</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify the requirements</h2>
+      <p>Open the way you would in the room: confirm what the ID must do before proposing how to build it. The right scheme depends entirely on these answers, so make the assumptions explicit.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Globally unique.</strong> No two IDs ever collide, across every machine, region, and restart.</li>
+        <li><strong>Numeric and 64-bit.</strong> The ID fits in a signed 64-bit integer (a <code>BIGINT</code> / <code>long</code>). This is the headline constraint: it forces a tight bit budget.</li>
+        <li><strong>Time-sortable.</strong> IDs created later should generally be numerically larger. "Roughly" is fine — strict total ordering across machines is not required.</li>
+        <li><strong>Increasing over time.</strong> A close cousin of sortable: the value should trend upward as the clock advances.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>High throughput.</strong> The system should mint at least 10,000 IDs per second, and ideally far more, headroom for spikes.</li>
+        <li><strong>Low latency.</strong> Generation must be near-instant; it sits in the hot path of writes.</li>
+        <li><strong>No single coordination point.</strong> No central server that every request must consult per-ID. Coordination, if any, should be rare (e.g. once at startup), not per-request.</li>
+        <li><strong>Highly available.</strong> An ID generator is foundational — if it stops, nothing can be written. It must tolerate the loss of individual nodes.</li>
+      </ul>
+      <p>One clarification pays off repeatedly: <em>does "sortable" mean strictly monotonic, or just roughly chronological?</em> True global monotonicity would force the very coordination we are trying to avoid. Almost every real system — and every sensible interview answer — accepts <strong>rough</strong> time-ordering: IDs minted in the same millisecond on different machines may interleave, but second-to-second the order holds.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single sentence that frames the whole design: <em>"I'll assume 64-bit, globally unique, and roughly time-sortable, with no per-request coordination."</em> Saying it up front signals you know the constraint that rules out UUIDs and the constraint that rules out a central counter — which is exactly why Snowflake exists.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimate</div>
+      <h2>Back-of-the-envelope estimate</h2>
+      <p>A quick sizing tells you whether a design even fits in the bit budget — and it is where the magic numbers behind Snowflake come from. Suppose Shopee Singapore at peak generates IDs for orders, order items, payment events, and audit logs: round it to <strong>50,000 IDs per second</strong> across the fleet, with bursts to maybe 100,000.</p>
+      <h3>How many bits does time need?</h3>
+      <p>We want to embed a timestamp so IDs sort by time. Millisecond resolution is the sweet spot — fine enough to order events, coarse enough to fit. The question is: how long must our ID generator keep working before the timestamp field overflows? With a <strong>41-bit millisecond timestamp</strong>:</p>
+      <pre><span class="c"># 41 bits of milliseconds</span>
+2^41 ms  = 2,199,023,255,552 ms
+         ÷ 1000           = 2,199,023,255 seconds
+         ÷ 86,400         ≈ 25,451 days
+         ÷ 365            ≈ <span class="k">69.7 years</span></pre>
+      <p>So 41 bits buys roughly <strong>69 years</strong> of millisecond timestamps. That is comfortably longer than the lifetime of any service. Crucially, we count milliseconds from a <strong>custom epoch</strong> — a date we pick, say 2024-01-01 — not from the Unix epoch of 1970. Starting the clock recently means we "spend" none of those 69 years on time that already elapsed.</p>
+      <h3>How many bits for machines and per-millisecond volume?</h3>
+      <p>Reserve <strong>10 bits for a machine ID</strong>: 2^10 = <strong>1,024</strong> distinct generators. That covers a large fleet with room to spare. Reserve <strong>12 bits for a per-millisecond sequence</strong>: 2^12 = <strong>4,096</strong> IDs per machine per millisecond. Multiply it out:</p>
+      <pre>4,096 IDs/ms × 1,000 ms = 4,096,000 IDs / second  <span class="c">per machine</span>
+4,096,000 × 1,024 machines ≈ <span class="k">4.2 billion IDs / second</span>  <span class="c">fleet-wide ceiling</span></pre>
+      <p>Against our requirement of 50k–100k/s, that is an enormous margin: even a single machine's 4 million/s dwarfs the whole fleet's real demand. The bit budget is not a constraint we will ever hit; it exists to guarantee no two IDs collide within a millisecond. And the arithmetic adds up perfectly: <code>1 + 41 + 10 + 12 = 64</code> bits. That tidy fit is the whole reason the Snowflake layout looks the way it does.</p>
+      <h3>Sizing the storage cost (and why 64 vs 128 bits matters)</h3>
+      <p>The bit width is not just aesthetic — work it out. At 50,000 IDs/s, a year produces roughly <code>50,000 × 86,400 × 365 ≈ 1.58 trillion</code> IDs. As a primary key that value is also copied into every secondary index and every foreign key that references the row. At <strong>8 bytes</strong> (64-bit) the raw key storage for one index over a year's IDs is about <code>1.58e12 × 8 ≈ 12.6 TB</code>; at <strong>16 bytes</strong> (a 128-bit UUID) it is <code>~25 TB</code> — and you usually have several indexes, so the difference multiplies. Doubling the key width also halves how many keys fit per B-tree page, which means more pages, deeper trees, and more cache misses per lookup. This is the concrete reason "just use a UUID" is the wrong default for a high-volume table: the width tax is paid on every index, on every node, forever.</p>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data-model sketch</h2>
+      <p>Even though most production designs embed the generator as a <em>library</em> inside each service (no network call at all), it helps to pin down the contract. There are two shapes, and naming them shows range.</p>
+      <h3>Embedded library (the common choice)</h3>
+      <p>Each application process holds an ID generator object. It needs to know its machine ID; everything else is local.</p>
+      <pre><span class="c">// embedded — zero network hops on the hot path</span>
+<span class="k">IdGenerator</span> gen = IdGenerator.forMachine(machineId);
+<span class="k">long</span> orderId = gen.nextId();   <span class="c">// e.g. 305419896123457</span></pre>
+      <h3>Standalone service (when many languages share one fleet)</h3>
+      <p>If a dozen services in different languages all need IDs, a thin HTTP/gRPC service avoids re-implementing the logic everywhere. To kill the per-request round trip, it hands out <em>batches</em>:</p>
+      <pre><span class="k">POST</span> /v1/ids        <span class="c">// returns one ID</span>
+  → 200 { "id": "305419896123457", "ts": 1719792000123 }
+
+<span class="k">POST</span> /v1/ids?count=1000   <span class="c">// pre-fetch a block, amortize the hop</span>
+  → 200 { "ids": [ ... 1000 IDs ... ] }</pre>
+      <h3>Data model: where IDs live</h3>
+      <p>The generator itself is typically <strong>stateless</strong> — it derives everything from the wall clock, its machine ID, and an in-memory sequence counter. The only persistent state is the <strong>machine-ID registry</strong>, used at startup to claim a free worker number:</p>
+      <pre><span class="c">// coordination store (ZooKeeper / etcd), consulted ONCE at boot</span>
+/id-gen/workers/0   → { host: "pay-app-7",  leased_at: ... }
+/id-gen/workers/1   → { host: "pay-app-12", leased_at: ... }
+...                                          <span class="c">// up to worker 1023</span></pre>
+      <p>And the consuming tables simply store the 64-bit value as their primary key:</p>
+      <pre><span class="k">CREATE TABLE</span> payment (
+  id          <span class="k">BIGINT</span>      <span class="k">PRIMARY KEY</span>,   <span class="c">-- Snowflake ID</span>
+  wallet_id   <span class="k">BIGINT</span>      <span class="k">NOT NULL</span>,
+  amount_cents <span class="k">BIGINT</span>     <span class="k">NOT NULL</span>,
+  created_at  <span class="k">TIMESTAMP</span>   <span class="k">NOT NULL</span>
+);</pre>
+      <p>Notice there is no <code>AUTO_INCREMENT</code> on <code>id</code>: the application supplies the value. That is the key architectural shift — ID generation moves <em>out</em> of the database and <em>into</em> the application layer, which is exactly what lets you shard the database freely.</p>
+    </section>
+
+    <!-- 4 — INTERACTIVE (options compared, but the comparison is a static table; we animate the decision tree) -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The options</div>
+      <h2>The three candidate approaches</h2>
+      <p>There are three families an interviewer expects you to weigh. The point of walking all three is that each one fixes a flaw in the one before — the bottleneck chain that lands you on Snowflake.</p>
+      <h3>Option A — UUID version 4</h3>
+      <p>A <strong>UUID</strong> (universally unique identifier) is a 128-bit value; the common v4 variant fills it almost entirely with random bits. Because the space is so vast (2^122 usable bits), two independently generated UUIDs colliding is astronomically unlikely, so <em>every machine generates its own with zero coordination</em>. That is the upside. The downsides are fatal for our requirements: it is 128 bits (not 64), and it is <strong>not sortable</strong> — a random value carries no time information, so a newly created UUID is no larger than an old one.</p>
+      <h3>Option B — database auto-increment / ticket server</h3>
+      <p>A <strong>ticket server</strong> centralizes a single auto-increment counter (this is the Flickr approach). One dedicated database owns the sequence; every machine asks it for "the next number." IDs are compact, numeric, and perfectly ordered. But it is a textbook <strong>single point of failure</strong> and a throughput bottleneck — every ID in the entire system funnels through one node.</p>
+      <h3>Option C — Snowflake</h3>
+      <p><strong>Snowflake</strong> (popularized by Twitter/X) composes a 64-bit ID from three local ingredients — a timestamp, a machine ID, and a per-millisecond sequence number. No per-request coordination, compact, and time-sortable. It is the design we will build out in detail.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-decide">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive decision walk eliminating UUID then ticket server, arriving at Snowflake">
+            <g class="st" id="dec-need"><rect class="node-b" x="240" y="14" width="160" height="44" rx="9"/><text class="lbl" x="320" y="34" text-anchor="middle">Need: 64-bit,</text><text class="lbl" x="320" y="50" text-anchor="middle">unique, sortable</text></g>
+            <g class="st" id="dec-uuid"><rect class="node" x="30" y="110" width="160" height="56" rx="9"/><text class="lbl" x="110" y="132" text-anchor="middle">UUID v4</text><text class="lbl-sm" x="110" y="150" text-anchor="middle" fill="#B0532F">128-bit, unsorted</text></g>
+            <g class="st" id="dec-ticket"><rect class="node" x="240" y="110" width="160" height="56" rx="9"/><text class="lbl" x="320" y="132" text-anchor="middle">Ticket server</text><text class="lbl-sm" x="320" y="150" text-anchor="middle" fill="#B0532F">SPOF / bottleneck</text></g>
+            <g class="st" id="dec-snow"><rect class="node-r" x="450" y="110" width="160" height="56" rx="9"/><text class="lbl" x="530" y="132" text-anchor="middle">Snowflake</text><text class="lbl-sm" x="530" y="150" text-anchor="middle">64-bit, local, sorted</text></g>
+            <g class="st" id="dec-win"><rect class="node-b" x="430" y="196" width="200" height="40" rx="9"/><text class="lbl" x="530" y="221" text-anchor="middle">chosen design ✓</text></g>
+            <path id="dec-p1" class="flow-r" d="M270 60 C 200 80, 140 92, 110 108" marker-end="url(#arrow-r)"/>
+            <path id="dec-p2" class="flow-r" d="M320 60 V 108" marker-end="url(#arrow-r)"/>
+            <path id="dec-p3" class="flow" d="M380 56 C 460 78, 510 92, 530 108" marker-end="url(#arrow)"/>
+            <path id="dec-p4" class="flow" d="M530 166 V 194" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: eliminate UUID (too big, unsorted), then the ticket server (SPOF), to land on Snowflake</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>UUID v4 — pros</h4><ul>
+          <li>Zero coordination; generate anywhere, even offline</li>
+          <li>Effectively no collision risk at any scale</li>
+          <li>Trivial to implement — one library call</li>
+        </ul></div>
+        <div class="col"><h4>UUID v4 — cons</h4><ul>
+          <li>128 bits — double the storage, fatter indexes</li>
+          <li>Not time-sortable; random values destroy index locality</li>
+          <li>Random inserts scatter B-tree pages, hurting write throughput</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Two dead ends</div>
+      <h2>Why UUID and the ticket server fall short</h2>
+      <p>It is worth slowing down on <em>why</em> the first two options fail, because the interviewer's follow-up — "why not just use UUIDs?" — is the most common one in this entire topic.</p>
+      <h3>The B-tree locality problem with UUIDs</h3>
+      <p>Databases store primary keys in a <strong>B-tree</strong> (or B+tree) index, which keeps keys sorted on disk. When new keys are <em>monotonically increasing</em> — as time-based IDs are — every insert lands at the right edge of the tree, touching the same few pages that are already hot in memory. Cheap. When new keys are <em>random</em> — as UUID v4 are — each insert lands at an arbitrary spot, forcing the database to read a cold page, modify it, and write it back, scattering writes across the whole index. This causes <strong>page splits</strong> and poor cache hit rates. On a write-heavy table like a payments ledger, random UUID primary keys can cut insert throughput by a large factor versus sequential keys. (UUID v7, a newer variant, prepends a timestamp specifically to fix this — but it is still 128 bits.)</p>
+      <h3>The ticket server: simple until it isn't</h3>
+      <p>The ticket server is genuinely attractive at first: one MySQL instance with a single-row table you bump with <code>REPLACE INTO … ; SELECT LAST_INSERT_ID();</code>. It is easy to reason about and the IDs are perfectly ordered. The problem is the word "one." That instance is a <strong>single point of failure</strong>: if it dies, no service anywhere can create anything. And it is a throughput ceiling — every ID in the company crosses one network hop to one node.</p>
+      <p>The classic patch is <strong>multi-master with offsets</strong>: run two ticket servers, give one the <em>odd</em> numbers and the other the <em>even</em> numbers by setting <code>auto_increment_offset</code> and <code>auto_increment_increment=2</code>. Now either can fail without halting the system. But this band-aid does not scale cleanly: adding a third or fourth server means reshuffling the offset scheme, and the IDs are no longer cleanly time-sortable across servers (you cannot tell which odd ID came before which even one). You have traded the SPOF for a coordination headache — and you still haven't solved sortability across many machines.</p>
+      <div class="vs">
+        <div class="col"><h4>Ticket server — pros</h4><ul>
+          <li>Compact 64-bit numeric IDs</li>
+          <li>Strictly increasing and easy to understand</li>
+          <li>Multi-master offsets relieve the SPOF</li>
+        </ul></div>
+        <div class="col"><h4>Ticket server — cons</h4><ul>
+          <li>Central node is a bottleneck and SPOF</li>
+          <li>Every ID costs a network round trip</li>
+          <li>Offset scheme is brittle and breaks clean ordering</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">The bottleneck chain</span>
+        <p>UUID gives us no-coordination but breaks <em>compactness</em> and <em>sortability</em>. The ticket server fixes compactness and sortability but reintroduces a <em>coordination bottleneck</em>. Snowflake's whole reason for being is to satisfy all three at once — and it does so by realizing that if every machine has a unique ID and a roughly-synced clock, no per-request coordination is needed at all.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The layout</div>
+      <h2>The 64-bit Snowflake layout</h2>
+      <p>Snowflake's insight is to <strong>partition the 64 bits</strong> so that each minting machine owns a slice of the ID space and never has to ask anyone for permission. Read left to right, the bits go: sign, timestamp, machine, sequence. Because the most significant bits are the timestamp, larger time → larger number → time-sortable for free.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="The 64-bit Snowflake ID layout: 1 sign bit, 41 timestamp bits, 10 machine-id bits, 12 sequence bits">
+            <!-- the bit strip -->
+            <rect x="40" y="60" width="22" height="56" rx="3" fill="#EDE6D6" stroke="#9a927f" stroke-width="1.5"/>
+            <text class="lbl-sm" x="51" y="94" text-anchor="middle" fill="#9a927f">0</text>
+            <rect x="64" y="60" width="250" height="56" rx="3" class="node-b"/>
+            <text class="lbl" x="189" y="86" text-anchor="middle">timestamp</text>
+            <text class="lbl-sm" x="189" y="104" text-anchor="middle">41 bits · ms since epoch</text>
+            <rect x="316" y="60" width="110" height="56" rx="3" fill="#E7F0E3" stroke="#4f8a3c" stroke-width="2"/>
+            <text class="lbl" x="371" y="86" text-anchor="middle">machine</text>
+            <text class="lbl-sm" x="371" y="104" text-anchor="middle">10 bits</text>
+            <rect x="428" y="60" width="160" height="56" rx="3" class="node-r"/>
+            <text class="lbl" x="508" y="86" text-anchor="middle">sequence</text>
+            <text class="lbl-sm" x="508" y="104" text-anchor="middle">12 bits</text>
+            <!-- braces / counts -->
+            <text class="lbl-sm" x="51" y="48" text-anchor="middle">1 bit</text>
+            <text class="lbl-sm" x="51" y="138" text-anchor="middle" fill="#9a927f">sign</text>
+            <text class="lbl-sm" x="189" y="48" text-anchor="middle">~69 yrs of ms</text>
+            <text class="lbl-sm" x="371" y="48" text-anchor="middle">1024 nodes</text>
+            <text class="lbl-sm" x="508" y="48" text-anchor="middle">4096 / ms</text>
+            <!-- total -->
+            <line x1="40" y1="158" x2="588" y2="158" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text class="lbl" x="314" y="184" text-anchor="middle">1 + 41 + 10 + 12 = 64 bits → fits a signed long</text>
+            <text class="lbl-sm" x="314" y="206" text-anchor="middle" fill="#1F4E79">most-significant bits = time ⇒ numeric order ≈ chronological order</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — the canonical bit budget; the layout is the design</figcaption>
+      </figure>
+      <h3>Why each field is the size it is</h3>
+      <ul>
+        <li><strong>1 sign bit — always 0.</strong> A signed 64-bit integer reserves the top bit for sign. Keeping it zero guarantees every ID is a <em>positive</em> number, which avoids nasty surprises in languages and databases that treat the value as signed.</li>
+        <li><strong>41 timestamp bits.</strong> Milliseconds since a custom epoch, giving ~69 years of life (Step 02). This sits at the top of the usable bits so it dominates ordering.</li>
+        <li><strong>10 machine bits.</strong> A unique worker number per generator, 0–1023. This is what makes two machines minting in the same millisecond produce different IDs even if their timestamp and sequence match. Some deployments split it as 5 bits data-center + 5 bits machine.</li>
+        <li><strong>12 sequence bits.</strong> A counter that resets to 0 each millisecond and increments per ID minted <em>within</em> that millisecond on that machine — up to 4,095 before it must wait for the next millisecond.</li>
+      </ul>
+      <p>The field sizes are not sacred. If you needed more machines you could borrow bits from the sequence (fewer IDs per ms) or the timestamp (shorter lifespan). The interviewer wants to hear that the split is a <em>tunable budget</em>, not a law of physics.</p>
+      <div class="callout tip">
+        <span class="k">A follow-up worth pre-empting</span>
+        <p>"What if you need more than 1,024 machines?" Re-budget: take 2 bits from the sequence to get 12 machine bits (4,096 machines) at the cost of dropping per-machine throughput to 1,024 IDs/ms — still a million/s, far above any real need. Naming this trade shows you understand the layout rather than memorizing it.</p>
+      </div>
+    </section>
+
+    <!-- 7 — INTERACTIVE: assembling an id bit by bit -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Under the hood</div>
+      <h2>Assembling an ID within a millisecond</h2>
+      <p>Now the mechanism. To build the 64-bit ID, the generator takes its three numbers and <strong>bit-shifts</strong> each into its slot, then ORs them together. The shifts position each field correctly: the timestamp moves left past the 10 machine bits and 12 sequence bits (22 places), the machine ID moves left past the 12 sequence bits, and the sequence stays put.</p>
+      <pre><span class="c">// the entire hot path — pure arithmetic, no I/O</span>
+id = (timestamp &lt;&lt; 22) | (machineId &lt;&lt; 12) | sequence;</pre>
+      <p>The clever part is the per-millisecond <strong>sequence</strong>. The generator remembers the last timestamp it saw. When a new request arrives:</p>
+      <ul>
+        <li>If the current millisecond <em>equals</em> the last one, increment the sequence (<code>seq = seq + 1</code>). Two IDs in the same ms differ only in their sequence bits — still unique.</li>
+        <li>If the current millisecond is <em>newer</em>, reset the sequence to 0 and record the new timestamp.</li>
+        <li>If the sequence overflows (passes 4,095 in one ms), the machine has already minted its 4,096 IDs for this millisecond — it <strong>busy-waits</strong> until the clock ticks to the next millisecond, then resets to 0.</li>
+      </ul>
+      <p>Walk a GrabPay example. At millisecond <code>T</code>, worker 7 mints a payment ID: timestamp=<code>T</code>, machine=<code>7</code>, sequence=<code>0</code>. A microsecond later — still the same millisecond <code>T</code> — a second payment lands on the same worker: timestamp=<code>T</code>, machine=<code>7</code>, sequence=<code>1</code>. Same time, same machine, different sequence, so the two IDs are guaranteed distinct. Meanwhile worker 12, minting at the same instant, uses machine=<code>12</code>, so it can never collide with worker 7 regardless of its sequence.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-assemble">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive assembly of a Snowflake ID by OR-ing timestamp, machine id, and sequence, then incrementing the sequence for a second request in the same millisecond">
+            <g class="st" id="as-ts"><rect class="node-b" x="40" y="30" width="250" height="40" rx="6"/><text class="lbl" x="165" y="55" text-anchor="middle">timestamp T</text></g>
+            <g class="st" id="as-mc"><rect x="316" y="30" width="110" height="40" rx="6" fill="#E7F0E3" stroke="#4f8a3c" stroke-width="2"/><text class="lbl" x="371" y="55" text-anchor="middle">machine 7</text></g>
+            <g class="st" id="as-sq"><rect class="node-r" x="428" y="30" width="160" height="40" rx="6"/><text class="lbl" x="508" y="55" text-anchor="middle" id="as-seq-label">seq 0</text></g>
+            <g class="st" id="as-or"><rect class="node" x="210" y="110" width="220" height="40" rx="8"/><text class="lbl" x="320" y="135" text-anchor="middle">shift &amp; OR together</text></g>
+            <g class="st" id="as-id"><rect class="node-b" x="150" y="186" width="340" height="44" rx="8"/><text class="lbl" x="320" y="207" text-anchor="middle">64-bit ID</text><text class="lbl-sm" x="320" y="223" text-anchor="middle" id="as-id-label">(T &lt;&lt; 22) | (7 &lt;&lt; 12) | 0</text></g>
+            <path id="as-p1" class="flow" d="M165 70 C 200 92, 250 100, 300 108" marker-end="url(#arrow)"/>
+            <path id="as-p2" class="flow" d="M371 70 V 108" marker-end="url(#arrow)"/>
+            <path id="as-p3" class="flow" d="M508 70 C 470 92, 410 100, 360 108" marker-end="url(#arrow)"/>
+            <path id="as-p4" class="flow" d="M320 150 V 184" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: OR the three fields into one ID, then watch the sequence increment for a second request in the same ms</figcaption>
+      </figure>
+      <h3>Decoding an ID back into its parts</h3>
+      <p>Because the fields are just bit ranges, the operation is fully reversible — and being able to <em>decode</em> an ID on the spot is a favorite interviewer probe ("given this number, when was it created and which machine made it?"). You undo the shifts with a right-shift and a mask. Suppose a custom epoch of 2024-01-01 and the ID <code>175928847299477504</code>:</p>
+      <pre><span class="c">// reverse of the assembly — shift right, then mask off the lower fields</span>
+timestampMs = (id &gt;&gt; 22) + customEpoch;       <span class="c">// recover wall-clock time</span>
+machineId   = (id &gt;&gt; 12) &amp; 0x3FF;              <span class="c">// 0x3FF = 10 ones  → 0..1023</span>
+sequence    =  id        &amp; 0xFFF;              <span class="c">// 0xFFF = 12 ones  → 0..4095</span></pre>
+      <p>The masks are the key trick: <code>0x3FF</code> is ten 1-bits, so AND-ing with it keeps exactly the 10 machine bits and zeroes everything above; <code>0xFFF</code> is twelve 1-bits for the sequence. Right-shifting by 22 throws away the machine and sequence fields entirely, leaving the milliseconds-since-custom-epoch, which you add back to the epoch to get a real timestamp. This is why a Snowflake ID is "self-describing" — operators can eyeball roughly when a row was written and which worker minted it, with no extra columns, which is a genuine debugging superpower at 3 a.m. during an incident.</p>
+      <h3>Concurrency on one machine</h3>
+      <p>Within a single machine, many threads call <code>nextId()</code> at once, all touching the shared <code>lastTimestamp</code> and <code>sequence</code>. That read-modify-write must be <strong>atomic</strong> or two threads could grab the same sequence value. Real implementations guard it with a <code>synchronized</code> block or a lock — and because it is pure in-memory arithmetic with no I/O, the critical section is nanoseconds long, so contention is negligible even under heavy load. This is the only locking in the whole design, and it is local to one process. A failure mode to name here: a buggy <em>lock-free</em> attempt (e.g. an unguarded <code>seq++</code> across threads) will silently hand two requests the same sequence in the same millisecond on the same machine — the exact collision the design exists to prevent — so the locking is not optional even though it looks like a hot-path cost.</p>
+    </section>
+
+    <!-- 8 — INTERACTIVE: machine id assignment via zookeeper -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> Coordination, exactly once</div>
+      <h2>Assigning unique machine IDs</h2>
+      <p>Everything hinges on one assumption: <em>no two live generators share a machine ID</em>. If they did, two machines could mint the identical timestamp+machine+sequence triple and collide. So the question becomes: how does each generator get a unique number from 0–1023, without a human hard-coding it (error-prone) and without a per-request coordinator (the thing we are avoiding)?</p>
+      <p>The standard answer is to coordinate <strong>once, at startup</strong>, through a strongly-consistent store — <strong>ZooKeeper</strong> or <strong>etcd</strong>. On boot, a generator atomically claims a free worker number and holds it for as long as it lives. The cost is paid exactly once per process lifetime, so it does not violate "no per-request coordination."</p>
+      <h3>The mechanism, step by step</h3>
+      <ul>
+        <li>The generator connects to ZooKeeper and creates an <strong>ephemeral sequential znode</strong> under <code>/id-gen/workers/</code>. ZooKeeper assigns it the next free sequence number — that becomes its machine ID.</li>
+        <li>An <strong>ephemeral</strong> node is tied to the session: if the generator crashes or its network drops, ZooKeeper detects the lost heartbeat and <strong>automatically deletes the node</strong>, freeing the machine ID for a future generator to reuse.</li>
+        <li>The generator caches its machine ID in memory for its whole lifetime. From here on, no further coordination — it mints IDs purely locally.</li>
+      </ul>
+      <figure>
+        <div class="blueprint stepper" id="fig-machineid">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Interactive: a generator boots, claims a free worker id from ZooKeeper, then mints IDs locally, releasing the id on crash">
+            <g class="st" id="mid-gen"><rect class="node" x="24" y="96" width="130" height="52" rx="9"/><text class="lbl" x="89" y="118" text-anchor="middle">Generator</text><text class="lbl-sm" x="89" y="136" text-anchor="middle" id="mid-gen-lbl">booting…</text></g>
+            <g class="st" id="mid-zk"><rect class="node-b" x="250" y="40" width="160" height="160" rx="10"/><text class="lbl" x="330" y="62" text-anchor="middle">ZooKeeper</text>
+              <rect x="270" y="78" width="120" height="26" rx="4" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.2"/><text class="lbl-sm" x="330" y="95" text-anchor="middle">worker/0  used</text>
+              <rect x="270" y="110" width="120" height="26" rx="4" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.2"/><text class="lbl-sm" x="330" y="127" text-anchor="middle">worker/1  used</text>
+              <rect id="mid-slot" x="270" y="142" width="120" height="26" rx="4" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.2"/><text class="lbl-sm" x="330" y="159" text-anchor="middle" id="mid-slot-lbl">worker/2  free</text>
+            </g>
+            <g class="st" id="mid-out"><rect class="node-r" x="486" y="96" width="130" height="52" rx="9"/><text class="lbl-sm" x="551" y="118" text-anchor="middle">mints IDs</text><text class="lbl-sm" x="551" y="136" text-anchor="middle">locally</text></g>
+            <path id="mid-p1" class="flow" d="M154 116 H 248" marker-end="url(#arrow)"/>
+            <path id="mid-p2" class="flow-d" d="M248 140 C 200 160, 160 150, 154 134" marker-end="url(#arrow-s)"/>
+            <path id="mid-p3" class="flow" d="M410 120 H 484" marker-end="url(#arrow)"/>
+            <path id="mid-p4" class="flow-r" d="M486 132 C 430 200, 360 200, 332 172" marker-end="url(#arrow-r)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 — interactive: claim a worker id at boot, mint locally, release it automatically on crash</figcaption>
+      </figure>
+      <h3>Cheaper alternatives</h3>
+      <p>You do not always need ZooKeeper. In a Kubernetes <code>StatefulSet</code>, every pod gets a stable ordinal name (<code>pay-app-0</code>, <code>pay-app-1</code>, …) you can map straight to a machine ID — the orchestrator already guarantees uniqueness. Some teams derive the machine ID from the private IP's lower bits, or lease it from a small range table in a relational DB. The principle is identical: assign once, guarantee uniqueness, survive restarts.</p>
+      <div class="callout tip">
+        <span class="k">The follow-up that separates candidates</span>
+        <p>"How do nodes get unique machine IDs?" Strong answer: <em>"A coordination service like ZooKeeper hands out an ephemeral worker number at startup; if the node dies the number is freed and reusable, and there's no per-request coordination after boot."</em> Then mention the StatefulSet shortcut to show you know it is not always worth a ZooKeeper dependency.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> When it breaks</div>
+      <h2>Clock skew and the failure modes</h2>
+      <p>Snowflake's elegance rests on a fragile assumption: <strong>the wall clock only moves forward</strong>. Because the timestamp is the most significant part of the ID, a clock that jumps <em>backward</em> can produce IDs that are smaller than ones already issued — breaking sortability — or, worse, re-issue a timestamp the machine already used, risking a <strong>duplicate ID</strong>.</p>
+      <h3>How does a clock go backwards?</h3>
+      <p>Servers sync their clocks with <strong>NTP</strong> (Network Time Protocol). When a machine's clock has drifted ahead of true time, NTP corrects it — and a naive correction can <em>step</em> the clock backward by a few milliseconds. A <strong>leap second</strong> can cause a similar reversal. Even a VM migration or a hypervisor pause can leave the guest clock briefly inconsistent. None of these are exotic; in a fleet of hundreds of machines, a small backward jump somewhere is a routine event.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 210" role="img" aria-label="A timeline where the clock jumps backward, and the generator waits until the clock catches up before minting again">
+            <line x1="40" y1="120" x2="600" y2="120" stroke="#999" stroke-width="1.5"/>
+            <!-- forward ticks -->
+            <circle cx="110" cy="120" r="6" fill="#1F4E79"/>
+            <circle cx="180" cy="120" r="6" fill="#1F4E79"/>
+            <circle cx="250" cy="120" r="6" fill="#1F4E79"/>
+            <text class="lbl-sm" x="180" y="146" text-anchor="middle">IDs minted, time rising</text>
+            <!-- backward jump -->
+            <path class="flow-r" d="M250 100 C 270 56, 320 56, 332 92" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="300" y="48" text-anchor="middle" fill="#B0532F">NTP steps clock BACK</text>
+            <circle cx="332" cy="120" r="6" fill="#B0532F"/>
+            <!-- wait region -->
+            <rect x="332" y="96" width="120" height="48" rx="6" fill="rgba(176,83,47,.07)" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="392" y="116" text-anchor="middle" fill="#B0532F">WAIT — do not</text>
+            <text class="lbl-sm" x="392" y="132" text-anchor="middle" fill="#B0532F">mint here</text>
+            <!-- resume -->
+            <circle cx="500" cy="120" r="6" fill="#1F4E79"/>
+            <circle cx="560" cy="120" r="6" fill="#1F4E79"/>
+            <text class="lbl-sm" x="530" y="146" text-anchor="middle">resume once caught up</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — a backward clock step: pause minting until the clock passes the last timestamp seen</figcaption>
+      </figure>
+      <h3>Handling it</h3>
+      <p>The generator already remembers <code>lastTimestamp</code> (it needs it for the sequence). So on each call it compares the current time to that value. If <code>now &lt; lastTimestamp</code>, the clock has moved backward, and there are a few responses:</p>
+      <ul>
+        <li><strong>Wait it out (small skew).</strong> If the backward jump is tiny — a few milliseconds — the generator <strong>busy-waits</strong> until <code>now</code> catches back up to <code>lastTimestamp</code>, then resumes. Latency blips for a few ms; correctness is preserved. This is the default, pragmatic choice.</li>
+        <li><strong>Refuse and alert (large skew).</strong> If the jump is large — seconds — waiting is unacceptable. The generator throws an error, the node takes itself out of rotation, and an operator is paged. Better to fail loudly than to risk duplicates.</li>
+        <li><strong>Use a logical clock.</strong> A more robust design tracks a <em>monotonic</em> counter that can only increase, decoupling the ID's time component from the raw wall clock — so a backward NTP step never produces a smaller ID. This trades a little simplicity for never having to busy-wait.</li>
+      </ul>
+      <h3>Other failure modes</h3>
+      <ul>
+        <li><strong>A generator node dies.</strong> No problem for uniqueness: surviving nodes keep minting on their own machine IDs. ZooKeeper releases the dead node's worker number; a replacement claims it cleanly. There is no shared mutable state to corrupt, which is the whole appeal of the design.</li>
+        <li><strong>Sequence exhaustion in one ms.</strong> Already handled in Step 07 — busy-wait to the next millisecond. With a 4,096-per-ms ceiling, this only triggers under extreme single-machine load.</li>
+        <li><strong>Duplicate machine ID.</strong> The catastrophic case. If two live nodes somehow share a worker number (a misconfigured deploy, a ZooKeeper split-brain), they can collide. This is why machine-ID assignment must go through a strongly-consistent store, not a best-effort guess.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">The classic interview probe</span>
+        <p>"What happens if the clock goes backwards?" Land this: <em>"The generator detects </em><code>now &lt; lastTimestamp</code><em> and refuses to mint until the clock catches up — busy-waiting for small skews, failing the node out for large ones — so it never re-uses a timestamp and never produces a smaller ID."</em> Bonus points for naming NTP and the logical-clock alternative.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Scale &amp; wrap-up</div>
+      <h2>Scaling, real tools, and what breaks at 10x</h2>
+      <p>Put the whole architecture together: each application server embeds a generator, claims a machine ID from ZooKeeper at boot, and from then on mints 64-bit IDs locally with zero network hops. There is no central ID service on the hot path, so the system scales <strong>horizontally</strong> simply by adding more application servers — each one is just another worker number.</p>
+      <h3>Real systems that do this</h3>
+      <ul>
+        <li><strong>Twitter/X Snowflake</strong> — the original, the layout this lesson follows.</li>
+        <li><strong>Sonyflake, Baidu UidGenerator, Meituan Leaf</strong> — production variants with different bit splits; Leaf offers both a Snowflake mode and a segment/ticket mode.</li>
+        <li><strong>Instagram</strong> — generates IDs inside PostgreSQL with a <code>PL/pgSQL</code> stored procedure that packs a timestamp, a shard ID, and a per-shard sequence — Snowflake's idea, implemented in the database.</li>
+        <li><strong>MongoDB ObjectId</strong> — a 12-byte (96-bit) ID combining timestamp, machine, process, and counter; the same composition principle at a larger width.</li>
+        <li><strong>ZooKeeper / etcd</strong> for machine-ID leasing; <strong>Kubernetes StatefulSet</strong> ordinals as the lightweight alternative.</li>
+      </ul>
+      <h3>What breaks at 10x</h3>
+      <p>Scale the demand 10x — from 50k/s to 500k/s, on a far larger fleet — and ask what strains:</p>
+      <ul>
+        <li><strong>Machine-ID space.</strong> 10 bits caps you at 1,024 generators. A very large fleet plus ephemeral, fast-cycling containers (each grabbing then releasing a worker number) can churn through the pool. Fix by re-budgeting bits (Step 06) toward more machine bits, or splitting into data-center + machine sub-fields.</li>
+        <li><strong>Clock skew probability.</strong> More machines means a backward NTP step <em>somewhere</em> becomes near-certain at any moment. Invest in tight NTP discipline (or PTP), use <code>slew</code> rather than <code>step</code> corrections where possible, and make the wait/fail logic robust — it will fire regularly at this scale.</li>
+        <li><strong>Per-millisecond ceiling.</strong> 4,096 IDs/ms/machine is generous, but a few hot machines doing bulk imports could brush it and start busy-waiting. Spread load, or borrow a bit from machine into sequence.</li>
+        <li><strong>The standalone-service variant.</strong> If you chose the HTTP service shape instead of an embedded library, <em>that</em> service is now the bottleneck. Mitigate with batch pre-fetching (Step 03) so each client caches a block of IDs and rarely calls out. The embedded-library shape sidesteps the problem entirely — which is why it is the default at scale.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Why time-sortability keeps paying off</span>
+        <p>At 10x the data, the sortable property earns its keep: <strong>index locality</strong> keeps write throughput high as the payments table grows to billions of rows; <strong>natural pagination</strong> lets you page by ID without a separate timestamp column (<code>WHERE id &gt; ? ORDER BY id LIMIT 100</code>); and <strong>rough chronological order</strong> means a range of IDs maps to a time range for analytics and debugging. A random UUID gives you none of this — which is the real reason Snowflake won.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>partition 64 bits into time, machine, and sequence so every node mints unique, sortable IDs locally — coordinating only once, at startup, to get its machine number.</em> If you can draw the bit layout, justify each field's size, and explain what happens when the clock runs backward, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>64-bit, unique, sortable</b><span>Compact for indexes, roughly time-ordered, no per-request coordination.</span></div>
+        <div class="tk"><span class="num">02</span><b>UUID is the wrong shape</b><span>Zero coordination, but 128-bit and unsorted — wrecks B-tree locality.</span></div>
+        <div class="tk"><span class="num">03</span><b>Ticket server = SPOF</b><span>Compact and ordered, but a central bottleneck; offsets are a brittle patch.</span></div>
+        <div class="tk"><span class="num">04</span><b>The bit budget</b><span>1 sign + 41 timestamp + 10 machine + 12 sequence = 64 bits.</span></div>
+        <div class="tk"><span class="num">05</span><b>Time on top</b><span>Timestamp is most-significant, so larger ID ≈ later in time.</span></div>
+        <div class="tk"><span class="num">06</span><b>Shift &amp; OR</b><span>(ts &lt;&lt; 22) | (machine &lt;&lt; 12) | seq — pure local arithmetic.</span></div>
+        <div class="tk"><span class="num">07</span><b>Sequence per ms</b><span>4,096 IDs/ms/machine; busy-wait to next ms on overflow.</span></div>
+        <div class="tk"><span class="num">08</span><b>Machine ID once</b><span>ZooKeeper/etcd leases a worker number at boot; freed on crash.</span></div>
+        <div class="tk"><span class="num">09</span><b>Clocks go backward</b><span>Detect now &lt; last; wait for small skew, fail out for large.</span></div>
+        <div class="tk"><span class="num">10</span><b>Scales horizontally</b><span>Add nodes = add worker numbers; no hot-path coordination.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Why not just use UUID v4 — name both reasons it fails our requirements.<br>(2) Draw the 64-bit Snowflake layout and justify why the timestamp sits at the most-significant end.<br>(3) How do two IDs minted in the same millisecond on the same machine stay unique — and what about two different machines?<br>(4) Why does 41 bits of milliseconds give ~69 years, and what role does the custom epoch play?<br>(5) How does a node get a unique machine ID without per-request coordination, and what happens to that ID when the node dies?<br>(6) What happens if the clock steps backward, and what are your two handling strategies?<br>Any fuzzy answer → re-read that section, replay its diagram, and redraw the bit layout from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 19 · DISTRIBUTED UNIQUE ID GENERATOR · interactive edition · ref BBG V1·C7<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* options decision walk */
+  makeStepper(document.getElementById('fig-decide'), [
+    {text:"We need a 64-bit, globally unique, roughly time-sortable ID.", active:["dec-need"]},
+    {text:"UUID v4 needs zero coordination — but it's 128-bit and not sortable. Eliminated.", active:["dec-need","dec-uuid"], path:"dec-p1", reject:true},
+    {text:"A central ticket server is compact and ordered — but it's a single point of failure and bottleneck. Eliminated.", active:["dec-need","dec-ticket"], path:"dec-p2", reject:true},
+    {text:"Snowflake composes time + machine + sequence locally: 64-bit, sortable, no per-request coordination.", active:["dec-need","dec-snow"], path:"dec-p3"},
+    {text:"That satisfies all three requirements with no hot-path coordination — it's our chosen design.", active:["dec-snow","dec-win"], path:"dec-p4"}
+  ]);
+
+  /* id assembly within a millisecond */
+  makeStepper(document.getElementById('fig-assemble'), [
+    {text:"Start with the current timestamp T — it will occupy the high bits.", active:["as-ts","as-or"], path:"as-p1", seq:0},
+    {text:"Shift in the machine id (here, worker 7) so this node's IDs can't collide with another's.", active:["as-ts","as-mc"], path:"as-p2", seq:0},
+    {text:"OR in the per-millisecond sequence, starting at 0 for the first request this ms.", active:["as-mc","as-sq","as-or"], path:"as-p3", seq:0},
+    {text:"Shift each field into place and OR them: this is the first 64-bit ID for millisecond T.", active:["as-or","as-id"], path:"as-p4", seq:0},
+    {text:"A second request in the SAME millisecond? Reset nothing — just bump the sequence to 1. Unique again.", active:["as-sq","as-id"], path:"as-p4", seq:1}
+  ], function(idx,s){
+    var seqLbl=document.getElementById('as-seq-label');
+    var idLbl=document.getElementById('as-id-label');
+    if(seqLbl)seqLbl.textContent='seq '+s.seq;
+    if(idLbl)idLbl.textContent='(T << 22) | (7 << 12) | '+s.seq;
+  });
+
+  /* machine id assignment via zookeeper */
+  makeStepper(document.getElementById('fig-machineid'), [
+    {text:"A new generator boots and connects to ZooKeeper. It has no machine id yet.", active:["mid-gen","mid-zk"], path:"mid-p1", slot:"free", gen:"booting…"},
+    {text:"It atomically claims the next free worker number — worker/2 — as an ephemeral node.", active:["mid-zk","mid-gen"], path:"mid-p2", slot:"taken", gen:"got id = 2"},
+    {text:"With its machine id cached, the generator mints IDs purely locally — no more coordination.", active:["mid-gen","mid-out"], path:"mid-p3", slot:"taken", gen:"machine 2"},
+    {text:"If the node crashes, its session drops and ZooKeeper auto-deletes the ephemeral node.", active:["mid-out","mid-zk"], path:"mid-p4", reject:true, slot:"free", gen:"crashed"},
+    {text:"Worker/2 is free again — a replacement node can claim it cleanly. No shared state to corrupt.", active:["mid-zk"], slot:"free", gen:"—"}
+  ], function(idx,s){
+    var slotLbl=document.getElementById('mid-slot-lbl');
+    var slot=document.getElementById('mid-slot');
+    var genLbl=document.getElementById('mid-gen-lbl');
+    if(slotLbl)slotLbl.textContent=(s.slot==='taken')?'worker/2  used':'worker/2  free';
+    if(slot)slot.setAttribute('fill',(s.slot==='taken')?'#E7F0E3':'#FDFBF6');
+    if(genLbl)genLbl.textContent=s.gen;
+  });
+</script>
+</body>
+</html>

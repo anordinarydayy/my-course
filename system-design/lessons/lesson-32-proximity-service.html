@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 32 — Design a Proximity Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  pre{margin:22px 0;padding:18px 20px;background:var(--paper-2);border:1px solid var(--line-strong);
+    border-radius:10px;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;
+    color:var(--ink);}
+  pre .c{color:var(--ink-soft);} pre .k{color:var(--rust);} pre .b{color:var(--blueprint);font-weight:600;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Proximity<br>Service</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>What's near me?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Clarify &amp; scope</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Back-of-envelope</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>API &amp; data model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The naive scan fails</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Geohash</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Quadtree &amp; S2/H3</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Architecture</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>The read path ▸</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Scaling &amp; hot cells</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Updates &amp; failure</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">32</span><span>Lesson · System Design Interview</span></div>
+      <h1>Design a Proximity Service</h1>
+      <p class="lede">"What's within 5 km of me?" looks innocent, but it's a 2D range query — and answering it by measuring the distance to every point on the map is hopelessly slow. The trick is a spatial index: geohash or quadtree turns nearness into a cheap prefix or tree lookup. It's the engine behind nearby restaurants on Shopee Food and nearby drivers on Grab.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on building a proximity (nearby-search) service — a standard, widely-documented system-design topic. The explanations, numbers, schemas, and diagrams here are my own; nothing is copied from any paid course or book. One diagram is interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the read path execute.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>What's near me?</h2>
+      <p>Open the Grab app in Singapore and tap the map. Within a fraction of a second you see the dozen drivers idling near you, or the restaurants delivering to your block. A <strong>proximity service</strong> is the component that answers one question fast: <em>given my coordinates and a radius, which entities fall inside that circle?</em> The entities might be static — restaurants, ATMs, MRT stations, GrabKiosks — or moving, like drivers. This lesson focuses on the static and slowly-moving case; the high-churn "live driver location" variant is its own beast (the bridge to that comes at the end).</p>
+      <p>The reason this is an interview favourite is that the obvious solution is a trap. Your data is a list of <code>(lat, lng)</code> pairs in a database. The instinct is: loop over them, compute the distance to each, keep the ones under 5 km. That works on a laptop with a thousand rows. It collapses the moment you have millions of points and thousands of queries per second. Everything interesting in this design is about replacing that linear scan with a <strong>spatial index</strong> — a data structure that lets you find points by <em>location</em> without examining points that are obviously far away.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A user at the centre of a search radius with some entities inside and some outside the circle">
+            <circle cx="300" cy="110" r="78" fill="rgba(31,78,121,.07)" stroke="#1F4E79" stroke-width="2" stroke-dasharray="6 5"/>
+            <circle cx="300" cy="110" r="6" fill="#B0532F"/>
+            <text class="lbl-sm" x="300" y="128" text-anchor="middle" fill="#B0532F">you (lat,lng)</text>
+            <text class="lbl-sm" x="385" y="80" fill="#1F4E79">r = 5 km</text>
+            <circle cx="262" cy="80" r="6" fill="#69B34C"/>
+            <circle cx="332" cy="92" r="6" fill="#69B34C"/>
+            <circle cx="282" cy="150" r="6" fill="#69B34C"/>
+            <circle cx="345" cy="146" r="6" fill="#69B34C"/>
+            <circle cx="120" cy="50" r="6" fill="#cfc7b6"/>
+            <circle cx="510" cy="70" r="6" fill="#cfc7b6"/>
+            <circle cx="470" cy="180" r="6" fill="#cfc7b6"/>
+            <circle cx="80" cy="170" r="6" fill="#cfc7b6"/>
+            <text class="lbl-sm" x="540" y="74" fill="#9a927f" text-anchor="start">too far</text>
+            <text class="lbl-sm" x="300" y="206" text-anchor="middle">return the green points, ignore the grey ones</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — the task: return entities inside the circle, cheaply, without touching the rest</figcaption>
+      </figure>
+      <p>Hold that picture. The whole lesson is about how to find the green dots without ever looking at the grey ones.</p>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Scope it</div>
+      <h2>Clarify &amp; scope the requirements</h2>
+      <p>Before drawing a single box, narrow the problem out loud. "Proximity" hides several different products, and the right index depends on the answers.</p>
+      <h3>Functional requirements</h3>
+      <ul>
+        <li><strong>Search by radius.</strong> Given <code>(lat, lng)</code> and a radius (or a fixed set of radii like 1/3/5 km), return the entities inside that circle. We'll assume the client picks a radius rather than asking for "the nearest 20 regardless of distance" — though we'll note how to support that too.</li>
+        <li><strong>Return useful results.</strong> Not just IDs — the caller wants the entity's name, location, and enough to rank, sorted by distance ascending.</li>
+        <li><strong>Manage entities.</strong> Add, update, and remove businesses. A restaurant opens, changes address, or shuts down.</li>
+        <li><strong>Handle density skew.</strong> Orchard Road and the CBD are packed; Pulau Ubin is nearly empty. The design must not choke where points cluster.</li>
+      </ul>
+      <h3>Non-functional requirements</h3>
+      <ul>
+        <li><strong>Low latency.</strong> Search sits in front of a map the user is staring at. Target p99 well under ~200 ms.</li>
+        <li><strong>Read-heavy.</strong> People search constantly; businesses change rarely. This shapes everything — we optimise reads and tolerate slightly stale writes.</li>
+        <li><strong>High availability.</strong> "No restaurants near you" because the service is down is a lost order. Degrade, don't disappear.</li>
+        <li><strong>Eventual consistency is fine.</strong> A restaurant appearing in search 30 seconds after it's added is acceptable. We are not moving money here.</li>
+      </ul>
+      <h3>Assumptions to state</h3>
+      <p>Make your scope explicit so the interviewer can correct you early: a Southeast-Asia footprint (think one region, multi-city); roughly tens of millions of businesses; radius queries dominate; and entities are mostly static with occasional edits. Park the moving-driver case — it changes the storage strategy entirely, and conflating the two is the classic way to lose the thread.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The single most valuable clarifying question is <em>"are the entities static or moving?"</em> Static businesses can be indexed once and cached aggressively; moving drivers churn their location every few seconds and break any disk-based index. Naming this fork early shows you understand where the real difficulty lives.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Estimate</div>
+      <h2>Back-of-the-envelope</h2>
+      <p>Quick numbers anchor every later decision. Use round figures and say them aloud — the interviewer wants the reasoning, not the third decimal place.</p>
+      <h3>Storage</h3>
+      <p>Say <strong>100 million businesses</strong> across the region. Each row is small: an ID, a name, <code>(lat, lng)</code>, a geohash string, plus a handful of attributes — call it ~400 bytes. That's <code>100M × 400 B = 40 GB</code>. Tiny by modern standards. The point of the estimate isn't that storage is hard (it isn't) — it's that <strong>40 GB fits comfortably on a single replicated SQL box</strong>, which means our scaling problem is about query speed and read fan-out, not disk capacity.</p>
+      <h3>Read throughput</h3>
+      <p>Suppose <strong>100 million daily active users</strong>, each doing ~5 nearby searches a day: <code>500M searches/day ≈ 5,800 QPS</code> averaged. But traffic isn't flat — Grab's lunch and dinner peaks easily push <strong>5–10× the average</strong>, so design for <code>~50,000 QPS</code> at peak. That number is what forces caching and read replicas; a single database answering 50k geospatial lookups per second is not happening.</p>
+      <h3>Write throughput</h3>
+      <p>Businesses change slowly — new listings, edits, closures. Even a generous 1 million updates a day is <code>~12 writes/sec</code>. The <strong>read:write ratio is roughly 4,000:1</strong>. This lopsidedness is the headline of the whole design: we can pre-compute, denormalise, and cache to our heart's content, because writes are cheap and rare.</p>
+      <div class="callout">
+        <span class="k">What the numbers tell us</span>
+        <p>Data fits on one node; reads dwarf writes by thousands to one. Conclusion: this is a <strong>read-optimisation problem</strong>. The architecture will be "index once, cache hard, scale reads horizontally," not "shard a write firehose." Keep this in your pocket — every later trade-off resolves in favour of read speed.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Contract</div>
+      <h2>API &amp; data model</h2>
+      <p>Pin down the interface before the internals. Two surfaces matter: the <strong>read API</strong> the app calls, and the <strong>write API</strong> an internal business-management tool calls.</p>
+      <h3>The search endpoint</h3>
+      <pre><span class="c"># Find businesses near a point, within a radius</span>
+<span class="b">GET</span> /v1/search/nearby?lat=1.3048&amp;lng=103.8318&amp;radius=2000&amp;category=food&amp;limit=20
+
+<span class="c"># 200 OK</span>
+{
+  <span class="k">"total"</span>: 14,
+  <span class="k">"results"</span>: [
+    { <span class="k">"id"</span>: <span class="k">"biz_8841"</span>, <span class="k">"name"</span>: <span class="k">"Maxwell Food Centre"</span>,
+      <span class="k">"lat"</span>: 1.2803, <span class="k">"lng"</span>: 103.8447, <span class="k">"distance_m"</span>: 412 },
+    { <span class="k">"id"</span>: <span class="k">"biz_2207"</span>, <span class="k">"name"</span>: <span class="k">"Tiong Bahru Bakery"</span>,
+      <span class="k">"lat"</span>: 1.2856, <span class="k">"lng"</span>: 103.8291, <span class="k">"distance_m"</span>: 1180 }
+  ]
+}</pre>
+      <p><code>radius</code> is in metres; <code>distance_m</code> is the true ground distance, already computed and used for sorting. We cap <code>limit</code> so a query in a dense area can't try to return ten thousand rows. Note what's <em>not</em> here: no pagination cursor crossing the spatial boundary, because spatial pagination is genuinely awkward — most apps re-query as the user pans the map instead.</p>
+      <h3>The business management endpoints</h3>
+      <pre><span class="b">POST</span>   /v1/business            <span class="c"># create — server computes the geohash</span>
+<span class="b">PUT</span>    /v1/business/{id}       <span class="c"># update (may change lat/lng → recompute geohash)</span>
+<span class="b">DELETE</span> /v1/business/{id}       <span class="c"># remove</span>
+<span class="b">GET</span>    /v1/business/{id}       <span class="c"># fetch one</span></pre>
+      <h3>The data model</h3>
+      <p>Split the design into two tables. One holds the <strong>authoritative business record</strong>; the other is the <strong>spatial index</strong> — the structure we query by location. Keeping them separate lets the index be rebuilt or re-sharded without touching the source of truth.</p>
+      <pre><span class="b">business</span>
+  id            BIGINT  PRIMARY KEY
+  name          TEXT
+  lat           DOUBLE
+  lng           DOUBLE
+  category      TEXT
+  address       TEXT
+  updated_at    TIMESTAMP
+
+<span class="b">geo_index</span>
+  geohash       VARCHAR(8)   <span class="c">-- e.g. "w21z3wc" (precision 6–7)</span>
+  business_id   BIGINT
+  <span class="k">INDEX (geohash)</span>             <span class="c">-- the prefix/range query rides this B-tree</span></pre>
+      <p>The key design choice is in <code>geo_index</code>: we store a <strong>geohash</strong> string per business and put a B-tree index on it. Why a string and not the raw <code>(lat, lng)</code>? Because — as the next sections show — a geohash turns "find nearby points" into "find rows whose geohash starts with this prefix," and a B-tree answers prefix/range queries blazingly fast. The raw coordinates can't be indexed for 2D nearness with one ordinary B-tree; that's the whole problem we're about to unpack.</p>
+      <div class="callout tip">
+        <span class="k">Going past the book</span>
+        <p>An interviewer may ask "what is <code>geo_index</code> actually stored in?" Strong answers: a B-tree index on a geohash column in <strong>PostgreSQL</strong> or <strong>MySQL</strong>; or skip the manual geohash and use <strong>PostGIS</strong> with a <strong>GiST</strong> index on a geometry column; or use <strong>Redis Geo</strong> commands (<code>GEOADD</code> / <code>GEOSEARCH</code>), which store points in a sorted set keyed by a 52-bit geohash interleave. Knowing more than one option, and when each fits, is the differentiator.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The core bottleneck</div>
+      <h2>Why the naive scan fails</h2>
+      <p>Start with the simplest thing that could possibly work, then watch it break — that's how you motivate the index. The naive query is a full scan with a distance filter:</p>
+      <pre><span class="b">SELECT</span> id, name, lat, lng
+<span class="b">FROM</span>   business
+<span class="b">WHERE</span>  haversine(lat, lng, :userLat, :userLng) &lt; :radius
+<span class="b">ORDER BY</span> distance;</pre>
+      <p>The <strong>haversine formula</strong> computes the great-circle distance between two latitude/longitude points on a sphere. It's the correct way to measure ground distance, and we'll absolutely use it — but not like this. Here it runs once <em>per row</em>, so the database must touch all 100 million rows, do 100 million trig calculations, and only then discard the 99.99% that were nowhere near you. That's <code>O(n)</code> per query, and no index helps, because the filter is a function of two columns, not a value the B-tree can seek to.</p>
+      <h3>What breaks, concretely</h3>
+      <p>At our peak of 50,000 QPS, each query scanning 100M rows is <code>5 × 10¹²</code> distance computations per second across the fleet. Even if one box could scan a few million rows per second, a single query takes tens of seconds — and they pile up, connection pools saturate, and the service falls over. The naive scan doesn't just get slow at scale; it stops responding entirely.</p>
+      <h3>Why a regular index doesn't save you</h3>
+      <p>"Just index <code>lat</code> and <code>lng</code>!" A B-tree on <code>lat</code> can quickly find everything in a latitude <em>band</em> — a horizontal strip across the whole planet. A separate B-tree on <code>lng</code> finds a vertical strip. Intersecting two strips still drags in a huge cross-shaped region far larger than your little circle, and the database can typically only use one of the two indexes efficiently for a range scan. The fundamental issue: a B-tree is one-dimensional, and nearness is two-dimensional. We need to <strong>map 2D location down to a single sortable dimension such that points close in space are close in that dimension.</strong> That mapping is exactly what a spatial index provides.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Two one-dimensional indexes on latitude and longitude each select a wide strip; their intersection is far larger than the target circle">
+            <rect x="60" y="30" width="430" height="160" fill="none" stroke="#999" stroke-width="1.5"/>
+            <rect x="60" y="92" width="430" height="40" fill="rgba(176,83,47,.10)"/>
+            <text class="lbl-sm" x="500" y="116" fill="#B0532F" text-anchor="start">lat band</text>
+            <rect x="255" y="30" width="42" height="160" fill="rgba(31,78,121,.12)"/>
+            <text class="lbl-sm" x="276" y="22" fill="#1F4E79" text-anchor="middle">lng band</text>
+            <circle cx="276" cy="112" r="22" fill="rgba(105,179,76,.30)" stroke="#69B34C" stroke-width="2"/>
+            <text class="lbl-sm" x="276" y="116" text-anchor="middle">want</text>
+            <text class="lbl-sm" x="276" y="208" text-anchor="middle">two 1-D indexes select two strips; their overlap dwarfs the circle you wanted</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — a B-tree is one-dimensional; nearness is two-dimensional, so plain lat/lng indexes overshoot</figcaption>
+      </figure>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Spatial index · the workhorse</div>
+      <h2>Geohash</h2>
+      <p>The <strong>geohash</strong> is the elegant answer to "collapse 2D into 1D." It encodes a <code>(lat, lng)</code> pair into a short string (base-32) with a beautiful property: <strong>two locations that are physically close share a long common prefix.</strong> So "find nearby points" becomes "find points whose geohash starts with the same prefix" — a range scan a plain B-tree handles in milliseconds.</p>
+      <h3>How it works under the hood</h3>
+      <p>Geohashing is recursive bisection of the world. Start with longitude spanning <code>[-180, 180]</code> and latitude <code>[-90, 90]</code>. To encode a point:</p>
+      <ul>
+        <li>Halve the longitude range. If the point is in the upper half, emit a <code>1</code> bit; lower half, a <code>0</code>. Keep the half that contains the point and repeat.</li>
+        <li>Do the same for latitude, alternating: longitude bit, latitude bit, longitude bit, and so on. Each bit doubles the precision of one axis.</li>
+        <li>Group the interleaved bits into chunks of 5 and map each chunk to one base-32 character. A 6-character hash is 30 bits; a 7-character hash is 35 bits.</li>
+      </ul>
+      <p>Because the bits encode "which half, then which quarter, then which eighth…", the <strong>prefix of the string corresponds to a containing rectangle (a "cell").</strong> A 5-char hash is a roughly 5 km × 5 km cell; 6 chars is ~1.2 km × 0.6 km; 7 chars is ~150 m × 150 m. Drop characters off the end and you zoom out to a coarser cell; add characters and you zoom in. Sharing a prefix literally means "inside the same box."</p>
+      <h3>Worked example — Tanjong Pagar</h3>
+      <p>A café near Tanjong Pagar might encode to <code>w21z3w</code> at precision 6. A second café one street over encodes to <code>w21z3x</code> — same five-character prefix <code>w21z3</code>, differing only in the last character, because they sit in adjacent sub-cells of the same parent. A hawker stall out in Jurong, far away, encodes to something like <code>w21yqf</code>: the shared prefix collapses to just <code>w21</code>. The length of the agreement <em>is</em> the closeness. To find everything near the café, you query <code>WHERE geohash LIKE 'w21z3%'</code> — and the B-tree seeks straight to that contiguous block of rows.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 250" role="img" aria-label="A grid of geohash cells over a map; the centre cell and its eight neighbours are highlighted around a search point">
+            <g stroke="#1F4E79" stroke-width="1" fill="none" opacity="0.35">
+              <line x1="160" y1="40" x2="160" y2="210"/><line x1="280" y1="40" x2="280" y2="210"/>
+              <line x1="400" y1="40" x2="400" y2="210"/><line x1="520" y1="40" x2="520" y2="210"/>
+              <line x1="40" y1="40" x2="40" y2="210"/>
+              <line x1="40" y1="40" x2="520" y2="40"/><line x1="40" y1="97" x2="520" y2="97"/>
+              <line x1="40" y1="154" x2="520" y2="154"/><line x1="40" y1="210" x2="520" y2="210"/>
+            </g>
+            <rect x="280" y="97" width="120" height="57" fill="rgba(176,83,47,.16)" stroke="#B0532F" stroke-width="2"/>
+            <rect x="160" y="40" width="360" height="170" fill="none" stroke="#1F4E79" stroke-width="2" stroke-dasharray="6 4"/>
+            <circle cx="340" cy="125" r="6" fill="#B0532F"/>
+            <text class="lbl-sm" x="340" y="146" text-anchor="middle" fill="#B0532F">w21z3w</text>
+            <text class="lbl-sm" x="220" y="68" text-anchor="middle">w21z3q</text>
+            <text class="lbl-sm" x="460" y="68" text-anchor="middle">w21z3y</text>
+            <text class="lbl-sm" x="220" y="184" text-anchor="middle">w21z3m</text>
+            <text class="lbl-sm" x="460" y="184" text-anchor="middle">w21z3x</text>
+            <text class="lbl-sm" x="300" y="234" text-anchor="middle">centre cell + its 8 neighbours cover the search circle</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — close points share a prefix; query the centre cell plus its 8 neighbours</figcaption>
+      </figure>
+      <h3>The boundary problem — and why you need 9 cells</h3>
+      <p>Here's the subtlety interviewers probe. The user might stand right at the <em>edge</em> of their geohash cell. A restaurant 50 m away, just across the cell border, has a <em>different</em> geohash prefix — so a single-cell query would miss it even though it's clearly "nearby." Worse, geohash has a quirk: two points can be physically adjacent yet share almost no prefix, because the bisection boundary fell between them (the antimeridian and equator edges are the extreme cases).</p>
+      <p>The fix is the standard recipe: <strong>query the user's cell plus all 8 surrounding neighbour cells</strong> — a 3×3 grid. You compute the eight neighbours arithmetically from the centre hash (libraries expose a <code>neighbors()</code> call), then issue one query covering all nine prefixes. This guarantees you can't miss a point near a border, because any point within the radius must fall in the centre cell or one touching it (provided you pick a cell size at least as large as the radius).</p>
+      <h3>Choosing the precision to match the radius</h3>
+      <p>The cell length must be <strong>at least the query radius</strong>, so that the 3×3 block fully contains the search circle. For a 5 km radius, pick precision 4–5 (cells ~5 km+); for a 500 m radius, precision 6; for "drivers within 200 m," precision 7. If you support several fixed radii, store one geohash but truncate it to the right length at query time — the prefix property means a precision-7 hash <em>contains</em> its precision-5 ancestor for free.</p>
+      <div class="callout">
+        <span class="k">Under the hood — tools that speak geohash</span>
+        <p><strong>Redis</strong> <code>GEOADD</code>/<code>GEOSEARCH</code> internally interleaves lat/lng into a 52-bit geohash and stores it as the score in a sorted set, so a radius query becomes a set of <code>ZRANGEBYSCORE</code> reads over the covering cells. <strong>Elasticsearch</strong> offers a <code>geohash_grid</code> aggregation. In plain <strong>PostgreSQL/MySQL</strong> you store the string and run <code>LIKE 'prefix%'</code> against a B-tree. All three exploit the same prefix-equals-proximity trick.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How do you handle the radius crossing a cell boundary?" The answer they want, crisply: <em>query the centre cell and its 8 neighbours, with a cell size ≥ the radius, then filter by exact haversine distance.</em> If you can also name the equator/antimeridian edge cases where adjacent points lose their shared prefix, you're clearly past surface level.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Spatial index · the alternative</div>
+      <h2>Quadtree, and a note on S2 &amp; H3</h2>
+      <p>Geohash splits the world into a <em>fixed</em> grid: every cell at a given precision is the same size, whether it covers empty sea or the dense CBD. That's its weakness. A <strong>quadtree</strong> is the density-adaptive alternative.</p>
+      <h3>How a quadtree works</h3>
+      <p>A quadtree is a tree where each node represents a square region of the map and has exactly four children — the four quadrants (NW, NE, SW, SE). The rule: <strong>a node only subdivides when it holds more than some threshold of points</strong> (say 100). So empty regions stay as a single shallow node, while a packed area like Orchard Road keeps splitting into finer and finer quadrants until each leaf holds a manageable handful. The tree is built in memory by inserting points one at a time, splitting any leaf that overflows.</p>
+      <p>To query, you descend from the root, following only the quadrants that intersect your search circle, and collect the points in the leaves you reach. Because dense areas are deeper and sparse areas are shallow, you naturally examine roughly the same small number of candidate points regardless of where the query lands. That's the headline advantage: <strong>the quadtree adapts to density</strong>, so a query in the CBD doesn't drown in points while a query in Pulau Ubin descends a near-empty tree.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="A quadtree subdivision: a sparse region stays one big cell while a dense cluster recursively splits into small quadrants">
+            <rect x="60" y="30" width="240" height="180" fill="none" stroke="#1F4E79" stroke-width="2"/>
+            <text class="lbl-sm" x="180" y="125" text-anchor="middle" fill="#9a927f">sparse → 1 cell</text>
+            <circle cx="150" cy="90" r="4" fill="#69B34C"/><circle cx="230" cy="160" r="4" fill="#69B34C"/>
+            <rect x="340" y="30" width="240" height="180" fill="none" stroke="#1F4E79" stroke-width="2"/>
+            <line x1="460" y1="30" x2="460" y2="210" stroke="#1F4E79" stroke-width="1.5"/>
+            <line x1="340" y1="120" x2="580" y2="120" stroke="#1F4E79" stroke-width="1.5"/>
+            <line x1="460" y1="30" x2="520" y2="30" stroke="#1F4E79" stroke-width="1"/>
+            <line x1="520" y1="30" x2="520" y2="120" stroke="#1F4E79" stroke-width="1"/>
+            <line x1="460" y1="75" x2="580" y2="75" stroke="#1F4E79" stroke-width="1"/>
+            <g fill="#69B34C">
+              <circle cx="490" cy="48" r="3"/><circle cx="540" cy="52" r="3"/><circle cx="475" cy="95" r="3"/>
+              <circle cx="555" cy="98" r="3"/><circle cx="500" cy="60" r="3"/><circle cx="530" cy="100" r="3"/>
+              <circle cx="545" cy="42" r="3"/>
+            </g>
+            <text class="lbl-sm" x="460" y="232" text-anchor="middle">dense → recursively split until each leaf is small</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 — a quadtree subdivides only where points cluster, so query cost stays even across densities</figcaption>
+      </figure>
+      <h3>Geohash vs quadtree</h3>
+      <div class="vs">
+        <div class="col"><h4>Geohash</h4><ul>
+          <li>Dead simple: just a string column + B-tree, fits any SQL/NoSQL store</li>
+          <li>Stateless — encode on the fly, no tree to hold in memory or rebuild</li>
+          <li>Trivially shardable and cacheable by prefix</li>
+          <li>Fixed grid — a dense cell can return huge candidate sets; uneven query cost</li>
+          <li>Boundary handling needs the 3×3 neighbour trick</li>
+        </ul></div>
+        <div class="col"><h4>Quadtree</h4><ul>
+          <li>Adapts to density → even, predictable query cost everywhere</li>
+          <li>Naturally supports "k nearest" and variable radii</li>
+          <li>Usually lives in memory → must be built on startup and rebuilt/updated carefully</li>
+          <li>Harder to distribute; a moving point can force expensive node splits/merges</li>
+          <li>More code and more operational care than a geohash column</li>
+        </ul></div>
+      </div>
+      <h3>S2 and H3 — the production-grade options</h3>
+      <p>Two libraries you should name. <strong>Google S2</strong> projects the sphere onto a cube and uses a <em>Hilbert curve</em> to number cells; the Hilbert curve preserves locality even better than geohash's Z-order, and it has no nasty antimeridian discontinuity. <strong>Uber H3</strong> tiles the world in <em>hexagons</em>; hexagons have the pleasant property that all six neighbours are equidistant from the centre — unlike a square's mix of edge and diagonal neighbours — which makes radius queries and "ring" expansions cleaner. Uber uses H3 heavily for exactly this kind of geospatial work. Mentioning that you'd reach for S2 or H3 in production, rather than hand-rolling geohash math, signals real-world awareness.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Geohash or quadtree — which and why?" The crisp answer: <em>geohash for a static, read-heavy business directory because it's simple, cacheable, and trivially shardable; a quadtree (or H3) when density is extreme or you need adaptive cell sizes and k-nearest.</em> Then add: "in production I'd use S2 or H3 rather than reimplement either." That sequence — pick, justify, then upgrade — is exactly what they're listening for.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Assemble it</div>
+      <h2>High-level architecture</h2>
+      <p>Now wire the pieces into a system, keeping the read:write asymmetry front of mind. Two distinct paths run through it.</p>
+      <p>The <strong>read path</strong>: client → load balancer → a stateless <strong>Search service</strong> that does the geohash math and candidate fetch, sitting behind a <strong>Redis cache</strong>, falling through to the <strong>geo-index database</strong> (with read replicas). The <strong>write path</strong>: an internal tool → <strong>Business service</strong> → writes to the primary database and recomputes the geohash. Splitting read and write services lets each scale independently — and reads need far more instances than writes.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 280" role="img" aria-label="Architecture: clients hit a load balancer, then the search service which reads from a Redis cache and a geo-index database with replicas; a separate write path updates the primary">
+            <rect class="node" x="20" y="118" width="86" height="44" rx="8"/>
+            <text class="lbl" x="63" y="145" text-anchor="middle">Clients</text>
+            <rect class="node-b" x="138" y="114" width="92" height="52" rx="9"/>
+            <text class="lbl-sm" x="184" y="138" text-anchor="middle">Load</text>
+            <text class="lbl-sm" x="184" y="153" text-anchor="middle">balancer</text>
+            <rect class="node" x="262" y="112" width="120" height="56" rx="9"/>
+            <text class="lbl" x="322" y="136" text-anchor="middle">Search</text>
+            <text class="lbl-sm" x="322" y="154" text-anchor="middle">(stateless)</text>
+            <rect x="420" y="40" width="120" height="50" rx="9" fill="#FBEFD6" stroke="#C98A2B" stroke-width="2"/>
+            <text class="lbl" x="480" y="62" text-anchor="middle">Redis</text>
+            <text class="lbl-sm" x="480" y="78" text-anchor="middle">geo cache</text>
+            <rect class="node-b" x="420" y="118" width="120" height="52" rx="9"/>
+            <text class="lbl-sm" x="480" y="140" text-anchor="middle">Geo-index DB</text>
+            <text class="lbl-sm" x="480" y="156" text-anchor="middle">+ read replicas</text>
+            <rect class="node" x="262" y="208" width="120" height="48" rx="9"/>
+            <text class="lbl-sm" x="322" y="230" text-anchor="middle">Business svc</text>
+            <text class="lbl-sm" x="322" y="246" text-anchor="middle">(writes)</text>
+            <rect class="node-r" x="420" y="206" width="120" height="50" rx="9"/>
+            <text class="lbl-sm" x="480" y="228" text-anchor="middle">Primary DB</text>
+            <text class="lbl-sm" x="480" y="244" text-anchor="middle">(business)</text>
+            <path class="flow" d="M106 140 H 136" marker-end="url(#arrow)"/>
+            <path class="flow" d="M230 140 H 260" marker-end="url(#arrow)"/>
+            <path class="flow" d="M382 128 C 400 100, 405 80, 418 70" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="358" y="98" text-anchor="middle">cache</text>
+            <path class="flow" d="M382 148 H 418" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="400" y="166" text-anchor="middle">miss</text>
+            <path class="flow-d" d="M480 206 V 172" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="540" y="192" text-anchor="start" fill="#4A7BA6">replicate</text>
+            <path class="flow" d="M382 232 H 418" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — split read and write paths; reads ride a cache + replicas, writes go to the primary</figcaption>
+      </figure>
+      <h3>Why a cache, and what's the key</h3>
+      <p>Because reads outnumber writes ~4,000:1, most searches in a given area are repeated by many users. Cache the <em>result of a covering cell</em>: key the cache by geohash prefix (and category), value = the list of businesses in that cell. A <strong>Redis</strong> cache fronting the database absorbs the bulk of the 50k QPS. Since businesses rarely change, a TTL of a few minutes is fine, and a write can proactively invalidate the affected cell's key.</p>
+      <p>The Search service is deliberately <strong>stateless</strong> — it holds no per-user data, so the load balancer can spray requests across any instance and you scale out by adding boxes. State lives in Redis and the database, not in the app tier.</p>
+    </section>
+
+    <!-- 8 — INTERACTIVE -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> The read path</div>
+      <h2>End-to-end: answering "what's near me?"</h2>
+      <p>This is the sequence to be able to recite. It's also where the geohash and haversine pieces finally click together. Watch it play through, then redraw it from memory.</p>
+      <p>Five stages: <strong>(1)</strong> take the user's <code>(lat, lng)</code>;<br><strong>(2)</strong> encode it to a geohash at the precision matching the radius, and compute its 8 neighbour cells;<br><strong>(3)</strong> fetch all <em>candidate</em> entities sitting in those 9 cells — from the cache, or the index on a miss;<br><strong>(4)</strong> filter the candidates by <strong>true haversine distance</strong>, dropping any that are inside the 3×3 box but outside the actual circle;<br><strong>(5)</strong> sort by distance and return the top N.</p>
+      <p>The crucial insight is the division of labour. <strong>The geohash does the cheap coarse filter</strong> — it slashes 100 million points down to maybe a few hundred candidates using a fast prefix lookup. <strong>Haversine does the exact fine filter</strong> — it runs only on those few hundred, turning "in the square" into "in the circle," and producing the precise distances we sort on. You get the best of both: index speed and geometric correctness.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-read">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive read path: user location, encode to geohash and neighbours, fetch candidates, filter by haversine, return sorted">
+            <g class="st" id="r-user"><rect class="node" x="20" y="100" width="92" height="48" rx="8"/><text class="lbl-sm" x="66" y="120" text-anchor="middle">user</text><text class="lbl-sm" x="66" y="136" text-anchor="middle">(lat,lng)</text></g>
+            <g class="st" id="r-hash"><rect class="node-b" x="148" y="94" width="120" height="60" rx="9"/><text class="lbl-sm" x="208" y="116" text-anchor="middle">encode +</text><text class="lbl-sm" x="208" y="132" text-anchor="middle">9 cells</text></g>
+            <g class="st" id="r-fetch"><rect class="node" x="304" y="94" width="120" height="60" rx="9"/><text class="lbl-sm" x="364" y="116" text-anchor="middle">fetch</text><text class="lbl-sm" x="364" y="132" text-anchor="middle">candidates</text></g>
+            <g class="st" id="r-cache"><rect x="304" y="18" width="120" height="46" rx="9" fill="#FBEFD6" stroke="#C98A2B" stroke-width="2"/><text class="lbl-sm" x="364" y="40" text-anchor="middle">Redis / index</text><text class="lbl-sm" x="364" y="55" text-anchor="middle">cells → rows</text></g>
+            <g class="st" id="r-filter"><rect class="node-r" x="460" y="94" width="120" height="60" rx="9"/><text class="lbl-sm" x="520" y="116" text-anchor="middle">haversine</text><text class="lbl-sm" x="520" y="132" text-anchor="middle">filter</text></g>
+            <g class="st" id="r-out"><rect class="node" x="460" y="186" width="120" height="48" rx="9"/><text class="lbl-sm" x="520" y="207" text-anchor="middle">sort &amp; return</text><text class="lbl-sm" x="520" y="223" text-anchor="middle">top N</text></g>
+            <path id="r-p1" class="flow" d="M112 124 H 146" marker-end="url(#arrow)"/>
+            <path id="r-p2" class="flow" d="M268 124 H 302" marker-end="url(#arrow)"/>
+            <path id="r-p3" class="flow-d" d="M364 94 V 66" marker-end="url(#arrow-s)"/>
+            <path id="r-p4" class="flow" d="M424 124 H 458" marker-end="url(#arrow)"/>
+            <path id="r-p5" class="flow" d="M520 154 V 184" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 6 — interactive: geohash does the coarse filter, haversine does the exact one</figcaption>
+      </figure>
+      <h3>Why filter with haversine at all?</h3>
+      <p>The 3×3 geohash block is a <em>square</em> region; the user asked for a <em>circle</em>. The corners of the square stick out beyond the radius, so without the haversine pass you'd return points up to ~40% farther than requested. Running haversine only on the small candidate set keeps results geometrically honest and gives you the exact <code>distance_m</code> the API promised — at negligible cost, since you're computing it a few hundred times, not a hundred million.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"Walk me through one query." The five-step recital above <em>is</em> the answer. The line that lands the point: <em>"the spatial index is a coarse pre-filter to get candidates cheaply; haversine is the exact post-filter to get correctness."</em> Say that and the read path is locked.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Scale &amp; the hot cell</div>
+      <h2>Scaling reads and taming hot cells</h2>
+      <p>The system works; now make it survive peak load and density skew. Three pressures show up.</p>
+      <h3>1 — Read fan-out: cache and replicas</h3>
+      <p>We've covered the cache, but the layering matters. A search first hits <strong>Redis</strong> keyed by covering cell; on a miss it reads a database <strong>read replica</strong>; the primary handles only writes. Because the data set is just ~40 GB, you don't shard for capacity — you replicate for read throughput, adding replicas until 50k QPS is comfortable. This is the payoff of the estimation step: a capacity problem would force sharding, but a throughput problem is solved with replicas and cache.</p>
+      <h3>2 — Sharding by region</h3>
+      <p>If you do outgrow a single replicated dataset (multi-country expansion), shard by <strong>geographic region</strong> — partition on a coarse geohash prefix so each shard owns a contiguous chunk of the map. A query in Singapore touches only the Singapore shard. This keeps a single radius query on one shard most of the time, since the 3×3 cell block is geographically tiny. The edge case: a query right on a shard boundary may need to read two shards — handle it the same way as the cell-boundary case, by fanning out to both.</p>
+      <h3>3 — The hot cell — dense city centres</h3>
+      <p>This is the real bottleneck for this system, and the one interviewers love. Geohash uses a <em>fixed</em> grid, so the cell covering Orchard Road at lunchtime might contain <strong>tens of thousands</strong> of businesses (and, in the moving-driver variant, thousands of drivers), while a cell over the Causeway holds a handful. That hot cell causes three problems: huge candidate sets to haversine-filter, a fat cache value that's expensive to store and invalidate, and a single Redis key that becomes a traffic magnet — a <strong>hot key</strong> hammering one shard.</p>
+      <p>Mitigations, roughly in order of reach:</p>
+      <ul>
+        <li><strong>Use a finer precision in dense areas.</strong> A smaller cell holds fewer points. Either globally pick a precision suited to your densest city, or use a variable scheme — which is precisely what a <strong>quadtree or H3</strong> gives you for free, since they subdivide where it's crowded.</li>
+        <li><strong>Cap and rank.</strong> No user scrolls 8,000 restaurants. Return the closest N (and the freshest/highest-rated), bounding both the candidate work and the payload.</li>
+        <li><strong>Replicate the hot key.</strong> Spread a popular cell's cache entry across several Redis nodes (key suffixing / client-side fan-out) so the read load isn't pinned to one box.</li>
+        <li><strong>Add local in-process caching.</strong> A short-lived LRU on each Search instance absorbs repeated identical hot-cell queries before they even reach Redis.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">What breaks at 10×</span>
+        <p>At 10× traffic (~500k QPS) and 10× data, the flat dataset no longer comfortably fits one replicated box and the hot cell turns molten. The fixed-grid geohash starts to hurt: you'd migrate the index to <strong>H3 or S2</strong> for adaptive cells, shard by region, and lean far harder on multi-tier caching (in-process LRU → Redis → replica). The read path logic is unchanged — coarse spatial filter, then haversine — but every layer gets replicated and the cell sizing becomes density-aware.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"What about a dense city centre?" Lead with the diagnosis — <em>"a fixed geohash grid makes the CBD cell a hot key with an enormous candidate set"</em> — then offer the menu: finer precision or an adaptive index (quadtree/H3), cap-and-rank, hot-key replication, and a local LRU. Diagnosing the hot cell unprompted is what separates a strong answer from a memorised one.</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> Updates &amp; failure</div>
+      <h2>Updates, failure modes, and the moving-driver bridge</h2>
+      <h3>Static businesses are easy</h3>
+      <p>An update is rare and simple: write the new record to the primary, recompute the geohash if the location changed, update <code>geo_index</code>, and invalidate the affected cell's cache key. At ~12 writes/sec this is trivial. Replication to read replicas is asynchronous, so a brand-new restaurant may take a few seconds to appear in search — which we already declared acceptable. No part of the write path is on the user's latency-critical read path.</p>
+      <h3>Moving drivers are a different problem (bridge to L33)</h3>
+      <p>If the entity is a Grab driver pinging location every 4 seconds, the picture inverts. Now writes are a firehose, not a trickle: hundreds of thousands of location updates per second. A disk-based geohash index can't absorb that write rate, and every move potentially changes the driver's cell. The standard answer flips the storage: keep driver locations in an <strong>in-memory store (Redis)</strong>, accept some staleness, and don't durably persist every ping. The matching service (rider ↔ driver) is a separate concern layered on top. That's a whole lesson of its own — but the proximity <em>query</em> mechanism you learned here (cell + neighbours + haversine) is reused unchanged; only the storage and update strategy differ.</p>
+      <h3>Failure modes</h3>
+      <ul>
+        <li><strong>Cache (Redis) down.</strong> Searches fall through to the read replicas. Latency rises, but results stay correct — degrade, don't fail. Guard the replicas with a request-coalescing / circuit-breaker layer so a cache outage doesn't instantly stampede them.</li>
+        <li><strong>A read replica dies.</strong> The load balancer drops it from rotation and routes to healthy replicas; you provision enough headroom that losing one doesn't tip the rest over. Reads are unaffected beyond a brief blip.</li>
+        <li><strong>The primary dies.</strong> Reads keep working off replicas (this is why splitting read/write paths is so valuable). Writes pause until a replica is promoted — acceptable, since a few minutes without new business listings hurts nobody.</li>
+        <li><strong>Stale index.</strong> If a geohash recompute is missed on a location edit, a business shows in the wrong cell. A periodic background job that rebuilds <code>geo_index</code> from the authoritative <code>business</code> table is your safety net — cheap insurance given how small the data is.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>"How would this change for live drivers?" Don't redesign the query — reuse it. Say: <em>"the cell-plus-neighbour-plus-haversine lookup is the same; what changes is storage — move to an in-memory Redis index, tolerate staleness, and stop persisting every ping, because the write rate explodes."</em> Recognising that the read algorithm is stable while the write strategy flips is the senior-level observation.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>turn a 2D range query into a 1D prefix or tree lookup with a spatial index to find candidates cheaply, then refine with exact haversine distance — and since reads dwarf writes, cache hard and replicate.</em> If you can sketch the read path and explain why each layer exists, you can carry this interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>It's a 2D range query</b><span>Given a point and radius, return entities inside the circle — fast, without scanning all of them.</span></div>
+        <div class="tk"><span class="num">02</span><b>Naive scan is O(n)</b><span>Haversine per row touches every point; a plain lat/lng B-tree overshoots, because nearness is 2D.</span></div>
+        <div class="tk"><span class="num">03</span><b>Geohash = prefix</b><span>Interleave lat/lng bits into a base-32 string; shared prefix means physically close.</span></div>
+        <div class="tk"><span class="num">04</span><b>Query 9 cells</b><span>Centre cell + 8 neighbours, cell size ≥ radius, so a point near a border is never missed.</span></div>
+        <div class="tk"><span class="num">05</span><b>Quadtree adapts</b><span>Subdivides only where dense → even query cost; in production reach for S2 or H3.</span></div>
+        <div class="tk"><span class="num">06</span><b>Coarse then fine</b><span>Spatial index pre-filters to a few hundred candidates; haversine post-filters to the exact circle.</span></div>
+        <div class="tk"><span class="num">07</span><b>Read-heavy → cache</b><span>~4,000:1 read:write means cache by cell + replicate; data fits one node, so no capacity sharding.</span></div>
+        <div class="tk"><span class="num">08</span><b>Beware the hot cell</b><span>Dense CBD cells become hot keys with huge candidate sets — finer cells, cap-and-rank, key replication.</span></div>
+        <div class="tk"><span class="num">09</span><b>Static vs moving</b><span>Businesses index on disk easily; live drivers flip to an in-memory store with the same query.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud: (1) Why does a naive distance-to-everything scan fail, and why don't plain lat/lng B-tree indexes save it?<br>(2) How does a geohash encode a location, and why does a shared prefix mean "close"?<br>(3) Why must you query 9 cells, and how do you pick the cell precision for a given radius?<br>(4) Geohash or quadtree — when would you choose each, and what do S2 and H3 add?<br>(5) Walk the five-step read path: which step is the coarse filter and which is the exact one, and why use both?<br>(6) What is a hot cell, why does it hurt, and name three mitigations.<br>Any fuzzy answer → re-read that section, replay the read-path diagram, and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 32 · DESIGN A PROXIMITY SERVICE · interactive edition · ref BBG V2·C1 · SG context: Grab<br>
+      Original study notes on standard system-design fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* read path */
+  makeStepper(document.getElementById('fig-read'), [
+    {text:"Start with the user's coordinates (lat, lng).", active:["r-user","r-hash"], path:"r-p1"},
+    {text:"Encode to a geohash at the radius-matched precision, and compute its 8 neighbour cells (a 3×3 block).", active:["r-hash","r-fetch"], path:"r-p2"},
+    {text:"Fetch candidate entities sitting in those 9 cells — from Redis, or the index on a cache miss.", active:["r-fetch","r-cache"], path:"r-p3"},
+    {text:"Filter candidates by true haversine distance, dropping points inside the square box but outside the circle.", active:["r-fetch","r-filter"], path:"r-p4"},
+    {text:"Sort the survivors by distance and return the top N to the user.", active:["r-filter","r-out"], path:"r-p5"}
+  ]);
+</script>
+</body>
+</html>

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 14 — Multi-Region &amp; Data Residency</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  pre{margin:22px 0;padding:18px 20px;background:var(--paper-2);border:1px solid var(--line);
+    border-left:4px solid var(--blueprint-soft);border-radius:10px;overflow-x:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.55;color:var(--ink);}
+  pre .c{color:var(--ink-soft);} pre .k{color:var(--rust);font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .tok{transition:opacity .35s ease;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">☰ Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">System Design · Study Notes</div>
+    <div class="brandtitle">Multi-Region<br>&amp; Residency</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why one region isn't enough</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Region, AZ, and the vocabulary</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Active-passive: a warm standby</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>RTO &amp; RPO — the SLA dials</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Active-active: everyone serves</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Geo-routing to the nearest region ▸</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Cross-region replication &amp; lag</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Write conflicts when both serve</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>Data residency &amp; the PDPA</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>Pinning users to a home region</span></a></li>
+      <li><a href="#s10"><span class="n">10</span><span>Failover, runbooks &amp; split-brain ▸</span></a></li>
+      <li><a href="#summary"><span class="n">★</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">▸ marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">14</span><span>Lesson · System Design Interview</span></div>
+      <h1>Multi-Region &amp; Data Residency</h1>
+      <p class="lede">Run everything in one region and three things bite you at once: faraway users wait on slow round trips, a single regional outage takes your whole product down, and — for a Singapore fintech — the law may forbid certain data from ever leaving the country. Going multi-region buys back latency and resilience, but it forces the hardest decisions in distributed systems: where writes happen, and where each user's data is physically allowed to live.</p>
+      <div class="disclaimer">
+        <strong>About these notes:</strong> original study material on multi-region architecture and data residency — standard, widely-documented distributed-systems topics framed for the Singapore / SEA fintech context (PDPA, GrabPay, SeaMoney, Shopee). The explanations, numbers, and diagrams are my own; nothing is copied from any paid course or book. Two diagrams are interactive — press <strong>Play</strong> (or step with <strong>Next</strong>) to watch the flow.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 0 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Why one region isn't enough</h2>
+      <p>A <strong>region</strong> is a geographic cluster of data centres — for a cloud provider, somewhere like <code>ap-southeast-1</code> (Singapore) or <code>ap-southeast-3</code> (Jakarta). Standing up a product in a single region is the right first move: it is cheap, simple, and strongly consistent because everything lives in one place. But as the product grows, three independent pressures push you to spread across regions, and an interviewer will expect you to name all three.</p>
+      <ul>
+        <li><strong>Latency for distant users.</strong> Light through fibre travels roughly 200&nbsp;km per millisecond, and real networks add switching and queuing on top. A user in Jakarta talking to a Singapore region pays around 15–25&nbsp;ms one way; a user in Mumbai or Sydney pays 60–90&nbsp;ms. Every TCP and TLS handshake multiplies that, so a checkout that needs several round trips can feel sluggish from far away even when the servers are idle.</li>
+        <li><strong>Blast radius of a regional outage.</strong> A region can fail wholesale — a fibre cut, a control-plane bug, a power event, a bad config push. If your only region goes dark, the entire product is down. For a payments product that is not just lost revenue; merchants can't settle and users can't pay.</li>
+        <li><strong>Legal data residency.</strong> Some data is required by law or contract to stay inside a country's borders. Under Singapore's <strong>PDPA</strong> (Personal Data Protection Act) and similar SEA rules, you must control where personal data is stored and processed and how it may be transferred abroad. A single region in the wrong country can make a whole market legally off-limits.</li>
+      </ul>
+      <p>The fix to all three is the same word — <strong>multi-region</strong> — but the moment you say it, you have signed up for the genuinely hard problems this lesson is about: how data gets copied between regions, where writes are allowed to land, and how you keep a Singapore user's data inside Singapore.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Distant users suffer high latency talking to a single region, and one outage takes everything down">
+            <rect class="node" x="20" y="40" width="104" height="42" rx="8"/>
+            <text class="lbl" x="72" y="66" text-anchor="middle">SG user</text>
+            <rect class="node" x="20" y="100" width="104" height="42" rx="8"/>
+            <text class="lbl-sm" x="72" y="120" text-anchor="middle">Jakarta</text>
+            <text class="lbl-sm" x="72" y="134" text-anchor="middle">user</text>
+            <rect class="node" x="20" y="160" width="104" height="42" rx="8"/>
+            <text class="lbl-sm" x="72" y="180" text-anchor="middle">Mumbai</text>
+            <text class="lbl-sm" x="72" y="194" text-anchor="middle">user</text>
+            <rect x="430" y="48" width="190" height="146" rx="10" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="525" y="40" text-anchor="middle" fill="#B0532F">single region (SG) — SPOF</text>
+            <g transform="translate(503,90)">
+              <rect width="44" height="64" rx="6" fill="#69B34C"/>
+              <rect x="10" y="12" width="24" height="4" rx="2" fill="#fff"/>
+              <rect x="10" y="40" width="24" height="4" rx="2" fill="#fff"/>
+              <rect x="10" y="50" width="24" height="4" rx="2" fill="#fff"/>
+            </g>
+            <text class="lbl" x="525" y="178" text-anchor="middle">app + DB</text>
+            <path class="flow" d="M124 61 H 428" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="280" y="53" text-anchor="middle">~2 ms</text>
+            <path class="flow-r" d="M124 121 C 280 110, 340 110, 428 112" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="290" y="103" text-anchor="middle" fill="#B0532F">~20 ms</text>
+            <path class="flow-r" d="M124 181 C 280 175, 340 160, 428 140" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="300" y="200" text-anchor="middle" fill="#B0532F">~70 ms — and dead if SG dies</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 1 — one region means slow far-away users and a single point of failure for the whole product</figcaption>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Vocabulary</div>
+      <h2>Region, AZ, and the vocabulary you'll be graded on</h2>
+      <p>Before going further, pin down terms an interviewer will use loosely and expect you to use precisely. Conflating them is a common way to lose credibility early.</p>
+      <h3>Availability Zone vs Region</h3>
+      <p>An <strong>Availability Zone</strong> (AZ) is one isolated data centre (or a tight cluster of them) inside a region, with independent power, cooling, and networking. AZs in the same region are close enough — typically under 2&nbsp;ms apart — that you can replicate <em>synchronously</em> between them with little latency cost. A <strong>region</strong> is the larger geographic unit containing several AZs; regions are hundreds or thousands of kilometres apart, so cross-region replication is almost always <em>asynchronous</em>.</p>
+      <p>This distinction drives everything. <strong>Multi-AZ</strong> protects you from a single data-centre failure and is the baseline for any serious system; it is cheap and keeps strong consistency because the hops are short. <strong>Multi-region</strong> protects you from an entire region failing and serves distant users locally, but it forces you to accept the latency and consistency penalties of long-distance replication. When someone says "make it highly available," they usually mean multi-AZ. When they say "what if Singapore goes down," they mean multi-region.</p>
+      <h3>Stateless tier vs stateful tier</h3>
+      <p>Spreading your <strong>stateless tier</strong> — web servers, API servers, application logic that holds no durable data — across regions is almost trivial: deploy identical copies everywhere and route traffic to the nearest healthy one. They are interchangeable. The whole difficulty of this lesson lives in the <strong>stateful tier</strong>: databases, caches, object stores, message queues — anything that holds the source of truth. State cannot simply be duplicated for free, because the copies will diverge the instant someone writes. Keep that split in your head: <em>stateless replication is a deployment problem; stateful replication is a correctness problem.</em></p>
+      <div class="callout">
+        <span class="k">Under the hood</span>
+        <p>Why is cross-AZ "synchronous-friendly" but cross-region not? It is purely the round-trip time. A synchronous write must wait for an acknowledgement before it returns. Across AZs that adds ~1–2&nbsp;ms — tolerable. Across Singapore→Mumbai that is ~120&nbsp;ms <em>per write, on the user's critical path</em>. Multiply by every checkout and the product feels broken. So we replicate synchronously inside a region and asynchronously between regions — and async replication is exactly what creates the lag and conflict problems we spend the rest of the lesson solving.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> First topology</div>
+      <h2>Active-passive: a warm standby</h2>
+      <p>The simplest multi-region design is <strong>active-passive</strong> (also called active-standby or primary-DR). One region — the <strong>active</strong> region — serves all live traffic and takes all writes. A second <strong>passive</strong> region runs the same stack but serves nothing in normal operation; it just continuously receives a copy of the active region's data over asynchronous replication. If the active region fails, you <strong>fail over</strong>: promote the passive region to active and redirect traffic to it.</p>
+      <h3>How it works under the hood</h3>
+      <p>Walk the mechanism step by step. The active region's database streams its change log — PostgreSQL ships its <strong>WAL</strong> (write-ahead log), MySQL ships its binlog — to a replica in the passive region. That replica replays the log continuously, staying a few seconds behind. The passive region's app servers are deployed and healthy but receive no user traffic; they exist so that, on failover, there is nothing to boot. A health check (often run by your DNS or traffic-management service) watches the active region. When it fails, an operator or an automated controller flips the routing target to the passive region and promotes the passive database from read-replica to read-write primary.</p>
+      <h3>A worked example — SeaMoney wallet DR</h3>
+      <p>Suppose a SeaMoney-style wallet runs active in Singapore (<code>ap-southeast-1</code>) with a warm standby in Jakarta (<code>ap-southeast-3</code>). Replication lag sits around 3 seconds. One afternoon the Singapore region's networking degrades. Health checks fail for 60 seconds, an on-call engineer confirms it's regional, and triggers the failover runbook. DNS is repointed, Jakarta's replica is promoted to primary, and within a few minutes the wallet is serving again from Jakarta. The cost: any writes that were in the 3-second replication window when Singapore died were not yet copied — those transactions are lost or must be reconciled. That gap is the price of asynchronous replication, and it is exactly what RPO (next section) measures.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Active-passive: Singapore serves traffic and replicates to a passive Jakarta standby that serves nothing until failover">
+            <rect class="node" x="20" y="98" width="96" height="44" rx="8"/>
+            <text class="lbl" x="68" y="125" text-anchor="middle">Users</text>
+            <rect x="160" y="40" width="190" height="160" rx="10" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="255" y="32" text-anchor="middle" fill="#1F4E79">ACTIVE · Singapore</text>
+            <g transform="translate(184,70)"><rect width="40" height="56" rx="6" fill="#69B34C"/><rect x="9" y="11" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="36" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="44" width="22" height="4" rx="2" fill="#fff"/></g>
+            <g transform="translate(266,74)"><path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#2E73B8"/><ellipse cx="24" cy="8" rx="24" ry="8" fill="#3E86CF"/><text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text></g>
+            <text class="lbl-sm" x="255" y="160" text-anchor="middle">read + write</text>
+            <rect x="430" y="40" width="190" height="160" rx="10" fill="#FDFBF6" stroke="#999" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="525" y="32" text-anchor="middle" fill="#7a766b">PASSIVE · Jakarta</text>
+            <g transform="translate(454,70)" opacity="0.5"><rect width="40" height="56" rx="6" fill="#69B34C"/><rect x="9" y="11" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="36" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="44" width="22" height="4" rx="2" fill="#fff"/></g>
+            <g transform="translate(536,74)"><path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#7Fa3c4"/><ellipse cx="24" cy="8" rx="24" ry="8" fill="#9bb8d4"/><text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text></g>
+            <text class="lbl-sm" x="525" y="160" text-anchor="middle">read-only replica</text>
+            <path class="flow" d="M116 120 H 158" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M350 110 H 428" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="389" y="100" text-anchor="middle">async WAL stream</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 — one region serves; the other is a warm copy waiting to be promoted</figcaption>
+      </figure>
+      <p>Active-passive's appeal is its simplicity: there is exactly one writer, so you never face write conflicts and consistency reasoning stays easy. Its weakness is that the passive region is expensive idle capacity that delivers no latency benefit to users near it, and failover is a discrete, risky event you must rehearse.</p>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The two dials</div>
+      <h2>RTO &amp; RPO — the SLA dials of disaster recovery</h2>
+      <p>You cannot reason about failover without two numbers. They are the language interviewers use to size your DR design, and they pull in opposite directions on cost.</p>
+      <h3>RTO — Recovery Time Objective</h3>
+      <p><strong>RTO</strong> is the maximum tolerable <em>downtime</em>: how long the product may be unavailable from the moment a region fails until it is serving again. An RTO of "5 minutes" means full recovery must complete inside five minutes. RTO is dominated by how automated your failover is — detecting the failure, promoting the standby database, and repointing traffic. Manual runbooks give you minutes-to-hours; fully automated controllers give you seconds-to-minutes.</p>
+      <h3>RPO — Recovery Point Objective</h3>
+      <p><strong>RPO</strong> is the maximum tolerable <em>data loss</em>, expressed as a window of time: how many seconds of the most recent writes you can afford to lose if a region dies. RPO is dominated by your replication lag. Synchronous replication gives <code>RPO = 0</code> (no committed write is ever lost) but pays the latency cost on every write. Asynchronous replication gives a small non-zero RPO equal to the lag — typically seconds — but keeps writes fast.</p>
+      <div class="vs">
+        <div class="col"><h4>RTO — recovery time</h4><ul>
+          <li>Measures downtime, in time units</li>
+          <li>Driven by failover automation &amp; warm capacity</li>
+          <li>Lower RTO → more standby cost, more automation to build &amp; test</li>
+          <li>"How long are we dark?"</li>
+        </ul></div>
+        <div class="col"><h4>RPO — recovery point</h4><ul>
+          <li>Measures data loss, also in time units</li>
+          <li>Driven by replication lag (sync vs async)</li>
+          <li>Lower RPO → synchronous or very tight async, paid on every write</li>
+          <li>"How many seconds of writes can we lose?"</li>
+        </ul></div>
+      </div>
+      <p>Crucially, <strong>RPO is a business decision, not just a technical one</strong>. For a marketing feed, losing 30 seconds of "likes" is fine; <code>RPO = 30s</code> is acceptable and cheap. For a GrabPay funds transfer, losing even one committed transaction is unacceptable — you need <code>RPO = 0</code> for the ledger, which means synchronous replication (at least within a region) and careful design for the money path even if everything else is async.</p>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>When asked "what is your RPO if a region is lost?", the strong answer separates data classes. Say: <em>"The ledger uses synchronous commit so its RPO is zero; non-financial state like feed activity replicates asynchronously with an RPO of a few seconds, which we accept because reconstructing it is cheap."</em> Treating all data with one RPO is the rookie answer.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Second topology</div>
+      <h2>Active-active: every region serves</h2>
+      <p>Active-passive wastes the standby and helps no one's latency. <strong>Active-active</strong> fixes both: every region serves live traffic <em>and accepts writes</em> at the same time. A user in Jakarta hits the Jakarta region; a user in Singapore hits Singapore; both regions are fully alive, and if one dies the others simply absorb its traffic with no promotion step. It delivers the lowest latency and the smoothest failover — and it is the hardest topology to get right.</p>
+      <h3>Why it is hard: concurrent writers</h3>
+      <p>The difficulty is a direct consequence of letting more than one region accept writes. Now two users in two regions can modify the same data at the same time, and because cross-region replication is asynchronous, neither region knows about the other's write until seconds later. When the two changes meet, the system must decide which one wins — a <strong>write conflict</strong>. With a single writer (active-passive) this can never happen; with multiple writers it is inevitable, and resolving it correctly is the core engineering tax of active-active. (We tackle conflict resolution head-on in step 07.)</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 232" role="img" aria-label="Active-active: both Singapore and Jakarta serve traffic and accept writes, replicating to each other">
+            <rect x="40" y="40" width="240" height="152" rx="10" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="160" y="32" text-anchor="middle" fill="#1F4E79">ACTIVE · Singapore</text>
+            <g transform="translate(70,72)"><rect width="40" height="56" rx="6" fill="#69B34C"/><rect x="9" y="11" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="36" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="44" width="22" height="4" rx="2" fill="#fff"/></g>
+            <g transform="translate(170,76)"><path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#2E73B8"/><ellipse cx="24" cy="8" rx="24" ry="8" fill="#3E86CF"/><text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text></g>
+            <text class="lbl-sm" x="160" y="158" text-anchor="middle">read + write</text>
+            <rect x="360" y="40" width="240" height="152" rx="10" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="480" y="32" text-anchor="middle" fill="#1F4E79">ACTIVE · Jakarta</text>
+            <g transform="translate(390,72)"><rect width="40" height="56" rx="6" fill="#69B34C"/><rect x="9" y="11" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="36" width="22" height="4" rx="2" fill="#fff"/><rect x="9" y="44" width="22" height="4" rx="2" fill="#fff"/></g>
+            <g transform="translate(490,76)"><path d="M0,8 L0,46 A24,8 0 0 0 48,46 L48,8" fill="#2E73B8"/><ellipse cx="24" cy="8" rx="24" ry="8" fill="#3E86CF"/><text x="24" y="34" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="600">DB</text></g>
+            <text class="lbl-sm" x="480" y="158" text-anchor="middle">read + write</text>
+            <path class="flow-d" d="M286 96 H 354" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M354 136 H 286" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="320" y="212" text-anchor="middle" fill="#B0532F">bidirectional async replication → conflicts possible</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — both regions write; the cost is reconciling conflicting concurrent writes</figcaption>
+      </figure>
+      <div class="vs">
+        <div class="col"><h4>Active-passive</h4><ul>
+          <li><strong>+</strong> One writer → no write conflicts, easy consistency</li>
+          <li><strong>+</strong> Simple to reason about and operate</li>
+          <li><strong>−</strong> Standby capacity sits idle, costing money</li>
+          <li><strong>−</strong> No latency win for users near the passive region</li>
+          <li><strong>−</strong> Failover is a discrete, risky, rehearsed event (higher RTO)</li>
+        </ul></div>
+        <div class="col"><h4>Active-active</h4><ul>
+          <li><strong>+</strong> Lowest latency — every user served locally</li>
+          <li><strong>+</strong> All capacity is utilised; smooth, fast failover</li>
+          <li><strong>+</strong> Surviving regions just absorb the dead one's load</li>
+          <li><strong>−</strong> Multiple writers → write conflicts you must resolve</li>
+          <li><strong>−</strong> Far more complex; replication and conflict logic everywhere</li>
+        </ul></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interview tip</span>
+        <p>The classic follow-up is <em>"active-active or active-passive for this product?"</em> Decide from the data, not from fashion. If writes are conflict-prone money movements and you can tolerate minutes of failover, lean active-passive (or active-active only for reads). If the product is read-heavy and globally distributed — a feed, a catalogue, presence — active-active shines. A great answer is often <strong>hybrid</strong>: active-active for the read/serving path, with writes for a given entity funnelled to a single home region so they never conflict (exactly the home-region idea in step 09).</p>
+      </div>
+    </section>
+
+    <!-- 5 — INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Getting users there</div>
+      <h2>Geo-routing to the nearest healthy region</h2>
+      <p>Having two active regions is useless if every user still lands on the same one. <strong>Geo-routing</strong> is the mechanism that sends each request to the right region — ideally the nearest <em>healthy</em> one. There are three common techniques, and they are often layered.</p>
+      <h3>GeoDNS</h3>
+      <p><strong>GeoDNS</strong> resolves the same hostname to different IP addresses depending on where the DNS query came from. When a Jakarta user looks up <code>api.example.com</code>, the authoritative DNS server sees the resolver's location and returns the Jakarta region's IP; a Singapore user gets the Singapore IP. Tools: AWS Route 53 (geolocation and latency routing policies), Cloudflare, NS1, Google Cloud DNS. The knobs that matter are the <strong>health check</strong> (so a failed region is pulled from the answer set) and the record <code>TTL</code> — a low TTL like 30–60&nbsp;seconds lets failover propagate quickly, at the cost of more DNS lookups.</p>
+      <h3>Latency-based routing</h3>
+      <p>Instead of guessing from geography, <strong>latency-based routing</strong> sends users to the region with the lowest measured network latency from their location. Geography and latency usually agree, but not always — peering and cable routes can make a "closer" region actually slower. Route 53's latency policy and most global load balancers support this directly.</p>
+      <h3>Anycast</h3>
+      <p><strong>Anycast</strong> advertises the <em>same</em> IP address from multiple locations, and the internet's own routing (BGP) delivers each packet to the topologically nearest one. There is no DNS decision per user; the network does the steering. This is how CDNs and global front doors (AWS Global Accelerator, Cloudflare, Google Cloud Global LB) route. Anycast fails over in seconds at the network layer — far faster than DNS, which is gated by TTL caching — which is why serious global products put an anycast front door in front of GeoDNS.</p>
+      <p>The interactive figure below walks the happy path and then the data-residency twist: a generic user is routed to the nearest region, reads and writes locally, and that write replicates onward — but a Singapore user is <em>pinned</em> to the Singapore region regardless of distance, because the law requires it. Step through it.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-geo">
+          <svg viewBox="0 0 640 260" role="img" aria-label="Interactive geo-routing: users routed to nearest region, with a Singapore user pinned to the Singapore region for residency">
+            <g class="st" id="g-user"><rect class="node" x="20" y="60" width="92" height="42" rx="8"/><text class="lbl-sm" x="66" y="80" text-anchor="middle">Jakarta</text><text class="lbl-sm" x="66" y="94" text-anchor="middle">user</text></g>
+            <g class="st" id="g-sguser"><rect class="node" x="20" y="170" width="92" height="42" rx="8"/><text class="lbl-sm" x="66" y="190" text-anchor="middle">SG user</text><text class="lbl-sm" x="66" y="204" text-anchor="middle">(PDPA)</text></g>
+            <g class="st" id="g-dns"><circle cx="200" cy="130" r="34" fill="#FDFBF6" stroke="#666" stroke-width="2.5"/><ellipse cx="200" cy="130" rx="14" ry="34" fill="none" stroke="#666" stroke-width="1.5"/><line x1="166" y1="130" x2="234" y2="130" stroke="#666" stroke-width="2"/><text x="200" y="135" text-anchor="middle" fill="#444" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="600">geo</text></g>
+            <text class="lbl-sm" x="200" y="184" text-anchor="middle">DNS / anycast</text>
+            <g class="st" id="g-jkt"><rect class="node-b" x="330" y="40" width="150" height="50" rx="9"/><text class="lbl" x="405" y="62" text-anchor="middle">Jakarta region</text><text class="lbl-sm" x="405" y="79" text-anchor="middle">app + DB</text></g>
+            <g class="st" id="g-sg"><rect class="node-b" x="330" y="170" width="150" height="50" rx="9"/><text class="lbl" x="405" y="192" text-anchor="middle">SG region</text><text class="lbl-sm" x="405" y="209" text-anchor="middle">app + DB</text></g>
+            <g class="st" id="g-repl"><rect class="node" x="520" y="100" width="100" height="50" rx="9"/><text class="lbl-sm" x="570" y="122" text-anchor="middle">replicate</text><text class="lbl-sm" x="570" y="138" text-anchor="middle">cross-region</text></g>
+            <path id="g-p1" class="flow" d="M112 90 C 150 100, 155 106, 163 114" marker-end="url(#arrow)"/>
+            <path id="g-p2" class="flow" d="M234 116 C 280 95, 300 75, 328 66" marker-end="url(#arrow)"/>
+            <path id="g-p3" class="flow" d="M480 70 C 510 88, 515 92, 522 110" marker-end="url(#arrow)"/>
+            <path id="g-p4" class="flow-r" d="M112 191 H 328" marker-end="url(#arrow-r)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 — interactive: nearest-region routing for most users, hard pinning for the SG user</figcaption>
+      </figure>
+      <h3>Failure mode: what if the routing layer points at a dead region?</h3>
+      <p>Geo-routing is only as good as its health checks. If GeoDNS keeps handing out a dead region's IP because its TTL hasn't expired, users keep hitting a black hole until caches clear — which is why low TTLs and anycast front doors matter. Conversely, an over-eager health check can <em>flap</em>, yanking a region out and back repeatedly and scattering users' sessions. The fix is hysteresis: require several consecutive failures before evicting a region and several successes before re-adding it.</p>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Keeping copies in sync</div>
+      <h2>Cross-region replication &amp; the lag it introduces</h2>
+      <p>Every multi-region topology rests on <strong>cross-region replication</strong>: continuously copying data from one region to another. Because regions are far apart, this is done <em>asynchronously</em> — the local write commits and returns immediately, and the change is shipped to other regions in the background. The unavoidable side effect is <strong>replication lag</strong>: a window during which a write exists in its origin region but not yet anywhere else.</p>
+      <h3>How replication works under the hood</h3>
+      <p>Databases replicate by shipping their change log, not by re-running queries. The primary records every committed change in an append-only log — PostgreSQL's <strong>WAL</strong>, MySQL's <strong>binlog</strong>, MongoDB's <strong>oplog</strong>, Kafka's partition log. A replica in the other region tails that log over the network and replays the changes in order. Lag is the difference between "latest log position written at the source" and "latest position applied at the replica," and it grows when the network is slow or the replica can't keep up with write volume. Cloud-native stores wrap this in managed features — DynamoDB <strong>global tables</strong>, Cassandra's multi-DC replication, Aurora <strong>global database</strong>, Spanner, CockroachDB — but the underlying idea is always log shipping.</p>
+      <h3>Read-local, write-to-home: living with lag</h3>
+      <p>The dominant pattern for coping with lag is <strong>read-local, write-to-home-region</strong>. Reads are served from the nearest replica (fast, but possibly a few seconds stale). Writes for a given entity are routed to that entity's designated home region, where the authoritative copy lives, and then replicate outward. This sidesteps write conflicts (one writer per entity) while still giving local reads everywhere.</p>
+      <h3>A worked example — Shopee product listing</h3>
+      <p>A Shopee seller in Singapore edits a product price. The write goes to the listing's home region (SG), commits, and begins replicating to Jakarta with ~2&nbsp;seconds of lag. A buyer browsing in Jakarta one second later still sees the old price — they are reading a replica that hasn't caught up. This is <strong>eventual consistency</strong>: given no new writes, all replicas converge, but for a brief window they disagree. For a price display that is usually fine. For "did my payment go through?", it is not — which is why read-after-write guarantees (read your own writes from the home region, or pin the session to the region that took the write) matter on sensitive paths.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Replication lag timeline: a write commits in Singapore at t0, a Jakarta read at t0 plus 1 second sees stale data, and replicas converge by t0 plus 2 seconds">
+            <line x1="40" y1="120" x2="600" y2="120" stroke="#999" stroke-width="1.5"/>
+            <line x1="120" y1="100" x2="120" y2="140" stroke="#1F4E79" stroke-width="2"/>
+            <text class="lbl-sm" x="120" y="92" text-anchor="middle" fill="#1F4E79">t0: write</text>
+            <text class="lbl-sm" x="120" y="158" text-anchor="middle">commits in SG</text>
+            <line x1="340" y1="100" x2="340" y2="140" stroke="#B0532F" stroke-width="2"/>
+            <text class="lbl-sm" x="340" y="92" text-anchor="middle" fill="#B0532F">t0+1s</text>
+            <text class="lbl-sm" x="340" y="158" text-anchor="middle" fill="#B0532F">JKT read = STALE</text>
+            <line x1="540" y1="100" x2="540" y2="140" stroke="#1F4E79" stroke-width="2"/>
+            <text class="lbl-sm" x="540" y="92" text-anchor="middle" fill="#1F4E79">t0+2s</text>
+            <text class="lbl-sm" x="540" y="158" text-anchor="middle">converged</text>
+            <rect x="120" y="104" width="420" height="32" rx="6" fill="rgba(176,83,47,.10)" stroke="#B0532F" stroke-width="1" stroke-dasharray="4 3"/>
+            <text class="lbl-sm" x="330" y="192" text-anchor="middle" fill="#B0532F">replication-lag window — replicas disagree here</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 — during the lag window, a remote read can return data older than the latest write</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>Expect <em>"a user updates their profile in Singapore and immediately reloads from a Jakarta replica — what do they see, and is that acceptable?"</em> Answer with the consistency vocabulary from the consistency lesson: it's eventual consistency, the stale read lasts about as long as the lag, and you fix the jarring cases with <strong>read-your-own-writes</strong> (route that user's reads to the region that holds their latest write, or add a session token recording the write position the read must catch up to).</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> When both sides write</div>
+      <h2>Write conflicts when both regions serve</h2>
+      <p>Active-active's central hazard arrives now. Because two regions can accept writes to the same entity within the lag window, the system can end up with two divergent versions of the same record and no obvious winner. This is a <strong>write conflict</strong>, and how you resolve it is a defining design choice. (This builds directly on the conflict-resolution ideas from the replication lesson.)</p>
+      <h3>Last-write-wins (LWW)</h3>
+      <p><strong>Last-write-wins</strong> attaches a timestamp to every write and, when two conflict, keeps the one with the later timestamp. It is dead simple and used by Cassandra and DynamoDB by default. The catch is silent data loss: the "losing" write vanishes with no trace, and across regions with skewed clocks, "later" can be wrong. Acceptable for a last-seen presence flag; dangerous for anything you can't afford to drop.</p>
+      <h3>Version vectors and merge logic</h3>
+      <p>A safer approach tags each replica's writes with a <strong>version vector</strong> (a per-replica counter) so the system can detect a genuine concurrent conflict rather than guessing by clock. On a true conflict it either keeps all versions as <strong>siblings</strong> for the application to merge (Riak's model) or applies a <strong>CRDT</strong> — a conflict-free replicated data type whose merge is mathematically guaranteed to converge (great for counters, sets, and shopping carts). More machinery, but no silent loss.</p>
+      <h3>Avoid the conflict entirely: single-writer per entity</h3>
+      <p>The most robust answer is often to <em>not have</em> cross-region conflicts. Assign each entity a single home region that owns all its writes — the read-local/write-home pattern again. A GrabPay wallet's balance is only ever written in its home region, so two regions can never both decrement it concurrently. You keep local reads everywhere but eliminate the conflict class for the data that matters most.</p>
+      <div class="vs">
+        <div class="col"><h4>Resolve conflicts (multi-writer)</h4><ul>
+          <li><strong>+</strong> Any region can write anything → simplest routing, lowest write latency everywhere</li>
+          <li><strong>−</strong> LWW can silently drop writes; clock skew bites</li>
+          <li><strong>−</strong> Version vectors / CRDTs are correct but complex</li>
+          <li>Best for: counters, carts, presence, collaborative state</li>
+        </ul></div>
+        <div class="col"><h4>Avoid conflicts (single-writer/home)</h4><ul>
+          <li><strong>+</strong> No conflict class at all for owned data</li>
+          <li><strong>+</strong> Easy to reason about; safe for money</li>
+          <li><strong>−</strong> Writes from far regions cross the network to the home region (higher write latency for them)</li>
+          <li>Best for: ledgers, balances, inventory you must not double-spend</li>
+        </ul></div>
+      </div>
+      <div class="callout">
+        <span class="k">Under the hood — the lost decrement</span>
+        <p>Picture a wallet at balance 100. The SG region processes a −30 spend; the JKT region, in the same lag window, processes a −50 spend. Each computes "new balance" from its local view of 100 and writes its result (70 and 50). Under naive LWW one of these overwrites the other and the wallet ends at 70 or 50 — but the correct answer is 20. This is why money paths use a single writer (so the second spend reads the first's result) or store immutable <em>deltas</em> in a CRDT-style counter that sums to −80 regardless of order, never an overwritten absolute value.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="steptag"><b>08</b> The legal constraint</div>
+      <h2>Data residency, sovereignty &amp; the PDPA</h2>
+      <p>So far multi-region has been about performance and resilience. Now the constraint that makes it mandatory rather than optional: the law. <strong>Data residency</strong> is the requirement that certain data be physically stored within a specific country's borders. <strong>Data sovereignty</strong> is the related idea that data is subject to the laws of the country it sits in. For a product operating across Southeast Asia, these turn "where do we put the bytes" into a compliance question, not just an engineering one.</p>
+      <h3>What the PDPA actually requires</h3>
+      <p>Singapore's <strong>PDPA</strong> does not bluntly say "all data must stay in Singapore." Its <strong>Transfer Limitation</strong> obligation says you may only transfer personal data out of Singapore if the receiving location provides a comparable standard of protection (through contracts, binding corporate rules, or recognised frameworks). Practically, for sensitive categories — and especially under sector rules like the Monetary Authority of Singapore's guidelines for financial institutions — the simplest and safest way to satisfy this is to keep the data in-country and process it in-country. Other SEA jurisdictions go further: Indonesia and Vietnam have stricter localisation rules for certain financial and personal data. The net effect for a regional super-app: <em>some data legally cannot leave the country it was collected in.</em></p>
+      <h3>The architectural consequence: partition by region</h3>
+      <p>This breaks the comfortable assumption behind plain active-active — that any region can hold any user's data. If a Singapore user's personal and financial data must stay in Singapore, you cannot freely replicate it to Jakarta for performance. The design answer is to <strong>partition users by region</strong>: each user belongs to a <em>home region</em> determined by their jurisdiction, and their regulated data lives only there. You stop thinking of regions as interchangeable mirrors and start thinking of them as <em>jurisdictional silos</em> that happen to run the same software.</p>
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 230" role="img" aria-label="Partition by region for residency: SG users' regulated data stays in the Singapore silo, ID users' data stays in the Jakarta silo, only non-personal data replicates">
+            <rect x="40" y="44" width="240" height="150" rx="10" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="160" y="36" text-anchor="middle" fill="#1F4E79">SG silo · ap-southeast-1</text>
+            <rect class="node-b" x="64" y="64" width="192" height="40" rx="8"/>
+            <text class="lbl-sm" x="160" y="88" text-anchor="middle">SG users' PII + ledger</text>
+            <g transform="translate(140,118)"><path d="M0,8 L0,40 A20,7 0 0 0 40,40 L40,8" fill="#2E73B8"/><ellipse cx="20" cy="8" rx="20" ry="7" fill="#3E86CF"/><text x="20" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="600">DB</text></g>
+            <text class="lbl-sm" x="160" y="186" text-anchor="middle" fill="#B0532F">stays in SG</text>
+            <rect x="360" y="44" width="240" height="150" rx="10" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="480" y="36" text-anchor="middle" fill="#1F4E79">ID silo · ap-southeast-3</text>
+            <rect class="node-b" x="384" y="64" width="192" height="40" rx="8"/>
+            <text class="lbl-sm" x="480" y="88" text-anchor="middle">ID users' PII + ledger</text>
+            <g transform="translate(460,118)"><path d="M0,8 L0,40 A20,7 0 0 0 40,40 L40,8" fill="#2E73B8"/><ellipse cx="20" cy="8" rx="20" ry="7" fill="#3E86CF"/><text x="20" y="30" text-anchor="middle" fill="#fff" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="600">DB</text></g>
+            <text class="lbl-sm" x="480" y="186" text-anchor="middle" fill="#B0532F">stays in ID</text>
+            <path class="flow-d" d="M286 150 H 358" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="322" y="142" text-anchor="middle">only non-PII</text>
+            <text class="lbl-sm" x="322" y="216" text-anchor="middle">(catalogue, config) replicates freely</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 6 — regions become jurisdictional silos; only non-regulated data crosses the border</figcaption>
+      </figure>
+      <h3>Classify your data first</h3>
+      <p>The key practical skill is data classification. Not everything is regulated. A clean split:</p>
+      <ul>
+        <li><strong>Residency-bound data</strong> — personal identifiers, KYC documents, the financial ledger, transaction history. Pinned to the home region; never replicated across borders (or only to approved jurisdictions).</li>
+        <li><strong>Freely-replicable data</strong> — the product catalogue, merchant store fronts, app config, feature flags, public content. No personal data, so it can sit in every region for fast local reads.</li>
+        <li><strong>Derived/anonymised data</strong> — aggregates and analytics with identifiers stripped or tokenised. Often allowed to leave, enabling a global analytics view without exporting raw PII.</li>
+      </ul>
+      <p>Get this taxonomy right and the architecture follows almost mechanically: regulated data is partitioned and pinned; everything else replicates for speed.</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="steptag"><b>09</b> Making pinning work</div>
+      <h2>Pinning users to a home region</h2>
+      <p>Partitioning by jurisdiction only works if every request for a user reliably reaches that user's region. The mechanism is a <strong>home region</strong> (sometimes called the user's "cell" or "shard region"): a fixed attribute on the user record that says where their data lives, and which the routing layer obeys.</p>
+      <h3>How pinning works under the hood</h3>
+      <p>Walk it through. At sign-up, you assign a home region based on jurisdiction (country of registration, sometimes phone prefix or KYC country) and store it durably — <code>home_region = "ap-southeast-1"</code> on the user, plus a lookup in a small, globally-replicated <strong>directory</strong> keyed by user ID. The directory holds only the mapping <em>user → home region</em>, which is not sensitive, so it may live in every region. On each request:</p>
+      <pre><span class="c"># 1. Anycast / GeoDNS lands the user at whatever edge is nearest.</span>
+<span class="c"># 2. Edge resolves identity, then looks up the home region:</span>
+home = directory.lookup(user_id)          <span class="c"># e.g. "ap-southeast-1"</span>
+<span class="k">if</span> current_region != home:
+    forward_request_to(home)              <span class="c"># proxy to the home region</span>
+<span class="k">else</span>:
+    serve_locally()                       <span class="c"># read + write the home DB</span></pre>
+      <p>So a Singapore user who happens to be travelling in Jakarta still has every request that touches their regulated data proxied back to the SG region. They pay extra latency while abroad — the law wins over speed for that data — but residency holds. Edge platforms make this concrete: Cloudflare Workers + Durable Objects pin an object to a region, Fastly and Lambda@Edge run the lookup-and-forward logic at the edge, and global gateways carry a routing header like <code>X-Home-Region</code> downstream.</p>
+      <h3>A worked example — GrabPay onboarding across borders</h3>
+      <p>A user registers GrabPay in Singapore: <code>home_region = ap-southeast-1</code>, KYC and wallet ledger created in SG. They fly to Jakarta and open the app. Anycast routes them to the Jakarta edge for the fast stuff — the merchant catalogue, the map, the feed all serve locally. But when they open their wallet, the edge sees <code>home_region = ap-southeast-1</code> and proxies the balance read/write back to Singapore. Their financial data never leaves SG; their browsing stays fast. That split — local for non-regulated, home-region for regulated — is the heart of a compliant multi-region super-app.</p>
+      <div class="callout">
+        <span class="k">What breaks at 10×</span>
+        <p>At small scale the directory lookup is trivial. At 10× users and request volume, two things strain. First, the directory becomes hot and must be cached at every edge (with careful invalidation when a user is migrated). Second, <strong>cross-jurisdiction features</strong> get hard: splitting a bill between an SG user and an ID user, or a global "total wallet balance" view, now must join data that legally can't sit together. The answer is to compose at the application layer — call each home region's API and merge the results in memory, never co-locate the raw regulated rows — and to accept that a truly unified global view of regulated data is, by design, harder and sometimes simply not permitted.</p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>The sharp question is <em>"how do you keep SG user data in SG?"</em> Hit four beats: (1) assign a home region at sign-up from jurisdiction; (2) store it on the user and in a globally-replicated directory of non-sensitive mappings; (3) have the edge look it up and proxy every regulated request to the home region; (4) classify data so only non-PII replicates across borders. Then name the cost: cross-jurisdiction features and a global view become application-layer joins, never co-located storage.</p>
+      </div>
+    </section>
+
+    <!-- 10 — INTERACTIVE -->
+    <section id="s10">
+      <div class="steptag"><b>10</b> When a region dies</div>
+      <h2>Failover, runbooks &amp; the split-brain risk</h2>
+      <p>The whole point of multi-region is surviving a regional loss — so the failover path must be designed, automated, and rehearsed, not improvised at 3&nbsp;a.m. Two things make it dangerous: the data-loss window (your RPO) and the chance of <strong>split-brain</strong>.</p>
+      <h3>The failover runbook</h3>
+      <p>A regional failover, whether automated or operator-driven, follows a fixed sequence. Detect the failure with health checks that have hysteresis (so a blip doesn't trigger a flap). Decide it is genuinely regional, not a single bad service. Promote the surviving region's replica to read-write primary. Repoint traffic — flip GeoDNS records and/or withdraw the dead region's anycast advertisement so the network steers away. Verify the survivor is healthy under the new, higher load. Later, when the failed region returns, <strong>fail back</strong> carefully: catch its data up from the survivor before it serves again, so it doesn't resurrect stale writes.</p>
+      <h3>Backups are the floor under replication</h3>
+      <p>Replication is not a backup — it faithfully copies corruption and bad deletes to every region. You also need real <strong>backups</strong>: periodic snapshots plus continuous log archives (e.g. point-in-time recovery to any second in the last N days), stored in object storage like S3, and themselves placed in compliant locations. Replication protects against a region dying; backups protect against a bad write that propagates everywhere.</p>
+      <h3>Split-brain — the failure mode to name out loud</h3>
+      <p><strong>Split-brain</strong> happens when two regions lose the ability to see each other but both stay alive, and each concludes the other is dead and promotes itself to primary. Now both accept writes independently, the data diverges in incompatible ways, and reconciling it afterwards can mean unavoidable data loss. This is the <strong>network partition</strong> case of the CAP theorem made physical across an ocean. Prevention relies on a tiebreaker: a <strong>quorum</strong> (a majority of nodes must agree who is primary, so a minority partition refuses to promote) or a <strong>fencing token</strong> (a monotonically increasing epoch that lets storage reject writes from a deposed old primary). The practical rule: never let two regions decide independently that they are the sole primary; route the decision through a consensus system (etcd, ZooKeeper, or the database's built-in Raft/Paxos) that a minority side cannot win.</p>
+      <p>Step through the full life cycle below: route → write local → replicate → region fails → traffic fails over — with the residency pin holding throughout.</p>
+      <figure>
+        <div class="blueprint stepper" id="fig-fail">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Interactive failover: user routed to Singapore, write replicates to Jakarta, Singapore fails, traffic fails over to Jakarta which is promoted to primary">
+            <g class="st" id="f-user"><rect class="node" x="20" y="100" width="92" height="46" rx="8"/><text class="lbl" x="66" y="128" text-anchor="middle">User</text></g>
+            <g class="st" id="f-route"><circle cx="190" cy="123" r="32" fill="#FDFBF6" stroke="#666" stroke-width="2.5"/><ellipse cx="190" cy="123" rx="13" ry="32" fill="none" stroke="#666" stroke-width="1.5"/><line x1="158" y1="123" x2="222" y2="123" stroke="#666" stroke-width="2"/><text x="190" y="128" text-anchor="middle" fill="#444" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">route</text></g>
+            <g class="st" id="f-sg"><rect class="node-b" x="300" y="30" width="150" height="56" rx="9"/><text class="lbl" x="375" y="53" text-anchor="middle">SG region</text><text class="lbl-sm" x="375" y="72" text-anchor="middle">primary</text></g>
+            <g class="st" id="f-jkt"><rect class="node" x="300" y="160" width="150" height="56" rx="9"/><text class="lbl" x="375" y="183" text-anchor="middle">JKT region</text><text class="lbl-sm" x="375" y="202" text-anchor="middle">replica</text></g>
+            <path id="f-p1" class="flow" d="M112 123 C 140 123, 150 123, 156 123" marker-end="url(#arrow)"/>
+            <path id="f-p2" class="flow" d="M222 110 C 260 80, 280 62, 298 56" marker-end="url(#arrow)"/>
+            <path id="f-p3" class="flow-d" d="M375 86 V 158" marker-end="url(#arrow-s)"/>
+            <path id="f-p4" class="flow-r" d="M222 138 C 260 168, 280 184, 298 188" marker-end="url(#arrow-r)"/>
+            <text class="lbl-sm" x="383" y="128" text-anchor="start">async repl.</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 7 — interactive: normal flow, replication, then failover when Singapore goes dark</figcaption>
+      </figure>
+      <div class="callout tip">
+        <span class="k">Interviewer follow-up</span>
+        <p>Be ready for <em>"the two regions can't reach each other but both are up — what happens, and how do you prevent disaster?"</em> Name it as split-brain, tie it to a network partition under CAP, and resolve it with a quorum or fencing token so only one side can be primary. Then close the loop on RPO: <em>"with async replication my failover loses the last few seconds of writes, so the money ledger commits synchronously to bring its RPO to zero while everything else accepts a small RPO."</em></p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>★</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole topic compresses to one sentence: <em>go multi-region to cut latency, survive a regional outage, and satisfy data-residency law — then pay for it by deciding where writes land, how replicas reconcile, and which data is pinned in-country.</em> If you can draw two regions, route a user to the nearest one, pin a Singapore user home, and explain what you lose when one region dies, you can carry the interview.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Three drivers</b><span>Latency for far users, regional-outage blast radius, and residency law all push to multi-region.</span></div>
+        <div class="tk"><span class="num">02</span><b>AZ ≠ region</b><span>Cross-AZ is sync-friendly; cross-region is async, which is what creates lag and conflicts.</span></div>
+        <div class="tk"><span class="num">03</span><b>Active-passive</b><span>One writer, no conflicts, simple — but idle standby and a risky discrete failover.</span></div>
+        <div class="tk"><span class="num">04</span><b>RTO vs RPO</b><span>Downtime vs data loss. Set RPO per data class — zero for the ledger, seconds for the rest.</span></div>
+        <div class="tk"><span class="num">05</span><b>Active-active</b><span>Lowest latency, all capacity used — but concurrent writers mean conflicts to resolve.</span></div>
+        <div class="tk"><span class="num">06</span><b>Geo-routing</b><span>GeoDNS, latency-based, and anycast steer each user to the nearest healthy region.</span></div>
+        <div class="tk"><span class="num">07</span><b>Replication lag</b><span>Async log shipping → eventual consistency; read-local, write-to-home to cope.</span></div>
+        <div class="tk"><span class="num">08</span><b>Resolve or avoid conflicts</b><span>LWW/CRDTs for soft data; single-writer home region for money.</span></div>
+        <div class="tk"><span class="num">09</span><b>PDPA → partition</b><span>Regulated data stays in-country; regions become jurisdictional silos.</span></div>
+        <div class="tk"><span class="num">10</span><b>Pin to home region</b><span>Directory maps user → region; the edge proxies regulated requests home.</span></div>
+        <div class="tk"><span class="num">11</span><b>Failover &amp; split-brain</b><span>Rehearse the runbook; use quorum/fencing so two regions can't both be primary.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>(1) Name the three reasons a single region isn't enough, and which one is a legal — not performance — constraint.<br>(2) Contrast active-active and active-passive, and say which you'd pick for a payments ledger and why.<br>(3) Define RTO and RPO, and explain why you set RPO differently for the money ledger versus a social feed.<br>(4) A user writes in Singapore and reads a Jakarta replica one second later — what do they see, why, and how do you give them read-your-own-writes?<br>(5) Under PDPA, how do you keep an SG user's data in SG while still serving them fast when they're abroad?<br>(6) Two regions can't see each other but both stay up — what is this called, what goes wrong, and how do you prevent it?<br>Any fuzzy answer → re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      LESSON 14 · MULTI-REGION &amp; DATA RESIDENCY · interactive edition<br>
+      Beyond BBG · SG · PDPA context · Original study notes on standard distributed-systems fundamentals · review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1750);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* geo-routing + residency pin */
+  makeStepper(document.getElementById('fig-geo'), [
+    {text:"A Jakarta user requests the app; geo-routing decides where to send them.", active:["g-user","g-dns"], path:"g-p1"},
+    {text:"DNS/anycast picks the nearest healthy region — Jakarta — and routes there.", active:["g-dns","g-jkt"], path:"g-p2"},
+    {text:"They read and write locally in Jakarta, and the write replicates cross-region.", active:["g-jkt","g-repl"], path:"g-p3"},
+    {text:"Residency branch: a Singapore user is pinned to the SG region by law (PDPA)...", active:["g-sguser","g-sg"], path:"g-p4"},
+    {text:"...so their regulated data is served from SG, not the nearest region — the pin overrides geo-routing.", active:["g-sguser","g-sg"]}
+  ]);
+
+  /* failover lifecycle */
+  makeStepper(document.getElementById('fig-fail'), [
+    {text:"The routing layer steers a user to the nearest healthy region.", active:["f-user","f-route"], path:"f-p1"},
+    {text:"It lands on Singapore, the primary, and reads/writes locally.", active:["f-route","f-sg"], path:"f-p2"},
+    {text:"The Singapore write replicates asynchronously to the Jakarta replica.", active:["f-sg","f-jkt"], path:"f-p3"},
+    {text:"Singapore fails. Health checks confirm a regional outage and trigger failover.", active:["f-sg"], reject:true},
+    {text:"Traffic fails over: Jakarta is promoted to primary and now serves the user.", active:["f-route","f-jkt"], path:"f-p4", reject:true}
+  ]);
+</script>
+</body>
+</html>
