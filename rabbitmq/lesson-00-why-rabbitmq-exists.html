@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 00 — Why RabbitMQ Exists (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- area / layer boxes ---- */
+  .areagrid-box{transition:opacity .3s ease;}
+  /* ---- code + worked example ---- */
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 14px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-v" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6E59A5"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">RabbitMQ &middot; Study Notes</div>
+    <div class="brandtitle">Why RabbitMQ<br>Exists</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The coupling problem</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>A broker in the middle &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The four roles &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Work queues &amp; scaling</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Acks &amp; redelivery &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Worked: the welcome email</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>When not to &middot; vs Kafka</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">00</span><span>Concept &middot; RabbitMQ</span></div>
+      <h1>Why RabbitMQ Exists</h1>
+      <p class="lede">Before the exchanges and routing keys, the <em>why</em>. RabbitMQ is a <strong>message broker</strong> — a durable piece of plumbing you put <em>between</em> two services so they stop calling each other directly. That one move decouples them in time, space, and rate, and it quietly fixes a whole family of problems that direct calls create at scale. This first lesson builds that mental model; everything else in the course is detail on top of it.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers prepping backend and system-design interviews — and the real work behind them. Names like <em>AMQP</em>, <em>exchange</em>, and <em>queue</em> are used as plain identifiers; every sentence, diagram, and line of code here is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em>, or step with <em>Next</em>). This is a concept lesson — no syntax drill yet; instead, one worked example takes the pattern end-to-end.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>The problem with calling things directly</h2>
+      <p>Here is the situation every broker is an answer to. Service <strong>A</strong> needs Service <strong>B</strong> to do something, so A calls B directly — an HTTP request, an RPC — and <strong>waits for the reply before it can continue.</strong> This is the default, it is simple, and when B is fast and healthy it is exactly right. The trouble is what happens when it isn't. A direct synchronous call wires A and B together so tightly that B's problems become A's problems:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Latency stacks up</h4>
+          <ul>
+            <li>A is <strong>blocked</strong> for B's entire run time.</li>
+            <li>If B takes 800&nbsp;ms, A's caller waits 800&nbsp;ms too.</li>
+            <li>A web worker held this long can't serve anyone else.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Failure spreads</h4>
+          <ul>
+            <li>If B is <strong>down</strong>, A's request fails as well.</li>
+            <li>Their uptimes <strong>multiply</strong>: two 99% services chained give ~98%.</li>
+            <li>One slow dependency can stall a whole request path.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Spikes have nowhere to go</h4>
+          <ul>
+            <li>A burst from A hits B at <strong>full rate</strong>, instantly.</li>
+            <li>No buffer means B must be sized for the <em>peak</em>, not the average.</li>
+            <li>Adding more workers means reconfiguring callers and load balancers.</li>
+          </ul>
+        </div>
+      </div>
+      <p>There's a fourth, quieter cost: some work simply <em>shouldn't</em> sit on the request path at all. Sending a welcome email, generating a thumbnail, transcoding a video, recomputing a recommendation — none of these are things the user is waiting to <em>see</em>, yet a direct call makes them block the response anyway. The user stares at a spinner while your server does chores. What you want is to take the order, say &ldquo;got it,&rdquo; and do the slow part out of sight.</p>
+      <div class="callout">
+        <span class="k">The mental reframe</span>
+        <p>Stop picturing services as a chain of phone calls where everyone waits on the line, and start picturing a <strong>mailroom</strong>. You drop off a letter and walk away; it gets delivered when the recipient is ready. RabbitMQ is that mailroom — and the rest of this lesson is about why a mailroom beats a phone call once you have more than a toy system.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The insight</div>
+      <h2>Put a durable broker in the middle &#9656;</h2>
+      <p>The fix is almost embarrassingly simple to state: <strong>don't let A call B. Put a durable intermediary between them.</strong> A hands its request to the broker as a <strong>message</strong> and immediately moves on; B — now called a <strong>consumer</strong> — picks the message up when it's ready and does the work later. The broker holds the message safely in the meantime. A producer and a consumer that used to be welded together are now connected only through a buffer they both trust.</p>
+      <p>That single move buys you <strong>three decouplings</strong>, and it's worth naming them precisely because every later feature serves one of them:</p>
+      <ul>
+        <li><strong>In time</strong> &mdash; producer and consumer no longer have to be alive at the same instant. A can publish while B is restarting; the message waits. This is what &ldquo;asynchronous&rdquo; really means here.</li>
+        <li><strong>In space</strong> &mdash; the producer addresses a <em>destination</em>, not a host. It doesn't know or care which machine, or how many machines, will consume the message. You can move, replace, or multiply consumers without touching the producer.</li>
+        <li><strong>In rate</strong> &mdash; the queue is a shock absorber. A can burst far faster than B can process; the backlog grows and then drains. Overload turns into a measurable <em>queue depth</em> instead of a fallen-over service.</li>
+      </ul>
+      <p>Step through the same piece of work done both ways &mdash; first the blocking call, then the broker:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-sync">
+          <svg viewBox="0 0 640 380" role="img" aria-label="Interactive comparison: a synchronous call where Service A blocks on Service B, versus an asynchronous flow where A hands a message to a broker and returns immediately">
+            <path d="M20 192 H 620" class="flow-d"/>
+            <!-- SYNCHRONOUS lane -->
+            <g class="st" id="lane-sync">
+              <text class="lbl-sm" x="22" y="32">SYNCHRONOUS &middot; A waits for B</text>
+              <rect class="node" x="24" y="54" width="116" height="52" rx="9"/><text class="lbl" x="82" y="85" text-anchor="middle">Client</text>
+              <rect class="node-b" x="262" y="54" width="116" height="52" rx="9"/><text class="lbl" x="320" y="85" text-anchor="middle">Service A</text>
+              <rect class="node-r" x="500" y="54" width="116" height="52" rx="9"/><text class="lbl" x="558" y="80" text-anchor="middle" fill="#B0532F">Service B</text><text class="lbl-sm" x="558" y="96" text-anchor="middle" fill="#B0532F">slow ~800ms</text>
+              <path id="p-sy-req" class="flow" d="M140 72 H 256" marker-end="url(#arrow)"/>
+              <path id="p-sy-call" class="flow" d="M378 72 H 494" marker-end="url(#arrow)"/>
+              <path id="p-sy-res" class="flow-d" d="M496 92 H 380" marker-end="url(#arrow-s)"/>
+              <path id="p-sy-resp" class="flow-d" d="M258 92 H 144" marker-end="url(#arrow-s)"/>
+              <text id="sy-block" class="lbl-sm" x="320" y="130" text-anchor="middle" fill="#B0532F" style="opacity:0">blocked &mdash; holds the connection open</text>
+            </g>
+            <!-- ASYNCHRONOUS lane -->
+            <g class="st" id="lane-async">
+              <text class="lbl-sm" x="22" y="214">ASYNCHRONOUS &middot; the broker absorbs the wait</text>
+              <rect class="node" x="24" y="240" width="104" height="50" rx="9"/><text class="lbl" x="76" y="270" text-anchor="middle">Client</text>
+              <rect class="node-b" x="168" y="240" width="104" height="50" rx="9"/><text class="lbl" x="220" y="270" text-anchor="middle">Service A</text>
+              <rect class="node-v" x="312" y="234" width="132" height="62" rx="9"/><text class="lbl" x="378" y="262" text-anchor="middle" fill="#6E59A5">Broker</text><text class="lbl-sm" x="378" y="280" text-anchor="middle" fill="#6E59A5">durable queue</text>
+              <rect class="node" x="500" y="240" width="116" height="50" rx="9"/><text class="lbl" x="558" y="270" text-anchor="middle">Consumer</text>
+              <path id="p-as-req" class="flow" d="M128 258 H 166" marker-end="url(#arrow)"/>
+              <path id="p-as-pub" class="flow" d="M272 258 H 310" marker-end="url(#arrow-v)"/>
+              <path id="p-as-202" class="flow-r" d="M166 278 H 130" marker-end="url(#arrow-r)"/>
+              <path id="p-as-deliver" class="flow-d" d="M444 258 H 498" marker-end="url(#arrow-s)"/>
+            </g>
+            <text id="sy-read" class="readout" x="320" y="362" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 8</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the same work, done synchronously (A blocks) then asynchronously (A returns in ~2 ms)</figcaption>
+      </figure>
+
+      <p>Notice what you give up, because it's the honest cost of all this. In the synchronous version A gets B's <em>answer</em> before it replies. In the asynchronous version A only gets an <strong>acknowledgement that the work was accepted</strong>, not that it's done — a 202, not a 200 with a result. So a broker is the right tool when the caller doesn't need the result <em>right now</em>. When it genuinely does (you must show the user the outcome on this very request), a direct call is still correct — we'll draw that line sharply in section 06.</p>
+      <div class="callout note">
+        <span class="k">&ldquo;Fire and… eventually&rdquo;</span>
+        <p>Asynchronous doesn't mean &ldquo;fire and forget&rdquo; — forgetting is what makes systems lose data. It means <strong>fire and let it happen later, reliably.</strong> The whole reason to pay for a broker rather than spawning a background thread is that the broker <em>remembers</em> the work across restarts, crashes, and deploys. Durability is the feature; asynchrony is just the shape.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The anatomy</div>
+      <h2>The four roles: producer, exchange, queue, consumer &#9656;</h2>
+      <p>To use RabbitMQ you only need to keep four roles straight. They come from <strong>AMQP</strong>, the messaging protocol RabbitMQ implements, and their arrangement is the one detail that surprises newcomers:</p>
+      <ul>
+        <li>A <strong>producer</strong> is any code that publishes a message. It is a sender, nothing more.</li>
+        <li>An <strong>exchange</strong> is the <em>router</em>. Producers publish to an exchange, <strong>never directly to a queue.</strong> The exchange decides where the message goes.</li>
+        <li>A <strong>queue</strong> is the buffer that actually stores messages until they're consumed. This is the part that holds your data.</li>
+        <li>A <strong>consumer</strong> is any code that subscribes to a queue and receives messages from it to process.</li>
+      </ul>
+      <p>The hinge of the whole design is that <strong>producer and exchange are separated from queue and consumer.</strong> A producer flings a message at an exchange along with a <strong>routing key</strong>; the exchange matches that key against its <strong>bindings</strong> (the rules connecting it to queues) and drops a copy into whichever queues match — zero, one, or many. Follow one message through, then watch a second consumer join:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-flow">
+          <svg viewBox="0 0 640 300" role="img" aria-label="Interactive message flow: a producer publishes to an exchange, which routes to a queue, where one and then two competing consumers drain the messages">
+            <g class="st" id="n-prod"><rect class="node-b" x="20" y="118" width="120" height="56" rx="9"/><text class="lbl" x="80" y="151" text-anchor="middle">Producer</text></g>
+            <g class="st" id="n-exch"><rect class="node-v" x="190" y="118" width="120" height="56" rx="9"/><text class="lbl" x="250" y="143" text-anchor="middle" fill="#6E59A5">Exchange</text><text class="lbl-sm" x="250" y="160" text-anchor="middle" fill="#6E59A5">router</text></g>
+            <g class="st" id="n-queue"><rect class="node" x="360" y="110" width="130" height="72" rx="9"/><text class="lbl" x="425" y="131" text-anchor="middle">Queue</text>
+              <rect x="372" y="144" width="20" height="22" rx="3" fill="#E9EFF5" stroke="#4A7BA6" stroke-width="1.4"/>
+              <rect x="398" y="144" width="20" height="22" rx="3" fill="#E9EFF5" stroke="#4A7BA6" stroke-width="1.4"/>
+              <rect x="424" y="144" width="20" height="22" rx="3" fill="#E9EFF5" stroke="#4A7BA6" stroke-width="1.4"/>
+            </g>
+            <g class="st" id="n-cons1"><rect class="node" x="520" y="66" width="104" height="50" rx="9"/><text class="lbl" x="572" y="96" text-anchor="middle">Consumer A</text></g>
+            <g id="n-cons2" style="opacity:0"><rect class="node" x="520" y="184" width="104" height="50" rx="9"/><text class="lbl" x="572" y="214" text-anchor="middle">Consumer B</text></g>
+            <path id="p-pe" class="flow" d="M140 146 H 188" marker-end="url(#arrow)"/>
+            <path id="p-eq" class="flow" d="M310 146 H 358" marker-end="url(#arrow)"/>
+            <path id="p-qc1" class="flow" d="M490 138 C 505 110, 505 100, 520 92" marker-end="url(#arrow)"/>
+            <path id="p-qc2" class="flow" d="M490 158 C 505 190, 505 200, 520 208" marker-end="url(#arrow)" style="opacity:0"/>
+            <text id="mf-read" class="readout" x="320" y="284" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: producer &#8594; exchange &#8594; queue &#8594; consumer, then a second consumer joins to share the load</figcaption>
+      </figure>
+
+      <p>Why bother with the exchange in the middle? Because routing as a <em>separate, configurable step</em> is what lets one publish behave in completely different ways without changing the producer. Bind one queue and you have a plain work queue. Bind <em>many</em> queues to a fanout exchange and every consumer group gets its own copy — that's publish/subscribe. Route by a key pattern and you get topic-based delivery. The producer's code is identical in all three; only the bindings differ. That flexible routing is exactly why people call RabbitMQ a <strong>smart broker</strong>, and we'll spend a whole phase on exchange types later.</p>
+      <div class="callout">
+        <span class="k">The shape to memorize</span>
+        <p><strong>Producers publish to exchanges; consumers read from queues; bindings connect the two.</strong> If you only remember one sentence about RabbitMQ's architecture, remember that the producer never picks the queue — the routing does. It's the indirection that makes everything else (fan-out, work-sharing, selective routing) fall out for free.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The payoff</div>
+      <h2>Work queues and competing consumers</h2>
+      <p>The last two steps of that diagram showed the single most useful pattern a broker gives you, so let's name it properly. When you attach <strong>several consumers to one queue</strong>, the broker hands each message to <em>exactly one</em> of them. They aren't duplicating work; they're <strong>splitting</strong> it. This is the <strong>competing-consumers</strong> pattern, and it turns two hard operational problems into easy ones.</p>
+      <p>First, <strong>scaling becomes addition.</strong> Backlog growing faster than you can process it? Start more consumer instances pointed at the same queue. The broker load-balances across whatever is currently listening — no caller changes, no load-balancer config, no service discovery. Throughput scales horizontally with the number of consumers, up to the point where some downstream resource (the database, the email provider) becomes the real ceiling.</p>
+      <p>Second, <strong>spikes stop being emergencies.</strong> A queue lets producers and consumers run at <em>different</em> rates. A flash sale can dump 50,000 jobs in a minute; your fixed pool of consumers drains them over the next ten. Nothing falls over — the queue just gets temporarily deep and then shrinks. You've converted a scaling crisis into a graph you can watch.</p>
+      <p>One operational knob makes this fair. By default a broker can eagerly push a pile of messages to a consumer that happens to be free, which then sits on them while others idle. Setting a <strong>prefetch</strong> limit — &ldquo;don't give me a new message until I've acknowledged my current one&rdquo; — produces <strong>fair dispatch</strong>: fast consumers naturally pull more, slow ones pull less, and no single worker hoards a backlog. It's a one-line setting that we'll revisit, but it matters from day one.</p>
+      <div class="callout tip">
+        <span class="k">Two patterns from one mechanism — don't conflate them</span>
+        <p>The recognition cue interviewers love: <strong>work queue vs publish/subscribe.</strong></p>
+        <div class="vs" style="margin-top:14px">
+          <div class="col">
+            <h4>Work queue</h4>
+            <ul>
+              <li>Many consumers, <strong>one</strong> queue.</li>
+              <li>Each message goes to <strong>exactly one</strong> consumer.</li>
+              <li>Goal: <em>share</em> the load. Add workers to go faster.</li>
+              <li>&ldquo;Resize these 10k images.&rdquo;</li>
+            </ul>
+          </div>
+          <div class="col">
+            <h4>Publish / subscribe</h4>
+            <ul>
+              <li>Each consumer group has its <strong>own</strong> queue.</li>
+              <li>Every group gets <strong>its own copy</strong> of the message.</li>
+              <li>Goal: <em>broadcast</em> an event to many interested parties.</li>
+              <li>&ldquo;Order placed&rdquo; &#8594; billing, email, analytics.</li>
+            </ul>
+          </div>
+        </div>
+        <p style="margin-top:14px">Both are just bindings. One queue with many readers = sharing; many queues each with a reader = broadcasting.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The guarantee</div>
+      <h2>Acknowledgments &amp; redelivery &#9656;</h2>
+      <p>A buffer that drops your messages the moment a worker stumbles would be worse than useless. So the question that makes or breaks a broker is: <strong>what happens when a consumer takes a message and then dies before finishing?</strong> The answer is <strong>acknowledgments</strong>, and they're the most important reliability idea in the whole system.</p>
+      <p>When a consumer receives a message, the broker doesn't delete its copy yet. It marks the message <strong>unacknowledged</strong> and holds onto it — the message is on loan. The consumer does its work and then sends back an <strong>ack</strong>; only <em>then</em> does the broker discard its copy. If the consumer's connection drops before that ack arrives — a crash, a network blip, a deploy — the broker concludes the work didn't complete and <strong>requeues</strong> the message to be redelivered to someone else. Watch it happen:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-ack">
+          <svg viewBox="0 0 640 300" role="img" aria-label="Interactive acknowledgment and redelivery: a consumer takes a message and crashes before acking, the broker requeues and redelivers it to a second consumer, which then acks">
+            <g class="st" id="a-queue"><rect class="node-v" x="24" y="104" width="140" height="76" rx="9"/><text class="lbl" x="94" y="126" text-anchor="middle" fill="#6E59A5">Broker queue</text>
+              <rect id="a-msg" x="80" y="140" width="28" height="28" rx="4" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2"/>
+            </g>
+            <g class="st" id="a-c1"><rect class="node" x="300" y="54" width="160" height="56" rx="9"/><text class="lbl" x="380" y="87" text-anchor="middle">Consumer 1</text></g>
+            <g class="st" id="a-c2"><rect class="node" x="300" y="190" width="160" height="56" rx="9"/><text class="lbl" x="380" y="223" text-anchor="middle">Consumer 2</text></g>
+            <text id="a-x" x="380" y="130" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#B0532F" style="opacity:0">&#10007; crashed before ack</text>
+            <path id="p-d1" class="flow" d="M164 132 C 240 96, 250 90, 300 84" marker-end="url(#arrow)"/>
+            <path id="p-rq" class="flow-r" d="M300 100 C 230 140, 200 150, 168 150" marker-end="url(#arrow-r)"/>
+            <path id="p-d2" class="flow" d="M164 156 C 240 200, 250 206, 300 216" marker-end="url(#arrow)"/>
+            <path id="p-ack" class="flow-d" d="M300 232 C 220 252, 180 200, 168 170" marker-end="url(#arrow-s)"/>
+            <text id="ack-read" class="readout" x="320" y="286" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: an unacknowledged message survives a consumer crash and is redelivered &#8212; at-least-once delivery</figcaption>
+      </figure>
+
+      <p>This behavior has a name: <strong>at-least-once delivery</strong>. As long as you ack only <em>after</em> the work succeeds, every message is processed at least one time, even across crashes. (For that promise to hold through a <em>broker</em> restart too, the queue must be durable and the message marked persistent so it's written to disk — and on the publishing side, <strong>publisher confirms</strong> tell the producer the broker actually took responsibility. Those are knobs we'll turn in a later phase; here, just hold the headline.)</p>
+      <p>But &ldquo;at least once&rdquo; carries a sharp edge you must design for. Look again at the last step: if a consumer finishes the work and crashes <em>before</em> its ack lands, the broker can't tell the difference between &ldquo;never did it&rdquo; and &ldquo;did it but didn't report back.&rdquo; So it redelivers, and the work runs <strong>twice</strong>. Send the email twice. Charge the card twice. The cure is to make consumers <strong>idempotent</strong> — safe to run more than once for the same message — usually with a <strong>dedupe key</strong>: record that you handled message <code>X</code>, and make a second arrival of <code>X</code> a no-op.</p>
+      <div class="callout note">
+        <span class="k">Exactly-once is (mostly) a myth</span>
+        <p>People reach for a broker hoping for &ldquo;exactly-once delivery.&rdquo; Across an unreliable network, that's effectively unattainable: the ack itself can be lost. The achievable, battle-tested target is <strong>at-least-once delivery + idempotent consumers</strong>, which together give you <em>effectively-once processing</em> — duplicates may arrive, but they have no extra effect. Design every consumer as if it will see the same message twice, because eventually it will. (A message that fails forever shouldn't loop forever either — after N tries it's routed to a <strong>dead-letter</strong> queue for inspection, another later topic.)</p>
+      </div>
+    </section>
+
+    <!-- 05 WORKED -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Worked example</div>
+      <h2>Decouple the slow welcome email</h2>
+      <p>Let's turn the whole model into one concrete change you could ship this afternoon. It's the canonical first use of a broker, and it touches every idea above: time decoupling, the producer/consumer split, manual acks, and idempotency.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">signup endpoint &middot; Python / pika</span></div>
+        <div class="wbody">
+          <div class="wname">A signup that doesn't wait on SMTP</div>
+          <p class="wprompt">A <code>POST /signup</code> creates the user and then sends a welcome email <strong>synchronously</strong>. The email takes 300&ndash;800&nbsp;ms and <strong>fails if the mail server is down</strong> — so a mail outage takes signups down with it. Make signup fast and resilient without losing any emails.</p>
+
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Restate</span><p>&ldquo;You are signed up&rdquo; should depend only on the user row being written. The welcome email is a <b>consequence</b> of signup, not part of it.</p></div>
+            <div class="ws"><span class="wsk">The coupling</span><p>Sending inline ties signup's <b>latency</b> and its <b>uptime</b> to SMTP. p95 balloons to ~800&nbsp;ms; one SMTP blip turns signups into 500s. Wrong things are welded together.</p></div>
+            <div class="ws"><span class="wsk">The move</span><p>Publish a small message (&ldquo;email user 42&rdquo;) to RabbitMQ and return <b>202</b> at once. The endpoint's slow dependency becomes a ~2&nbsp;ms hand-off; the email is now a background job.</p></div>
+            <div class="ws"><span class="wsk">Reliability</span><p>A worker consumes the message and acks <b>only after</b> the send succeeds. If it crashes mid-send, the unacked message is redelivered to another worker &mdash; at-least-once, so nothing is dropped.</p></div>
+            <div class="ws"><span class="wsk">The caveat</span><p>At-least-once can deliver twice. A <b>dedupe key</b> (have we already emailed user 42?) makes a duplicate a no-op, so a redelivery can't double-send.</p></div>
+          </div>
+
+          <h4 class="wh">Before &middot; synchronous</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code>@app.post("/signup")
+<span class="kw">def</span> <span class="fn">signup</span>(req):
+    user = create_user(req)
+    send_welcome_email(user.email)     <span class="cm"># BLOCKS 300-800 ms; raises if SMTP is down</span>
+    <span class="kw">return</span> <span class="lit">201</span>, {"id": user.id}        <span class="cm"># signup latency + uptime now tied to SMTP</span></code></pre>
+
+          <h4 class="wh">After &middot; publish, then a worker</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="cm"># --- the web endpoint: just hand off and return ---</span>
+@app.post("/signup")
+<span class="kw">def</span> <span class="fn">signup</span>(req):
+    user = create_user(req)
+    channel.basic_publish(                         <span class="cm"># hand off to RabbitMQ, ~2 ms</span>
+        exchange=<span class="lit">""</span>, routing_key=<span class="lit">"welcome_emails"</span>,
+        body=json.dumps({<span class="lit">"user_id"</span>: user.id, <span class="lit">"email"</span>: user.email}),
+        properties=pika.BasicProperties(delivery_mode=<span class="lit">2</span>))   <span class="cm"># 2 = persist the message</span>
+    <span class="kw">return</span> <span class="lit">202</span>, {<span class="lit">"id"</span>: user.id}                  <span class="cm"># Accepted; the email happens later</span>
+
+<span class="cm"># --- the worker: a separate process, run as many as you like ---</span>
+<span class="kw">def</span> <span class="fn">on_message</span>(ch, method, props, body):
+    msg = json.loads(body)
+    <span class="kw">if</span> already_sent(msg[<span class="lit">"user_id"</span>]):             <span class="cm"># idempotency: dedupe on a stable key</span>
+        ch.basic_ack(method.delivery_tag); <span class="kw">return</span>    <span class="cm"># duplicate &rarr; no-op</span>
+    send_welcome_email(msg[<span class="lit">"email"</span>])             <span class="cm"># the slow work, off the request path</span>
+    mark_sent(msg[<span class="lit">"user_id"</span>])
+    ch.basic_ack(method.delivery_tag)                <span class="cm"># ack AFTER success, so a crash redelivers</span>
+
+channel.basic_qos(prefetch_count=<span class="lit">1</span>)              <span class="cm"># fair dispatch: one unacked message at a time</span>
+channel.basic_consume(<span class="lit">"welcome_emails"</span>, on_message)
+channel.start_consuming()</code></pre>
+
+          <div class="say">
+            <span class="k">Narrate it to the interviewer</span>
+            <p>&ldquo;Today the welcome email is sent inline, so signup's latency and availability are hostage to the mail server — 800&nbsp;ms p95, and an SMTP outage 500s the whole endpoint. But sending the email isn't part of <em>being signed up</em>; it's a downstream effect. So I publish a tiny message to RabbitMQ and return 202 immediately — the endpoint's slow call becomes a 2&nbsp;ms hand-off. A separate worker pool consumes that queue and sends the mail, and I <em>ack only after the send succeeds</em>, so if a worker dies mid-send the broker redelivers the message — that's at-least-once, nothing is lost. Because at-least-once can double-deliver, the worker checks a dedupe key first, which makes a redelivery a no-op. To scale, I run more workers against the same queue; prefetch of 1 keeps the load fair.&rdquo;</p>
+            <p class="plain">Edge cases to raise aloud: <strong>broker unreachable at publish time</strong> — decide fail-closed (block signup) vs fail-open (accept, retry the publish), and use publisher confirms so a lost message doesn't slip through; <strong>duplicate delivery</strong> &#8594; the idempotency key handles it; <strong>a permanently bad message</strong> (e.g. malformed address) &#8594; dead-letter it after N retries instead of looping forever.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Judgment</div>
+      <h2>When a broker is the wrong tool — and the road ahead</h2>
+      <p>A broker is infrastructure: one more thing to deploy, monitor, secure, and reason about. It earns that cost only when you actually need decoupling. Reach for a direct call instead when:</p>
+      <ul>
+        <li><strong>You need the result now.</strong> &ldquo;Is this username taken?&rdquo; or &ldquo;what's my balance?&rdquo; are synchronous reads — a broker only adds a round-trip and complexity. Async fits work you can confirm <em>later</em>, not answers the caller is blocking on.</li>
+        <li><strong>It's all one process.</strong> If the producer and consumer live in the same service, a function call (or an in-memory job runner) is simpler and faster. Don't put a network and a broker between two functions.</li>
+        <li><strong>The work must be transactional with a database write.</strong> &ldquo;Save the order <em>and</em> enqueue the email, atomically&rdquo; is a trap: a DB commit and a publish are two systems, so a crash between them loses or duplicates work. That's the <strong>dual-write problem</strong>, and the fix (the <em>outbox pattern</em>) is its own topic — just know the naive version is subtly broken.</li>
+      </ul>
+      <p>And when you <em>do</em> want async messaging, RabbitMQ is one of three common shapes. Knowing which is which is a frequent interview question:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>RabbitMQ — smart broker</h4>
+          <ul>
+            <li>Rich <strong>routing</strong> (direct, fanout, topic) at publish time.</li>
+            <li>Per-message <strong>ack</strong> + redelivery; messages are <strong>consumed and gone</strong>.</li>
+            <li>Best for <strong>task queues</strong>, RPC, and complex fan-out.</li>
+            <li>Throughput is high; not the absolute firehose.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Kafka — a durable log</h4>
+          <ul>
+            <li>A &ldquo;dumb,&rdquo; blazing-fast <strong>append-only log</strong>; consumers track an <strong>offset</strong>.</li>
+            <li>Messages are <strong>retained</strong>, so they can be <strong>replayed</strong>.</li>
+            <li>Best for <strong>event streams</strong>, analytics, event sourcing, huge fan-out.</li>
+            <li>Routing logic lives in consumers, not the broker.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>DB-table queue</h4>
+          <ul>
+            <li>A table + <code>FOR UPDATE SKIP LOCKED</code>. No new infrastructure.</li>
+            <li><strong>Transactional</strong> with your other writes — sidesteps dual-write.</li>
+            <li>Fine at <strong>low volume</strong>; you hand-roll retries and scaling.</li>
+            <li>Competes with app load on the same database.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The one-liner to carry: <strong>RabbitMQ routes and deletes; Kafka logs and retains.</strong> If your mental picture is &ldquo;hand a job to a worker, then it's done,&rdquo; that's a broker. If it's &ldquo;a replayable stream many readers consume at their own offset,&rdquo; that's a log. If it's tiny and must be atomic with your data, a table may beat both.</p>
+      <p>With the model in hand, here's where the course goes from here — each phase deepens one piece of this lesson:</p>
+      <ul>
+        <li><strong>P0 &mdash; Foundations.</strong> This mental model, the broker, your first publish/consume. You're here.</li>
+        <li><strong>P1 &mdash; The AMQP model.</strong> Connections vs channels, and the exchange &rarr; binding &rarr; queue machinery.</li>
+        <li><strong>P2 &mdash; Exchanges &amp; routing.</strong> Direct, fanout, topic, and headers — turning bindings into real delivery patterns.</li>
+        <li><strong>P3 &mdash; Queues &amp; messages.</strong> Classic vs quorum vs streams, durability, persistence, TTL, and length limits.</li>
+        <li><strong>P4 &mdash; Reliability &amp; delivery guarantees.</strong> Manual acks, publisher confirms, dead-lettering, and idempotency.</li>
+        <li><strong>P5 &mdash; Consumers &amp; throughput.</strong> Prefetch/QoS, competing consumers, and tuning for load.</li>
+        <li><strong>P6 &mdash; Clustering &amp; high availability.</strong> Quorum queues, Raft, Khepri, and surviving network partitions.</li>
+        <li><strong>P7 &mdash; Streams &amp; multi-protocol.</strong> The log-based stream, super streams, native AMQP 1.0, and MQTT.</li>
+        <li><strong>P8 &mdash; Operations &amp; production.</strong> The management UI, monitoring, security, flow control, and upgrades.</li>
+        <li><strong>P9 &mdash; Patterns &amp; interview.</strong> The patterns, RabbitMQ vs Kafka vs Redis/SQS, and the question bank.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">The posture to carry forward</span>
+        <p>You already have the instinct this subject rewards: you think about coupling, failure, and load. A broker is just a tool for managing all three between services. Treat every feature ahead — an exchange type, an ack mode, a queue policy — the way you'd treat a new concurrency primitive: learn what problem it solves, what it costs to run, and when <em>not</em> to use it. That judgment, more than any config flag, is what the interview and the on-call rotation are really testing.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>put a durable broker between two services and they decouple in time, space, and rate — the producer publishes and moves on, the queue absorbs the load, and consumers do the work later, at least once, reliably.</em> Everything after this is detail on one of those words.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Direct calls couple tightly</b><span>A synchronous call welds A to B: A blocks for B's full time, fails when B fails, and has no buffer for spikes.</span></div>
+        <div class="tk"><span class="num">02</span><b>A broker decouples 3 ways</b><span>In time (publish now, consume later), space (address a destination, not a host), and rate (the queue absorbs bursts).</span></div>
+        <div class="tk"><span class="num">03</span><b>Four roles, one shape</b><span>Producers publish to an <em>exchange</em>; the exchange routes by bindings to <em>queues</em>; consumers read queues. The producer never picks the queue.</span></div>
+        <div class="tk"><span class="num">04</span><b>Competing consumers scale</b><span>Many consumers on one queue split the work; each message goes to exactly one. Scaling out is just adding workers.</span></div>
+        <div class="tk"><span class="num">05</span><b>Acks make it reliable</b><span>Ack after the work, not on delivery. An unacked message survives a crash and is redelivered — at-least-once.</span></div>
+        <div class="tk"><span class="num">06</span><b>Design for duplicates</b><span>At-least-once means redelivery can double-process. Idempotent consumers + a dedupe key give effectively-once.</span></div>
+        <div class="tk"><span class="num">07</span><b>Work queue &#8800; pub/sub</b><span>One queue, many readers = share the load. Many queues, each a reader = broadcast a copy to all. Both are just bindings.</span></div>
+        <div class="tk"><span class="num">08</span><b>Routes vs retains</b><span>RabbitMQ routes then deletes (task queues); a log like Kafka retains and replays (streams). Skip a broker when you need the answer now.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the three things a direct synchronous call couples, and give a one-line failure for each.<br>
+        (2) What does &ldquo;decouple in time, space, and rate&rdquo; mean? Give one concrete consequence of each.<br>
+        (3) List the four roles and the order a message flows through them. Why does the producer publish to an exchange rather than a queue?<br>
+        (4) Why must a consumer ack <em>after</em> doing the work, not on receipt? Walk through what happens when it crashes before acking.<br>
+        (5) &ldquo;At-least-once&rdquo; — why can't you just get exactly-once, and what do you build instead?<br>
+        (6) Work queue vs publish/subscribe: how do the bindings differ, and give one example of each. Then name a case where a broker is the <em>wrong</em> tool.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 00 &middot; WHY RABBITMQ EXISTS &middot; interactive edition<br>
+      Original study notes for backend &amp; system-design interviews &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — synchronous vs asynchronous */
+  makeStepper(_g('fig-sync'), [
+    {text:"Direct call: the client asks Service A to do something that needs Service B.", active:["lane-sync"], path:"p-sy-req", read:"client → A"},
+    {text:"A calls B and waits. B is slow — say 800 ms. A cannot reply yet, so it sits there holding the connection open, blocked.", active:["lane-sync"], path:"p-sy-call", read:"A → B · A is now blocked", block:true},
+    {text:"B finally returns its result. The whole time, A was stuck waiting — and had B been down, this request would simply have failed.", active:["lane-sync"], path:"p-sy-res", read:"B → A · ~800 ms later", block:true},
+    {text:"Only now can A answer the client. The client waited for the slowest link in the chain, and a traffic spike hits B with everything at once.", active:["lane-sync"], path:"p-sy-resp", read:"A → client · total wait ≈ 800 ms"},
+    {text:"Now put a durable broker between them. The client still calls A exactly as before.", active:["lane-async"], path:"p-as-req", read:"client → A"},
+    {text:"Instead of calling B, A publishes a message to the broker — a hand-off of about 2 ms. The message is stored safely.", active:["lane-async"], path:"p-as-pub", read:"A → broker · message stored"},
+    {text:"A returns immediately with a 202 Accepted, without waiting for B at all. The client is free in milliseconds.", active:["lane-async"], path:"p-as-202", read:"A → client · ~2 ms, not 800"},
+    {text:"Later, a consumer pulls the message and does the slow work on its own schedule. If it is busy or down, the message simply waits in the queue.", active:["lane-async"], path:"p-as-deliver", read:"broker → consumer · work happens later"}
+  ], function(idx,s){
+    _g('sy-read').textContent = s.read || '';
+    _g('sy-block').style.opacity = s.block ? 1 : 0;
+  });
+
+  /* FIG 2 — producer / exchange / queue / consumer + competing consumers */
+  makeStepper(_g('fig-flow'), [
+    {text:"A producer publishes a message. Notice it never names a queue — it only hands the message to an exchange.", active:["n-prod","n-exch"], path:"p-pe", read:"producer → exchange (never straight to a queue)"},
+    {text:"The exchange is a router. From its bindings it decides which queue the message belongs in, and drops a copy there.", active:["n-exch","n-queue"], path:"p-eq", read:"exchange routes by binding → queue"},
+    {text:"The message now waits in the queue — a durable buffer — until a consumer is ready. Producer and consumer never meet.", active:["n-queue"], read:"queue holds the message · buffered"},
+    {text:"Consumer A subscribes to the queue, receives the message, and does the work. One message, one consumer.", active:["n-queue","n-cons1"], path:"p-qc1", read:"queue → Consumer A · delivered"},
+    {text:"Traffic spikes and the backlog grows faster than one consumer can drain it. So we add a second consumer to the very same queue.", active:["n-queue","n-cons1"], read:"backlog building · add a consumer", c2:true},
+    {text:"Both consumers now compete for messages on one queue. The broker gives each message to exactly one of them, so they share the load and drain the backlog about twice as fast.", active:["n-queue","n-cons1","n-cons2"], path:"p-qc2", read:"competing consumers · ~2× drain rate", c2:true}
+  ], function(idx,s){
+    _g('mf-read').textContent = s.read || '';
+    _g('n-cons2').style.opacity = s.c2 ? 1 : 0;
+    _g('p-qc2').style.opacity = s.c2 ? 1 : 0;
+  });
+
+  /* FIG 3 — acknowledgments & redelivery */
+  makeStepper(_g('fig-ack'), [
+    {text:"The queue holds one message. The broker delivers it to Consumer 1 but keeps its own copy, marked unacknowledged — the message is on loan, not gone.", active:["a-queue","a-c1"], path:"p-d1", read:"delivered · unacked (broker keeps a copy)", msg:"loan"},
+    {text:"Consumer 1 starts the work… then crashes before it can send an ack.", active:["a-c1"], read:"Consumer 1 died — no ack sent", msg:"loan", crash:true},
+    {text:"The broker sees the connection drop with the message still unacknowledged. It does not lose the message — it requeues it.", active:["a-queue","a-c1"], path:"p-rq", read:"unacked on disconnect → requeued", msg:"loan", crash:true},
+    {text:"The broker redelivers the very same message to Consumer 2, which is healthy and ready.", active:["a-queue","a-c2"], path:"p-d2", read:"redelivered → Consumer 2", msg:"loan"},
+    {text:"Consumer 2 finishes the work and sends an ack. Only now does the broker delete its copy. Nothing was lost — this is at-least-once delivery.", active:["a-c2","a-queue"], path:"p-ack", read:"ack received → broker deletes its copy", msg:"done"},
+    {text:"The catch: had Consumer 1 crashed AFTER doing the work but BEFORE acking, the work would run twice. At-least-once means you make consumers idempotent — a dedupe key turns a duplicate into a no-op.", active:["a-c1","a-c2"], read:"at-least-once ⇒ design for duplicates", msg:"done"}
+  ], function(idx,s){
+    _g('ack-read').textContent = s.read || '';
+    _g('a-x').style.opacity = s.crash ? 1 : 0;
+    var m = _g('a-msg');
+    if(s.msg === 'loan'){ m.setAttribute('fill','#F6E7DE'); m.setAttribute('stroke','#B0532F'); }
+    else if(s.msg === 'done'){ m.setAttribute('fill','#E6F1DF'); m.setAttribute('stroke','#69B34C'); }
+    else { m.setAttribute('fill','#E9EFF5'); m.setAttribute('stroke','#1F4E79'); }
+  });
+</script>
+</body>
+</html>
