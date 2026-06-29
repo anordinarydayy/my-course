@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 14 — CI Gates &amp; Catching Regressions (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">CI Gates &amp; Catching<br>Regressions</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Green CI, worse product</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The eval gate on a PR &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Flaky evals &amp; non-determinism</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Setting the threshold &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>What gates on what</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Gate &#8594; canary &#8594; harvest &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Evals are the new CI</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">14</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>CI Gates &amp; Catching Regressions</h1>
+      <p class="lede">You have a golden set, a scorecard, and the discipline to run them. The last step is to stop relying on discipline. This lesson wires evaluation into <strong>CI</strong> — so a prompt edit or a model swap that makes the product worse is <em>blocked before it ships</em>, automatically, the same way a failing unit test blocks a merge. It's how everything in this phase becomes a gate that runs itself.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The lesson that closes the Evaluation phase. It draws on public sources — the "evals as CI" practice, writing on prompt/model regression testing and non-determinism, the canary/shadow-deploy pattern, and 2025&ndash;2026 tooling (Promptfoo, DeepEval, Braintrust, LangSmith, GitHub Actions) — but every explanation, diagram, and example is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Tool names and the model-deprecation example are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The gap in green</div>
+      <h2>Green CI, a worse product</h2>
+      <p>Picture a pull request that edits one line of a system prompt. It runs through your CI: the linter passes, the type-checker passes, every unit test passes, the build is green, the deploy succeeds. By every signal your pipeline knows how to emit, this change is <strong>safe</strong>. And the product is now measurably worse at its actual job — the new wording quietly dropped a constraint, and answers degraded on a third of real cases.</p>
+      <p>This is the gap. A traditional CI pipeline verifies that the code <em>runs</em>; it has no opinion on whether the AI <em>works</em>. A free-text prompt has an invisible blast radius — its effects are statistical, delayed, and spread across inputs no assertion checks — so a regression sails straight through a wall of green checkmarks. The fix is the obvious one once you name the gap: add a check that actually measures product quality, and make it <strong>required</strong>, exactly like the unit tests. Run the golden set on every change, and refuse to merge anything that regresses.</p>
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>"No eval, no merge." The eval gate is to AI quality what the unit-test gate is to code correctness: a required status check that turns "I think this is fine" into "the numbers say this is fine, on cases we trust." Everything else in this lesson is making that gate <em>reliable</em> despite a model's non-determinism.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The required check</div>
+      <h2>The eval gate on a PR &#9656;</h2>
+      <p>Make it concrete. A teammate opens a PR that tweaks the prompt. Watch the difference between a pipeline that only knows "did it crash?" and one with an eval gate that knows "did it get worse?":</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-gate">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A pull request passing unit tests but blocked by an eval gate that runs the golden set and detects a regression">
+            <g class="st" id="gt-pr"><rect class="node" x="24" y="84" width="120" height="52" rx="9"/><text class="lbl-sm" x="84" y="106" text-anchor="middle">PR: edit</text><text class="lbl-sm" x="84" y="122" text-anchor="middle">system prompt</text></g>
+            <g class="st" id="gt-unit"><rect class="node-g" x="190" y="42" width="170" height="44" rx="9"/><text class="lbl-sm" x="275" y="63" text-anchor="middle" fill="#3f7a2e">unit tests + lint</text><text id="gt-unitv" class="lbl-sm" x="275" y="78" text-anchor="middle" fill="#3f7a2e">&#8230;</text></g>
+            <g class="st" id="gt-eval"><rect class="node" x="190" y="132" width="170" height="48" rx="9"/><text class="lbl-sm" x="275" y="153" text-anchor="middle">eval gate</text><text id="gt-evalv" class="lbl-sm" x="275" y="169" text-anchor="middle">run golden set</text></g>
+            <path class="flow" d="M144 100 C 170 80, 175 70, 188 64" marker-end="url(#arrow)"/>
+            <path class="flow" d="M144 120 C 170 140, 175 150, 188 156" marker-end="url(#arrow)"/>
+            <g class="st" id="gt-merge"><rect id="gt-mergebox" x="430" y="84" width="186" height="52" rx="9" fill="var(--paper-2)" stroke="var(--line-strong)"/><text id="gt-merget" class="lbl" x="523" y="108" text-anchor="middle">merge?</text><text id="gt-merges" class="lbl-sm" x="523" y="124" text-anchor="middle"></text></g>
+            <path id="gt-toM" class="flow" d="M360 110 H 428" marker-end="url(#arrow)"/>
+            <text id="gt-note" class="readout" x="320" y="208" text-anchor="middle" font-size="13" fill="var(--ink-soft)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: unit tests prove it runs; the eval gate proves it didn't get worse, and blocks the merge if it did</figcaption>
+      </figure>
+
+      <p>The gate's output isn't a bare pass/fail, either — a good one posts back to the PR <em>which</em> cases regressed, with the before/after outputs side by side. That turns code review of an AI change from a gut-feel guess ("the new prompt reads nicer to me") into reading a measured delta ("this drops 6 points, here are the four cases it broke"). The reviewer is now looking at evidence. And because it's a <strong>required</strong> check, no amount of "it's a tiny change, ship it" can route around the measurement.</p>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The flicker problem</div>
+      <h2>Flaky evals &amp; non-determinism</h2>
+      <p>There's a catch that breaks the naive version of this gate, and it's the same property that started the whole phase: <strong>models are non-deterministic</strong>. Run the exact same eval twice — same prompt, same cases, even at temperature zero — and the scores won't be identical. So a gate built on strict equality, or on a single run's pass/fail, <em>flickers</em>: it goes red on a change that's actually fine, purely by chance. And a flaky gate is worse than no gate, because the team learns to ignore red — and then ignores the red that was real.</p>
+      <p>The fixes all push in one direction: turn a noisy point measurement into a stable statistical one.</p>
+      <ul>
+        <li><strong>Threshold, don't equate.</strong> Assert a <em>floor</em> ("faithfulness &#8805; 0.85"), never byte-equality with a fixed string. You're checking a level, not pinning an output.</li>
+        <li><strong>Pass-rate over many cases.</strong> Score the <em>fraction</em> of the golden set that passes, not each case in isolation. One case's coin-flip averages out across a hundred.</li>
+        <li><strong>Sample and aggregate.</strong> For high-variance cases, run each a few times (a handful of trials) and use the aggregate, so one unlucky generation doesn't decide the verdict.</li>
+        <li><strong>Pin what you can.</strong> Set temperature low or zero for eval runs, and prefer cheap <em>deterministic</em> checks over an LLM-judge in the gate wherever a deterministic check is possible — less noise, less cost.</li>
+        <li><strong>Gate on the confidence bound.</strong> Fail only when the <em>lower</em> end of the score's confidence interval crosses the threshold, so normal wobble doesn't trip it but a true drop does.</li>
+      </ul>
+      <p>The mantra from people who've shipped this: <em>you can't assert your way out of non-determinism.</em> You manage it statistically. Which leaves one decision that matters more than any other — where to put the threshold.</p>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The dial that decides everything</div>
+      <h2>Setting the threshold &#9656;</h2>
+      <p>The threshold is the single dial that separates a gate people trust from one they route around. Set it wrong in either direction and the gate is useless. Watch the same five wobbling eval runs under three threshold choices:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-thresh">
+          <svg viewBox="0 0 640 220" role="img" aria-label="Five non-deterministic eval runs near a 90 percent baseline, with a threshold line set too tight, too loose, and just right">
+            <!-- axis -->
+            <line x1="70" y1="40" x2="70" y2="190" stroke="var(--line-strong)" stroke-width="1.5"/>
+            <line x1="70" y1="190" x2="610" y2="190" stroke="var(--line-strong)" stroke-width="1.5"/>
+            <text class="lbl-sm" x="50" y="90" text-anchor="end">95</text>
+            <text class="lbl-sm" x="50" y="135" text-anchor="end">86</text>
+            <text class="lbl-sm" x="50" y="180" text-anchor="end">77</text>
+            <!-- baseline -->
+            <line x1="70" y1="85" x2="610" y2="85" stroke="var(--blueprint-soft)" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <text class="lbl-sm" x="600" y="78" text-anchor="end" fill="#4A7BA6">baseline 90%</text>
+            <!-- five run dots: scores 90,91,89,92,90 → y = 190-(s-77)/18*105 -->
+            <g id="th-dots">
+              <circle cx="150" cy="114.2" r="6" fill="#1F4E79"/>
+              <circle cx="240" cy="108.3" r="6" fill="#1F4E79"/>
+              <circle cx="330" cy="120.0" r="6" fill="#1F4E79"/>
+              <circle cx="420" cy="102.5" r="6" fill="#1F4E79"/>
+              <circle cx="510" cy="114.2" r="6" fill="#1F4E79"/>
+            </g>
+            <text class="lbl-sm" x="330" y="36" text-anchor="middle">five runs of the same eval — scores wobble run to run</text>
+            <!-- movable threshold -->
+            <line id="th-line" x1="70" y1="108" x2="610" y2="108" stroke="#B0532F" stroke-width="2.5"/>
+            <text id="th-lbl" class="lbl-sm" x="78" y="102" text-anchor="start" fill="#B0532F">threshold</text>
+            <text id="th-note" class="readout" x="330" y="212" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: too tight flickers, too loose rubber-stamps; baseline minus a tolerance margin is the sweet spot</figcaption>
+      </figure>
+
+      <p>The rule that falls out: set the threshold at <strong>baseline minus a tolerance margin</strong> sized to your measured run-to-run noise — tight enough to catch a real regression, loose enough to absorb the wobble. It's a <em>product and risk</em> decision, not a purely technical one: a medical assistant runs a narrow margin and accepts the occasional flaky re-run; a casual tool runs a wider one to keep the pipeline smooth. Start conservative, watch how often it fires, and tune. The threshold is where you encode "how much worse is unacceptable," and that's a judgment only you can make.</p>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Layers of gate</div>
+      <h2>What gates on what</h2>
+      <p>"The eval gate" is really several gates with different jobs. A mature pipeline stacks them:</p>
+      <ul>
+        <li><strong>Regression gate</strong> — don't drop below the current baseline (minus tolerance). This is the workhorse: it catches a change that makes things <em>worse</em> than today, which is most of what you fear.</li>
+        <li><strong>Absolute-threshold gate</strong> — must clear a fixed bar to ship at all (e.g. "safety pass-rate &#8805; 99%, no exceptions"). For dimensions where "better than yesterday" isn't good enough and only an absolute floor will do.</li>
+        <li><strong>Per-category gate</strong> — no single category or user segment is allowed to collapse, even if the <em>aggregate</em> rises. This is the direct fix for the masked regression of Lesson 12, where overall accuracy held at 92% while refunds quietly fell to 61%. Gate each category, not just the mean.</li>
+        <li><strong>Promote-the-baseline (the ratchet)</strong> — when a change genuinely <em>improves</em> the score, the new score becomes the bar that future PRs must clear. Quality only moves one direction; every gain is locked in and can't silently erode later.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">The ratchet is the whole point</span>
+        <p>A regression gate alone keeps you from getting worse. The promote-the-baseline ratchet is what makes you reliably get <em>better</em>: each improvement raises the floor, so progress accumulates instead of sloshing back and forth. Combined with "every failure becomes a case" from Lesson 12, you get a system that monotonically climbs — new cases raise coverage, new baselines raise the bar, and nothing you fixed is allowed to break again.</p>
+      </div>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Beyond the merge</div>
+      <h2>Gate &#8594; canary &#8594; harvest &#9656;</h2>
+      <p>The pre-merge gate is necessary but not sufficient — offline cases can't anticipate everything real traffic throws at you. So the gate is the first stage of a longer pipeline that keeps measuring after the merge and feeds what it learns back to the start. Step through the full loop:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pipeline">
+          <svg viewBox="0 0 640 230" role="img" aria-label="The full pipeline: offline eval gate, shadow, canary, production monitoring, and harvesting failures back into the golden set">
+            <g class="st" id="pl-gate"><rect class="node-b" x="20" y="70" width="116" height="52" rx="9"/><text class="lbl-sm" x="78" y="91" text-anchor="middle">1 &middot; eval gate</text><text class="lbl-sm" x="78" y="107" text-anchor="middle">offline, pre-merge</text></g>
+            <g class="st" id="pl-shadow"><rect class="node" x="156" y="70" width="112" height="52" rx="9"/><text class="lbl-sm" x="212" y="91" text-anchor="middle">2 &middot; shadow</text><text class="lbl-sm" x="212" y="107" text-anchor="middle">score, don't show</text></g>
+            <g class="st" id="pl-canary"><rect class="node" x="288" y="70" width="112" height="52" rx="9"/><text class="lbl-sm" x="344" y="91" text-anchor="middle">3 &middot; canary</text><text class="lbl-sm" x="344" y="107" text-anchor="middle">5&#8594;25&#8594;100%</text></g>
+            <g class="st" id="pl-monitor"><rect class="node" x="420" y="70" width="116" height="52" rx="9"/><text class="lbl-sm" x="478" y="91" text-anchor="middle">4 &middot; monitor</text><text class="lbl-sm" x="478" y="107" text-anchor="middle">scorecard + drift</text></g>
+            <g class="st" id="pl-harvest"><rect class="node-g" x="556" y="70" width="64" height="52" rx="9"/><text class="lbl-sm" x="588" y="88" text-anchor="middle" fill="#3f7a2e">5 &middot;</text><text class="lbl-sm" x="588" y="103" text-anchor="middle" fill="#3f7a2e">harvest</text></g>
+            <path class="flow" d="M136 96 H 154" marker-end="url(#arrow)"/>
+            <path class="flow" d="M268 96 H 286" marker-end="url(#arrow)"/>
+            <path class="flow" d="M400 96 H 418" marker-end="url(#arrow)"/>
+            <path class="flow" d="M536 96 H 554" marker-end="url(#arrow)"/>
+            <path id="pl-loop" class="flow-g" d="M588 122 V 170 H 78 V 124" marker-end="url(#arrow-g)" style="display:none"/>
+            <g class="st" id="pl-golden"><circle cx="78" cy="186" r="16" fill="#E6F1DF" stroke="#69B34C" stroke-width="2"/><text class="lbl-sm" x="78" y="183" text-anchor="middle" fill="#3f7a2e">golden</text><text class="lbl-sm" x="78" y="195" text-anchor="middle" fill="#3f7a2e">set</text></g>
+            <text id="pl-note" class="readout" x="360" y="190" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <text id="pl-sub" class="lbl-sm" x="360" y="210" text-anchor="middle"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the gate is stage one; shadow, canary, and monitoring extend it, and harvest closes the loop</figcaption>
+      </figure>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">silent model swap &middot; scheduled gate</span></div>
+        <div class="wbody">
+          <div class="wname">The regression that fired at 3 a.m.</div>
+          <p class="wprompt">You didn't open a PR. You didn't touch a line. Your provider <strong>auto-migrated</strong> the model behind a stable version label overnight — the exact silent swap from Lesson 10. Nothing in your repo changed, so a PR-triggered gate never ran. What catches it?</p>
+          <h4 class="wh">A gate that runs on a schedule, not just on PRs</h4>
+          <pre class="code"><span class="codetag">eval-gate.yml — runs on every PR AND nightly</span><code><span class="at">on</span>:
+  <span class="at">pull_request</span>:        <span class="cm"># catch changes you make</span>
+  <span class="at">schedule</span>:
+    - <span class="at">cron</span>: <span class="st">"0 3 * * *"</span>  <span class="cm"># catch changes THEY make</span>
+
+<span class="cm"># gate: pass-rate must hold within tolerance of baseline</span>
+<span class="at">assert</span>: overall_pass_rate <span class="kw">&gt;=</span> baseline - <span class="st">0.03</span>
+<span class="at">assert</span>: faithfulness        <span class="kw">&gt;=</span> <span class="st">0.85</span>   <span class="cm"># absolute floor</span>
+<span class="at">assert</span>: every_category      <span class="kw">&gt;=</span> baseline_cat - <span class="st">0.05</span></code></pre>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">The trap is already set</span><p>Because the same eval gate runs on a <b>nightly schedule</b>, not only on pull requests, it re-scores production behavior even when your code is frozen. The golden set, the thresholds, the per-category checks &mdash; all of it runs against whatever model the API is serving <b>right now</b>.</p></div>
+            <div class="ws"><span class="wsk">3 a.m. &mdash; the swap lands</span><p>The provider routes your stable label to a successor model. The nightly run scores it: overall pass-rate falls from 91% to 83%, and faithfulness dips below the 0.85 floor. Two assertions fail.</p></div>
+            <div class="ws"><span class="wsk">The gate pages you, the swap is contained</span><p>The scheduled run goes red and alerts on-call &mdash; with the regressed cases attached. You pin the explicit old model version (or fast-follow with a prompt fix), and the degraded behavior is rolled back <b>before the morning's users feel it</b>. The "felt different" complaint never gets filed.</p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;A model swap I didn't make and couldn't see was caught by a gate that runs on a schedule, not just on my PRs &mdash; because the regression came from the provider, not my repo. Overall pass-rate and faithfulness crossed their thresholds, the nightly run went red and paged me, and I pinned the old version before users noticed. The gate doesn't care whether the change was mine.&#8221;</p>
+            <p class="plain">Pre-merge gates catch <em>your</em> regressions; scheduled/online gates catch <em>theirs</em>. The silent swap from Lesson 10 is only silent if nothing is listening — so something always is.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The mindset</div>
+      <h2>Evals are the new CI</h2>
+      <p>The frame that closes the phase: <strong>treat evaluation the way you treat testing — as infrastructure that runs itself, gates every change, and is never optional.</strong> "Evals are the new unit tests" was the slogan of Lesson 10; this lesson is its payoff. The golden set is your test suite, the threshold is your assertion, the PR gate is your required check, and the scheduled run is your watch against changes you didn't make. None of it depends on a person remembering to look.</p>
+      <p>Two cautions keep the gate alive in practice. First, <strong>keep it fast and cheap</strong>, or people will route around it: run a small, cheap, mostly-deterministic smoke suite on every commit, and the full judge-heavy suite nightly or pre-release — a gate that takes an hour and a fortune is a gate that gets disabled. Second, remember that <strong>CI evals and runtime guardrails are different jobs</strong>: the gate measures quality <em>offline before</em> shipping; guardrails block bad outputs <em>online as they happen</em>. You want both, and neither replaces the other. Get this right and quality stops being something you hope for between releases — it becomes a property your pipeline enforces on every change, yours and the model provider's alike.</p>
+      <div class="callout">
+        <span class="k">The phase, complete</span>
+        <p>That closes the Evaluation phase. You can now say what "good" means (L10), measure it three ways (L11), build the cases that anchor it (L12), score the whole system across every axis (L13), and <em>enforce</em> it automatically so nothing worse ever ships (L14). This is the instrument every later phase reads. Next, <strong>Phase 3 — RAG &amp; Retrieval</strong> gives the model knowledge it never trained on — and you'll evaluate every piece of it with exactly the machinery you just built.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>wire the golden set into CI as a required, statistically-robust gate — run it on every change and on a schedule, threshold it at baseline-minus-tolerance, gate per category, ratchet the baseline up — so no regression, yours or the provider's, can ship silently.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Green CI isn't enough</b><span>Lint, types, and unit tests prove the code runs, not that the AI works. A prompt regression sails through a wall of green checkmarks.</span></div>
+        <div class="tk"><span class="num">02</span><b>No eval, no merge</b><span>Make the golden set a required status check, like unit tests. Run it on every PR; block the merge on a regression; post which cases broke.</span></div>
+        <div class="tk"><span class="num">03</span><b>Flaky evals</b><span>Non-determinism makes a naive gate flicker, and a flaky gate gets ignored. Threshold don't equate; pass-rate over cases; sample; pin temperature.</span></div>
+        <div class="tk"><span class="num">04</span><b>Confidence bound</b><span>Gate on the lower end of the score's confidence interval, so normal wobble passes but a true drop fails. You manage non-determinism statistically.</span></div>
+        <div class="tk"><span class="num">05</span><b>The threshold dial</b><span>Baseline minus a tolerance margin sized to your noise. Too tight flickers; too loose rubber-stamps. It's a product/risk decision.</span></div>
+        <div class="tk"><span class="num">06</span><b>Layers of gate</b><span>Regression (don't get worse), absolute (clear a hard floor), per-category (no segment collapses), promote-the-baseline (ratchet gains in).</span></div>
+        <div class="tk"><span class="num">07</span><b>Past the merge</b><span>Gate &#8594; shadow &#8594; canary (5&#8594;100% with auto-rollback) &#8594; monitor &#8594; harvest failures back into the golden set. The loop closes.</span></div>
+        <div class="tk"><span class="num">08</span><b>Catch their changes too</b><span>Run the gate on a schedule, not just on PRs — a provider's silent model swap regresses you with no diff to review. Something must be listening.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) A PR passes lint, types, and every unit test. Why is that still not enough to merge an AI change safely?<br>
+        (2) Why does a naive pass/fail eval gate "flicker," and why is a flaky gate worse than no gate? Name three mitigations.<br>
+        (3) Where should you set the threshold, and what goes wrong if it's too tight or too loose? Why is it a product decision?<br>
+        (4) Name the four kinds of gate. Which one fixes the masked-regression problem from Lesson 12, and how?<br>
+        (5) What does "promote the baseline" (the ratchet) buy you that a regression gate alone does not?<br>
+        (6) Lay out the full pipeline from PR to production. Where does shadow differ from canary, and what does "harvest" feed?<br>
+        (7) Your provider auto-migrates the model behind a stable label overnight. No PR was opened. What catches it, and why wouldn't a PR-only gate?<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 14 &middot; CI GATES &amp; CATCHING REGRESSIONS &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the lesson that closes the Evaluation phase &middot; tooling and the deprecation example are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* the eval gate on a PR */
+  makeStepper(document.getElementById('fig-gate'), [
+    {text:"A teammate opens a PR that edits one line of the system prompt. It enters CI like any change.", active:["gt-pr"], unit:"…", merge:"merge?", ms:"", mc:"#5A574E", mbox:"var(--line-strong)", note:""},
+    {text:"Traditional checks run: lint and unit tests. All green — the code compiles, nothing threw, the call still returns a string. By every check CI knows, it's 'safe.'", active:["gt-pr","gt-unit"], unit:"✓ all pass", merge:"merge?", ms:"unit tests green", mc:"#5A574E", mbox:"var(--line-strong)", note:"unit tests prove it RUNS — not that it WORKS"},
+    {text:"Here's the gap: green unit tests say nothing about answer quality. Without more, this worse prompt would merge right now on the strength of those checkmarks.", active:["gt-pr","gt-unit"], unit:"✓ all pass", merge:"would merge", ms:"on green checks alone", mc:"#B0532F", mbox:"var(--rust)", note:"a prompt regression sails through a wall of green ✗"},
+    {text:"Add the EVAL GATE as a required check: it runs the golden set against the PR's version and scores it — 84% versus the baseline's 91%. A 7-point regression.", active:["gt-pr","gt-eval"], unit:"✓ all pass", evalv:"84% vs base 91%", merge:"blocked", ms:"eval gate: −7 pts", mc:"#B0532F", mbox:"var(--rust)", note:"the eval gate measures whether it got WORSE → −7 points"},
+    {text:"The gate goes red and blocks the merge — with a comment listing the four cases that regressed. The worse prompt never ships, and review is now reading evidence, not vibes.", active:["gt-eval","gt-merge"], unit:"✓ all pass", evalv:"REGRESSION", merge:"✗ BLOCKED", ms:"4 cases regressed — see PR comment", mc:"#B0532F", mbox:"var(--rust)", note:"required check → no 'tiny change, ship it' can route around it"}
+  ], function(idx,s){
+    document.getElementById('gt-unitv').textContent=s.unit;
+    if(s.evalv!==undefined) document.getElementById('gt-evalv').textContent=s.evalv;
+    document.getElementById('gt-merget').textContent=s.merge;
+    var ms=document.getElementById('gt-merges'); ms.textContent=s.ms; ms.setAttribute('fill',s.mc);
+    var mb=document.getElementById('gt-mergebox'); mb.setAttribute('stroke',s.mbox);
+    mb.setAttribute('fill', s.mbox==='var(--rust)'?'var(--rust-wash)':'var(--paper-2)');
+    document.getElementById('gt-note').textContent=s.note;
+  });
+
+  /* setting the threshold */
+  makeStepper(document.getElementById('fig-thresh'), [
+    {text:"Run the same eval five times. The scores wobble — 90, 91, 89, 92, 90 — even though nothing changed. Non-determinism, even at low temperature. There is no single 'the' score.", y:null, lbl:"", lc:"#B0532F", note:"five identical runs, five different scores — that's the problem", dots:"#1F4E79"},
+    {text:"TOO TIGHT: put the threshold right at the baseline, 90%. Now two of five honest runs fall below it and 'fail' by pure chance. The gate flickers red on changes that are fine.", y:85, lbl:"too tight (90%)", lc:"#B0532F", note:"⚠ flaky: good runs fail by chance → the team learns to ignore red", dots:"mix1"},
+    {text:"TOO LOOSE: drop the threshold to 78% to stop the flicker. It works — but now a real regression to 84% would sail straight through. A rubber stamp.", y:165, lbl:"too loose (78%)", lc:"#C98A2B", note:"⚠ rubber stamp: a true 84% regression passes unnoticed", dots:"#1F4E79"},
+    {text:"JUST RIGHT: baseline minus a tolerance margin sized to the wobble — here ~87%. Normal runs (89–92) all pass; a genuine drop to 84% breaks through and fails.", y:120, lbl:"baseline − margin (87%)", lc:"#3f7a2e", note:"✓ absorbs noise, catches real drops — the sweet spot", dots:"#1F4E79"},
+    {text:"Pair the threshold with pass-rate over many cases and a confidence bound, and the gate is stable AND trustworthy. Where you set the margin is a product & risk decision — start tight, tune.", y:120, lbl:"baseline − margin (87%)", lc:"#3f7a2e", note:"threshold = how much worse is unacceptable — only you can set it", dots:"#1F4E79"}
+  ], function(idx,s){
+    var line=document.getElementById('th-line'), lbl=document.getElementById('th-lbl');
+    if(s.y===null){ line.style.display='none'; lbl.style.display='none'; }
+    else { line.style.display=''; lbl.style.display='';
+      line.setAttribute('y1',s.y); line.setAttribute('y2',s.y); line.setAttribute('stroke',s.lc);
+      lbl.setAttribute('y',s.y-6); lbl.setAttribute('fill',s.lc); lbl.textContent=s.lbl; }
+    document.getElementById('th-note').textContent=s.note;
+    // recolor dots: at 90% threshold, runs 89 & (none lower) fail; mark the 89 dot red
+    var dots=document.querySelectorAll('#th-dots circle');
+    var scores=[90,91,89,92,90];
+    dots.forEach(function(d,k){
+      if(s.dots==='mix1'){ d.setAttribute('fill', scores[k]<90?'#B0532F':'#1F4E79'); }
+      else { d.setAttribute('fill', s.dots); }
+    });
+  });
+
+  /* gate → canary → harvest pipeline */
+  makeStepper(document.getElementById('fig-pipeline'), [
+    {text:"Stage 1 — the OFFLINE EVAL GATE on the PR, exactly as we built it. It blocks bad merges using the golden set. Necessary — but offline cases can't foresee everything real traffic does.", active:["pl-gate"], loop:false, note:"1 · pre-merge gate: blocks bad merges offline", sub:""},
+    {text:"Stage 2 — SHADOW. After merge, the new version runs on real production traffic but its output is NOT shown to users; you score it silently against live cases. Risk-free reality check.", active:["pl-shadow"], loop:false, note:"2 · shadow: score on real traffic, show users nothing", sub:""},
+    {text:"Stage 3 — CANARY. Route a slice of real traffic to it — 5%, then 25, 50, 100% — ramping only while the live metrics hold. If they drop, auto-rollback. Exposure grows with evidence.", active:["pl-canary"], loop:false, note:"3 · canary: 5→100% with auto-rollback on a metric drop", sub:""},
+    {text:"Stage 4 — MONITOR. At full traffic, the production scorecard and drift detection keep watching faithfulness, latency, and cost over time — including against silent model changes underneath you.", active:["pl-monitor"], loop:false, note:"4 · monitor: live scorecard + drift detection", sub:""},
+    {text:"Stage 5 — HARVEST. Real production failures are captured, labeled, and fed BACK into the golden set — which raises the floor the stage-1 gate enforces. The eval-driven loop closes.", active:["pl-harvest","pl-golden","pl-gate"], loop:true, note:"5 · harvest failures → golden set → raises the gate's floor", sub:"production teaches the gate; the gate guards production"},
+    {text:"That's the whole machine: offline gate catches your changes, shadow/canary de-risk the rollout, monitoring catches drift, and harvest makes every real failure permanent. Evaluation that runs itself.", active:["pl-gate","pl-shadow","pl-canary","pl-monitor","pl-harvest","pl-golden"], loop:true, note:"a closed loop: nothing worse ships, and it keeps learning", sub:"offline + online, pre-merge + post-merge — both halves needed"}
+  ], function(idx,s){
+    document.getElementById('pl-loop').style.display = s.loop ? '' : 'none';
+    document.getElementById('pl-note').textContent=s.note;
+    document.getElementById('pl-sub').textContent=s.sub;
+  });
+</script>
+</body>
+</html>

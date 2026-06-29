@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 11 — Three Kinds of Eval (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">Three Kinds<br>of Eval</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Who gets to decide?</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Three judges, one answer &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Reference-based vs free</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>How a judge scores &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Every judge is biased</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Position bias, defused &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Validate the judge first</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">11</span><span>Concept &middot; AI Engineering</span></div>
+      <h1>Three Kinds of Eval</h1>
+      <p class="lede">Last lesson left you with a stack of checks but not the checks themselves. There are exactly three ways to decide whether a model's output is good: <strong>code can decide</strong>, <strong>a person can decide</strong>, or <strong>another model can decide</strong>. Each is fast where the others are slow, trustworthy where the others are cheap, and blind where the others see. This lesson is a tour of all three — what each is for, and the bias each one smuggles in.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The methods layer of the Evaluation phase. It draws on public research — Zheng et al.'s LLM-as-a-judge / MT-Bench work, G-Eval, RAGAS's reference-free metrics, and the 2024&ndash;2026 literature on judge bias — but every explanation, diagram, and example is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Figures cited are widely-reported but task-dependent; treat them as illustrative, current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Three deciders</div>
+      <h2>Who gets to decide it's good?</h2>
+      <p>"Is this answer acceptable?" is a judgment, and a judgment needs a judge. There are only three candidates for the job, and the whole field of evaluation is built from them:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Code decides</h4>
+          <ul>
+            <li><strong>Deterministic / programmatic.</strong></li>
+            <li>Exact match, regex, <code>contains</code>, JSON-schema validation, numeric tolerance, "run the unit tests."</li>
+            <li>Instant, free, perfectly reproducible.</li>
+            <li>But it can only check <em>verifiable</em> things — structure and facts, never quality or tone.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>A person decides</h4>
+          <ul>
+            <li><strong>Human evaluation.</strong></li>
+            <li>An expert or rater scores the output, or picks the better of two.</li>
+            <li>The <em>gold standard</em> — the ground truth everything else is calibrated against.</li>
+            <li>But slow, costly, and hard to scale; people disagree and tire.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>A model decides</h4>
+          <ul>
+            <li><strong>LLM-as-a-judge.</strong></li>
+            <li>A strong model scores the output against a written rubric.</li>
+            <li>Cheap enough to run on thousands of cases; the pragmatic middle.</li>
+            <li>But biased and fallible &mdash; you must <em>validate</em> it before you trust it.</li>
+          </ul>
+        </div>
+      </div>
+      <p>None is "the right one." They sit at different points on the same trade-off — <strong>cost, scale, and trust</strong> — and a real eval suite uses all three: code for everything it can verify, a judge for quality at volume, and humans for the ground truth that anchors the other two. The skill is knowing which question goes to which judge.</p>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Same output, three verdicts</div>
+      <h2>Three judges, one answer &#9656;</h2>
+      <p>Take a single output &mdash; a support reply your model just wrote &mdash; and hand it to each of the three judges in turn. Watch what each can and can't tell you:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-three">
+          <svg viewBox="0 0 640 250" role="img" aria-label="One model output evaluated by a deterministic check, a human, and an LLM judge in turn">
+            <rect x="150" y="16" width="340" height="44" rx="9" class="node-b"/>
+            <text class="lbl-sm" x="320" y="36" text-anchor="middle">output: &#8220;Refund issued &mdash; sorry for the</text>
+            <text class="lbl-sm" x="320" y="52" text-anchor="middle">hassle! It'll land in 3&ndash;5 days.&#8221;</text>
+
+            <g class="st" id="th-det"><rect x="30" y="96" width="170" height="92" rx="9" fill="#E6F1DF" stroke="#69B34C"/>
+              <text class="lbl-sm" x="115" y="118" text-anchor="middle" fill="#3f7a2e" font-weight="600">CODE</text>
+              <text class="lbl-sm" x="115" y="138" text-anchor="middle" fill="#3f7a2e">contains apology?</text>
+              <text class="lbl-sm" x="115" y="154" text-anchor="middle" fill="#3f7a2e">mentions timeframe?</text>
+              <text id="th-detv" class="lbl-sm" x="115" y="176" text-anchor="middle" fill="#3f7a2e">&#8230;</text></g>
+
+            <g class="st" id="th-human"><rect x="235" y="96" width="170" height="92" rx="9" fill="var(--rust-wash)" stroke="var(--rust)"/>
+              <text class="lbl-sm" x="320" y="118" text-anchor="middle" fill="#B0532F" font-weight="600">HUMAN</text>
+              <text class="lbl-sm" x="320" y="138" text-anchor="middle" fill="#B0532F">is the tone right?</text>
+              <text class="lbl-sm" x="320" y="154" text-anchor="middle" fill="#B0532F">would it help?</text>
+              <text id="th-humanv" class="lbl-sm" x="320" y="176" text-anchor="middle" fill="#B0532F">&#8230;</text></g>
+
+            <g class="st" id="th-judge"><rect x="440" y="96" width="170" height="92" rx="9" fill="var(--blueprint-wash)" stroke="var(--blueprint)"/>
+              <text class="lbl-sm" x="525" y="118" text-anchor="middle" fill="#1F4E79" font-weight="600">LLM JUDGE</text>
+              <text class="lbl-sm" x="525" y="138" text-anchor="middle" fill="#1F4E79">rubric: tone +</text>
+              <text class="lbl-sm" x="525" y="154" text-anchor="middle" fill="#1F4E79">completeness</text>
+              <text id="th-judgev" class="lbl-sm" x="525" y="176" text-anchor="middle" fill="#1F4E79">&#8230;</text></g>
+
+            <text id="th-note" class="readout" x="320" y="222" text-anchor="middle" font-size="13" fill="var(--ink-soft)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: code checks structure for free, a human judges quality slowly, a model judges quality at scale</figcaption>
+      </figure>
+
+      <p>The division of labor falls out naturally. <strong>Code</strong> answers the parts with a right answer — there <em>is</em> an apology, there <em>is</em> a timeframe — in microseconds, for nothing. It simply has no opinion on whether the tone lands. <strong>A human</strong> has exactly that opinion and it's the one you trust most, but you can't afford to ask them about all ten thousand replies a day. <strong>An LLM judge</strong> approximates the human's opinion at the code's scale — the whole reason it's exploded in use — at the price of a bias you have to manage. Three judges, three questions, three costs.</p>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Do you have the answer key?</div>
+      <h2>Reference-based vs reference-free</h2>
+      <p>Cutting across those three judges is a second distinction that decides <em>what</em> you can even ask: do you hold a correct answer to compare against?</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Reference-based</h4>
+          <ul>
+            <li>You <strong>have a gold answer</strong> — an answer key.</li>
+            <li>Score by comparing output to it: exact match, F1, similarity, or a "reference-guided" judge.</li>
+            <li>Natural for classification, extraction, QA, translation.</li>
+            <li>Strong signal &mdash; but you must <em>own</em> the correct answers, which is expensive to produce.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Reference-free</h4>
+          <ul>
+            <li><strong>No gold answer</strong> — you score intrinsic quality instead.</li>
+            <li>Measures like <strong>faithfulness</strong> (are the claims supported by the source?), coherence, relevance, safety.</li>
+            <li>Essential for RAG and agents, where enumerating every right answer is impossible.</li>
+            <li>Cheaper to set up &mdash; but the metric itself is a judgment, so it inherits judgment's biases.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The clearest example of reference-free is <strong>faithfulness</strong> in retrieval-augmented generation: you can't pre-write the one correct paragraph, but you <em>can</em> ask "is every claim in this answer entailed by the retrieved context?" — a quality you score without ever holding a reference answer. Frameworks like RAGAS built a whole reference-free toolkit on exactly that move, which is why RAG and agent evaluation lean heavily reference-free. The rule of thumb: <strong>if you can cheaply write down the right answer, go reference-based; if you can't, score the qualities a right answer would have.</strong></p>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Inside the model judge</div>
+      <h2>How a judge actually scores &#9656;</h2>
+      <p>"LLM-as-a-judge" isn't one technique — it's three scoring modes, and picking the right one is most of the battle. Step through them on the same pair of candidate answers:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-judge">
+          <svg viewBox="0 0 640 240" role="img" aria-label="Three judge scoring modes: pointwise absolute scoring, pairwise comparison, and reference-guided scoring">
+            <g class="st" id="jm-point"><rect x="40" y="40" width="250" height="74" rx="9" fill="var(--blueprint-wash)" stroke="var(--blueprint)"/>
+              <text class="lbl-sm" x="165" y="62" text-anchor="middle" fill="#1F4E79" font-weight="600">POINTWISE (absolute)</text>
+              <text class="lbl-sm" x="165" y="82" text-anchor="middle" fill="#1F4E79">score answer A: 7 / 10</text>
+              <text class="lbl-sm" x="165" y="100" text-anchor="middle" fill="#1F4E79">one output, one number</text></g>
+
+            <g class="st" id="jm-pair"><rect x="40" y="126" width="250" height="74" rx="9" fill="#E6F1DF" stroke="#69B34C"/>
+              <text class="lbl-sm" x="165" y="148" text-anchor="middle" fill="#3f7a2e" font-weight="600">PAIRWISE (comparison)</text>
+              <text class="lbl-sm" x="165" y="168" text-anchor="middle" fill="#3f7a2e">A vs B &#8594; B wins</text>
+              <text class="lbl-sm" x="165" y="186" text-anchor="middle" fill="#3f7a2e">which is better? (most robust)</text></g>
+
+            <g class="st" id="jm-ref"><rect x="330" y="84" width="270" height="74" rx="9" fill="var(--rust-wash)" stroke="var(--rust)"/>
+              <text class="lbl-sm" x="465" y="106" text-anchor="middle" fill="#B0532F" font-weight="600">REFERENCE-GUIDED</text>
+              <text class="lbl-sm" x="465" y="126" text-anchor="middle" fill="#B0532F">judge sees the gold answer,</text>
+              <text class="lbl-sm" x="465" y="144" text-anchor="middle" fill="#B0532F">then grades &mdash; best for math/logic</text></g>
+
+            <text id="jm-note" class="readout" x="320" y="226" text-anchor="middle" font-size="13" fill="var(--ink-soft)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 4</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: pointwise scores one answer, pairwise compares two, reference-guided grades against a gold answer</figcaption>
+      </figure>
+
+      <p>The practical lesson from the research is blunt: <strong>relative is easier than absolute</strong>. A model asked "rate this 1&ndash;10" gives you a wobbly, drifting number — its sense of what "7" means shifts from call to call. The same model asked "which of these two is better, A or B?" is far more reliable, because comparison is an easier cognitive task than calibrated scoring. So strong eval suites lean on <strong>pairwise</strong> comparisons (the engine behind public model-ranking arenas), reach for <strong>reference-guided</strong> grading when a gold answer exists and correctness is sharp (math, code, reasoning), and use bare <strong>pointwise</strong> scoring sparingly — useful, but the least trustworthy of the three on its own.</p>
+      <div class="callout note">
+        <span class="k">Why a judge can work at all</span>
+        <p>It feels circular — using a model to grade a model. It works because <strong>judging is easier than generating</strong>. Recognizing that an answer is irrelevant, contradicts its source, or skips the question is a much lower bar than producing the perfect answer in the first place — the same reason you can spot a wrong proof faster than you can write a right one. Strong judges (especially with a clear rubric and chain-of-thought, as in G-Eval) reach high agreement with humans on general tasks. That agreement is the thing you measure and earn, though — never assume it.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The fine print</div>
+      <h2>Every judge is biased</h2>
+      <p>No judge is neutral. Each family carries failure modes you have to design around &mdash; and naming them is what separates an eval you can trust from a number that lies to you:</p>
+      <ul>
+        <li><strong>Deterministic checks are brittle.</strong> They mistake surface form for substance — <code>"Paris."</code> fails an exact-match for <code>"Paris"</code> — and n-gram overlap metrics like BLEU/ROUGE correlate only weakly with human judgment on anything generative. They're perfect at structure and useless at quality.</li>
+        <li><strong>Humans are inconsistent.</strong> The gold standard still drifts: raters disagree (low inter-annotator agreement), tire over a long session, read an ambiguous rubric two ways, and bring cultural and personal taste. You manage it with multiple raters, agreement metrics, and crisp instructions — but it never fully goes away.</li>
+        <li><strong>LLM judges have signature biases.</strong> Four recur often enough to have names:
+          <br>&bull; <strong>Position bias</strong> — in a pairwise test, the judge favors whichever answer it saw first (or last), regardless of content. Swapping order can flip the verdict.
+          <br>&bull; <strong>Verbosity / length bias</strong> — it rewards longer, more fluent answers even when they add nothing.
+          <br>&bull; <strong>Self-preference</strong> — a model tends to rate <em>its own</em> outputs (or those of its family) higher.
+          <br>&bull; <strong>Sycophancy</strong> — if you hint at the answer you want, it tends to agree with you.</li>
+      </ul>
+      <p>The honest summary: a judge is not an oracle, it's a <em>noisy measuring instrument</em>. That's not a reason to avoid it — every instrument is noisy — it's a reason to <strong>characterize and correct the noise</strong> before you rely on the readings. The next section shows the most common correction in action.</p>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Bias, then mitigation</div>
+      <h2>Position bias, defused &#9656;</h2>
+      <p>Position bias is the easiest judge bias to see and to fix, so make it concrete. You ask a judge to pick the better of two answers, A and B — and then you do one more thing most people skip:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-bias">
+          <svg viewBox="0 0 640 220" role="img" aria-label="A judge picking the first answer in both orderings, revealing position bias, then a swap-and-average mitigation calling it a tie">
+            <g id="bz-judge"><rect class="node-b" x="250" y="92" width="140" height="48" rx="9"/><text class="lbl" x="320" y="121" text-anchor="middle">judge</text></g>
+            <rect id="bz-slot1" x="40" y="40" width="150" height="40" rx="8" class="node"/><text id="bz-slot1t" class="lbl-sm" x="115" y="64" text-anchor="middle">1st: answer A</text>
+            <rect id="bz-slot2" x="40" y="150" width="150" height="40" rx="8" class="node"/><text id="bz-slot2t" class="lbl-sm" x="115" y="174" text-anchor="middle">2nd: answer B</text>
+            <path class="flow" d="M190 60 C 230 60, 230 100, 248 108" marker-end="url(#arrow)"/>
+            <path class="flow" d="M190 170 C 230 170, 230 130, 248 124" marker-end="url(#arrow)"/>
+            <rect id="bz-verbox" x="450" y="92" width="160" height="48" rx="8" fill="var(--paper-2)" stroke="var(--line-strong)"/>
+            <text id="bz-verdict" class="readout" x="530" y="121" text-anchor="middle" font-size="13">&#8230;</text>
+            <path class="flow" d="M390 116 H 448" marker-end="url(#arrow)"/>
+            <text id="bz-note" class="readout" x="320" y="208" text-anchor="middle" font-size="13" fill="var(--ink-soft)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the judge favors whatever it sees first; swap-and-average exposes it and calls the tie</figcaption>
+      </figure>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">build &amp; validate a judge</span></div>
+        <div class="wbody">
+          <div class="wname">Earning the right to trust a judge</div>
+          <p class="wprompt">You want an LLM judge to score whether support replies are "helpful and correct," so you can run it on thousands of replies a day instead of reading them by hand. Before you trust a single one of its scores, you validate it the way you'd validate any model.</p>
+          <h4 class="wh">The alignment loop</h4>
+          <table class="cost">
+            <tr><th>Judge version</th><th>Agreement w/ humans</th><th>What changed</th></tr>
+            <tr><td>v1 &mdash; "rate 1&ndash;10, helpful?"</td><td>62%</td><td>vague rubric, absolute scale, single order</td></tr>
+            <tr><td>v2 &mdash; rubric + examples</td><td>74%</td><td>defined "helpful," added few-shot anchors</td></tr>
+            <tr><td>v3 &mdash; pairwise + swap</td><td><strong style="color:#3f7a2e">88%</strong></td><td>compare two, average both orders, penalize length</td></tr>
+          </table>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Step 1 &mdash; get human labels first</span><p>A domain expert hand-labels ~100 real replies as good/bad. This is your <b>answer key for the judge itself</b> &mdash; you can't measure a judge's accuracy without ground truth to score it against.</p></div>
+            <div class="ws"><span class="wsk">Step 2 &mdash; measure the judge vs the labels</span><p>v1, the obvious "rate it 1&ndash;10" prompt, agrees with the humans only 62% of the time &mdash; barely better than a coin flip on a balanced set. <b>If you'd trusted it blind, your eval would be mostly noise.</b></p></div>
+            <div class="ws"><span class="wsk">Step 3 &mdash; iterate the judge like a model</span><p>Tighten the rubric and add labeled examples (&#8594; 74%). Switch from absolute scoring to <b>pairwise with order-swapping</b> and penalize verbosity (&#8594; 88%). Each change is measured against the same human labels.</p></div>
+            <div class="ws"><span class="wsk">Step 4 &mdash; only now, scale it</span><p>At 88% agreement the judge is a useful instrument, and you let it grade the daily flood &mdash; reserving humans for spot-checks and the close calls. Use a <b>different, strong model</b> than the one under test, so self-preference can't inflate the scores.</p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;A judge is a model, so I validate it like one: I get human labels, measure how often the judge agrees, and iterate the rubric and scoring mode until agreement is high enough to trust. The naive 'rate it 1&ndash;10' judge agreed only 62% of the time; pairwise comparison with order-swapping and a real rubric got me to 88% &mdash; and I used a different model as the judge so it couldn't favor its own work.&#8221;</p>
+            <p class="plain">The discipline that makes a judge trustworthy is the same discipline as the rest of the phase: don't assume quality, <em>measure</em> it &mdash; and that includes measuring your measuring instrument.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The mindset</div>
+      <h2>Validate the judge before you trust it</h2>
+      <p>The one habit to carry out of this lesson: <strong>treat an LLM judge as a model you have to validate, not an oracle you get to assume.</strong> The standard workflow is now well-worn — define the criteria, collect a set of human-labeled examples, draft the judge prompt, measure how well the judge agrees with the humans, iterate until the agreement is high enough, and only <em>then</em> let it run at scale. A judge you haven't checked against human labels is generating numbers, not measurements, and numbers that feel rigorous while being wrong are worse than no numbers at all.</p>
+      <p>And mind the bill. Judge calls multiply fast: every example, times every prompt variant you're comparing, times every run, times the order-swaps and repeated samples you add for reliability. A thorough eval can quietly cost more than the feature it's evaluating. The usual economies — use a cheaper model for the cheap checks, reserve a strong judge for the close and high-stakes calls, sample a subset rather than grading everything, cache what you can — keep evaluation affordable enough that you'll actually run it on every change, which is the only way it helps.</p>
+      <div class="callout">
+        <span class="k">Where this phase goes next</span>
+        <p>You now have the three judges and how to keep each honest. <strong>Lesson 12</strong> assembles them into a practice: building a <em>golden set</em> — the curated cases these judges score — and developing against it the way you develop against tests, so every real failure becomes a permanent check and no regression ships twice. Methods become a workflow.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>there are three judges — code, humans, and models — each trading cost against scale against trust; a real suite uses all three, and the model judge in particular must be validated against human labels before you believe a word it says.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Three deciders</b><span>Code decides (deterministic), a person decides (human eval), or a model decides (LLM-as-judge). Every eval is built from these three.</span></div>
+        <div class="tk"><span class="num">02</span><b>Code: structure, free</b><span>Exact match, regex, schema, tolerance. Instant and reproducible, but only checks verifiable things — never tone or quality.</span></div>
+        <div class="tk"><span class="num">03</span><b>Humans: gold, slow</b><span>The ground truth everything else calibrates to — and costly, unscalable, and inconsistent. You spend it sparingly.</span></div>
+        <div class="tk"><span class="num">04</span><b>Judge: scale, biased</b><span>A model approximates the human's opinion at the code's scale. The pragmatic middle — at the price of bias you must manage.</span></div>
+        <div class="tk"><span class="num">05</span><b>Reference: based vs free</b><span>Have a gold answer &#8594; compare to it. No gold answer &#8594; score qualities like faithfulness. RAG/agents lean reference-free.</span></div>
+        <div class="tk"><span class="num">06</span><b>Pairwise &gt; pointwise</b><span>Relative is easier than absolute: "which is better, A or B?" beats "rate this 1&ndash;10." Reference-guided when a gold answer exists.</span></div>
+        <div class="tk"><span class="num">07</span><b>Every judge is biased</b><span>Code is brittle; humans drift; LLM judges show position, verbosity, self-preference, and sycophancy bias. Name the noise to correct it.</span></div>
+        <div class="tk"><span class="num">08</span><b>Validate, don't assume</b><span>A judge is a model: label data, measure agreement, iterate rubric &amp; mode, then scale. Swap order, use a different judge, watch the cost.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the three kinds of eval. For a model that <em>extracts an order number</em> and one that <em>writes an apology</em>, which judge fits each, and why?<br>
+        (2) What's the difference between reference-based and reference-free evaluation? Give a reference-free metric for a RAG system.<br>
+        (3) A judge can score pointwise, pairwise, or reference-guided. Why is pairwise generally more reliable than pointwise?<br>
+        (4) Why is it not hopelessly circular to use a model to grade a model?<br>
+        (5) Name three biases an LLM judge can have. For position bias, describe the standard mitigation.<br>
+        (6) In the worked example, the naive judge agreed with humans only 62% of the time. What two changes pushed it to 88%?<br>
+        (7) You're told "we built an LLM judge, it gives every answer a score out of 10." What's the first question you ask before trusting any of those scores?<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 11 &middot; THREE KINDS OF EVAL &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the methods layer of the Evaluation phase &middot; figures are illustrative and task-dependent, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* three judges, one answer */
+  makeStepper(document.getElementById('fig-three'), [
+    {text:"Here's the output to evaluate: a support reply the model just generated. We'll hand the exact same text to each of the three judges.", active:[], det:"…", human:"…", judge:"…", note:""},
+    {text:"CODE first. Deterministic checks ask only verifiable questions: does it contain an apology? does it state a timeframe? Both yes — pass. Microseconds, free.", active:["th-det"], det:"✓ both present", human:"…", judge:"…", note:"code: structure verified — but it can't judge tone"},
+    {text:"A HUMAN reads it. Is the tone warm but professional? Would it actually satisfy the customer? They rate it 4/5 — the opinion you trust most.", active:["th-human"], det:"✓ both present", human:"4 / 5 — good tone", judge:"…", note:"human: the gold judgment — but you can't ask on 10,000/day"},
+    {text:"An LLM JUDGE scores the same reply against the same rubric (tone + completeness). It lands 4/5 too — approximating the human, but on every reply, cheaply.", active:["th-judge"], det:"✓ both present", human:"4 / 5 — good tone", judge:"4 / 5 vs rubric", note:"judge: the human's opinion at the code's scale — at the price of bias"},
+    {text:"Three judges, three questions, three costs. Code verifies structure for free; humans give trusted quality slowly; the judge scales quality with manageable bias. A real suite uses all three.", active:["th-det","th-human","th-judge"], det:"✓ structure", human:"★ trusted", judge:"≈ scaled", note:"cost ↔ scale ↔ trust — pick the judge that fits the question"}
+  ], function(idx,s){
+    document.getElementById('th-detv').textContent=s.det;
+    document.getElementById('th-humanv').textContent=s.human;
+    document.getElementById('th-judgev').textContent=s.judge;
+    document.getElementById('th-note').textContent=s.note;
+  });
+
+  /* how a judge scores */
+  makeStepper(document.getElementById('fig-judge'), [
+    {text:"Mode 1 — POINTWISE (absolute). The judge looks at one answer and emits a number: 'rate this 7/10.' Simple, but the scale drifts — its sense of '7' wobbles call to call.", active:["jm-point"], note:"pointwise: one output → one number (least reliable alone)"},
+    {text:"Mode 2 — PAIRWISE (comparison). The judge sees A and B and picks the better one. Comparison is an easier task than calibrated scoring, so this is the most robust mode.", active:["jm-point","jm-pair"], note:"pairwise: 'which is better?' — relative beats absolute"},
+    {text:"Mode 3 — REFERENCE-GUIDED. The judge is handed the gold answer, then grades the candidate against it. Best where correctness is sharp: math, code, reasoning.", active:["jm-ref"], note:"reference-guided: grade against a known-correct answer"},
+    {text:"Default to pairwise; use reference-guided when a gold answer exists; use bare pointwise sparingly. Same judge model, very different reliability depending on how you ask.", active:["jm-point","jm-pair","jm-ref"], note:"how you ask the judge matters as much as which model judges"}
+  ], function(idx,s){
+    document.getElementById('jm-note').textContent=s.note;
+  });
+
+  /* position bias, defused */
+  makeStepper(document.getElementById('fig-bias'), [
+    {text:"You ask the judge to pick the better reply. Order A then B. The judge picks A — fine, maybe A really is better. One reading isn't evidence yet.", s1:"1st: answer A", s2:"2nd: answer B", verdict:"picks 1st → A", verc:"#1F4E79", note:"order A,B → winner A"},
+    {text:"Now SWAP the order: feed B first, A second — same two answers, nothing else changed. A fair judge should still pick A.", s1:"1st: answer B", s2:"2nd: answer A", verdict:"…", verc:"#5A574E", note:"same answers, order reversed — watch the verdict"},
+    {text:"But it picks the FIRST one again — now that's B. The verdict flipped purely on position. That's position bias: the judge favored the slot, not the substance.", s1:"1st: answer B", s2:"2nd: answer A", verdict:"picks 1st → B", verc:"#B0532F", note:"⚠ verdict flipped on order alone = position bias"},
+    {text:"The mitigation: run BOTH orders and combine. A won in one order, B in the other — they disagree, so the honest result is a TIE, not a win for whoever went first.", s1:"both orders", s2:"averaged", verdict:"disagree → TIE", verc:"#3f7a2e", note:"swap-and-average: contradiction → call it a tie"},
+    {text:"Layer on the other fixes: penalize length (verbosity bias), use a different/stronger model than the one under test (self-preference), and never hint the answer you want (sycophancy).", s1:"+ length penalty", s2:"+ different judge", verdict:"noise corrected", verc:"#3f7a2e", note:"characterize the noise, then correct it — that's a trustworthy judge"}
+  ], function(idx,s){
+    document.getElementById('bz-slot1t').textContent=s.s1;
+    document.getElementById('bz-slot2t').textContent=s.s2;
+    var v=document.getElementById('bz-verdict'); v.textContent=s.verdict; v.setAttribute('fill',s.verc);
+    document.getElementById('bz-verbox').setAttribute('stroke', s.verc==='#B0532F'?'var(--rust)':(s.verc==='#3f7a2e'?'#69B34C':'var(--line-strong)'));
+    document.getElementById('bz-note').textContent=s.note;
+  });
+</script>
+</body>
+</html>
