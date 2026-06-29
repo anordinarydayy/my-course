@@ -17,20 +17,26 @@ prep, hosted as static HTML on GitHub Pages.
   feed, payment system, order-matching engine). See the
   [System Design roadmap](system-design/system-design-roadmap-v2.html).
 - **[Databases & SQL](database/index.html)** — relational databases taught through PostgreSQL,
-  for interviews and real engineering. A 46-lesson map across nine phases: the relational model
+  for interviews and real engineering. A 55-lesson map across ten phases: the relational model
   and schema design, SQL from joins and aggregation through CTEs and window functions, indexing
   and the query planner (EXPLAIN), transactions, isolation and MVCC, Postgres power features
-  (JSONB, full-text search, partitioning), operations and scale, and an applied
+  (JSONB, full-text search, partitioning), single-node operations, a full phase on **distributed
+  PostgreSQL** (replication, read-after-write under lag, failover and split-brain,
+  change-data-capture, the dual-write/outbox problem, and sharding), and an applied
   design-and-interview capstone. The first lesson — why a database, the relational model, and
   ACID — is live and interactive; the rest are mapped. See the
   [Databases course map](database/index.html).
 - **[AI Engineering](ai-engineering/index.html)** — building applications on foundation
   models, the AI layer on top of strong software engineering. A 48-lesson map across nine
   phases (model internals, prompting, evaluation, RAG, agents, fine-tuning, inference, ops,
-  safety); the first ten lessons are live and interactive — the AI-engineering landscape,
+  safety); the first twenty-two lessons are live and interactive — the AI-engineering landscape,
   how a foundation model works, tokenization & token economics, sampling & decoding,
   embeddings & the vector space, the model landscape & choosing a model, prompting as a
-  discipline, structured output & function calling, prompts as assets, and defensive prompting.
+  discipline, structured output & function calling, prompts as assets, defensive prompting,
+  why evaluation is the core problem, the three kinds of eval, golden sets & eval-driven
+  development, evaluating the whole system, CI gates & catching regressions, the RAG pipeline,
+  embeddings & vector databases, chunking strategies, hybrid search & re-ranking, context
+  engineering, GraphRAG & agentic retrieval, and evaluating retrieval quality.
 - **[Elasticsearch](elasticsearch/index.html)** — the search & analytics engine and the
   Elastic Stack. A 45-lesson map across ten phases: engine internals (the inverted index,
   text analysis, the write path), data modeling & mapping, querying & relevance (BM25 and
