@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 15 — The RAG Pipeline (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">The RAG<br>Pipeline</div>
+    <h4>The retrieval stack</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Frozen at the cutoff</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Fetch it, don't bake it</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Two clocks: ingest &amp; query &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Grounded, or confidently wrong &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Where quality is won or lost</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Top-k, then re-rank &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Naive RAG is dead</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">15</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>The RAG Pipeline</h1>
+      <p class="lede">A model's knowledge is frozen at its training cutoff — it has never seen your wiki, last night's incident report, or the docs for the version you actually run, and it can't cite a source even when it's right. <strong>Retrieval-augmented generation</strong> is the cheapest durable fix: fetch the relevant text at query time and paste it into the context window, so the model answers from grounded, citable, updatable evidence. This is the keystone of Phase 3 — the shape every later lesson refines.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The lesson that opens the RAG &amp; Retrieval phase. It draws on public sources for framing — Chip Huyen's <em>AI Engineering</em>, Anthropic's writing on contextual retrieval and long-context, and the 2025&ndash;2026 practitioner shift toward hybrid search and "context engineering" — but every explanation, diagram, and example here is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Tool names, pricing, and model facts are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The bottleneck</div>
+      <h2>Frozen at the cutoff</h2>
+      <p>Ask a base model a question only your organization can answer — "what's the on-call rotation for the billing service?", "what changed in the v4.2 release?", "what did the post-incident review conclude?" — and it has no way to know. Its weights were frozen at a training cutoff months or years ago; your private data was never in them, and yesterday's data couldn't have been. Worse, even when it <em>is</em> right, it can't point you to a source you can verify. The model's knowledge is a snapshot, and you need a live feed.</p>
+      <p>The tempting fix is <strong>fine-tuning</strong> — keep training the model on your documents until it "knows" them. It's the wrong tool for this job, and knowing <em>why</em> is half the lesson. Fine-tuning is slow and costly to run, and every data refresh means another training run. It teaches <em>behavior</em> — style, format, tone, the shape of a good answer — far better than it injects discrete <em>facts</em>; cram a fact into the weights and the model may still hallucinate a confident variant of it. And it produces no citations: a fine-tuned model can't tell you which document a claim came from, because the claim is now smeared across billions of parameters. So when you ask the un-grounded model a question it can't answer, it does the worst possible thing — it answers anyway, fluently and confidently. <em>That</em> is the failure RAG exists to prevent.</p>
+      <div class="callout note">
+        <span class="k">The shape of the fix</span>
+        <p>Don't bake the knowledge into the weights — <strong>fetch it at query time and paste it into the context window</strong>. The model then answers from text it can see, quote, and link. Fine-tuning changes <em>how</em> the model behaves; retrieval changes <em>what it knows right now</em>. They are complementary, not rivals — and for fresh, private, citable knowledge, retrieval is the one you reach for first.</p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The first rung</div>
+      <h2>Fetch it, don't bake it</h2>
+      <p>It helps to place RAG on a ladder of ways to adapt a general model to your problem, in rough order of effort and cost. Prompting comes first — instructions only, no new knowledge. RAG is the next rung: it adds <em>external knowledge at query time</em> without touching the weights. Above it sit agents (multi-step action and tool use) and, at the top, fine-tuning (actually changing the weights). The lesson of the ladder is to climb only as high as your problem requires — and for "give the model private, fresh, citable knowledge," RAG is the <strong>first rung past prompting</strong>, the default move before you reach for anything heavier.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 220" role="img" aria-label="The adaptation ladder rising left to right: prompting, RAG, agents, fine-tuning, with RAG highlighted as the first rung past prompting and an axis of increasing cost and specialization">
+            <g><rect class="node" x="20" y="150" width="130" height="50" rx="9"/><text class="lbl-sm" x="85" y="174" text-anchor="middle">1 &middot; Prompting</text><text class="lbl-sm" x="85" y="190" text-anchor="middle">instructions only</text></g>
+            <g><rect class="node-b" x="170" y="110" width="130" height="50" rx="9"/><text class="lbl" x="235" y="134" text-anchor="middle">2 &middot; RAG</text><text class="lbl-sm" x="235" y="150" text-anchor="middle">+ external knowledge</text></g>
+            <g><rect class="node" x="320" y="70" width="130" height="50" rx="9"/><text class="lbl-sm" x="385" y="94" text-anchor="middle">3 &middot; Agents</text><text class="lbl-sm" x="385" y="110" text-anchor="middle">+ tools / steps</text></g>
+            <g><rect class="node" x="470" y="30" width="150" height="50" rx="9"/><text class="lbl-sm" x="545" y="54" text-anchor="middle">4 &middot; Fine-tune</text><text class="lbl-sm" x="545" y="70" text-anchor="middle">change the weights</text></g>
+            <path class="flow" d="M150 164 L170 140" marker-end="url(#arrow)"/>
+            <path class="flow" d="M300 124 L320 100" marker-end="url(#arrow)"/>
+            <path class="flow" d="M450 84 L470 60" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="235" y="100" text-anchor="middle" fill="#1F4E79">&#9733; first rung past prompting</text>
+            <text class="lbl-sm" x="540" y="206" text-anchor="end" fill="#5A574E">increasing effort, cost &amp; specialization &#8594;</text>
+          </svg>
+        </div>
+        <figcaption>FIG. — the adaptation ladder; RAG adds knowledge without retraining (static reference)</figcaption>
+      </figure>
+
+      <p>So why not skip RAG and pour everything into the prompt now that context windows reach a million tokens, or just fine-tune and be done? Because each alternative pays a different cost, and RAG sits at a sweet spot for one specific job. Hold the three side by side:</p>
+
+      <div class="vs three">
+        <div class="col">
+          <h4>RAG</h4>
+          <ul>
+            <li><strong>Update:</strong> edit a database, instantly</li>
+            <li><strong>Freshness:</strong> as fresh as the index</li>
+            <li><strong>Citations:</strong> yes &mdash; links the source</li>
+            <li><strong>Per-query cost:</strong> low &mdash; only the relevant tokens</li>
+            <li><strong>Best for:</strong> private, fresh, citable facts</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Fine-tune</h4>
+          <ul>
+            <li><strong>Update:</strong> retrain the model</li>
+            <li><strong>Freshness:</strong> stale between runs</li>
+            <li><strong>Citations:</strong> none</li>
+            <li><strong>Per-query cost:</strong> low at inference</li>
+            <li><strong>Best for:</strong> behavior, tone, format</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Long context</h4>
+          <ul>
+            <li><strong>Update:</strong> swap the pasted text</li>
+            <li><strong>Freshness:</strong> as fresh as the paste</li>
+            <li><strong>Citations:</strong> possible, manual</li>
+            <li><strong>Per-query cost:</strong> high &mdash; pay for everything</li>
+            <li><strong>Best for:</strong> small corpora, global reasoning</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">When you don't need RAG at all</span>
+        <p>Anthropic's own guidance: if your <em>entire</em> knowledge base fits comfortably under roughly 200K tokens, skip the pipeline — just put it all in the prompt (with prompt caching so you're not re-paying every call). RAG earns its complexity only when the corpus is too big to fit, or too costly to send in full, on every query. Don't build a retrieval stack to solve a problem that a paste-and-cache would handle. We'll return to this routing choice in Lesson 19.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The two-clock shape</div>
+      <h2>Two clocks: ingest &amp; query &#9656;</h2>
+      <p>The naive mental model of RAG is one big function: "question goes in, answer comes out." That hides the most important structural fact about the system — it is actually <em>two</em> pipelines running on two different clocks, meeting only at a shared store. <strong>Offline ingest</strong> runs when your data changes (minutes, occasionally): <code>load &#8594; chunk &#8594; embed &#8594; index</code>. <strong>Online query</strong> runs on every question, in milliseconds: <code>embed &#8594; retrieve &#8594; re-rank &#8594; assemble &#8594; generate</code>. Separating them is the standard production pattern, because the two have opposite priorities — ingest can be slow and thorough; query must be fast and cheap. Step through the whole machine:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pipeline">
+          <svg viewBox="0 0 680 300" role="img" aria-label="The two-clock RAG pipeline: an offline ingest lane loads, chunks, embeds and indexes documents into a shared vector store, and an online query lane embeds the question, retrieves, re-ranks, assembles a prompt, and generates an answer with a citation">
+            <text class="lbl-sm" x="16" y="22" fill="#4A7BA6" font-weight="600">OFFLINE INGEST &mdash; runs when data changes</text>
+            <text class="lbl-sm" x="16" y="210" fill="#4A7BA6" font-weight="600">ONLINE QUERY &mdash; runs every question</text>
+            <text id="pp-clock" class="lbl-sm" x="664" y="22" text-anchor="end"></text>
+
+            <g class="st" id="pp-doc"><rect class="node" x="16" y="38" width="92" height="46" rx="9"/><text class="lbl-sm" x="62" y="58" text-anchor="middle">1 load</text><text class="lbl-sm" x="62" y="73" text-anchor="middle">docs</text></g>
+            <g class="st" id="pp-chunk"><rect class="node" x="124" y="38" width="92" height="46" rx="9"/><text class="lbl-sm" x="170" y="58" text-anchor="middle">2 chunk</text><text class="lbl-sm" x="170" y="73" text-anchor="middle">~500 tok</text></g>
+            <g class="st" id="pp-embed1"><rect class="node" x="232" y="38" width="92" height="46" rx="9"/><text class="lbl-sm" x="278" y="58" text-anchor="middle">3 embed</text><text class="lbl-sm" x="278" y="73" text-anchor="middle">&#8594; vectors</text></g>
+            <path id="e-doc-chunk" class="flow" d="M108 61 H124" marker-end="url(#arrow)"/>
+            <path id="e-chunk-embed1" class="flow" d="M216 61 H232" marker-end="url(#arrow)"/>
+            <path id="e-embed1-store" class="flow" d="M278 84 C 278 102, 294 102, 294 118" marker-end="url(#arrow)"/>
+
+            <g class="st" id="pp-store"><rect class="node-b" x="232" y="120" width="124" height="66" rx="10"/><text class="lbl" x="294" y="147" text-anchor="middle">VECTOR STORE</text><text class="lbl-sm" x="294" y="166" text-anchor="middle">4 index &middot; HNSW + BM25</text></g>
+
+            <g class="st" id="pp-q"><rect class="node" x="16" y="230" width="92" height="46" rx="9"/><text class="lbl-sm" x="62" y="250" text-anchor="middle">question</text><text class="lbl-sm" x="62" y="265" text-anchor="middle">from user</text></g>
+            <g class="st" id="pp-embed2"><rect class="node" x="124" y="230" width="92" height="46" rx="9"/><text class="lbl-sm" x="170" y="250" text-anchor="middle">embed</text><text class="lbl-sm" x="170" y="265" text-anchor="middle">query</text></g>
+            <path id="e-q-embed2" class="flow" d="M108 253 H124" marker-end="url(#arrow)"/>
+            <path id="e-embed2-store" class="flow" d="M180 230 C 206 206, 238 196, 256 188" marker-end="url(#arrow)"/>
+
+            <g class="st" id="pp-rank"><rect class="node" x="380" y="131" width="92" height="44" rx="9"/><text class="lbl-sm" x="426" y="150" text-anchor="middle">re-rank</text><text class="lbl-sm" x="426" y="165" text-anchor="middle">top few</text></g>
+            <g class="st" id="pp-prompt"><rect class="node" x="492" y="131" width="92" height="44" rx="9"/><text class="lbl-sm" x="538" y="150" text-anchor="middle">assemble</text><text class="lbl-sm" x="538" y="165" text-anchor="middle">prompt</text></g>
+            <g class="st" id="pp-gen"><rect class="node" x="596" y="131" width="72" height="44" rx="9"/><text class="lbl-sm" x="632" y="150" text-anchor="middle">gen-</text><text class="lbl-sm" x="632" y="165" text-anchor="middle">erate</text></g>
+            <path id="e-store-rank" class="flow" d="M356 153 H380" marker-end="url(#arrow)"/>
+            <path id="e-rank-prompt" class="flow" d="M472 153 H492" marker-end="url(#arrow)"/>
+            <path id="e-prompt-gen" class="flow" d="M584 153 H596" marker-end="url(#arrow)"/>
+
+            <g class="st" id="pp-cite"><rect class="node-g" x="556" y="210" width="112" height="42" rx="9"/><text class="lbl-sm" x="612" y="230" text-anchor="middle" fill="#3f7a2e">answer</text><text class="lbl-sm" x="612" y="245" text-anchor="middle" fill="#3f7a2e">+ [source]</text></g>
+            <path id="e-gen-cite" class="flow-g" d="M632 175 C 632 192, 614 194, 612 208" marker-end="url(#arrow-g)"/>
+
+            <text id="pp-note" class="readout" x="300" y="285" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 10</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: offline ingest fills the store; online query reads from it; the two clocks meet only at the store</figcaption>
+      </figure>
+
+      <p>Notice the symmetry that ties the two clocks together: <strong>the same embedding model must embed both your chunks (offline) and the query (online)</strong>, or the query vector and the chunk vectors live in different spaces and nearest-neighbor search is meaningless. That single shared component is why you can't casually swap embedding models without re-indexing everything. We'll unpack the store itself in Lesson 16, but the shape is now fixed: fill it slowly and carefully; read it fast and cheaply.</p>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The invariant</div>
+      <h2>Grounded, or confidently wrong &#9656;</h2>
+      <p>Here is the one rule that makes RAG both powerful and fragile: <strong>a well-built RAG model answers ONLY from retrieved context</strong>. That grounding is the whole game — it's where the trustworthiness and the citations come from. But it has a dark twin. If retrieval <em>misses</em> — if the chunk that holds the answer was never fetched — the model does not say "I don't know." It fills the gap from stale memory and emits a fluent, authoritative, <em>wrong</em> answer, with no source and full confidence. A retrieval miss doesn't yield an abstention; it yields a hallucination. Watch the same question run with good and bad retrieval — the only thing that changes is what came back:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-toggle">
+          <svg viewBox="0 0 640 250" role="img" aria-label="The same question answered twice: with good retrieval the model returns a grounded answer with a citation, and with bad retrieval it returns a confident hallucination with no source">
+            <text id="tg-toggle" class="lbl" x="20" y="26" font-weight="600"></text>
+            <g class="st" id="tg-q"><rect class="node" x="16" y="70" width="116" height="54" rx="9"/><text class="lbl-sm" x="74" y="92" text-anchor="middle">question</text><text class="lbl-sm" x="74" y="108" text-anchor="middle">stream in v4.2?</text></g>
+            <g class="st" id="tg-retr"><rect class="node" x="164" y="70" width="104" height="54" rx="9"/><text class="lbl-sm" x="216" y="92" text-anchor="middle">retrieve</text><text class="lbl-sm" x="216" y="108" text-anchor="middle">top-k</text></g>
+            <g class="st" id="tg-chunk"><rect id="tg-chunkbox" class="node" x="300" y="70" width="148" height="54" rx="9"/><text id="tg-chunkt1" class="lbl-sm" x="374" y="92" text-anchor="middle">retrieved chunk</text><text id="tg-chunkt2" class="lbl-sm" x="374" y="108" text-anchor="middle">&mdash;</text></g>
+            <g class="st" id="tg-model"><rect class="node" x="480" y="70" width="104" height="54" rx="9"/><text class="lbl-sm" x="532" y="92" text-anchor="middle">prompt</text><text class="lbl-sm" x="532" y="108" text-anchor="middle">+ LLM</text></g>
+            <path id="e-q-retr" class="flow" d="M132 97 H164" marker-end="url(#arrow)"/>
+            <path id="e-retr-chunk" class="flow" d="M268 97 H300" marker-end="url(#arrow)"/>
+            <path id="e-chunk-model" class="flow" d="M448 97 H480" marker-end="url(#arrow)"/>
+            <g class="st" id="tg-ans"><rect id="tg-ansbox" class="node" x="150" y="166" width="400" height="58" rx="10"/><text id="tg-anst1" class="lbl-sm" x="350" y="190" text-anchor="middle"></text><text id="tg-anst2" class="lbl-sm" x="350" y="208" text-anchor="middle"></text></g>
+            <path id="e-model-ans" class="flow" d="M532 124 C 532 150, 482 152, 462 164" marker-end="url(#arrow)"/>
+            <text id="tg-cite" class="lbl-sm" x="544" y="150" text-anchor="end" fill="#3f7a2e" style="display:none">&#10003; [docs/v4.2]</text>
+            <text id="tg-warn" class="lbl-sm" x="150" y="150" text-anchor="start" fill="#B0532F" style="display:none">&#9888; hallucination &middot; no source</text>
+            <text id="tg-note" class="readout" x="320" y="242" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: same model, same prompt, same question — only the retrieved context differs, and that decides everything</figcaption>
+      </figure>
+
+      <p>The unsettling lesson is that the model looks <em>equally confident</em> in both runs. You cannot tell a grounded answer from a hallucinated one by reading the answer alone — only by checking whether the right context was retrieved (which is exactly why the citation matters, and why Lesson 21 measures retrieval separately). This is what people mean when they say the <strong>quality ceiling of a RAG system is set at retrieval, not generation</strong>. The best model in the world cannot answer from a chunk that was never fetched. You can't prompt your way out of a retrieval miss.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">docs Q&amp;A bot &middot; FrameworkX v4.2</span></div>
+        <div class="wbody">
+          <div class="wname">The flag that shipped after the cutoff</div>
+          <p class="wprompt">A developer asks your docs bot: <em>"In FrameworkX v4.2, what's the new flag to enable streaming responses?"</em> Crucially, v4.2 shipped <strong>after</strong> the base model's training cutoff. The model has never seen it. Watch the same question hit a bare model and a RAG pipeline.</p>
+          <h4 class="wh">Bare model vs. RAG &mdash; same question, two outcomes</h4>
+          <pre class="code"><span class="codetag">online query — runs per question, in milliseconds</span><code>q = <span class="st">"enable streaming responses in FrameworkX v4.2?"</span>
+<span class="cm"># hybrid retrieval: dense vectors + BM25 keywords, fused</span>
+hits = store.hybrid_search(embed(q), bm25(q), k=<span class="st">50</span>)
+<span class="cm"># cross-encoder re-reads each (q, chunk) pair, keeps the best</span>
+top  = rerank(q, hits)[:<span class="st">5</span>]
+<span class="cm"># the model answers ONLY from `top` — and cites it</span>
+answer = generate(prompt(q, context=top))</code></pre>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Bare model &mdash; stale memory</span><p>With no retrieval, the model answers from what it "remembers": it recommends <b>stream_mode=on</b>, a v3.x option that was renamed and removed in v4.2. No source, full confidence, and <b>wrong</b> &mdash; and the developer has no way to tell.</p></div>
+            <div class="ws"><span class="wsk">RAG &mdash; offline, the docs were already ingested</span><p>The v4.2 release notes were loaded, chunked at ~500 tokens, embedded, and indexed long before the question arrived. The index already holds the answer-bearing passage.</p></div>
+            <div class="ws"><span class="wsk">RAG &mdash; online, retrieval finds it</span><p>The question is embedded; hybrid search fires &mdash; <b>dense</b> catches the paraphrase "enable streaming responses," <b>BM25</b> catches the literal token "v4.2" and the flag name. A reranker promotes the exact release-note passage to the top, and it's pasted into the prompt.</p></div>
+            <div class="ws"><span class="wsk">RAG &mdash; grounded answer + citation</span><p>The model returns the correct v4.2 flag <b>with a clickable citation</b>. Three payoffs: (1) correct on data newer than the cutoff; (2) a source the developer can verify; (3) when v4.3 ships next month, you just re-index &mdash; no retraining.</p></div>
+            <div class="ws"><span class="wsk">Now break it &mdash; delete the chunk</span><p>Remove the v4.2 passage from the index to simulate a retrieval miss, and re-run. The model doesn't abstain &mdash; it confidently hallucinates a plausible-but-wrong flag. <b>Same model, same prompt template; the only thing that changed was whether retrieval found the right chunk.</b> That is the whole lesson in one toggle.</p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;A version-specific question about data newer than the model's cutoff. The bare model answered fluently from stale memory and got it wrong with no source; the RAG pipeline retrieved the v4.2 release note, reranked it to the top, and answered correctly with a citation. Delete that one chunk and the same model hallucinates &mdash; because in RAG the answer lives in the retrieved context, not the weights.&#8221;</p>
+            <p class="plain">Grounding is the source of both the trust and the fragility. Retrieval is the part you must get right; everything downstream only stitches what retrieval handed it.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The stage walk</div>
+      <h2>Where quality is won or lost</h2>
+      <p>If the ceiling is set at retrieval, then quality is decided stage by stage, long before the model ever generates a token. Walk the pipeline as a sequence of decisions, each of which can silently degrade the final answer even if every other stage is perfect:</p>
+
+      <table class="cost">
+        <thead><tr><th>Stage</th><th>The decision &mdash; and where quality is won or lost</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Chunk</strong></td><td>Size, overlap, boundaries. Too big <em>dilutes</em> the signal (the answer drowns in surrounding text); too small <em>severs</em> context (a fact loses the sentence that gave it meaning). This is the stage where pipelines silently fail. A common 2025&ndash;2026 default: recursive fixed-size splitting at ~400&ndash;512 tokens with 10&ndash;20% overlap. Several recent benchmarks found plain recursive chunking competitive with fancier "semantic" chunking on a cost/quality basis. See Lesson 17.</td></tr>
+          <tr><td><strong>Embed</strong></td><td>Which model maps text to vectors. It decides whether "how do I reset my password" lands near the right passage about credential recovery. The 2025&ndash;2026 field churns fast: OpenAI <code>text-embedding-3-large</code> has stagnated, while Cohere embed-v4, Voyage 3/4, Google Gemini Embedding, and open BGE-M3 / Qwen3-Embedding leapfrog it. Check the MTEB leaderboard &mdash; but test on <em>your</em> data, and note MTEB v2 scores aren't comparable to v1.</td></tr>
+          <tr><td><strong>Index</strong></td><td>The data structure for fast nearest-neighbor search. Almost everyone uses <strong>HNSW</strong> graphs (approximate, fast); hybrid stores pair it with an inverted index for BM25. Decides recall and latency. Common stores: Pinecone, Weaviate, Milvus, Qdrant, and <code>pgvector</code> in Postgres. The subject of Lesson 16.</td></tr>
+          <tr><td><strong>Retrieve</strong></td><td><strong>top-k</strong> is the recall-vs-noise dial: too small and the answer-bearing chunk never gets pulled; too big and the prompt floods with distractors. Hybrid retrieval (dense + BM25, fused) beats either alone. The first place to look when answers go wrong.</td></tr>
+          <tr><td><strong>Re-rank</strong></td><td>A cross-encoder re-reads each query&ndash;chunk pair jointly and re-scores the candidates, turning "plausible matches" into "precise ones" so the prompt's few slots aren't wasted. Costs latency, buys precision. Tools: Cohere Rerank, Voyage rerank-2.5, open mxbai-rerank-v2, BGE reranker. See Lesson 18.</td></tr>
+          <tr><td><strong>Generate</strong></td><td>The model stitches the retrieved passages into a fluent, cited answer. It <em>cannot</em> invent a fact retrieval never fetched. Generation polishes; it does not rescue. This is why the quality ceiling sits upstream.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout note">
+        <span class="k">Chunking is the silent killer &mdash; and a known fix</span>
+        <p>Because chunking fails <em>quietly</em> (no error, just slightly-wrong answers), it's worth a targeted upgrade. Anthropic's <strong>Contextual Retrieval</strong> (Sept 2024) prepends a 50&ndash;100 token, LLM-generated blurb situating each chunk in its document <em>before</em> embedding. On their tests it cut the top-20 retrieval failure rate by 35% (5.7% &#8594; 3.7%); adding contextual BM25 cut it 49%, and adding a reranker cut it 67% (down to 1.9%). Prompt caching makes it cheap (~$1 per million document tokens). It's a now-standard answer to the chunking failure mode &mdash; a preview of Lesson 17.</p>
+      </div>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Recall, then precision</div>
+      <h2>Top-k, then re-rank &#9656;</h2>
+      <p>The two retrieval stages do opposite jobs with opposite tools, and understanding why is the key to good retrieval. First-stage retrieval uses a <strong>bi-encoder</strong>: it embedded every chunk once, offline, into a vector, and at query time it embeds the question and finds nearest neighbors. It's cheap and massively scalable — but it scored the query and each chunk <em>separately</em>, so it's only approximately right. Re-ranking uses a <strong>cross-encoder</strong>: it feeds the query and a candidate chunk into the model <em>together</em> and reads them jointly, which is far more accurate but far too slow to run over millions of chunks. So you run them in sequence: cheap bi-encoder retrieval casts a wide net (recall), then the expensive cross-encoder re-reads only the survivors (precision). Watch it play out in the embedding space:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-space">
+          <svg viewBox="0 0 660 300" role="img" aria-label="Top-k retrieval then re-ranking in a flattened embedding space: a radius captures the nearest candidates, a parallel BM25 list is fused with reciprocal rank fusion, a cross-encoder re-ranks the candidates, and only the top survivors enter the prompt">
+            <rect x="18" y="40" width="300" height="232" rx="12" fill="none" stroke="var(--line-strong)" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="160" y="32" text-anchor="middle">embedding space</text>
+            <circle id="sp-radius" cx="160" cy="150" r="0" fill="rgba(31,78,121,0.06)" stroke="#4A7BA6" stroke-width="1.5" stroke-dasharray="5 4" style="display:none"/>
+            <circle id="sp-d1" cx="120" cy="120" r="6" fill="#BCB29A"/>
+            <circle id="sp-d2" cx="205" cy="135" r="6" fill="#BCB29A"/>
+            <circle id="sp-d3" cx="150" cy="205" r="6" fill="#BCB29A"/>
+            <circle id="sp-d4" cx="110" cy="185" r="6" fill="#BCB29A"/>
+            <circle id="sp-d5" cx="215" cy="185" r="6" fill="#BCB29A"/>
+            <circle id="sp-d6" cx="75" cy="80" r="6" fill="#BCB29A"/>
+            <circle id="sp-d7" cx="255" cy="85" r="6" fill="#BCB29A"/>
+            <circle id="sp-d8" cx="80" cy="250" r="6" fill="#BCB29A"/>
+            <circle id="sp-d9" cx="260" cy="245" r="6" fill="#BCB29A"/>
+            <g class="st" id="sp-query"><circle cx="160" cy="150" r="9" fill="#1F4E79" stroke="#fff" stroke-width="2"/><text class="lbl-sm" x="160" y="173" text-anchor="middle" fill="#1F4E79">query</text></g>
+            <text class="lbl-sm" x="332" y="146" fill="#4A7BA6">dense</text>
+            <g class="st" id="sp-bm25"><rect class="node" x="400" y="44" width="140" height="42" rx="9"/><text class="lbl-sm" x="470" y="64" text-anchor="middle">BM25 &mdash; sparse</text><text class="lbl-sm" x="470" y="79" text-anchor="middle">exact tokens, IDs</text></g>
+            <g class="st" id="sp-rrf"><rect class="node" x="400" y="108" width="140" height="44" rx="9"/><text class="lbl-sm" x="470" y="128" text-anchor="middle">RRF &mdash; fuse lists</text><text class="lbl-sm" x="470" y="143" text-anchor="middle">by rank, not score</text></g>
+            <g class="st" id="sp-rerank"><rect class="node" x="400" y="174" width="140" height="44" rx="9"/><text class="lbl-sm" x="470" y="194" text-anchor="middle">cross-encoder</text><text class="lbl-sm" x="470" y="209" text-anchor="middle">re-rank</text></g>
+            <g class="st" id="sp-prompt"><rect class="node-g" x="400" y="240" width="140" height="44" rx="9"/><text class="lbl-sm" x="470" y="260" text-anchor="middle" fill="#3f7a2e">top survivors</text><text class="lbl-sm" x="470" y="275" text-anchor="middle" fill="#3f7a2e">&#8594; prompt</text></g>
+            <path id="e-space-rrf" class="flow" d="M318 150 C 360 150, 366 130, 400 130" marker-end="url(#arrow)"/>
+            <path id="e-bm25-rrf" class="flow" d="M470 86 V108" marker-end="url(#arrow)"/>
+            <path id="e-rrf-rerank" class="flow" d="M470 152 V174" marker-end="url(#arrow)"/>
+            <path id="e-rerank-prompt" class="flow" d="M470 218 V240" marker-end="url(#arrow)"/>
+            <text id="sp-note" class="readout" x="300" y="296" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: top-k casts a wide net (recall); the cross-encoder re-ranks the survivors (precision)</figcaption>
+      </figure>
+
+      <p>Two threads from the brief are worth naming. First, <strong>hybrid search</strong>: dense vectors are great for paraphrase and semantics but blur exact tokens, while sparse BM25 nails IDs, error codes, proper nouns, and literal jargon — so you run both and fuse the results. Because cosine scores and BM25 scores live on incompatible scales, you fuse by <strong>Reciprocal Rank Fusion</strong> (combine by <em>position</em> in each list, not raw score). Second, re-ranking pays off concretely: reported lifts are roughly +5 to +15 NDCG@10 (benchmark-dependent), which is why "hybrid + rerank" is the default good-enough production recipe. We'll build both out in Lesson 18.</p>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The 2026 reality</div>
+      <h2>Naive RAG is dead</h2>
+      <p>The 2023-style pipeline — chunk, dump in a vector DB, take top-k, hope — is what practitioners now openly call <em>dead</em>. Not RAG itself: the concept keeps growing fast. What died is the <strong>naive</strong> form. The live form, the one this whole phase teaches, is hybrid retrieval, contextual chunks, reranking, and increasingly <strong>agentic, multi-step retrieval</strong>. Three shifts are worth carrying forward:</p>
+      <ul>
+        <li><strong>Agentic RAG.</strong> Retrieval becomes a <em>loop</em>, not a single step. An agent decides <em>whether</em> to retrieve, judges whether the returned context is sufficient, spots gaps, issues follow-up queries (multi-hop), and only then answers — often orchestrated with LangGraph. This is the headline architectural change from 2024's retrieve-then-generate, and it leans on everything you'll learn about agents later in the course.</li>
+        <li><strong>The "context engineering" rebrand.</strong> Practitioners — including Douwe Kiela, a co-author of the original RAG paper — increasingly fold RAG, prompt construction, and tool/MCP context under the banner of <em>context engineering</em>; some analysts have framed 2026 as "the year of context." The term is shifting, but the mechanics are exactly the ones in this lesson. Lesson 19 takes the name head-on.</li>
+        <li><strong>Long context doesn't kill RAG; it reshapes it.</strong> Million-token windows exist, but dumping a whole corpus per query is far slower and costlier, and accuracy degrades on multi-needle retrieval as the window fills. RAG pays only for the relevant tokens. The 2025&ndash;2026 pattern is <em>routing</em>: simple lookups go to RAG; global, multi-hop reasoning over a small corpus goes to long context. And remember the floor from Lesson 1's sibling idea — under ~200K tokens, just paste it.</li>
+      </ul>
+      <p>One more nuance to retire the "RAG vs fine-tune" framing for good: the frontier is <em>combining</em> them. Techniques like Finetune-RAG (2025) fine-tune a model to resist hallucinating when retrieval is imperfect, reporting meaningful gains in factual accuracy. The slogan that survives: <strong>fine-tune for behavior, retrieve for knowledge.</strong></p>
+      <div class="callout">
+        <span class="k">Where this phase goes next</span>
+        <p>This lesson hands off <em>from</em> Evaluation (Lessons 10&ndash;14) — you cannot ship retrieval you don't measure — and opens every door the rest of Phase 3 walks through: the <strong>vector store</strong> and HNSW (L16), <strong>chunking</strong> strategy (L17), <strong>hybrid + rerank</strong> in depth (L18), <strong>context engineering</strong> (L19), and <strong>retrieval evaluation</strong> — recall@k, faithfulness, context precision — that proves the whole thing works (L21). You now hold the map; the next lessons fill in each stage.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>a model's knowledge is frozen at its cutoff, so fetch the relevant text at query time and paste it into the context window — across two clocks (offline ingest, online query) meeting at a shared store — and the model answers from grounded, citable evidence. The quality ceiling sits at retrieval, not generation.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Frozen at the cutoff</b><span>A base model can't see private or fresh data and can't cite a source. Fine-tuning is slow, teaches behavior over facts, and still can't cite.</span></div>
+        <div class="tk"><span class="num">02</span><b>Fetch, don't bake</b><span>Don't put knowledge in the weights; retrieve it at query time into the context window. The model answers from text it can see, quote, and link.</span></div>
+        <div class="tk"><span class="num">03</span><b>First rung past prompting</b><span>On the ladder prompt &#8594; RAG &#8594; agents &#8594; fine-tune, RAG is the default way to add private, fresh, citable knowledge without retraining.</span></div>
+        <div class="tk"><span class="num">04</span><b>Two clocks</b><span>Offline ingest (load&#8594;chunk&#8594;embed&#8594;index) runs when data changes; online query (embed&#8594;retrieve&#8594;rerank&#8594;assemble&#8594;generate) runs per question. They meet at the store.</span></div>
+        <div class="tk"><span class="num">05</span><b>The grounding invariant</b><span>RAG answers only from retrieved context. A retrieval miss yields a confident hallucination, not an "I don't know."</span></div>
+        <div class="tk"><span class="num">06</span><b>Ceiling at retrieval</b><span>Generation only stitches; it can't invent a fact retrieval never fetched. You can't prompt your way out of a missing chunk.</span></div>
+        <div class="tk"><span class="num">07</span><b>Stage by stage</b><span>Chunk (silent failures), embed (does the query land near the right chunk), index (HNSW), retrieve (top-k dial), rerank (precision), generate (stitch + cite).</span></div>
+        <div class="tk"><span class="num">08</span><b>Naive RAG is dead</b><span>The live form is hybrid (BM25+dense via RRF) + contextual chunks + reranking + agentic, multi-step retrieval — rebranded as "context engineering."</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) What limitation of a base LLM does RAG solve that prompting alone cannot, and why is fine-tuning a poor fit for the same problem?<br>
+        (2) Name the four offline stages and the five online stages. Why keep them as two pipelines on different clocks?<br>
+        (3) State the grounding invariant. Why does a retrieval miss produce a confident hallucination, and where does that put the quality ceiling?<br>
+        (4) Pick one stage (chunk, embed, index, retrieve, rerank) and explain concretely how a bad decision there silently degrades the answer even if everything else is perfect.<br>
+        (5) Bi-encoder vs cross-encoder: what's the difference, and why run cheap retrieval first and expensive reranking only on the survivors?<br>
+        (6) What is hybrid search, why keep BM25 alongside dense vectors, and why fuse with RRF instead of adding raw scores?<br>
+        (7) Given 1M-token windows, when is RAG still the right call over stuffing everything in the prompt, and what does Anthropic suggest under ~200K tokens?<br>
+        (8) How do you tell whether retrieval or generation is the problem? Name one retrieval-stage metric and one end-to-end RAG metric.<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 15 &middot; THE RAG PIPELINE &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the keystone that opens the RAG &amp; Retrieval phase &middot; tool names, pricing, and model facts are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* the two-clock pipeline */
+  makeStepper(document.getElementById('fig-pipeline'), [
+    {text:"Two clocks, one shared store. The top lane runs ingest; the bottom lane runs each query. They only ever meet at the vector store in the middle.", active:[], note:"two pipelines at different speeds — they touch only at the store", clock:""},
+    {text:"OFFLINE · 1 — LOAD. When your docs change, the ingest clock ticks: pull in the source — wiki pages, PDFs, release notes, tickets.", active:["pp-doc"], note:"OFFLINE INGEST runs only when your data changes — minutes, not ms", clock:"⏱ when data changes"},
+    {text:"OFFLINE · 2 — CHUNK. Slice each doc into ~400–512 token passages with a little overlap, so a single chunk can answer a question on its own. This stage quietly decides everything.", active:["pp-doc","pp-chunk"], path:"e-doc-chunk", note:"chunk too big → diluted; too small → severed context", clock:"⏱ when data changes"},
+    {text:"OFFLINE · 3 — EMBED. Each chunk goes through an embedding model and becomes a vector — a point in semantic space where nearby = similar in meaning.", active:["pp-chunk","pp-embed1"], path:"e-chunk-embed1", note:"the SAME model must embed chunks now and queries later", clock:"⏱ when data changes"},
+    {text:"OFFLINE · 4 — INDEX. The vectors are inserted into the store, built over an HNSW graph (+ an inverted BM25 index for keywords). The store is now ready to be queried.", active:["pp-embed1","pp-store"], path:"e-embed1-store", note:"indexing = inserting vectors so nearest-neighbour search is fast", clock:"⏱ when data changes"},
+    {text:"Clock switch. ONLINE · embed the QUESTION with the same model used on the chunks, so the query vector lives in the same space and can be compared.", active:["pp-q","pp-embed2"], path:"e-q-embed2", note:"ONLINE QUERY runs every question, in milliseconds", clock:"⏱ every question"},
+    {text:"ONLINE · RETRIEVE. The query vector fires into the store and pulls back the top-k nearest chunks — fast, approximate nearest-neighbour search.", active:["pp-embed2","pp-store"], path:"e-embed2-store", note:"top-k is the recall/noise dial — the quality ceiling lives here", clock:"⏱ every question"},
+    {text:"ONLINE · RE-RANK + ASSEMBLE. A cross-encoder re-reads the candidates and keeps the best few; the survivors are pasted into the prompt beside the question.", active:["pp-store","pp-rank","pp-prompt"], path:"e-store-rank", note:"rerank = precision rescue; assemble = put context next to the question", clock:"⏱ every question"},
+    {text:"ONLINE · GENERATE. The model answers FROM the retrieved text — grounded, not from memory. Generation only stitches what retrieval handed it.", active:["pp-rank","pp-prompt","pp-gen"], path:"e-prompt-gen", note:"the model answers ONLY from retrieved context", clock:"⏱ every question"},
+    {text:"…and out comes a grounded answer WITH a citation the user can click to verify. When the docs change, only the top lane re-runs; the bottom lane never stops.", active:["pp-gen","pp-cite"], path:"e-gen-cite", note:"grounded + citable + updatable — the whole point of RAG", clock:"⏱ every question"}
+  ], function(idx,s){
+    document.getElementById('pp-note').textContent=s.note;
+    var ck=document.getElementById('pp-clock'); ck.textContent=s.clock||'';
+    ck.setAttribute('fill', idx>=5 ? '#B0532F' : '#4A7BA6');
+  });
+
+  /* grounded vs hallucination toggle */
+  makeStepper(document.getElementById('fig-toggle'), [
+    {text:"Same question, run twice: 'How do I enable streaming responses in FrameworkX v4.2?' The ONLY thing we'll vary is what retrieval returns.", active:["tg-q"], toggle:"RETRIEVAL: —", tc:"#5A574E", chunk1:"retrieved chunk", chunk2:"—", cbox:"node", ans1:"", ans2:"", abox:"node", warn:false, cite:false, note:"watch: the model, the prompt template, the question — all held fixed"},
+    {text:"GOOD retrieval. The query vector lands on the right passage — the v4.2 release note that introduces the streaming flag. The correct chunk lights up.", active:["tg-q","tg-retr","tg-chunk"], path:"e-retr-chunk", toggle:"RETRIEVAL: GOOD ✓", tc:"#3f7a2e", chunk1:"v4.2 release note", chunk2:"responses.stream = true", cbox:"node-g", ans1:"", ans2:"", abox:"node", warn:false, cite:false, note:"good retrieval = the answer-bearing passage is actually fetched"},
+    {text:"It flows into the prompt and the model answers FROM it — the correct v4.2 flag, plus a citation the developer can click to verify.", active:["tg-chunk","tg-model","tg-ans"], path:"e-chunk-model", toggle:"RETRIEVAL: GOOD ✓", tc:"#3f7a2e", chunk1:"v4.2 release note", chunk2:"responses.stream = true", cbox:"node-g", ans1:"Set responses.stream = true — added in v4.2.", ans2:"Source: docs/v4.2/streaming", abox:"node-g", warn:false, cite:true, note:"grounded + citable: correct on data newer than the training cutoff"},
+    {text:"Now flip the toggle. SAME question — but retrieval misses: the v4.2 chunk was never indexed, so it returns an off-topic or empty passage.", active:["tg-q","tg-retr","tg-chunk"], path:"e-retr-chunk", reject:true, toggle:"RETRIEVAL: BAD ✗", tc:"#B0532F", chunk1:"off-topic / empty", chunk2:"v4.2 note NOT found", cbox:"node-r", ans1:"Set responses.stream = true — added in v4.2.", ans2:"Source: docs/v4.2/streaming", abox:"node-g", warn:false, cite:true, note:"a retrieval MISS: the answer-bearing chunk is simply absent"},
+    {text:"The prompt is starved of the real fact — and the model does NOT say 'I don't know.' It fluently invents a plausible-but-wrong flag from stale memory. No source.", active:["tg-chunk","tg-model","tg-ans"], path:"e-chunk-model", reject:true, toggle:"RETRIEVAL: BAD ✗", tc:"#B0532F", chunk1:"off-topic / empty", chunk2:"v4.2 note NOT found", cbox:"node-r", ans1:"Use legacy stream_mode = on.", ans2:"(renamed/removed in v4.2 — wrong)", abox:"node-r", warn:true, cite:false, note:"the dark twin of grounding: a miss yields a hallucination, not an abstention"},
+    {text:"Look again: the two answers were equally confident — only the retrieved context differed. That is why the quality CEILING of RAG sits at retrieval, not generation.", active:["tg-q","tg-retr","tg-chunk","tg-model","tg-ans"], toggle:"RETRIEVAL decides", tc:"#5A574E", chunk1:"off-topic / empty", chunk2:"v4.2 note NOT found", cbox:"node-r", ans1:"Use legacy stream_mode = on.", ans2:"(renamed/removed in v4.2 — wrong)", abox:"node-r", warn:true, cite:false, note:"you cannot prompt your way out of a chunk that was never fetched"}
+  ], function(idx,s){
+    var tg=document.getElementById('tg-toggle'); tg.textContent=s.toggle; tg.setAttribute('fill',s.tc);
+    document.getElementById('tg-chunkbox').setAttribute('class',s.cbox);
+    document.getElementById('tg-chunkt1').textContent=s.chunk1;
+    document.getElementById('tg-chunkt2').textContent=s.chunk2;
+    document.getElementById('tg-ansbox').setAttribute('class',s.abox);
+    var atc = s.abox==='node-g' ? '#3f7a2e' : (s.abox==='node-r' ? '#B0532F' : '#5A574E');
+    var a1=document.getElementById('tg-anst1'), a2=document.getElementById('tg-anst2');
+    a1.textContent=s.ans1; a1.setAttribute('fill',atc);
+    a2.textContent=s.ans2; a2.setAttribute('fill',atc);
+    document.getElementById('tg-warn').style.display = s.warn ? '' : 'none';
+    document.getElementById('tg-cite').style.display = s.cite ? '' : 'none';
+    document.getElementById('tg-note').textContent=s.note;
+  });
+
+  /* top-k then re-rank in vector space */
+  makeStepper(document.getElementById('fig-space'), [
+    {text:"A flattened embedding space. The glowing point is your query; the dots are candidate chunks at various distances. Closer = more similar by vector distance.", active:["sp-query"], note:"but distance is only a rough proxy for true relevance"},
+    {text:"PHASE 1 — top-k by distance. Expand a radius and grab a generous set of nearest neighbours. Fast and approximate: it pulls in some off-topic neighbours AND reaches a couple of distant-but-relevant chunks.", active:["sp-query"], radius:122, note:"top-k = recall over precision: cast a wide, cheap net first"},
+    {text:"HYBRID — run a parallel BM25 keyword pass. It catches exact matches that vectors blur: the literal flag name, an error code, 'v4.2', proper nouns.", active:["sp-query","sp-bm25"], radius:122, note:"dense catches meaning; sparse catches exact tokens, IDs, jargon"},
+    {text:"FUSE — Reciprocal Rank Fusion merges the two ranked lists by RANK, not raw score, because cosine and BM25 scores live on incompatible scales.", active:["sp-query","sp-bm25","sp-rrf"], radius:122, path:"e-space-rrf", note:"RRF: combine by position in each list — scales don't have to match"},
+    {text:"PHASE 2 — re-rank. A cross-encoder re-reads each query+chunk PAIR jointly. Distant-but-relevant chunks jump up (green); near-but-off-topic ones drop out (faded).", active:["sp-rrf","sp-rerank"], path:"e-rrf-rerank", note:"cheap bi-encoder retrieves; precise cross-encoder re-scores the survivors"},
+    {text:"PHASE 3 — assemble. Only the top ~5 survivors get pasted into the prompt's few precious slots. Re-rank makes sure they're the RIGHT handful.", active:["sp-rerank","sp-prompt"], path:"e-rerank-prompt", note:"the prompt has room for a handful — spend the slots wisely"},
+    {text:"Two dials to remember: top-k trades recall against noise; re-rank trades latency for precision. Hybrid + rerank is the default good-enough production recipe.", active:[], note:"top-k = recall vs noise · rerank = precision rescue"}
+  ], function(idx,s){
+    var rad=document.getElementById('sp-radius');
+    if(s.radius){rad.style.display='';rad.setAttribute('r',s.radius);}else{rad.style.display='none';}
+    document.getElementById('sp-note').textContent=s.note;
+    var neu='#BCB29A',blu='#1F4E79',grn='#69B34C',dim='#DCD4C2';
+    function P(o){['sp-d1','sp-d2','sp-d3','sp-d4','sp-d5','sp-d6','sp-d7','sp-d8','sp-d9'].forEach(function(id){document.getElementById(id).setAttribute('fill',o[id]||neu);});}
+    if(idx===0){P({});}
+    else if(idx>=1&&idx<=3){P({'sp-d1':blu,'sp-d2':blu,'sp-d3':blu,'sp-d4':blu,'sp-d5':blu,'sp-d6':blu,'sp-d7':blu});}
+    else {P({'sp-d1':grn,'sp-d2':grn,'sp-d3':grn,'sp-d6':grn,'sp-d7':grn,'sp-d4':dim,'sp-d5':dim});}
+  });
+</script>
+</body>
+</html>

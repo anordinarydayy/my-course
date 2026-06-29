@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 21 — Evaluating Retrieval Quality (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">Evaluating Retrieval<br>Quality</div>
+    <h4>Eval, decomposed</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>One bad number, two suspects</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Decompose: retrieval vs generation</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Retrieval metrics &amp; the k trade-off &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The RAG triad &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Retrieval vs generation metrics</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The diagnostic decision tree &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Closing Phase 3: retrieval as a gate</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">21</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>Evaluating Retrieval Quality</h1>
+      <p class="lede">Your RAG bot just failed the end-to-end answer gate from Lesson 13. That single score tells you the patient is sick — not what's wrong. Did retrieval fail to surface the right chunk, or did the model get the right chunk and botch the answer? You can't improve retrieval you can't see, and you can't see it through a final-answer number. This lesson resolves that by <strong>decomposing the eval</strong> into the two stages a RAG pipeline actually has, measuring each independently, and turning the verdict into a CI gate — closing Phase 3 by looping the whole retrieval stack back into the Evaluation phase.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The lesson that closes the RAG &amp; Retrieval phase. It draws on public sources for framing — Chip Huyen's <em>AI Engineering</em>, Anthropic's writing on evaluation and grounding, the TruLens RAG triad, RAGAS/DeepEval/Phoenix/ARES tooling, and 2025&ndash;2026 work on citation accuracy and grounded-summarization benchmarks — but every explanation, diagram, and example here is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Tool names, pricing, thresholds, and model facts are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The opaque score</div>
+      <h2>One bad number, two suspects</h2>
+      <p>You did everything Phase 2 asked. You chunked the corpus, embedded it, wired a vector index, fetched top-k, and stuffed the context into the prompt. Then you ran the whole-system eval from Lesson 13 against your golden set, and the verdict came back ugly: human raters score roughly <strong>40% of answers wrong</strong>. The gate is red. And now you're stuck, because that number is <em>opaque</em> — it condemns the pipeline without naming the culprit.</p>
+      <p>Here's why a single end-to-end score can't fix you. A RAG pipeline has two distinct stages, and the failure could live in either. The <strong>retriever</strong> might never have surfaced the chunk that holds the answer — in which case the model was doomed before it generated a token. Or the retriever did its job, handed over the perfect chunk, and the <strong>generator</strong> ignored it, fabricated around it, or answered a different question. Same red score, opposite root causes, opposite fixes. Pour weeks into prompt engineering when the real fault was retrieval and you'll move the number not at all.</p>
+      <p>The insight that breaks the deadlock is almost embarrassingly simple once named: <strong>stop scoring only the final answer.</strong> Score the two stages separately. Measure whether retrieval put the right evidence on the table, and measure whether generation used that evidence honestly. Two numbers instead of one, and suddenly the fault has an address.</p>
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>An end-to-end answer score collapses two failure modes into one number. <strong>Decompose the eval</strong> into a retrieval stage (did we fetch the right chunk?) and a generation stage (did we use it faithfully?), measure each on its own, and the aggregate's mystery becomes a diagnosis. Everything else in this lesson is the metrics, the diagram, and the decision tree that make the decomposition operational.</p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Split the pipeline</div>
+      <h2>Decompose: retrieval vs generation</h2>
+      <p>The two stages are different <em>kinds</em> of problem, so they want different toolkits. Retrieval is an <strong>information-retrieval (IR) problem</strong>: out of a corpus, did the top-k results contain the documents that matter? That's a question decades of search research already answers with rank metrics. Generation is a <strong>grounding problem</strong>: given some context, did the model produce claims that actually follow from it? That's a natural-language inference question, judged today by an LLM. Measuring them with each other's tools is the classic category error — you can't catch a missing chunk with a faithfulness score, and you can't catch a hallucination with recall@k.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Retrieval stage</h4>
+          <ul>
+            <li><strong>Job:</strong> surface the chunks that contain the answer in the top-k.</li>
+            <li><strong>Failure mode:</strong> the answer-bearing chunk is absent or buried — the model never sees it.</li>
+            <li><strong>Measured with:</strong> IR metrics — recall@k, precision@k, hit-rate, MRR, nDCG.</li>
+            <li><strong>Golden data:</strong> each query mapped to its <em>relevant chunk IDs</em>.</li>
+            <li><strong>Fix lever:</strong> chunking, k, embeddings, hybrid search, reranking.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Generation stage</h4>
+          <ul>
+            <li><strong>Job:</strong> answer the question using only the retrieved context.</li>
+            <li><strong>Failure mode:</strong> ignores the context, fabricates, or answers the wrong question.</li>
+            <li><strong>Measured with:</strong> the RAG triad — faithfulness, answer relevance, context relevance.</li>
+            <li><strong>Golden data:</strong> often none — an LLM judges reference-free.</li>
+            <li><strong>Fix lever:</strong> grounding prompt, output format, model choice.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The principle that falls out is an <strong>invariant you'll lean on for the rest of the lesson</strong>: every RAG failure is, at bottom, either a retrieval failure or a generation failure, and the two are independently measurable. Hold that and the rest is just naming the metrics. We start with the IR side, because it has the cleaner math — and a slider that makes its central trade-off impossible to forget.</p>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> IR on a golden set</div>
+      <h2>Retrieval metrics &amp; the k trade-off &#9656;</h2>
+      <p>Retrieval metrics have one hard prerequisite: a <strong>golden set that maps each query to its relevant chunk IDs</strong>. This is the same machinery you built in Lesson 12 — except instead of labeling the correct <em>answer</em>, you label which <em>chunks</em> contain it. Without those ground-truth relevance labels you literally cannot compute recall@k; there is no truth to compare the top-k against. Reuse the golden-set discipline, change the label, and retrieval becomes measurable.</p>
+      <p>The two workhorse metrics are mirror images:</p>
+      <ul>
+        <li><strong>recall@k</strong> = (relevant chunks in the top k) &divide; (total relevant chunks). The <em>"did we even fetch it?"</em> metric. If recall is low, the right evidence never reached the model.</li>
+        <li><strong>precision@k</strong> = (relevant chunks in the top k) &divide; k. The <em>noise</em> metric. If precision is low, the model has to find signal in a pile of distractors.</li>
+      </ul>
+      <p>Three more round out the IR toolkit. <strong>hit-rate@k</strong> is the binary version — was there <em>at least one</em> relevant chunk in the top k (FAQ bots often want ~0.9). <strong>MRR</strong> (mean reciprocal rank) averages 1&divide;rank of the <em>first</em> relevant chunk: rank 1 scores 1.0, rank 3 scores 0.33 — it rewards putting truth at the top. <strong>nDCG@k</strong> is rank-discounted (logarithmic) and supports <em>graded</em> relevance, so a perfectly-ranked list scores 1.0 and good chunks buried deep are penalized. All range 0&ndash;1.</p>
+      <p>Now the trade-off that governs everything. Slide k upward and recall climbs while precision falls — you fetch more truth <em>and</em> more noise. Watch it move, then watch how reranking dissolves the dilemma:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-recall">
+          <svg viewBox="0 0 640 240" role="img" aria-label="A ranked list of eight chunks with a growing top-k window, and recall and precision bars that trade off as k rises, then a rerank step that fixes both">
+            <text class="lbl-sm" x="112" y="14" text-anchor="middle">ranked retrieval results (rank 1 = top)</text>
+            <g class="st" id="rc-list">
+              <rect id="rc-ck1" class="node" x="34" y="22" width="156" height="18" rx="4"/><text id="rc-lk1" class="lbl-sm" x="42" y="35"></text>
+              <rect id="rc-ck2" class="node" x="34" y="45" width="156" height="18" rx="4"/><text id="rc-lk2" class="lbl-sm" x="42" y="58"></text>
+              <rect id="rc-ck3" class="node" x="34" y="68" width="156" height="18" rx="4"/><text id="rc-lk3" class="lbl-sm" x="42" y="81"></text>
+              <rect id="rc-ck4" class="node" x="34" y="91" width="156" height="18" rx="4"/><text id="rc-lk4" class="lbl-sm" x="42" y="104"></text>
+              <rect id="rc-ck5" class="node" x="34" y="114" width="156" height="18" rx="4"/><text id="rc-lk5" class="lbl-sm" x="42" y="127"></text>
+              <rect id="rc-ck6" class="node" x="34" y="137" width="156" height="18" rx="4"/><text id="rc-lk6" class="lbl-sm" x="42" y="150"></text>
+              <rect id="rc-ck7" class="node" x="34" y="160" width="156" height="18" rx="4"/><text id="rc-lk7" class="lbl-sm" x="42" y="173"></text>
+              <rect id="rc-ck8" class="node" x="34" y="183" width="156" height="18" rx="4"/><text id="rc-lk8" class="lbl-sm" x="42" y="196"></text>
+            </g>
+            <rect id="rc-window" x="28" y="19" width="168" height="0" rx="6" fill="none" stroke="var(--rust)" stroke-width="2.5" stroke-dasharray="5 3" style="display:none"/>
+            <g class="st" id="rc-recall">
+              <text class="lbl" x="330" y="64">recall@k</text>
+              <text id="rc-recallval" class="readout" x="580" y="64" text-anchor="end">&mdash;</text>
+              <rect x="330" y="72" width="250" height="24" rx="5" fill="var(--line)"/>
+              <rect id="rc-recallfill" x="330" y="72" width="0" height="24" rx="5" fill="#69B34C"/>
+              <text class="lbl-sm" x="330" y="112">of all relevant chunks, how many we fetched</text>
+            </g>
+            <g class="st" id="rc-prec">
+              <text class="lbl" x="330" y="140">precision@k</text>
+              <text id="rc-precval" class="readout" x="580" y="140" text-anchor="end">&mdash;</text>
+              <rect x="330" y="148" width="250" height="24" rx="5" fill="var(--line)"/>
+              <rect id="rc-precfill" x="330" y="148" width="0" height="24" rx="5" fill="#B0532F"/>
+              <text class="lbl-sm" x="330" y="188">of the top-k we fetched, how much is signal</text>
+            </g>
+            <text id="rc-formula" class="readout" x="330" y="214" text-anchor="start" font-size="13"></text>
+            <text id="rc-note" class="lbl-sm" x="330" y="232" text-anchor="start"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: as k grows, recall rises and precision falls; reranking floats the relevant chunks up so a small k wins both</figcaption>
+      </figure>
+
+      <p>The recipe the slider argues for is now industry-standard: <strong>fetch wide for recall, then rerank for precision</strong>. Cast a recall-oriented net of ~50 candidates with a hybrid retriever (BM25 keyword search fused with vector similarity via reciprocal-rank fusion, so an exact-term hit and a semantic hit both surface), then run a cross-encoder reranker to reorder and cut down to the top ~5. Reranking commonly buys a 20&ndash;40% faithfulness lift downstream, because the generator finally sees a clean, relevant context window. Target bands people cite in mid-2026: recall@k around 0.8+ for critical queries, MRR &gt; 0.7, nDCG@10 &gt; 0.8, hit-rate@10 ~0.9 for FAQ bots. Hit those and the retrieval stage is no longer your suspect — which sends us to the other half of the pipeline.</p>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Judging generation</div>
+      <h2>The RAG triad &#9656;</h2>
+      <p>Retrieval metrics need labeled chunks. Generation metrics often need <em>nothing</em> — and that's what makes them runnable in CI on every query, not just the labeled few. The dominant framing is the <strong>RAG triad</strong> (from TruLens, with Snowflake's groundedness judge), three reference-free scores computed by an LLM-as-judge over the (question, context, answer) triple:</p>
+      <ul>
+        <li><strong>Context relevance</strong> — is the retrieved context on-topic for the question? Catches a retriever that pulled junk. (Question &harr; Context.)</li>
+        <li><strong>Faithfulness / groundedness</strong> — is every claim in the answer supported by that context? A hallucination check. (Context &harr; Answer.)</li>
+        <li><strong>Answer relevance</strong> — does the answer actually address the question asked? Catches an evasive or off-topic reply. (Question &harr; Answer.)</li>
+      </ul>
+      <p>The subtle, load-bearing point is what faithfulness <em>is not</em>. Faithfulness measures <strong>groundedness, not correctness</strong>. Modern implementations (RAGAS, DeepEval, Phoenix) decompose the answer into <em>atomic claims</em> and check each one for entailment against the context, NLI-style — claim-level scoring has replaced the old holistic "is this grounded?" prompt. So an answer can score a perfect 1.0 on faithfulness while being flat wrong: it faithfully reported what the retrieved chunk said, and the chunk was the wrong chunk. <em>Faithful to what?</em> is the question that keeps you honest. Watch each corner of the triad break in turn, and notice how the fault localizes:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-triad">
+          <svg viewBox="0 0 640 245" role="img" aria-label="The RAG triad: Question, Context and Answer nodes joined by three scored edges; each edge turns red in turn to localize a fault">
+            <path id="tq-ecr" d="M300,74 L150,156" fill="none" stroke="var(--blueprint-soft)" stroke-width="2"/>
+            <path id="tq-ear" d="M350,74 L500,156" fill="none" stroke="var(--blueprint-soft)" stroke-width="2"/>
+            <path id="tq-ef"  d="M203,183 L437,183" fill="none" stroke="var(--blueprint-soft)" stroke-width="2"/>
+            <path id="tq-loop" d="M325,74 L125,183 L515,183 Z" fill="none" stroke="none"/>
+            <text class="lbl-sm" x="196" y="118" text-anchor="end">context</text>
+            <text class="lbl-sm" x="196" y="131" text-anchor="end">relevance</text>
+            <text class="lbl-sm" x="454" y="118" text-anchor="start">answer</text>
+            <text class="lbl-sm" x="454" y="131" text-anchor="start">relevance</text>
+            <text class="lbl-sm" x="325" y="205" text-anchor="middle">faithfulness / groundedness</text>
+            <g class="st" id="tq-q"><rect class="node-b" x="252" y="28" width="146" height="46" rx="10"/><text class="lbl" x="325" y="50" text-anchor="middle">Question</text><text class="lbl-sm" x="325" y="65" text-anchor="middle">the user's ask</text></g>
+            <g class="st" id="tq-ctx"><rect class="node" x="50" y="157" width="150" height="46" rx="10"/><text class="lbl" x="125" y="179" text-anchor="middle">Context</text><text class="lbl-sm" x="125" y="194" text-anchor="middle">retrieved chunks</text></g>
+            <g class="st" id="tq-ans"><rect class="node" x="440" y="157" width="150" height="46" rx="10"/><text class="lbl" x="515" y="179" text-anchor="middle">Answer</text><text class="lbl-sm" x="515" y="194" text-anchor="middle">generated reply</text></g>
+            <text id="tq-note" class="readout" x="320" y="234" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: each edge isolates one component, so a single red edge points at exactly where the pipeline broke</figcaption>
+      </figure>
+
+      <p>These judges are reliable enough to <strong>gate CI</strong>, which is the whole reason they matter. RAGAS faithfulness correlates above 0.8 (Pearson) with human ratings; Snowflake's groundedness judge reports F1 around 0.81 and Cohen's &kappa; ~0.54 (moderate-to-substantial agreement) on grounded-fact benchmarks. The 2025&ndash;2026 tool shelf is crowded and converging: <strong>RAGAS</strong> (metric-rich offline evals), <strong>TruLens</strong> (origin of the triad, tracing + feedback functions), <strong>DeepEval</strong> (pytest-style, the strongest CI/CD story), <strong>Arize Phoenix</strong> (tracing/observability), and <strong>ARES</strong> (fine-tunes a lightweight judge from a few hundred human labels plus prediction-powered inference, claiming robustness under domain shift). MLflow now ships RAGAS, DeepEval, and Phoenix scorers natively — a sign RAG eval has moved from bespoke scripts into mainstream MLOps.</p>
+      <div class="callout">
+        <span class="k">A 2026 caution: smarter is not always more faithful</span>
+        <p>Don't assume a bigger model fixes groundedness. On Vectara's grounded-summarization hallucination leaderboard (HHEM), the best models sit near ~0.7&ndash;1.5% hallucination (illustratively, a Gemini-2.0-Flash-class model ~0.7%, a GPT-4o-class model ~1.5%) — yet several 2025-era <em>reasoning</em> models score <em>worse</em>, exceeding 10% on long-document grounded tasks, apparently reasoning their way past the context. The faithfulness number is the check precisely because "use the smarter model" is an unreliable fix. And citation accuracy is its own frontier: without explicit attribution training, cited sources actually support the claim only ~65&ndash;70% of the time, which is why 2025 research now separates citation <em>correctness</em> (the source supports the claim) from citation <em>faithfulness</em> (the model genuinely relied on it, rather than post-rationalizing).</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Two metric families</div>
+      <h2>Retrieval vs generation metrics</h2>
+      <p>Put the two families side by side. The column that decides how often a metric can run in CI is <em>"reference-free?"</em> — reference-free judges run on every production query; metrics that need a labeled reference run only against your golden set. That asymmetry is exactly why generation metrics became the always-on layer and retrieval metrics the offline gate.</p>
+      <table class="cost">
+        <thead><tr><th>Metric</th><th>Stage</th><th>What it answers</th><th>Needs labels?</th><th>Ref-free?</th><th>Target</th><th>Fix if low</th></tr></thead>
+        <tbody>
+          <tr><td><code>recall@k</code></td><td>Retrieval</td><td>did we fetch the needed chunk?</td><td>yes &mdash; chunk IDs</td><td>n/a</td><td>~0.8+ critical</td><td>broaden: chunking, raise k, hybrid</td></tr>
+          <tr><td><code>precision@k</code></td><td>Retrieval</td><td>how noisy is the top-k?</td><td>yes</td><td>n/a</td><td>use-case dependent</td><td>rerank, lower k</td></tr>
+          <tr><td><code>MRR</code></td><td>Retrieval</td><td>how high does the first hit rank?</td><td>yes</td><td>n/a</td><td>&gt; 0.7</td><td>reranker</td></tr>
+          <tr><td><code>nDCG@k</code></td><td>Retrieval</td><td>rank-weighted, graded relevance</td><td>yes (graded)</td><td>n/a</td><td>&gt; 0.8</td><td>reranker</td></tr>
+          <tr><td><code>hit-rate@k</code></td><td>Retrieval</td><td>any relevant chunk in top-k?</td><td>yes</td><td>n/a</td><td>~0.9 FAQ</td><td>raise k, hybrid</td></tr>
+          <tr><td><code>faithfulness</code></td><td>Generation</td><td>is every claim supported by context?</td><td>no</td><td>yes</td><td>&gt; 0.85&ndash;0.9</td><td>prompt, grounding, model</td></tr>
+          <tr><td><code>answer&nbsp;relevance</code></td><td>Generation</td><td>does the answer address the question?</td><td>no</td><td>yes</td><td>&gt; 0.85</td><td>fix the prompt</td></tr>
+          <tr><td><code>context&nbsp;precision</code></td><td>Hybrid</td><td>are relevant chunks ranked early?</td><td>needs reference</td><td>partial</td><td>&gt; 0.8</td><td>rerank</td></tr>
+          <tr><td><code>context&nbsp;recall</code></td><td>Hybrid</td><td>does context cover the reference?</td><td>needs reference</td><td>no</td><td>~0.75&ndash;0.85</td><td>broaden retrieval</td></tr>
+        </tbody>
+      </table>
+      <p>A practitioner rule of thumb to keep the faithfulness target honest: faithfulness below ~0.85 implies roughly <strong>1 in 7 responses carries an unsupported claim</strong> — a hallucination shipped to a user. For anything customer-facing, that's the line you defend.</p>
+      <p>Now the punchline of the whole lesson, the diagnostic 2&times;2. Cross retrieval recall against faithfulness and every cell prescribes a different fix — from a single end-to-end score you could never read this:</p>
+      <table class="cost">
+        <thead><tr><th>&nbsp;</th><th>Faithfulness HIGH</th><th>Faithfulness LOW</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Recall HIGH</strong></td><td>Pipeline is fine &mdash; re-check the golden label or answer relevance.</td><td><strong>GENERATION problem</strong> &mdash; good context ignored; fix prompt / grounding / model.</td></tr>
+          <tr><td><strong>Recall LOW</strong></td><td><strong>RETRIEVAL problem</strong> &mdash; faithful to the wrong context; fix chunking / k / hybrid.</td><td>Both broken &mdash; start with retrieval, then re-measure generation.</td></tr>
+        </tbody>
+      </table>
+      <p>The two off-diagonal cells are the lesson in miniature: <em>low recall + high faithfulness</em> and <em>high recall + low faithfulness</em> can produce the <strong>identical</strong> bad end-to-end score, yet they demand opposite fixes. The decomposed numbers, not the aggregate, are what tell them apart. The decision tree in the next section walks that fork in motion.</p>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The fork in the road</div>
+      <h2>The diagnostic decision tree &#9656;</h2>
+      <p>Here is the decomposition as a procedure you can run on any failing answer. Two yes/no questions, asked in order, route the same red symptom to opposite cures. Step through it, then make it concrete with a worked case:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-diag">
+          <svg viewBox="0 0 640 270" role="img" aria-label="A diagnostic decision tree routing a bad answer to either a retrieval problem looping back to Phase 2, or a generation problem">
+            <path id="dg-e1" class="flow" d="M140,135 H168" marker-end="url(#arrow)"/>
+            <path id="dg-eno" class="flow-r" d="M235,108 C235,84 330,80 376,76" marker-end="url(#arrow-r)"/>
+            <path id="dg-eyes" class="flow" d="M298,135 H326" marker-end="url(#arrow)"/>
+            <path id="dg-eno2" class="flow-r" d="M401,160 C401,178 408,184 412,192" marker-end="url(#arrow-r)"/>
+            <path id="dg-eyes2" class="flow-g" d="M472,135 H501" marker-end="url(#arrow-g)"/>
+            <path id="dg-loop" class="flow-g" d="M330,47 C240,38 200,38 144,43" marker-end="url(#arrow-g)" stroke-dasharray="6 4" style="display:none"/>
+            <text class="lbl-sm" x="300" y="92" fill="#B0532F">NO</text>
+            <text class="lbl-sm" x="304" y="128" fill="#1F4E79">YES</text>
+            <text class="lbl-sm" x="378" y="180" fill="#B0532F">NO</text>
+            <text class="lbl-sm" x="476" y="128" fill="#3f7a2e">YES</text>
+            <g class="st" id="dg-p2"><rect class="node-b" x="20" y="20" width="120" height="46" rx="9"/><text class="lbl-sm" x="80" y="40" text-anchor="middle">Phase 2 &middot; Retrieval</text><text class="lbl-sm" x="80" y="55" text-anchor="middle">fix &amp; re-run gate</text></g>
+            <g class="st" id="dg-bad"><rect class="node-r" x="20" y="112" width="120" height="46" rx="9"/><text class="lbl" x="80" y="132" text-anchor="middle" fill="#B0532F">Bad answer</text><text class="lbl-sm" x="80" y="148" text-anchor="middle">end-to-end gate (L13)</text></g>
+            <g class="st" id="dg-q1"><rect class="node-b" x="170" y="108" width="128" height="52" rx="9"/><text class="lbl-sm" x="234" y="129" text-anchor="middle">right chunk retrieved?</text><text class="lbl-sm" x="234" y="145" text-anchor="middle">recall@k &middot; context recall</text></g>
+            <g class="st" id="dg-retr"><rect class="node-r" x="330" y="18" width="184" height="58" rx="9"/><text class="lbl" x="422" y="40" text-anchor="middle" fill="#B0532F">RETRIEVAL problem</text><text class="lbl-sm" x="422" y="58" text-anchor="middle">chunking &middot; raise k &middot; hybrid + rerank</text></g>
+            <g class="st" id="dg-q2"><rect class="node-b" x="330" y="108" width="142" height="52" rx="9"/><text class="lbl-sm" x="401" y="129" text-anchor="middle">used faithfully?</text><text class="lbl-sm" x="401" y="145" text-anchor="middle">faithfulness &middot; groundedness</text></g>
+            <g class="st" id="dg-gen"><rect class="node-r" x="330" y="194" width="184" height="58" rx="9"/><text class="lbl" x="422" y="216" text-anchor="middle" fill="#B0532F">GENERATION problem</text><text class="lbl-sm" x="422" y="234" text-anchor="middle">prompt &middot; grounding &middot; model</text></g>
+            <g class="st" id="dg-fine"><rect class="node-g" x="505" y="108" width="120" height="52" rx="9"/><text class="lbl-sm" x="565" y="129" text-anchor="middle" fill="#3f7a2e">pipeline OK</text><text class="lbl-sm" x="565" y="145" text-anchor="middle" fill="#3f7a2e">re-check label</text></g>
+            <text id="dg-note" class="readout" x="320" y="266" text-anchor="middle" font-size="12.5" fill="var(--ink)"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: bad answer &#8594; was the chunk retrieved? &#8594; was it used faithfully? — same symptom, opposite fixes</figcaption>
+      </figure>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">HR policy bot &middot; decomposed eval</span></div>
+        <div class="wbody">
+          <div class="wname">The bot that was faithful to the wrong page</div>
+          <p class="wprompt">An internal HR-policy RAG bot is failing the end-to-end answer gate from Lesson 13 — humans rate ~40% of answers wrong, and the aggregate gives no clue why. The team extends the golden set they built in Lesson 12 so each of 50 evaluation queries now maps to the chunk IDs that actually contain the answer. Two suspects, one fork to walk.</p>
+          <h4 class="wh">Decompose, then read the two numbers together</h4>
+          <pre class="code"><span class="codetag">decomposed eval report — HR policy bot</span><code><span class="cm"># Stage 1 — retrieval, scored against golden chunk IDs</span>
+recall@5            = <span class="kw">0.45</span>   <span class="cm"># answer chunk misses top-5 over half the time</span>
+MRR                 = <span class="kw">0.31</span>   <span class="cm"># first relevant hit ranks ~3rd on average</span>
+
+<span class="cm"># Stage 2 — generation, RAGAS / TruLens (reference-free judge)</span>
+faithfulness        = <span class="st">0.93</span>   <span class="cm"># answers ARE grounded in what was retrieved</span>
+answer_relevance    = <span class="st">0.88</span>   <span class="cm"># and they DO address the question</span></code></pre>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Read the signals together</span><p>The model is answering <b>faithfully and relevantly</b> &mdash; but from whatever chunks it was handed, which less than half the time are the right ones. High faithfulness over low recall means the bot is faithful to the <b>wrong context</b>.</p></div>
+            <div class="ws"><span class="wsk">Verdict: retrieval, not generation</span><p>Walk the tree: <b>was the right chunk retrieved?</b> recall@5 = 0.45 &#8594; NO &#8594; RETRIEVAL problem. Pouring effort into prompt engineering or a bigger model would have moved the end-to-end score <b>not at all</b>; the diagnosis says fix the fetch.</p></div>
+            <div class="ws"><span class="wsk">Fix the fetch, watch the score follow</span><p>Switch fixed-size chunking to section-aware semantic chunking; add a recall-oriented hybrid (BM25 + vector) fetch of ~50 candidates; cross-encoder rerank down to top 5. recall@5 rises to <b>0.86</b> and the end-to-end answer score climbs with it.</p></div>
+            <div class="ws"><span class="wsk">Now flip the verdict</span><p>Imagine instead recall@5 = <b>0.90</b> but faithfulness = <b>0.55</b>. <i>Same</i> bad end-to-end score &mdash; opposite diagnosis: the right chunk WAS retrieved and the model ignored or fabricated around it &#8594; GENERATION problem &#8594; tighten the grounding prompt ("answer only from the context, cite chunk IDs, say I-don't-know if absent"), raise precision so noise doesn't distract, or change the model.</p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;The aggregate said 'broken' but not why. So I decomposed: retrieval recall@5 was 0.45 while faithfulness was 0.93 &mdash; the bot was answering honestly from the wrong chunks, so it's a retrieval problem, not generation. I fixed chunking and added hybrid + reranking, recall jumped to 0.86, and the answer score followed. Flip the numbers &mdash; high recall, low faithfulness &mdash; and the very same bad score becomes a generation problem instead. Only the decomposed metrics told me which knob to turn.&#8221;</p>
+            <p class="plain">And both numbers now live as CI gates (Lesson 14) over the golden set, so the regression can't silently creep back.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Loop back to the gates</div>
+      <h2>Closing Phase 3: retrieval as a gate</h2>
+      <p>Decomposition gives you numbers; the Evaluation phase gives you the discipline to defend them. This is where Phase 3 loops back into Phase 2's gates from Lessons 10&ndash;14. Every chunking change, every k, every embedding or reranker swap now runs against the golden set as a <strong>required CI gate</strong> — exactly the "no eval, no merge" machinery of Lesson 14, just with retrieval metrics as the assertion. recall@k and faithfulness become numbers you can regression-test, and a clever-looking chunking refactor that quietly drops recall is blocked before it ships, the same way Lesson 14 blocked a worse prompt.</p>
+      <p>In production this settles into the <strong>three-tier eval architecture</strong> that's becoming standard for 2026 RAG: (1) <em>offline</em> RAGAS/DeepEval on a golden set that blocks deploys; (2) a <em>canary</em> LLM-as-judge pass over ~1k production queries before full rollout; and (3) <em>continuous</em> monitoring on 1&ndash;5% of sampled live traffic. It's the gate &#8594; canary &#8594; harvest loop of Lesson 14, now wrapped around the retriever as well as the model — and because the generation judges are reference-free, tiers 2 and 3 can run on real traffic with no labels at all.</p>
+      <div class="callout tip">
+        <span class="k">The invariant to carry forward</span>
+        <p>You can't improve retrieval you don't measure, and a final-answer score doesn't measure it. <strong>Decompose into retrieval (IR metrics on a golden chunk-labeled set) and generation (the RAG triad), localize the fault with the decision tree, then gate both.</strong> That's the through-line of this entire course: define good (L10), measure it (L11&ndash;L13), enforce it (L14), and now point that same instrument at every piece of the retrieval stack.</p>
+      </div>
+      <p>That closes Phase 3. You can now build a retriever <em>and</em> prove which part of it works, with metrics that survive contact with non-determinism and live as gates that never sleep. Next, <strong>Phase 4 &mdash; Agents</strong> hands the model tools, memory, and multi-step plans — and every new degree of freedom is a new place to mis-step, which means a new thing to evaluate. The instrument you just finished building is exactly what you'll read to keep agents honest.</p>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>an end-to-end answer score is opaque, so decompose RAG eval into a retrieval stage (recall@k, precision@k, MRR, nDCG, hit-rate on a golden set of chunk labels) and a generation stage (the reference-free RAG triad of faithfulness, answer relevance, context relevance) — then localize the fault with a two-question decision tree and gate both in CI.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>One score, two suspects</b><span>A RAG pipeline has a retrieval stage and a generation stage; the end-to-end answer score collapses both failure modes into one opaque number.</span></div>
+        <div class="tk"><span class="num">02</span><b>Decompose to localize</b><span>Measure retrieval and generation independently. Two numbers give the fault an address; the aggregate never can.</span></div>
+        <div class="tk"><span class="num">03</span><b>Golden chunk labels</b><span>Retrieval metrics need each query mapped to its relevant chunk IDs — reuse the L12 golden set, label chunks instead of answers.</span></div>
+        <div class="tk"><span class="num">04</span><b>The k trade-off</b><span>Raise k and recall climbs while precision falls. Fetch wide for recall, then cross-encoder rerank to a small precise k.</span></div>
+        <div class="tk"><span class="num">05</span><b>The RAG triad</b><span>Context relevance, faithfulness, answer relevance — reference-free LLM-judge scores, each isolating one component's fault.</span></div>
+        <div class="tk"><span class="num">06</span><b>Faithful &ne; correct</b><span>Faithfulness checks groundedness via atomic-claim NLI. An answer can be faithful to the wrong context and still be wrong.</span></div>
+        <div class="tk"><span class="num">07</span><b>Same score, opposite fix</b><span>Low recall + high faithfulness = retrieval problem. High recall + low faithfulness = generation problem. The 2&times;2 decides.</span></div>
+        <div class="tk"><span class="num">08</span><b>Retrieval is a gate now</b><span>Every chunking/k/reranker change runs against the golden set as a CI gate (L14); three-tier offline/canary/monitor for production.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Your RAG bot fails an end-to-end answer eval. Why is that single score insufficient to fix the system, and what is the first thing you decompose it into?<br>
+        (2) What exactly must a golden set contain to compute recall@k and precision@k, and how does that differ from an answer-quality golden set?<br>
+        (3) As you slide k from 3 to 20, what happens to recall@k and precision@k, why do they move opposite, and when would you deliberately set k high?<br>
+        (4) Define faithfulness/groundedness. Why can an answer score high on faithfulness and still be wrong? (Hint: faithful to <em>what</em>?)<br>
+        (5) Name the three corners of the RAG triad and which single component each one isolates the fault to.<br>
+        (6) A bot shows low retrieval recall but high faithfulness — retrieval or generation problem, and what do you fix? Now the mirror case: high recall, low faithfulness.<br>
+        (7) Which RAG metrics are reference-free vs which need a reference, and why does that distinction decide how often you can run each in CI?<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 21 &middot; EVALUATING RETRIEVAL QUALITY &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the lesson that closes the RAG &amp; Retrieval phase &middot; tools, thresholds, and model facts are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* the k slider: recall@k vs precision@k */
+  var rkBase=["leave-accrual table","office map","PTO carryover rule","holiday calendar","expense FAQ","year-end rollover cap","dress code","cafeteria menu"];
+  var rkRerank=["leave-accrual table","PTO carryover rule","year-end rollover cap","office map","holiday calendar","expense FAQ","dress code","cafeteria menu"];
+  makeStepper(document.getElementById('fig-recall'), [
+    {text:"One query's ranked retrieval result: 8 chunks, top-ranked first. Three (green) actually contain the answer — that's our golden label. Five are noise. No top-k window yet.", active:["rc-list"], winH:0, recall:null, prec:null, gold:[1,3,6], labels:rkBase, formula:"3 relevant chunks hidden among 8 ranked results", note:"recall@k & precision@k both need these green ground-truth labels"},
+    {text:"k=1: take only the top chunk. It's relevant, so precision is a perfect 100% — but we captured just 1 of 3 truths, so recall is a third. Pure, but blind.", active:["rc-list","rc-recall","rc-prec"], winH:24, recall:1/3, prec:1, gold:[1,3,6], labels:rkBase, formula:"k=1 · 1 of 3 relevant · MRR=1.0 (first hit at rank 1)", note:"small k → high precision, low recall"},
+    {text:"k=3: widen to the top 3. We now hold 2 of the 3 relevant chunks. Recall climbs to 67%; precision is still 67% because rank 2 was noise.", active:["rc-list","rc-recall","rc-prec"], winH:70, recall:2/3, prec:2/3, gold:[1,3,6], labels:rkBase, formula:"k=3 · 2 of 3 relevant · 1 noise chunk inside the window", note:"recall rising, precision starting to dilute"},
+    {text:"k=5 (the textbook case): 3 relevant docs, the top-5 holds 2 of them → recall@5 = 66.7%, precision@5 = 40%. Two more noise chunks entered without adding any truth.", active:["rc-list","rc-recall","rc-prec"], winH:116, recall:2/3, prec:2/5, gold:[1,3,6], labels:rkBase, formula:"k=5 · 2 of 3 relevant · recall 66.7% · precision 40%", note:"the central trade-off: k up → recall up, precision down"},
+    {text:"k=8: the window swallows everything, so recall hits 100% — every truth captured. But precision collapses to 37.5%; the model now wades through 5 noise chunks to find 3 signal ones.", active:["rc-list","rc-recall","rc-prec"], winH:185, recall:1, prec:3/8, gold:[1,3,6], labels:rkBase, formula:"k=8 · 3 of 3 relevant · recall 100% · precision 37.5%", note:"fetch wide for recall — but raw top-k is now mostly noise"},
+    {text:"The fix: fetch wide (high k) for recall, then RERANK to a small precise k. A cross-encoder floats the 3 green chunks to ranks 1–3, so k=3 now scores recall 100% AND precision 100% — best of both.", active:["rc-list","rc-recall","rc-prec"], winH:70, recall:1, prec:1, gold:[1,2,3], labels:rkRerank, formula:"after rerank · k=3 · recall 100% · precision 100%", note:"recall-oriented fetch (~50) → cross-encoder rerank → top ~5"}
+  ], function(idx,s){
+    var win=document.getElementById('rc-window');
+    if(s.winH>0){ win.style.display=''; win.setAttribute('height',s.winH); }
+    else { win.style.display='none'; }
+    for(var r=1;r<=8;r++){
+      var rect=document.getElementById('rc-ck'+r);
+      var lbl=document.getElementById('rc-lk'+r);
+      var isGold=s.gold.indexOf(r)!==-1;
+      rect.setAttribute('fill', isGold?'#E6F1DF':'var(--paper-2)');
+      rect.setAttribute('stroke', isGold?'#69B34C':'var(--line-strong)');
+      lbl.textContent='#'+r+' '+s.labels[r-1]+(isGold?' ✦':'');
+    }
+    var rf=document.getElementById('rc-recallfill'), pf=document.getElementById('rc-precfill');
+    var rv=document.getElementById('rc-recallval'), pv=document.getElementById('rc-precval');
+    if(s.recall===null){ rf.setAttribute('width',0); pf.setAttribute('width',0); rv.textContent='—'; pv.textContent='—'; }
+    else {
+      rf.setAttribute('width', (250*s.recall).toFixed(1));
+      pf.setAttribute('width', (250*s.prec).toFixed(1));
+      rv.textContent=Math.round(s.recall*100)+'%';
+      pv.textContent=Math.round(s.prec*100)+'%';
+    }
+    document.getElementById('rc-formula').textContent=s.formula;
+    document.getElementById('rc-note').textContent=s.note;
+  });
+
+  /* the RAG triad with one corner failing */
+  makeStepper(document.getElementById('fig-triad'), [
+    {text:"The RAG triad (TruLens / Snowflake): three nodes — your Question, the retrieved Context, and the generated Answer — and three scored edges between them. Reference-free: an LLM judges each, no golden answer needed.", active:["tq-q","tq-ctx","tq-ans"], cr:'n', f:'n', ar:'n', note:"three edges, three independent failure modes"},
+    {text:"Healthy run: context relevance, faithfulness, and answer relevance all pass. The query flows Question → Context → Answer and every edge is green. Together the three catch nearly every RAG failure.", active:["tq-q","tq-ctx","tq-ans"], cr:'g', f:'g', ar:'g', path:"tq-loop", note:"all three green → the pipeline is sound"},
+    {text:"Break a corner — CONTEXT RELEVANCE fails. The retriever surfaced off-topic chunks (red edge), so the Context node is poisoned. Faithfulness can still be green: the answer is faithful — to the wrong context.", active:["tq-q","tq-ans"], cr:'r', f:'g', ar:'g', note:"fault localized → RETRIEVAL: fix chunking / k / hybrid + rerank"},
+    {text:"Different corner — FAITHFULNESS fails. Context relevance is green (right chunks retrieved), but the Answer adds claims the context never supports — a hallucination. The fault sits on the Context→Answer edge.", active:["tq-q","tq-ctx"], cr:'g', f:'r', ar:'g', note:"fault localized → GENERATION: fix grounding prompt / model"},
+    {text:"Third corner — ANSWER RELEVANCE fails. Context is on-topic and every claim is grounded, yet the answer wanders off and never addresses the question asked. The Question→Answer edge goes red.", active:["tq-q","tq-ctx","tq-ans"], cr:'g', f:'g', ar:'r', note:"fault localized → GENERATION: tighten the prompt / instruction"},
+    {text:"That's the power of the triad: each edge isolates ONE component, so a single bad score points at exactly where the pipeline broke — instead of one opaque 'bad answer.'", active:["tq-q","tq-ctx","tq-ans"], cr:'g', f:'g', ar:'g', path:"tq-loop", note:"the triad triangulates the fault — no ground-truth answer required"}
+  ], function(idx,s){
+    function col(v){return v==='g'?'var(--green)':v==='r'?'var(--rust)':'var(--blueprint-soft)';}
+    function w(v){return v==='n'?'2':'3';}
+    var cr=document.getElementById('tq-ecr'), f=document.getElementById('tq-ef'), ar=document.getElementById('tq-ear');
+    cr.setAttribute('stroke',col(s.cr)); cr.setAttribute('stroke-width',w(s.cr));
+    f.setAttribute('stroke',col(s.f)); f.setAttribute('stroke-width',w(s.f));
+    ar.setAttribute('stroke',col(s.ar)); ar.setAttribute('stroke-width',w(s.ar));
+    document.getElementById('tq-note').textContent=s.note;
+  });
+
+  /* the diagnostic decision tree */
+  makeStepper(document.getElementById('fig-diag'), [
+    {text:"The end-to-end gate from L13 flags a bad answer — one opaque number that says 'sick' but not 'why.' Two stages could be at fault; the decision tree localizes which.", active:["dg-bad"], loop:false, note:"same symptom, two possible causes — decompose to localize"},
+    {text:"Question 1: was the right chunk even retrieved? Measure recall@k / context recall against the golden chunk labels you built in L12.", active:["dg-bad","dg-q1"], loop:false, path:"dg-e1", note:"first split the fault on retrieval, not generation"},
+    {text:"NO branch — the answer-bearing chunk never made the top-k. That's a RETRIEVAL problem: semantic chunking, raise k, add hybrid (BM25 + vector) + a cross-encoder reranker.", active:["dg-q1","dg-retr"], loop:false, path:"dg-eno", reject:true, note:"low recall → fix retrieval, not the prompt"},
+    {text:"Those fixes loop straight back to Phase 2 — re-chunk, re-index, re-run the gate. Retrieval quality is now a regression-tested number, not a guess.", active:["dg-retr","dg-p2"], loop:true, path:"dg-loop", note:"the loop back to Phase 2 — and into the L14 CI gate"},
+    {text:"YES branch — the right chunk WAS retrieved. Question 2: was it used faithfully? Measure faithfulness / groundedness on the answer.", active:["dg-q1","dg-q2"], loop:false, path:"dg-eyes", note:"right chunk in hand → now interrogate the generation step"},
+    {text:"NO — good context, but the answer isn't supported (the model ignored it or fabricated around it). That's a GENERATION problem: fix the grounding prompt, tighten precision, or change the model.", active:["dg-q2","dg-gen"], loop:false, path:"dg-eno2", reject:true, note:"high recall + low faithfulness → fix generation, not retrieval"},
+    {text:"YES — retrieved right AND faithful, yet still flagged? The pipeline is fine; re-check the golden label or answer relevance. Same bad score, opposite verdicts — only the decomposed metrics tell them apart.", active:["dg-q2","dg-fine"], loop:false, path:"dg-eyes2", note:"both pass → relabel / check answer relevance"}
+  ], function(idx,s){
+    document.getElementById('dg-loop').style.display = s.loop ? '' : 'none';
+    document.getElementById('dg-note').textContent=s.note;
+  });
+</script>
+</body>
+</html>

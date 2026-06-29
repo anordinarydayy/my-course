@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 18 — Hybrid Search &amp; Re-ranking (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">Hybrid Search<br>&amp; Re-ranking</div>
+    <h4>The retrieval stack</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Semantic &ne; lexical</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Fuse, don't choose: RRF &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Dense vs sparse vs hybrid</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Retrieve, then re-rank &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Bi- vs cross-encoder &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Lifting recall at the query</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The production stack</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">18</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>Hybrid Search &amp; Re-ranking</h1>
+      <p class="lede">A single retriever can only see one half of "relevance." Dense vector search understands <em>meaning</em> but goes blind on exact codes and IDs; keyword search nails exact tokens but goes blind on paraphrase. This lesson refuses the choice: run <strong>both</strong>, fuse their rankings with <strong>RRF</strong>, then <strong>re-rank</strong> the shortlist with a cross-encoder. It is the default production retrieval pattern of 2026 — recall won in stage one, precision won in stage two.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The retrieval lesson that turns one index into two-and-a-half. It draws on public sources — Chip Huyen's <em>AI Engineering</em> and Anthropic's writing on Contextual Retrieval for framing, plus the RRF literature and 2025&ndash;2026 tooling (Cohere Rerank, Voyage, bge-reranker, Jina, SPLADE, ColBERT) — but every explanation, diagram, and example here is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Any tool names, pricing, latency, and model facts are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The blind spot in one index</div>
+      <h2>Semantic &ne; lexical</h2>
+      <p>You stood up a vector index in Lesson 16 over the chunks you cut in Lesson 17, and for a week it felt like magic: paraphrases, synonyms, vague intent — the embedding model "understood" all of it. Then a user typed <code>SKU-44819</code> and the system confidently returned five <em>semantically adjacent</em> products, none of which contained that string. The dense retriever wasn't broken. It was doing exactly what it does: finding neighbours in meaning-space. The trouble is that an exact identifier <strong>has no neighbours in meaning-space</strong> — it is an arbitrary token, and the nearest embeddings are simply other products in the same aisle.</p>
+      <p>This is the bottleneck of single-retriever RAG. Dense embedding search and keyword (BM25) search each fail on a different, predictable class of query, and they fail in <em>opposite</em> directions:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Dense vector search misses&hellip;</h4>
+          <ul>
+            <li>exact identifiers: SKUs, order numbers, error codes like <code>ERR_CONN_RST</code></li>
+            <li>API symbols, version strings (<code>v2.5.1</code>), acronyms</li>
+            <li>rare / out-of-vocabulary terms with no semantic cluster</li>
+            <li>cold-start corpora with nothing yet to embed against</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>BM25 keyword search misses&hellip;</h4>
+          <ul>
+            <li>paraphrases: "random disconnects" vs "wireless instability"</li>
+            <li>synonyms the document never spelled out</li>
+            <li>long natural-language questions whose words aren't in the doc</li>
+            <li>intent that lives between the words, not in them</li>
+          </ul>
+        </div>
+      </div>
+      <p>The naive instinct is to <em>pick the better one</em> for your corpus and move on. That's the mistake. Relevance has two faces — <strong>semantic</strong> and <strong>lexical</strong> — and most real queries mix them in the same sentence: a model number <em>and</em> a vague complaint, an error code <em>and</em> a how-do-I question. Choose one retriever and you have permanently blinded yourself to half of every query. The fix is not a better single retriever; it's to stop choosing.</p>
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>Semantic <span style="font-variant:small-caps">is not</span> lexical. Dense search knows what you <em>mean</em>; BM25 knows what you <em>said</em>. Run both, merge the rankings, and re-order the survivors — that's the whole lesson, and the rest is making each step robust.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Fuse, don't choose</div>
+      <h2>Reciprocal Rank Fusion &#9656;</h2>
+      <p>So run both retrievers in parallel and merge their two ranked lists. The obvious merge — add the scores — fails immediately: a BM25 score is an unbounded term-frequency quantity, a cosine similarity lives in roughly <code>[-1, 1]</code>, and there is no honest constant that puts them on the same axis. Hand-tune a weight and it's brittle, corpus-specific, and silently wrong the moment your data shifts.</p>
+      <p><strong>Reciprocal Rank Fusion (RRF)</strong> sidesteps the whole problem by throwing the raw scores away and using only <em>rank position</em>:</p>
+      <pre class="code"><span class="codetag">reciprocal rank fusion</span><code>score(d) = <span class="kw">sum over retrievers i of</span>  1 / (k + rank_i(d))     <span class="cm"># default k = 60</span></code></pre>
+      <p>A document that lands <em>respectably in both</em> lists accumulates two contributions and beats a document that tops only one — <strong>consensus wins</strong>. Watch a single shared document, ranked #1 in neither list, climb to the top of the fused ranking:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-rrf">
+          <svg viewBox="0 0 640 330" role="img" aria-label="Two ranked lists, dense and BM25, fused by reciprocal rank fusion so a document ranked fourth and second climbs to first in the fused list">
+            <g class="st" id="rrf-dense">
+              <text class="lbl" x="105" y="44" text-anchor="middle">DENSE &middot; vector</text>
+              <rect class="node" x="18" y="58" width="174" height="30" rx="7"/><text class="lbl-sm" x="105" y="78" text-anchor="middle">1 &middot; Doc-P</text>
+              <rect class="node" x="18" y="96" width="174" height="30" rx="7"/><text class="lbl-sm" x="105" y="116" text-anchor="middle">2 &middot; Doc-Q</text>
+              <rect class="node" x="18" y="134" width="174" height="30" rx="7"/><text class="lbl-sm" x="105" y="154" text-anchor="middle">3 &middot; Doc-R</text>
+              <rect id="rrf-dA" x="18" y="172" width="174" height="30" rx="7" fill="var(--paper-2)" stroke="var(--blueprint)" stroke-width="2"/><text class="lbl-sm" x="105" y="192" text-anchor="middle">4 &middot; &#9733; Doc-A</text>
+              <rect class="node" x="18" y="210" width="174" height="30" rx="7"/><text class="lbl-sm" x="105" y="230" text-anchor="middle">5 &middot; Doc-S</text>
+            </g>
+            <g class="st" id="rrf-bm25">
+              <text class="lbl" x="320" y="44" text-anchor="middle">BM25 &middot; keyword</text>
+              <rect class="node" x="233" y="58" width="174" height="30" rx="7"/><text class="lbl-sm" x="320" y="78" text-anchor="middle">1 &middot; Doc-T</text>
+              <rect id="rrf-bA" x="233" y="96" width="174" height="30" rx="7" fill="var(--paper-2)" stroke="var(--blueprint)" stroke-width="2"/><text class="lbl-sm" x="320" y="116" text-anchor="middle">2 &middot; &#9733; Doc-A</text>
+              <rect class="node" x="233" y="134" width="174" height="30" rx="7"/><text class="lbl-sm" x="320" y="154" text-anchor="middle">3 &middot; Doc-U</text>
+              <rect class="node" x="233" y="172" width="174" height="30" rx="7"/><text class="lbl-sm" x="320" y="192" text-anchor="middle">4 &middot; Doc-V</text>
+              <rect class="node" x="233" y="210" width="174" height="30" rx="7"/><text class="lbl-sm" x="320" y="230" text-anchor="middle">5 &middot; Doc-W</text>
+            </g>
+            <g class="st" id="rrf-fused" style="display:none">
+              <text class="lbl" x="535" y="44" text-anchor="middle">FUSED &middot; RRF</text>
+              <rect class="node-g" x="448" y="58" width="174" height="30" rx="7"/><text class="lbl-sm" x="535" y="78" text-anchor="middle" fill="#3f7a2e">&#9733; Doc-A &middot; .032</text>
+              <rect class="node" x="448" y="96" width="174" height="30" rx="7"/><text class="lbl-sm" x="535" y="116" text-anchor="middle">Doc-P &middot; .016</text>
+              <rect class="node" x="448" y="134" width="174" height="30" rx="7"/><text class="lbl-sm" x="535" y="154" text-anchor="middle">Doc-T &middot; .016</text>
+              <rect class="node" x="448" y="172" width="174" height="30" rx="7"/><text class="lbl-sm" x="535" y="192" text-anchor="middle">Doc-Q &middot; .016</text>
+              <rect class="node" x="448" y="210" width="174" height="30" rx="7"/><text class="lbl-sm" x="535" y="230" text-anchor="middle">Doc-U &middot; .016</text>
+            </g>
+            <text id="rrf-formula" class="readout" x="320" y="266" text-anchor="middle" font-size="13"></text>
+            <text id="rrf-note" class="lbl-sm" x="320" y="296" text-anchor="middle" font-size="12.5"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: RRF merges by rank, not score; the doc ranked #4 and #2 (top of neither) wins the fused list on consensus</figcaption>
+      </figure>
+
+      <p>That one-line trick is why RRF is the default hybrid-merge in Elasticsearch, OpenSearch, Qdrant, Weaviate, Azure AI Search, and MongoDB Atlas. The constant <code>k=60</code> comes from Cormack, Clarke &amp; Buettcher (2009) and has held up for some fifteen years: a small <code>k</code> lets the very top ranks dominate, a large <code>k</code> flattens and dilutes the fusion. Equal-weight score blending (<code>alpha &asymp; 0.5</code>) is a respectable alternative baseline, and Elasticsearch now ships <strong>weighted RRF</strong> so you can bias toward the lexical or semantic leg per corpus. But fusion only casts a wide net — it still ranks crudely. To turn recall into precision, you need a second stage.</p>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Three retrieval shapes</div>
+      <h2>Dense vs sparse vs hybrid</h2>
+      <p>Before the second stage, fix the vocabulary. There are three retrieval shapes you'll wire together, and a fourth that is quietly eating the word "sparse":</p>
+      <table class="cost">
+        <thead><tr><th>Approach</th><th>Matches on</th><th>Wins at</th><th>Fails at</th><th>Recall@10 (approx)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Dense / vector</strong></td><td>semantic similarity (cosine)</td><td>paraphrase, synonyms, intent</td><td>exact codes, IDs, rare terms, cold-start</td><td>good, incomplete</td></tr>
+          <tr><td><strong>Sparse / BM25</strong></td><td>exact lexical overlap</td><td>SKUs, error codes, names, acronyms; debuggable</td><td>paraphrase, synonyms, word order</td><td>good, incomplete</td></tr>
+          <tr><td><strong>Hybrid + RRF</strong></td><td>both, fused by rank</td><td>broad lexical <em>and</em> semantic coverage</td><td>needs two indexes + a reranker to order</td><td>highest, ~91% reported</td></tr>
+          <tr><td><strong>Learned sparse / SPLADE</strong></td><td>learned term weights + expansion</td><td>exact match <em>with</em> semantic weighting</td><td>heavier index than plain BM25</td><td>state-of-the-art on MS MARCO</td></tr>
+        </tbody>
+      </table>
+      <p>That last row matters more every quarter. <strong>SPLADE</strong> is <em>learned sparse retrieval</em>: a neural model reads a chunk and emits a <em>sparse</em> vector of term weights over the whole vocabulary — including terms the document never literally contained (learned <em>expansion</em>) — and stores it in an ordinary inverted index. You get BM25-style exact matching <em>plus</em> learned, semantic-aware term weighting, and it reaches state-of-the-art on MS MARCO. In 2026, "sparse" increasingly means <em>learned</em>-sparse, not just term frequencies, and several vector databases now offer native sparse-vector support so you can serve SPLADE the same way you serve BM25.</p>
+      <div class="callout">
+        <span class="k">Why hybrid, concretely</span>
+        <p>Hybrid (BM25 + dense) reaches roughly 91% recall@10 in one widely-cited measurement — clearly above either retriever alone, because the two failure modes barely overlap. You are not averaging two mediocre signals; you are <em>covering each one's blind spot with the other's strength</em>. The cost is real, though: two indexes to build and keep in sync, and a fused list that is still only crudely ordered. Coverage is solved; ordering is not.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Two stages, two jobs</div>
+      <h2>Retrieve, then re-rank &#9656;</h2>
+      <p>Hybrid fusion gets the right documents <em>into the room</em> but seats them badly — the best answer might sit at rank 18. The naive fix, "score every chunk with the most accurate model you have," is impossible: the accurate model is far too slow to run over a million chunks per query. So split retrieval into two stages with two different model shapes, each optimised for a different thing.</p>
+      <p><strong>Stage one</strong> casts a wide, cheap net for <em>recall</em>: get every right answer <em>somewhere</em> in the top ~100&ndash;150. <strong>Stage two</strong> reorders that shortlist for <em>precision</em>: run a slow, accurate cross-encoder only on the survivors. Step through the funnel — and watch the invariant that governs the whole pattern:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-funnel">
+          <svg viewBox="0 0 640 300" role="img" aria-label="A retrieve-then-rerank funnel: a million-chunk corpus narrows to about 150 candidates via fast hybrid retrieval, then to a top-20 shortlist via slow cross-encoder reranking, with a dropped document marked unrecoverable">
+            <g class="st" id="fn-corpus"><rect class="node" x="150" y="14" width="300" height="40" rx="9"/><text class="lbl-sm" x="300" y="31" text-anchor="middle">corpus</text><text class="lbl-sm" x="300" y="46" text-anchor="middle">~1,000,000 chunks</text></g>
+            <path class="flow" id="fn-p1" d="M300 54 V 80" marker-end="url(#arrow)"/>
+            <g class="st" id="fn-retrieve"><rect class="node-b" x="120" y="82" width="360" height="56" rx="9"/><text class="lbl-sm" x="300" y="103" text-anchor="middle">STAGE 1 &middot; hybrid retrieve (bi-encoder ANN + BM25)</text><text class="lbl-sm" x="300" y="120" text-anchor="middle">wide net &#8594; top ~150 &middot; FAST &middot; recall &middot; O(1) lookup</text></g>
+            <g class="st" id="fn-lost" style="display:none">
+              <rect class="node-r" x="498" y="92" width="128" height="50" rx="9"/>
+              <text class="lbl-sm" x="562" y="111" text-anchor="middle" fill="#B0532F">doc at rank #160</text>
+              <text class="lbl-sm" x="562" y="126" text-anchor="middle" fill="#B0532F">relevant, missed</text>
+              <g id="fn-x" style="display:none"><line x1="540" y1="98" x2="584" y2="136" stroke="#B0532F" stroke-width="4"/><line x1="584" y1="98" x2="540" y2="136" stroke="#B0532F" stroke-width="4"/></g>
+            </g>
+            <path class="flow" id="fn-p2" d="M300 138 V 162" marker-end="url(#arrow)"/>
+            <g class="st" id="fn-rerank"><rect class="node" x="185" y="164" width="230" height="56" rx="9"/><text class="lbl-sm" x="300" y="185" text-anchor="middle">STAGE 2 &middot; cross-encoder rerank</text><text class="lbl-sm" x="300" y="202" text-anchor="middle">reorder &#8594; top 20 &middot; SLOW &middot; precision</text></g>
+            <path class="flow" id="fn-p3" d="M300 220 V 242" marker-end="url(#arrow)"/>
+            <g class="st" id="fn-llm"><rect class="node-g" x="240" y="244" width="120" height="34" rx="9"/><text class="lbl-sm" x="300" y="265" text-anchor="middle" fill="#3f7a2e">top 5 &#8594; LLM</text></g>
+            <text id="fn-note" class="readout" x="300" y="294" text-anchor="middle" font-size="13"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: stage one wins recall (wide, fast); stage two wins precision (narrow, slow); a doc dropped in stage one is gone for good</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">The invariant — never collapse the stages</span>
+        <p>Recall is won in stage one, precision in stage two. If the right document isn't in the bi-encoder's net, <em>no reranker on earth can recover it</em> — the cross-encoder only ever sees the shortlist. That cuts both ways into your numbers: retrieve <strong>wide</strong> (top ~100&ndash;150, where coverage is cheap) and rerank a <strong>shortlist</strong> (~50&ndash;75; quality typically plateaus past ~100 candidates, so more just buys latency). Anthropic's Contextual Retrieval retrieved the top 150, then reranked down to the top 20 it handed the model. Wide then narrow — and never the reverse.</p>
+      </div>
+      <p>What makes stage one fast and stage two accurate isn't a tuning knob — it's two genuinely different model architectures. That contrast is the next section.</p>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The architectural split</div>
+      <h2>Bi-encoder vs cross-encoder &#9656;</h2>
+      <p>The two stages run two model shapes that differ in exactly one decision: <em>when</em> the query and the document meet. A <strong>bi-encoder</strong> keeps them apart; a <strong>cross-encoder</strong> fuses them. Everything else — the speed, the accuracy, whether you can precompute — falls out of that one choice. Watch both pipelines side by side:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-encoder">
+          <svg viewBox="0 0 640 320" role="img" aria-label="A bi-encoder embeds query and document in separate towers joined only by cosine similarity, while a cross-encoder feeds query and document jointly through one transformer with cross-attention to emit a single relevance score">
+            <text class="lbl" x="162" y="28" text-anchor="middle">BI-ENCODER &middot; stage 1</text>
+            <text class="lbl" x="478" y="28" text-anchor="middle">CROSS-ENCODER &middot; stage 2</text>
+            <line x1="320" y1="40" x2="320" y2="300" stroke="var(--line-strong)" stroke-width="1.5" stroke-dasharray="5 5"/>
+
+            <g class="st" id="enc-bi-in">
+              <rect class="node" x="36" y="48" width="100" height="32" rx="8"/><text class="lbl-sm" x="86" y="68" text-anchor="middle">query</text>
+              <rect class="node" x="188" y="48" width="100" height="32" rx="8"/><text class="lbl-sm" x="238" y="68" text-anchor="middle">document</text>
+            </g>
+            <g class="st" id="enc-bi-tower">
+              <path class="flow" d="M86 80 V 98" marker-end="url(#arrow)"/>
+              <path class="flow" d="M238 80 V 98" marker-end="url(#arrow)"/>
+              <rect class="node-b" x="46" y="100" width="80" height="52" rx="8"/><text class="lbl-sm" x="86" y="130" text-anchor="middle">encoder</text>
+              <rect class="node-b" x="198" y="100" width="80" height="52" rx="8"/><text class="lbl-sm" x="238" y="130" text-anchor="middle">encoder</text>
+            </g>
+            <g class="st" id="enc-bi-out">
+              <path class="flow" d="M86 152 V 170" marker-end="url(#arrow)"/>
+              <path class="flow" d="M238 152 V 170" marker-end="url(#arrow)"/>
+              <rect class="node" x="56" y="172" width="60" height="24" rx="6"/><text class="lbl-sm" x="86" y="189" text-anchor="middle">vec q</text>
+              <rect class="node" x="208" y="172" width="60" height="24" rx="6"/><text class="lbl-sm" x="238" y="189" text-anchor="middle">vec d</text>
+              <path class="flow" d="M116 184 C 150 184, 150 218, 160 220" marker-end="url(#arrow)"/>
+              <path class="flow" d="M208 184 C 174 184, 174 218, 164 220" marker-end="url(#arrow)"/>
+              <rect class="node-g" x="118" y="222" width="88" height="34" rx="8"/><text class="lbl-sm" x="162" y="243" text-anchor="middle" fill="#3f7a2e">cos &theta;</text>
+            </g>
+            <text class="lbl-sm" x="162" y="278" text-anchor="middle">docs embedded ONCE at index time</text>
+            <text class="lbl-sm" x="162" y="292" text-anchor="middle">query-time = ANN vector lookup</text>
+
+            <g class="st" id="enc-cross-in">
+              <rect class="node" x="360" y="48" width="236" height="38" rx="8"/><text class="lbl-sm" x="478" y="72" text-anchor="middle">[query]  [SEP]  [document]</text>
+            </g>
+            <g class="st" id="enc-cross-tower">
+              <path class="flow-r" d="M478 86 V 106" marker-end="url(#arrow-r)"/>
+              <rect class="node-r" x="398" y="108" width="160" height="74" rx="8"/>
+              <text class="lbl-sm" x="478" y="132" text-anchor="middle">one transformer</text>
+              <text class="lbl-sm" x="478" y="148" text-anchor="middle">cross-attention</text>
+              <g id="ce-attn" style="display:none">
+                <line x1="418" y1="166" x2="478" y2="172" stroke="#B0532F" stroke-width="1.5"/>
+                <line x1="478" y1="166" x2="418" y2="172" stroke="#B0532F" stroke-width="1.5"/>
+                <line x1="478" y1="166" x2="538" y2="172" stroke="#B0532F" stroke-width="1.5"/>
+                <line x1="538" y1="166" x2="478" y2="172" stroke="#B0532F" stroke-width="1.5"/>
+              </g>
+            </g>
+            <g class="st" id="enc-cross-out">
+              <path class="flow-r" d="M478 182 V 200" marker-end="url(#arrow-r)"/>
+              <rect class="node-r" x="426" y="202" width="104" height="34" rx="8"/><text class="lbl-sm" x="478" y="223" text-anchor="middle" fill="#B0532F">relevance score</text>
+            </g>
+            <text class="lbl-sm" x="478" y="278" text-anchor="middle">no precompute &mdash; runs per (query, doc) pair</text>
+            <text class="lbl-sm" x="478" y="292" text-anchor="middle">slow, but a far sharper ranking</text>
+
+            <text id="enc-tp" class="readout" x="320" y="314" text-anchor="middle" font-size="13"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: separate towers + cosine = precompute &amp; scale; one joint transformer + cross-attention = accuracy you can't precompute</figcaption>
+      </figure>
+
+      <table class="cost">
+        <thead><tr><th>Property</th><th>Bi-encoder (stage 1)</th><th>Cross-encoder / reranker (stage 2)</th></tr></thead>
+        <tbody>
+          <tr><td>Query + doc combined?</td><td>No &mdash; encoded separately</td><td>Yes &mdash; jointly, with cross-attention</td></tr>
+          <tr><td>Precompute doc vectors?</td><td>Yes, at index time</td><td>No &mdash; run per pair at query time</td></tr>
+          <tr><td>Query-time cost</td><td>ANN lookup, ~O(1)</td><td>O(n) over the shortlist</td></tr>
+          <tr><td>Speed</td><td>fast, millions of docs</td><td>slow, tens&ndash;hundreds of pairs</td></tr>
+          <tr><td>Accuracy</td><td>good recall, crude ranking</td><td>high-precision ordering</td></tr>
+          <tr><td>Job in pipeline</td><td>cast a wide net</td><td>reorder the shortlist</td></tr>
+          <tr><td>Example models</td><td><code>all-MiniLM</code>, OpenAI / Voyage / Cohere embeddings</td><td>Cohere Rerank 3.5/4.0, Voyage rerank-2.5, <code>bge-reranker-v2-m3</code>, Jina v2, zerank</td></tr>
+        </tbody>
+      </table>
+      <p>There's a celebrated middle ground worth naming: <strong>ColBERT</strong> and <em>late interaction</em>. Instead of one vector per document, it keeps one embedding <em>per token</em> and scores a query against a document with token-level <code>MaxSim</code> — "late" because the query and document tokens interact only at scoring time, not inside the encoder. The accuracy lands between bi- and cross-encoders, and serving engines like PLAID and WARP make it fast, while SPLATE adapts ColBERTv2 to generate candidates with sparse retrieval (CPU-friendly). The cost is blunt: storing a vector per token is far larger than one per chunk. ColPali even pushes late interaction onto PDF page <em>images</em>. For most teams, though, the workhorse remains bi-encoder retrieve &#8594; cross-encoder rerank.</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Fix the query, not just the index</div>
+      <h2>Lifting recall at the query side</h2>
+      <p>Two great stages can't save a bad query. If the user's words barely overlap the document's words — a terse fragment, an ambiguous pronoun three turns into a conversation, vocabulary that simply differs from the corpus — recall is lost <em>before</em> retrieval even runs. So the cheapest place to win recall back is often the query itself. Three transformations, in rising order of ambition:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Rewrite</h4>
+          <ul>
+            <li>clean and disambiguate the raw query</li>
+            <li>resolve "it / that one" against the conversation</li>
+            <li>one in, one out &mdash; cheap, low-risk</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Multi-query</h4>
+          <ul>
+            <li>LLM writes 3&ndash;4 phrasings of the question</li>
+            <li>retrieve each one separately</li>
+            <li>fuse all the result lists back with RRF</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>HyDE</h4>
+          <ul>
+            <li>LLM drafts a hypothetical <em>answer</em> document</li>
+            <li>embed <em>that</em>, not the question</li>
+            <li>search doc-to-doc &mdash; bridges the vocab gap</li>
+          </ul>
+        </div>
+      </div>
+      <p><strong>HyDE</strong> (Hypothetical Document Embeddings) is the clever one and the dangerous one. The insight: a question and its answer are written in different registers, so a question embedding sits awkwardly in a space full of <em>answer</em> embeddings. Have the model hallucinate a plausible answer paragraph, embed that fake document, and search with it — now you're comparing document-to-document. The catch is right there in the word "hallucinate": HyDE can invent specifics, and 2025's <em>HyDE-Rethink</em> analysis separates genuinely useful hypothetical generation from <em>knowledge leakage</em>, where the model is just reciting memorised facts rather than helping retrieval. Gains are dataset-dependent — measure with the eval gates of Lesson 14 before you trust it. Multi-query is the safer cousin: it never asks the model to assert facts, only to <em>rephrase</em>, and then leans on RRF to fuse the evidence.</p>
+      <div class="callout note">
+        <span class="k">Where this plugs in</span>
+        <p>Every query transform feeds the <em>same</em> stage-one candidate pool from Section 03 — and multi-query literally reuses the RRF node from Section 01 to merge its parallel retrievals. You are not adding a new pipeline; you are widening the mouth of the funnel you already built. Now let's run one real, nasty query through the whole thing.</p>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The whole stack on one query</div>
+      <h2>The production stack</h2>
+      <p>Time to make it concrete. One messy support query, two relevant documents, and the difference between each retriever alone and the full hybrid-plus-rerank stack.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">support KB &middot; code + paraphrase</span></div>
+        <div class="wbody">
+          <div class="wname">The query that needs both halves</div>
+          <p class="wprompt">A support assistant indexes a networking vendor's knowledge base. A user asks: <em>"My RT-AX88U keeps dropping Wi-Fi and throwing ERR_CONN_RST 0x80072EE7 ever since the last update — how do I stop the random disconnects?"</em> This query is deliberately mixed: <strong>exact tokens</strong> (the model <code>RT-AX88U</code>, the code <code>ERR_CONN_RST 0x80072EE7</code>) and a <strong>paraphrase</strong> ("random disconnects&hellip;since the last update") of an article actually titled <em>"Wireless instability after firmware upgrade."</em> Two docs are relevant: <strong>Doc-A</strong>, the exact error-code page; <strong>Doc-B</strong>, the firmware-instability article (which contains no error code at all).</p>
+          <h4 class="wh">Think it through — what does each leg do?</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Dense only</span><p>The embedding understands "random disconnects since the last update" and ranks <b>Doc-B near the top (~rank 2)</b>. But the error code has no semantic neighbours, so <b>Doc-A languishes around rank 25</b> — the user's most precise clue is wasted.</p></div>
+            <div class="ws"><span class="wsk">BM25 only</span><p>The mirror image: it matches the literal <code>RT-AX88U</code> and <code>ERR_CONN_RST</code> tokens and ranks <b>Doc-A at #1</b>, but it shares almost no words with "wireless instability after firmware upgrade," so <b>Doc-B falls to ~rank 30</b>. Each retriever alone surfaces one correct doc and buries the other.</p></div>
+            <div class="ws"><span class="wsk">Hybrid fuse (recall)</span><p>Run both and fuse with RRF (k=60). Doc-A (dense ~25, BM25 ~1) and Doc-B (dense ~2, BM25 ~30) each pick up a contribution from both lists, so <b>both land safely inside the top ~20 candidates</b>. Recall is won — neither correct doc was dropped.</p></div>
+            <div class="ws"><span class="wsk">Cross-encoder rerank (precision)</span><p>The reranker reads the full query <em>jointly</em> with each candidate, recognises that <b>Doc-A directly addresses the exact error code under the named model</b>, and promotes it to #1, with Doc-B at #2 as supporting context. Precision is won.</p></div>
+          </div>
+          <pre class="code"><span class="codetag">the two-stage pipeline, in pseudo-config</span><code><span class="cm"># STAGE 1 — wide net, recall</span>
+dense  = ann_search(embed(query), top_k=<span class="st">150</span>)
+sparse = bm25_search(query,        top_k=<span class="st">150</span>)
+cands  = rrf_fuse(dense, sparse, k=<span class="st">60</span>)        <span class="cm"># Doc-A &amp; Doc-B both survive</span>
+
+<span class="cm"># STAGE 2 — reorder shortlist, precision</span>
+ranked = rerank(query, cands[:<span class="st">75</span>])             <span class="cm"># cross-encoder, per-pair</span>
+context = ranked[:<span class="st">5</span>]                          <span class="cm"># Doc-A #1, Doc-B #2 &#8594; LLM</span></code></pre>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;Vector-only missed the error code, BM25-only missed the paraphrase — each saw half the query. Fusing both with RRF guaranteed <em>both</em> correct docs survived stage one, and the cross-encoder, reading query and doc together, ordered the exact-code page first. Recall came from running both retrievers; precision came from the reranker. Neither stage could have done the other's job.&#8221;</p>
+            <p class="plain">This mirrors Anthropic's reported result: adding BM25 to embeddings and then reranking cut failed retrievals by 67%. The model now answers from the precise fix, not a plausible-but-wrong neighbour.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>The 2026 reranker landscape</h3>
+      <p>The reranker has become a small arms race, and the names are worth carrying. On the paid side, <strong>Cohere Rerank 3.5</strong> (a cross-encoder, ~4k-token context, 100+ languages, roughly 100&nbsp;ms) gave way to <strong>Rerank 4.0</strong> with <em>pro</em> (quality) and <em>fast</em> (latency) tiers, a 32k-token context, and JSON / semi-structured document support. <strong>Voyage rerank-2.5</strong> and <code>rerank-2.5-lite</code> also pushed context to 32k and added <em>instruction-following</em> — you steer ranking with a natural-language instruction like "prioritise the most recent official documentation," which is pitched squarely at agentic and conversational retrieval. Open-weight rerankers are closing the gap fast: <code>bge-reranker-v2-m3</code> (multilingual), <strong>Jina Reranker v2</strong> (multilingual, plus multimodal rerankers for images and PDFs), and <strong>ZeroEntropy's</strong> <code>zerank-1/zerank-2</code> (open-weight, with vendor-reported NDCG@10 around 0.85 at ~60&nbsp;ms and roughly $0.025 per million tokens — treat every such number as approximate and mid-2026).</p>
+      <p>Two structural shifts matter more than any single model. First, <strong>context windows jumped ~4x to 32k tokens</strong>, so a reranker can now judge a whole long chunk or document instead of a truncated snippet. Second, native <strong>hybrid + rerank is built into the platforms</strong> — Elasticsearch, OpenSearch, Weaviate, Qdrant, Milvus, Vespa, Azure AI Search, MongoDB Atlas — so your job is to <em>wire stages together and choose candidate counts</em>, not hand-roll fusion. And because reranking adds latency and cost, the 2026 default (backed by a wave of "are LLM rerankers worth it?" studies) is to rerank only a shortlist of ~50&ndash;100, keeping the overhead bounded.</p>
+      <div class="callout tip">
+        <span class="k">The compounding payoff &mdash; and what's next</span>
+        <p>The stack compounds. Anthropic's Contextual Retrieval — contextualise each chunk <em>before</em> embedding and BM25, then fuse and rerank — reported cumulative gains: contextual embeddings alone cut retrieval failures 35%, adding contextual BM25 reached 49%, and adding reranking reached <strong>67%</strong> (top-20 failure rate 5.7% &#8594; 1.9%), with prompt caching making the per-chunk contextualisation cheap. That is the shape of modern RAG retrieval. The reranked top-5 you just produced flows into answer generation in Lesson 19; the whole retriever is held in place by the eval gates of Lesson 14 and measured end-to-end by the retrieval evals of Lesson 21. Coverage, ordering, and the query — three levers, one funnel.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>relevance has a semantic face and a lexical face, so run both retrievers, fuse their rankings by position with RRF, then re-rank the shortlist with a cross-encoder — recall won in stage one, precision in stage two, and never the two collapsed.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Semantic &ne; lexical</b><span>Dense search knows what you mean; BM25 knows what you said. Codes, SKUs, and rare terms have no semantic neighbours; paraphrase has no lexical overlap.</span></div>
+        <div class="tk"><span class="num">02</span><b>Fuse, don't choose</b><span>Most real queries mix a code and a paraphrase in one sentence. Pick one retriever and you blind yourself to half of every query.</span></div>
+        <div class="tk"><span class="num">03</span><b>RRF by rank</b><span>score(d)=&Sigma; 1/(k+rank), k=60. Discards incompatible scores, rewards consensus: a doc decent in both lists beats a lone #1.</span></div>
+        <div class="tk"><span class="num">04</span><b>Two stages</b><span>Bi-encoder casts a wide net for recall (~150); cross-encoder reorders the shortlist for precision (~top 20). Different jobs, different models.</span></div>
+        <div class="tk"><span class="num">05</span><b>The invariant</b><span>Recall is won in stage one. If the right doc isn't in the net, no reranker recovers it — so retrieve wide, rerank a shortlist, never reverse.</span></div>
+        <div class="tk"><span class="num">06</span><b>Encoder split</b><span>Bi-encoder: separate towers, precomputed vectors, ANN O(1). Cross-encoder: joint input, full cross-attention, per-pair, slow but sharp.</span></div>
+        <div class="tk"><span class="num">07</span><b>Lift the query</b><span>Rewrite, multi-query (fuse with RRF), and HyDE (embed a fake answer) raise stage-one recall — but HyDE can hallucinate / leak knowledge.</span></div>
+        <div class="tk"><span class="num">08</span><b>2026 stack</b><span>Cohere Rerank 4.0, Voyage rerank-2.5, bge / Jina / zerank; 32k context; learned-sparse (SPLADE) and late-interaction (ColBERT) maturing.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Give a concrete query that pure dense retrieval would miss but BM25 would catch, and one the other way around — and say why.<br>
+        (2) Write the RRF scoring formula. Why use rank position instead of raw scores, and what concrete problem does that solve for BM25 + cosine?<br>
+        (3) RRF's default is k=60. What happens to the fusion as k &#8594; 0 versus very large? Which list-position pattern does a higher k reward?<br>
+        (4) Contrast bi- and cross-encoder on (a) when query and doc combine, (b) whether docs precompute, (c) speed/accuracy. Which is stage one?<br>
+        (5) State the recall-vs-precision invariant. Why can't a great reranker fix a stage-one recall failure, and what does that imply about candidate counts?<br>
+        (6) Explain HyDE: what does the LLM generate, what gets embedded and searched, and what failure mode must you watch? How does multi-query differ?<br>
+        (7) Name two current production rerankers and one open-weight alternative; roughly how many candidates do you retrieve, and how many do you rerank down to?<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 18 &middot; HYBRID SEARCH &amp; RE-RANKING &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the lesson that turns one index into recall + precision &middot; reranker names, latencies, and pricing are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* reciprocal rank fusion */
+  makeStepper(document.getElementById('fig-rrf'), [
+    {text:"Dense (vector) retrieval returns its ranked list. The true answer, Doc-A, lands at rank 4 — semantically close, but not the top.", active:["rrf-dense"], fused:false, hi:false, formula:"", note:""},
+    {text:"BM25 returns its own ranked list — different model, different order. Here Doc-A lands at rank 2, because it shares some exact tokens with the query.", active:["rrf-dense","rrf-bm25"], fused:false, hi:false, formula:"Doc-A:  dense rank 4   ·   BM25 rank 2", note:"two lists, two orderings — and incompatible score scales"},
+    {text:"Notice Doc-A appears in BOTH lists, but is #1 in NEITHER. A naive 'take the top of each list' would never surface it first.", active:["rrf-dense","rrf-bm25"], fused:false, hi:true, formula:"Doc-A is in BOTH lists — but #1 in neither", note:"'take the top of each' would miss the true consensus answer"},
+    {text:"Fuse by RANK, not score. RRF gives each doc the sum of 1/(k+rank) over the lists it appears in, with k=60. A shared doc collects two contributions.", active:["rrf-dense","rrf-bm25"], fused:false, hi:true, formula:"RRF k=60:  Doc-A = 1/(60+4) + 1/(60+2) = .032   vs   lone #1 = 1/61 = .016", note:"score by rank POSITION, never by raw cosine / BM25 magnitude"},
+    {text:"Fused list: Doc-A climbs to #1 — consensus beats a lone top rank. And the incompatible BM25-vs-cosine scales never mattered: only positions were summed.", active:["rrf-fused"], fused:true, hi:true, formula:"Fused order:  Doc-A #1 — consensus beats a lone top rank", note:"the raw scales were never added — only rank positions"},
+    {text:"k=60 is the cross-vendor default (Cormack 2009) and the merge built into Elasticsearch, Qdrant, Weaviate, OpenSearch, Azure AI Search, Mongo Atlas.", active:["rrf-fused"], fused:true, hi:true, formula:"k=60 default · small k → top ranks dominate · large k → fusion flattens", note:"Elasticsearch even ships weighted RRF to bias the lexical or semantic leg"}
+  ], function(idx,s){
+    document.getElementById('rrf-fused').style.display = s.fused ? '' : 'none';
+    var dA=document.getElementById('rrf-dA'), bA=document.getElementById('rrf-bA');
+    var fill = s.hi ? '#E6F1DF' : 'var(--paper-2)', stroke = s.hi ? '#69B34C' : 'var(--blueprint)';
+    dA.setAttribute('fill',fill); dA.setAttribute('stroke',stroke);
+    bA.setAttribute('fill',fill); bA.setAttribute('stroke',stroke);
+    document.getElementById('rrf-formula').textContent = s.formula;
+    document.getElementById('rrf-note').textContent = s.note;
+  });
+
+  /* retrieve, then re-rank funnel */
+  makeStepper(document.getElementById('fig-funnel'), [
+    {text:"Start with the whole corpus — a million chunks. You can't run an expensive, accurate model over all of them on every query. So narrow first.", active:["fn-corpus"], lost:false, x:false, note:"a million chunks — too many to score accurately one by one"},
+    {text:"STAGE 1 casts a wide, cheap net for RECALL: the bi-encoder embeds the query once and does an ANN lookup (effectively O(1)), fused with BM25. Goal: every right answer somewhere in the top ~150.", active:["fn-corpus","fn-retrieve"], lost:false, x:false, path:"fn-p1", note:"1 · hybrid retrieve → top ~150 · recall is won HERE"},
+    {text:"The invariant lives at this boundary. If the right doc is NOT among these ~150, nothing downstream can recover it — there is no rank 160 in the shortlist the reranker ever sees.", active:["fn-retrieve","fn-lost"], lost:true, x:true, note:"a doc dropped in stage 1 is gone for good — no reranker can save it"},
+    {text:"STAGE 2 takes the shortlist and runs a SLOW cross-encoder: query and doc through one transformer, fresh per pair (O(n)). It reorders ~150 → top 20. This is PRECISION.", active:["fn-retrieve","fn-rerank"], lost:true, x:true, path:"fn-p2", note:"2 · cross-encoder rerank → top 20 · precision is won HERE"},
+    {text:"The top ~5 reach the model. Quality plateaus past ~100 candidates, so rerank a shortlist (~50–75), not the world — that bounds the added latency and cost.", active:["fn-rerank","fn-llm"], lost:true, x:true, path:"fn-p3", note:"retrieve wide (~150) → rerank a shortlist (~75) → top 5 to the LLM"},
+    {text:"Two model shapes, two jobs: a fast bi-encoder wins recall up front, a slow cross-encoder wins precision at the end. Never collapse the two stages.", active:["fn-corpus","fn-retrieve","fn-rerank","fn-llm"], lost:true, x:true, note:"recall in stage 1, precision in stage 2 — and never the reverse"}
+  ], function(idx,s){
+    document.getElementById('fn-lost').style.display = s.lost ? '' : 'none';
+    document.getElementById('fn-x').style.display = s.x ? '' : 'none';
+    document.getElementById('fn-note').textContent = s.note;
+  });
+
+  /* bi-encoder vs cross-encoder */
+  makeStepper(document.getElementById('fig-encoder'), [
+    {text:"Two encoder shapes drive the two stages, and they differ in exactly one decision: WHEN the query and the document meet. Start with the bi-encoder — the stage-one retriever.", active:["enc-bi-in"], attn:false, tp:"two shapes, two jobs — watch when query & doc combine"},
+    {text:"Bi-encoder: query and document go through SEPARATE towers, each emitting its own vector. Because the doc tower never sees the query, every document vector is precomputed at index time.", active:["enc-bi-in","enc-bi-tower"], attn:false, tp:"bi-encoder: separate towers → doc vectors precomputed"},
+    {text:"At query time you embed only the query and do an ANN lookup against the precomputed vectors — effectively O(1), so it scales to millions of docs. Fast, but the ranking (just cosine) is crude.", active:["enc-bi-in","enc-bi-tower","enc-bi-out"], attn:false, tp:"bi-encoder ≈ thousands of docs / sec (ANN lookup)"},
+    {text:"Now the cross-encoder reranker. Query and document enter ONE transformer together: [query] [SEP] [document]. Nothing is kept apart.", active:["enc-cross-in"], attn:false, tp:"cross-encoder: query + document enter together"},
+    {text:"Full cross-attention lets every query token attend to every doc token, producing a far sharper relevance score — but nothing can be precomputed. It must run fresh per (query, doc) pair.", active:["enc-cross-in","enc-cross-tower","enc-cross-out"], attn:true, tp:"cross-encoder ≈ tens of pairs / sec (no precompute)"},
+    {text:"So you pair them: bi-encoder casts the wide net (recall), cross-encoder reorders the shortlist (precision). all-MiniLM / Voyage / Cohere embeddings up front; Cohere Rerank 4.0, Voyage rerank-2.5, bge or zerank at the back.", active:["enc-bi-in","enc-bi-tower","enc-bi-out","enc-cross-in","enc-cross-tower","enc-cross-out"], attn:true, tp:"retrieve with the fast one, re-rank with the sharp one"}
+  ], function(idx,s){
+    document.getElementById('ce-attn').style.display = s.attn ? '' : 'none';
+    document.getElementById('enc-tp').textContent = s.tp;
+  });
+</script>
+</body>
+</html>

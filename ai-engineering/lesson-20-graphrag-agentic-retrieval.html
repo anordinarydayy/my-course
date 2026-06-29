@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 20 — GraphRAG &amp; Agentic Retrieval (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">GraphRAG &amp; Agentic<br>Retrieval</div>
+    <h4>Beyond top-k</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Where flat top-k breaks</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>One shot vs walking edges &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>GraphRAG: a smarter index &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>LazyGraphRAG &amp; the cost</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Agentic: a smarter policy &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The router that pays only when</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Retrieval is the agent pattern</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">20</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>GraphRAG &amp; Agentic Retrieval</h1>
+      <p class="lede">Flat top-k retrieval is a similarity prefilter: it grabs the <em>k</em> chunks that look most like your query and stuffs them in context. That is brilliant for the local "who/what/when/where" lookups of Lessons 15&ndash;18 &mdash; and it falls apart on two question shapes it can't even represent. This stretch lesson is about the two ways out: <strong>GraphRAG</strong> builds a smarter <em>index</em> so global and relational structure is precomputed; <strong>agentic retrieval</strong> installs a smarter <em>policy</em> so the model decides when, what, and how many times to fetch. Both cost far more than top-k &mdash; so the real skill is knowing when flat RAG has actually failed.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The capstone of the RAG phase. It draws on public sources &mdash; Microsoft's "From Local to Global" GraphRAG work and LazyGraphRAG, Self-RAG and CRAG, the 2025&ndash;2026 "deep research" products, and Chip Huyen's <em>AI Engineering</em> and Anthropic's writing on context engineering for framing &mdash; but every explanation, diagram, and example is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Tool names, pricing, and model facts are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The failure that starts everything</div>
+      <h2>Where flat top-k breaks</h2>
+      <p>Everything in this phase has been one machine: chunk the corpus (Lesson 17), embed each chunk and index it (Lesson 16), and at query time embed the question, pull the <em>k</em> nearest chunks, maybe rerank them (Lesson 18), and hand them to the model. It works because of a quiet assumption &mdash; <strong>the answer lives inside a chunk that looks like the question.</strong> Ask "what is our refund window?" and the chunk containing that sentence is, by construction, the one whose embedding sits nearest the query. Local lookups are exactly this shape, and flat RAG nails them.</p>
+      <p>That assumption breaks in two structural ways, and "retrieve more chunks" fixes neither &mdash; because the problem isn't recall depth, it's that the answer <em>isn't in any single chunk at all</em>.</p>
+      <ul>
+        <li><strong>Global questions.</strong> "What are the main themes across the whole corpus?" No chunk contains "the themes" &mdash; that fact is a property of the <em>entire collection</em>. Top-k just returns <em>k</em> arbitrary fragments that happen to resemble the words "main themes," and the model summarizes those few, not the corpus. Bumping <em>k</em> from 5 to 50 gives you 50 arbitrary fragments.</li>
+        <li><strong>Multi-hop questions.</strong> "Which university did the founder of the company that acquired Instagram attend?" The chain <em>Instagram &#8594; Facebook &#8594; Zuckerberg &#8594; Harvard</em> never co-occurs in one chunk. A single similarity lookup on the literal query can't <em>traverse</em> relationships; it can only match surface text, so it surfaces chunks about Instagram and stops.</li>
+        <li><strong>The blind, single-shot policy.</strong> A third, quieter failure: flat RAG always fetches exactly <em>k</em> &mdash; for a "hi, how are you?" that needs <em>zero</em> lookups, and for a research question that needs <em>many</em>. The retrieval policy is fixed, blind, and one-shot, with no notion of "I have enough" or "I should look again, differently."</li>
+      </ul>
+      <div class="callout note">
+        <span class="k">Two fixes for two failures</span>
+        <p>The two failures point at two different layers. Global and multi-hop are failures of the <strong>index</strong> &mdash; the structure you precomputed throws away relationships and corpus-level shape; <em>GraphRAG</em> fixes the index. The blind single-shot fetch is a failure of the <strong>policy</strong> &mdash; <em>who decides to retrieve, and how often</em>; <em>agentic retrieval</em> fixes the policy. They compose, and together they bridge straight into Phase 4.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The multi-hop miss, made concrete</div>
+      <h2>One shot vs walking the edges &#9656;</h2>
+      <p>Take the multi-hop question literally and watch both pipelines run it. On the left, flat top-k embeds the whole query and grabs the nearest chunks in one shot. On the right, the same facts live in a knowledge graph, and the answer is an <em>edge walk</em>. The contrast is the whole lesson in one frame:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-multihop">
+          <svg viewBox="0 0 640 270" role="img" aria-label="Flat top-k retrieving Instagram look-alike chunks and returning the wrong university, versus a knowledge graph walking Instagram to Facebook to Zuckerberg to Harvard">
+            <text class="lbl-sm" x="160" y="20" text-anchor="middle" fill="#4A7BA6">FLAT TOP-K &mdash; one similarity shot</text>
+            <text class="lbl-sm" x="478" y="20" text-anchor="middle" fill="#3f7a2e">KNOWLEDGE GRAPH &mdash; walk the edges</text>
+            <line x1="316" y1="32" x2="316" y2="258" stroke="var(--line-strong)" stroke-width="1.2" stroke-dasharray="5 5"/>
+
+            <!-- LEFT: flat -->
+            <g class="st" id="mh-embed"><rect class="node" x="24" y="72" width="120" height="38" rx="9"/><text class="lbl-sm" x="84" y="96" text-anchor="middle">embed query</text></g>
+            <g class="st" id="mh-topk"><rect class="node-b" x="24" y="128" width="120" height="38" rx="9"/><text class="lbl-sm" x="84" y="152" text-anchor="middle">vector top-k</text></g>
+            <path id="mh-f1" class="flow" d="M84 110 V 126" marker-end="url(#arrow)"/>
+            <g class="st" id="mh-c1"><rect class="node" x="170" y="70" width="128" height="32" rx="8"/><text class="lbl-sm" x="234" y="90" text-anchor="middle">Instagram, 2012</text></g>
+            <g class="st" id="mh-c2"><rect class="node" x="170" y="110" width="128" height="32" rx="8"/><text class="lbl-sm" x="234" y="130" text-anchor="middle">co-founder Systrom</text></g>
+            <g class="st" id="mh-c3"><rect class="node" x="170" y="150" width="128" height="32" rx="8"/><text class="lbl-sm" x="234" y="170" text-anchor="middle">Systrom &#8594; Stanford</text></g>
+            <path id="mh-f2" class="flow" d="M144 147 H 168" marker-end="url(#arrow)"/>
+            <g class="st" id="mh-flatans"><rect id="mh-flatans-rect" class="node" x="40" y="210" width="256" height="40" rx="9"/><text id="mh-flattext" class="readout" x="168" y="234" text-anchor="middle" font-size="13" fill="var(--ink-soft)">retrieving&#8230;</text></g>
+            <path id="mh-flatto" class="flow" d="M234 182 C 200 198, 180 202, 168 208" marker-end="url(#arrow)"/>
+
+            <!-- RIGHT: graph -->
+            <g class="st" id="mh-n-ig"><rect class="node-b" x="336" y="78" width="120" height="40" rx="9"/><text class="lbl-sm" x="396" y="103" text-anchor="middle">Instagram</text></g>
+            <g class="st" id="mh-n-fb"><rect class="node" x="496" y="78" width="120" height="40" rx="9"/><text class="lbl-sm" x="556" y="103" text-anchor="middle">Facebook</text></g>
+            <g class="st" id="mh-n-zk"><rect class="node" x="496" y="170" width="120" height="40" rx="9"/><text class="lbl-sm" x="556" y="195" text-anchor="middle">M. Zuckerberg</text></g>
+            <g class="st" id="mh-n-hv"><rect id="mh-hv-rect" class="node" x="336" y="170" width="120" height="40" rx="9"/><text class="lbl-sm" x="396" y="195" text-anchor="middle">Harvard</text></g>
+            <path id="mh-hop1" class="flow-g" d="M456 98 H 494" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <path id="mh-hop2" class="flow-g" d="M556 118 V 168" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <path id="mh-hop3" class="flow-g" d="M496 190 H 458" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <text class="lbl-sm" x="476" y="92" text-anchor="middle" font-size="9.5">acquired_by</text>
+            <text class="lbl-sm" x="562" y="147" text-anchor="start" font-size="9.5">founded_by</text>
+            <text class="lbl-sm" x="476" y="206" text-anchor="middle" font-size="9.5">attended</text>
+            <text id="mh-graphans" class="readout" x="476" y="242" text-anchor="middle" font-size="13" fill="#3f7a2e"></text>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: similarity in one shot returns the wrong university; traversing relationships hop by hop lands on the right one</figcaption>
+      </figure>
+
+      <p>The lesson of the left column is subtle and important: flat RAG didn't return <em>nothing</em> &mdash; it returned a <em>confident wrong answer</em>, Stanford, because Instagram's visible co-founder Kevin Systrom did attend Stanford. The query terms "founder," "university," and "Instagram" pull chunks that resemble them, and none of those chunks mentions the <em>acquirer</em>. More <em>k</em> deepens the pile of Instagram look-alikes; it never crosses the <code>acquired_by</code> edge, because there is no edge to cross in a flat index. The graph encodes that relationship explicitly, so the answer is three hops, no guessing. Now: how do you build that graph?</p>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> A smarter index</div>
+      <h2>GraphRAG: a smarter index &#9656;</h2>
+      <p>Microsoft's GraphRAG ("From Local to Global," 2024) attacks the <em>global</em> failure and the <em>multi-hop</em> failure with one restructured index. The insight: do the expensive, LLM-heavy structuring work <strong>once at build time</strong>, so that relationships and corpus-level shape are precomputed rather than reconstructed per query. Step through the build, then watch a global query get answered:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-build">
+          <svg viewBox="0 0 640 256" role="img" aria-label="GraphRAG indexing: documents through an LLM into a knowledge graph, Leiden communities, community reports, then a global query answered by map-reduce over the reports">
+            <text class="lbl-sm" x="320" y="18" text-anchor="middle" fill="#4A7BA6">BUILD-TIME INDEXING (LLM-heavy, runs once)</text>
+            <!-- build row -->
+            <g class="st" id="gb-docs"><rect class="node" x="20" y="42" width="92" height="46" rx="9"/><text class="lbl-sm" x="66" y="62" text-anchor="middle">documents</text><text class="lbl-sm" x="66" y="77" text-anchor="middle">(corpus)</text></g>
+            <g class="st" id="gb-llm"><rect class="node-b" x="140" y="42" width="128" height="46" rx="9"/><text class="lbl-sm" x="204" y="62" text-anchor="middle">LLM extract</text><text class="lbl-sm" x="204" y="77" text-anchor="middle">entities + relations</text></g>
+            <g class="st" id="gb-graph"><rect class="node" x="296" y="42" width="120" height="46" rx="9"/><text class="lbl-sm" x="356" y="62" text-anchor="middle">knowledge</text><text class="lbl-sm" x="356" y="77" text-anchor="middle">graph</text></g>
+            <g class="st" id="gb-leiden"><rect class="node" x="444" y="42" width="176" height="46" rx="9"/><text class="lbl-sm" x="532" y="62" text-anchor="middle">Leiden communities</text><text class="lbl-sm" x="532" y="77" text-anchor="middle">C0 root &#8594; C3 leaf</text></g>
+            <path id="gb-e1" class="flow" d="M112 65 H 138" marker-end="url(#arrow)"/>
+            <path id="gb-e2" class="flow" d="M268 65 H 294" marker-end="url(#arrow)"/>
+            <path id="gb-e3" class="flow" d="M416 65 H 442" marker-end="url(#arrow)"/>
+
+            <!-- bottom: query / reports / answer -->
+            <g class="st" id="gb-query"><rect class="node-r" x="20" y="158" width="130" height="50" rx="9"/><text class="lbl-sm" x="85" y="179" text-anchor="middle">GLOBAL Q:</text><text class="lbl-sm" x="85" y="194" text-anchor="middle">main themes?</text></g>
+            <g class="st" id="gb-r1"><rect id="gb-r1-rect" class="node" x="214" y="144" width="150" height="28" rx="7"/><text class="lbl-sm" x="282" y="162" text-anchor="middle">report &middot; theme &#945;</text><text id="gb-r1-s" x="356" y="162" text-anchor="end" font-size="10" fill="#3f7a2e" font-family="'JetBrains Mono',monospace"></text></g>
+            <g class="st" id="gb-r2"><rect id="gb-r2-rect" class="node" x="214" y="178" width="150" height="28" rx="7"/><text class="lbl-sm" x="282" y="196" text-anchor="middle">report &middot; theme &#946;</text><text id="gb-r2-s" x="356" y="196" text-anchor="end" font-size="10" fill="#B0532F" font-family="'JetBrains Mono',monospace"></text></g>
+            <g class="st" id="gb-r3"><rect id="gb-r3-rect" class="node" x="214" y="212" width="150" height="28" rx="7"/><text class="lbl-sm" x="282" y="230" text-anchor="middle">report &middot; theme &#947;</text><text id="gb-r3-s" x="356" y="230" text-anchor="end" font-size="10" fill="#3f7a2e" font-family="'JetBrains Mono',monospace"></text></g>
+            <g class="st" id="gb-answer"><rect class="node-g" x="448" y="160" width="172" height="48" rx="9"/><text id="gb-answer-t" class="readout" x="534" y="188" text-anchor="middle" font-size="12.5" fill="#3f7a2e">&#8230;</text></g>
+            <text id="gb-meter" class="lbl-sm" x="534" y="150" text-anchor="middle" font-size="9.5" fill="var(--ink-soft)"></text>
+
+            <path id="gb-d1" class="flow" d="M462 88 C 380 106, 320 136, 290 143" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="gb-d2" class="flow" d="M472 88 C 380 126, 330 170, 290 177" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="gb-d3" class="flow" d="M482 88 C 380 150, 330 206, 290 211" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="gb-m1" class="flow-r" d="M150 174 C 180 158, 195 158, 212 159" marker-end="url(#arrow-r)" style="opacity:.12"/>
+            <path id="gb-m2" class="flow-r" d="M150 185 C 180 188, 195 191, 212 192" marker-end="url(#arrow-r)" style="opacity:.12"/>
+            <path id="gb-m3" class="flow-r" d="M150 196 C 180 214, 195 224, 212 225" marker-end="url(#arrow-r)" style="opacity:.12"/>
+            <path id="gb-rd1" class="flow-g" d="M364 158 C 410 168, 428 180, 446 184" marker-end="url(#arrow-g)" style="opacity:.12"/>
+            <path id="gb-rd2" class="flow-g" d="M364 192 H 446" marker-end="url(#arrow-g)" style="opacity:.12"/>
+            <path id="gb-rd3" class="flow-g" d="M364 226 C 410 218, 428 200, 446 190" marker-end="url(#arrow-g)" style="opacity:.12"/>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: build the graph and pre-summarize communities once; answer a global query by map-reduce over the summaries</figcaption>
+      </figure>
+
+      <p>Two pieces deserve a second look. <strong>The Leiden hierarchy</strong> is what makes "global" tractable: communities nest, from a handful of broad <code>C0</code> roots down to many fine-grained <code>C3</code> leaves, so you can answer a sweeping question from a few root summaries instead of reading the whole corpus. In the paper, on million-token podcast and news corpora, GraphRAG beat naive vector RAG on <em>comprehensiveness</em> around 72&ndash;83% of the time and on <em>diversity</em> around 62&ndash;82% &mdash; exactly the axes top-k can't touch. <strong>The map-reduce</strong> is the query engine: <em>map</em> generates a partial answer plus a 0&ndash;100 helpfulness score from each relevant report in parallel; <em>reduce</em> drops the zero-scored ones, ranks the rest, and synthesizes one answer. And the headline efficiency win: answering from <code>C0</code> root summaries instead of source text cut tokens per global query by roughly <strong>97%</strong> (about 9&ndash;43&times; fewer). The multi-hop case from Fig. 1 is the same index used differently &mdash; instead of map-reducing summaries, you walk edges. One structure, both failures fixed. The catch is the bill for building it.</p>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The cost is the point</div>
+      <h2>LazyGraphRAG &amp; the cost of a graph</h2>
+      <p>Here is the discipline this whole lesson is really teaching: <strong>both of these techniques cost dramatically more than top-k, so you must prove flat RAG fails before you reach for them.</strong> GraphRAG's indexing pass runs an LLM over the corpus to extract entities, relationships, and claims and to write every community report &mdash; practitioners report it landing around <strong>10&ndash;40&times;</strong> the cost of a plain vector pipeline (think tens to a couple hundred dollars to index a corpus that vector-indexes for cents). Pay that and you get a reusable, shareable index; pay it on a corpus that only ever needs simple lookups and you have lit money on fire.</p>
+      <p>The 2025&ndash;2026 shift that changed the economics is <strong>LazyGraphRAG</strong>. Its move is pure laziness in the good sense: <em>defer all LLM work to query time.</em> At build time it uses cheap classical NLP &mdash; noun-phrase extraction plus co-occurrence &mdash; to assemble a concept graph with <em>no</em> LLM summarization, so indexing costs the same as vector RAG (about 0.1% of full GraphRAG). At query time it runs a best-first (similarity-ranked chunks) plus breadth-first (LLM judges sentence-level relevance across communities) search over a few generated subqueries, governed by a single <strong>"relevance test budget"</strong> knob. The reported result is striking: it <em>matches</em> full GraphRAG's global-search quality at roughly <strong>700&times; lower query cost</strong>, and at about 4% of global-search query cost it beats competing methods on <em>both</em> local and global queries. A complementary trick, <strong>dynamic community selection</strong>, prunes irrelevant communities with a cheap model before map-reduce, cutting token cost ~77% at no significant quality loss.</p>
+
+      <table class="cost">
+        <thead><tr><th>Approach</th><th>Best for</th><th>Index cost</th><th>Query cost &amp; latency</th><th>Wins / fails when</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Flat top-k vector</strong></td>
+            <td>Local "who/what/when/where" lookups</td>
+            <td>Cheap (baseline)</td>
+            <td>Cheap, ~10&ndash;100&nbsp;ms</td>
+            <td>Wins on single-chunk answers; <em>fails</em> on global themes &amp; multi-hop chains</td>
+          </tr>
+          <tr>
+            <td><strong>GraphRAG</strong> (global + traversal)</td>
+            <td>Themes across a corpus; relational / multi-hop</td>
+            <td>Expensive LLM pass (~10&ndash;40&times; vector)</td>
+            <td>Higher tokens, ~2&ndash;3&times; latency</td>
+            <td>Wins on whole-corpus reasoning; <em>fails</em> to justify cost on simple lookups</td>
+          </tr>
+          <tr>
+            <td><strong>LazyGraphRAG</strong></td>
+            <td>Same global/relational quality on a budget</td>
+            <td>= vector RAG (~0.1% of GraphRAG)</td>
+            <td>~700&times; cheaper than global search at par quality</td>
+            <td>Wins for one-off / streaming corpora; weaker when you need reusable shared community reports</td>
+          </tr>
+          <tr>
+            <td><strong>Agentic / iterative</strong> (Self-RAG, CRAG, deep research)</td>
+            <td>Multi-hop, open-ended, "decide when/what to fetch"</td>
+            <td>= whatever the underlying store is</td>
+            <td>~several&times; tokens + seconds of latency</td>
+            <td>Wins on decompose-and-reflect questions; <em>wasteful</em> on simple queries</td>
+          </tr>
+          <tr>
+            <td colspan="5"><strong>2026 default &middot; Adaptive Router</strong> &mdash; classify each query and route it to the <em>cheapest</em> row that can actually answer it (see &sect;05).</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <span class="k">The order of operations</span>
+        <p>Before a graph: try the cheaper non-graph fixes first &mdash; structure-aware parent/child chunking (Lesson 17), the hybrid + rerank stack (Lesson 18), and contextual retrieval (prepend a chunk's surrounding context <em>before</em> embedding it, reported to cut retrieval failures by up to ~67%). Reach for a real graph only once you've shown a question class that genuinely needs relationships or whole-corpus synthesis &mdash; and you'll know, because you'll have measured it with the retrieval metrics of Lesson 21.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> A smarter policy</div>
+      <h2>Agentic retrieval: a smarter policy &#9656;</h2>
+      <p>GraphRAG fixed the index. The <em>blind, single-shot</em> failure is a different bug entirely &mdash; it's about <strong>who controls retrieval</strong>. Flat RAG bolts a fixed prefilter in front of the model: always embed, always fetch <em>k</em>, always before generating. Agentic retrieval hands that decision <em>to the model</em> and exposes retrieval as a <strong>tool</strong>. Now the model can PLAN (decompose the question into sub-queries), ISSUE targeted searches, REFLECT on what came back (is it relevant? sufficient? contradictory?), and DECIDE whether to search again, search differently, fall back to the web, or answer. Retrieval stops being a subroutine and becomes a learned, iterative skill.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-loop">
+          <svg viewBox="0 0 640 262" role="img" aria-label="An agentic retrieval loop: the model plans sub-queries, retrieves with a tool, reflects on results, retrieves again, falls back to web search on weak results, and synthesizes when all sub-queries are answered">
+            <!-- checklist panel -->
+            <text class="lbl-sm" x="20" y="34" text-anchor="start" fill="#4A7BA6">DECOMPOSED QUERY</text>
+            <rect id="al-c1box" x="20" y="48" width="16" height="16" rx="3" fill="var(--paper-2)" stroke="var(--line-strong)"/>
+            <text id="al-c1" x="28" y="60" text-anchor="middle" font-size="12" fill="#3f7a2e" font-family="'JetBrains Mono',monospace"></text>
+            <text class="lbl-sm" x="44" y="60" text-anchor="start" font-size="10.5">Q1 who acquired IG?</text>
+            <rect id="al-c2box" x="20" y="80" width="16" height="16" rx="3" fill="var(--paper-2)" stroke="var(--line-strong)"/>
+            <text id="al-c2" x="28" y="92" text-anchor="middle" font-size="12" fill="#3f7a2e" font-family="'JetBrains Mono',monospace"></text>
+            <text class="lbl-sm" x="44" y="92" text-anchor="start" font-size="10.5">Q2 who founded it?</text>
+            <rect id="al-c3box" x="20" y="112" width="16" height="16" rx="3" fill="var(--paper-2)" stroke="var(--line-strong)"/>
+            <text id="al-c3" x="28" y="124" text-anchor="middle" font-size="12" fill="#3f7a2e" font-family="'JetBrains Mono',monospace"></text>
+            <text class="lbl-sm" x="44" y="124" text-anchor="start" font-size="10.5">Q3 their university?</text>
+            <text id="al-count" class="readout" x="20" y="166" text-anchor="start" font-size="13" fill="#B0532F">retrievals: 0</text>
+
+            <!-- cycle -->
+            <g class="st" id="al-plan"><rect class="node-b" x="348" y="22" width="148" height="46" rx="9"/><text class="lbl-sm" x="422" y="42" text-anchor="middle">1 &middot; PLAN</text><text class="lbl-sm" x="422" y="57" text-anchor="middle">decompose query</text></g>
+            <g class="st" id="al-web"><rect class="node-r" x="512" y="22" width="116" height="46" rx="9"/><text class="lbl-sm" x="570" y="42" text-anchor="middle">web-search</text><text class="lbl-sm" x="570" y="57" text-anchor="middle">fallback (CRAG)</text></g>
+            <g class="st" id="al-retrieve"><rect class="node" x="508" y="108" width="120" height="50" rx="9"/><text class="lbl-sm" x="568" y="129" text-anchor="middle">2 &middot; RETRIEVE</text><text class="lbl-sm" x="568" y="144" text-anchor="middle">search tool</text></g>
+            <g class="st" id="al-model"><rect class="node-b" x="360" y="106" width="120" height="54" rx="9"/><text class="lbl" x="420" y="130" text-anchor="middle">MODEL</text><text class="lbl-sm" x="420" y="147" text-anchor="middle">plan &middot; reflect</text></g>
+            <g class="st" id="al-answer"><rect class="node-g" x="210" y="108" width="122" height="50" rx="9"/><text class="lbl-sm" x="271" y="129" text-anchor="middle" fill="#3f7a2e">4 &middot; SYNTHESIZE</text><text class="lbl-sm" x="271" y="144" text-anchor="middle" fill="#3f7a2e">final answer</text></g>
+            <g class="st" id="al-reflect"><rect class="node" x="348" y="196" width="148" height="46" rx="9"/><text class="lbl-sm" x="422" y="216" text-anchor="middle">3 &middot; REFLECT</text><text class="lbl-sm" x="422" y="231" text-anchor="middle">relevant? sufficient?</text></g>
+
+            <path id="al-a-mp" class="flow" d="M420 106 V 70" marker-end="url(#arrow)"/>
+            <path id="al-a-pr" class="flow" d="M496 50 C 540 62, 562 86, 566 106" marker-end="url(#arrow)"/>
+            <path id="al-a-rr" class="flow" d="M566 158 C 566 192, 504 216, 498 217" marker-end="url(#arrow)"/>
+            <path id="al-a-rm" class="flow" d="M420 196 V 162" marker-end="url(#arrow)"/>
+            <path id="al-a-loop" class="flow-g" d="M496 210 C 590 202, 602 170, 582 160" marker-end="url(#arrow-g)" style="opacity:.12"/>
+            <path id="al-a-web" class="flow-r" d="M568 108 V 70" marker-end="url(#arrow-r)" style="opacity:.12"/>
+            <path id="al-a-exit" class="flow-g" d="M360 133 H 334" marker-end="url(#arrow-g)" style="opacity:.12"/>
+            <circle class="packet" r="6" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: plan &#8594; retrieve &#8594; reflect &#8594; retrieve again &#8594; synthesize; the number of fetches is decided by the model, not fixed at k</figcaption>
+      </figure>
+
+      <p>That loop is a whole family of techniques, and two named ones are worth holding in your head because they show the two places you can put the intelligence &mdash; <em>inside</em> the model, or <em>around</em> it:</p>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Self-RAG &mdash; reflection inside the model</h4>
+          <ul>
+            <li>Trains the model to emit <strong>reflection tokens</strong> mid-generation.</li>
+            <li><code>Retrieve</code> decides whether a lookup is even <em>needed</em> (so chit-chat fetches nothing).</li>
+            <li><code>ISREL</code> grades each passage's relevance; <code>ISSUP</code> checks it actually <em>supports</em> the claim; <code>ISUSE</code> rates utility 1&ndash;5.</li>
+            <li>Result: retrieve-on-demand and self-critique are <em>learned behavior</em>; reported hallucination rates drop to ~5&ndash;6% vs naive RAG.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>CRAG &mdash; a corrective evaluator around it</h4>
+          <ul>
+            <li>Adds a lightweight retrieval <strong>evaluator</strong> that grades docs <em>correct / incorrect / ambiguous</em>.</li>
+            <li>On low confidence it <strong>falls back to web search</strong> rather than answer on weak context.</li>
+            <li>Refines via <em>decompose-then-recompose</em> &mdash; strip retrieved text to key strips, drop the noise, recombine.</li>
+            <li>Model-agnostic: bolts onto any RAG pipeline as a grader + router (the red branch in Fig. 3).</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>The older cousins &mdash; Self-Ask, ReAct, and IRCoT (interleave chain-of-thought with retrieval, forming each follow-up query from the last intermediate answer) &mdash; established the pattern; the 2025 RL-trained search agents (Search-R1, DeepResearcher, R3-RAG) <em>reward</em> the model for good fetch-and-stop decisions. On the standard multi-hop benchmarks (HotpotQA, 2WikiMultiHopQA, MuSiQue, built to block shortcuts), iterative beats single-pass by meaningful margins &mdash; roughly +10 EM / +7.6 F1 over a single-pass dense baseline (e.g. EM 43&#8594;53). Here is the same chain from Fig. 1, solved by the policy instead of the index:</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">multi-hop &middot; top-k can't answer</span></div>
+        <div class="wbody">
+          <div class="wname">Connecting Instagram to Harvard, two ways</div>
+          <p class="wprompt">Question: <strong>"Which university did the founder of the company that acquired Instagram attend?"</strong> The corpus has every fact &mdash; but spread across three separate articles: an Instagram-acquisition piece (Facebook, 2012, ~$1B), a Facebook company profile (founded by Mark Zuckerberg), and a Zuckerberg bio (attended Harvard). <em>No single chunk holds the chain.</em></p>
+          <h4 class="wh">Why flat top-k returns the wrong answer</h4>
+          <pre class="code"><span class="codetag">flat top-k — one blind lookup</span><code><span class="kw">retrieve</span>(<span class="st">"university founder company acquired Instagram"</span>, k=<span class="st">5</span>)
+<span class="cm"># nearest chunks are dominated by 'Instagram' + 'founder':</span>
+<span class="cm">#   → Instagram (2012), co-founder Kevin Systrom, Stanford…</span>
+<span class="cm"># the ACQUIRER (Facebook) never co-occurs with the query terms</span>
+answer = <span class="st">"Stanford"</span>   <span class="kw">#</span> confidently WRONG — or "can't find it"</code></pre>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Fix A &mdash; decompose / retrieve / reflect (policy)</span><p><b>Plan:</b> the model sees a 3-link chain and decomposes. <b>Sub-Q1</b> "Who acquired Instagram?" &#8594; retrieve &#8594; <b>Facebook</b>. <b>Reflect:</b> need the acquirer's founder &#8594; <b>Sub-Q2</b> "Who founded Facebook?" &#8594; <b>Zuckerberg</b>. <b>Reflect:</b> need his university &#8594; <b>Sub-Q3</b> "Which university did Mark Zuckerberg attend?" &#8594; <b>Harvard</b>. <b>Synthesize</b> &#8594; "Harvard." Three targeted retrievals, each with an explicit query, beat one blind lookup.</p></div>
+            <div class="ws"><span class="wsk">Fix B &mdash; a 2&ndash;3 hop graph walk (index)</span><p>On the knowledge graph there's no re-prompting at all: <b>Instagram</b> <code>--acquired_by--&gt;</code> <b>Facebook</b> <code>--founded_by--&gt;</code> <b>Zuckerberg</b> <code>--attended--&gt;</code> <b>Harvard</b>. The answer is a direct edge walk &mdash; precisely Fig. 1's right column.</p></div>
+            <div class="ws"><span class="wsk">The payoff &mdash; and the caveat to teach beside it</span><p>This is the gap the numbers reflect: iterative/agentic reports ~+10 EM / +7.6 F1 over single-pass on multi-hop QA, and a real 4M-doc deployment moved multi-hop correctness <b>41% &#8594; 78%</b> and citation accuracy <b>87% &#8594; 96%</b> by adding traversal &mdash; for about +130&nbsp;ms p95. But Fix A cost 3 LLM+retrieval round-trips and Fix B cost an expensive graph build. <b>Only reach for either once you've shown flat top-k actually fails this question.</b></p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;Flat top-k returned Stanford because the query's nearest chunks were all about Instagram and its visible co-founder &mdash; the acquirer never co-occurred with the query terms, and more <em>k</em> just piles up more Instagram chunks. Two fixes: decompose into who-acquired / who-founded / which-university and retrieve-reflect each in turn, or walk three edges on a knowledge graph. Both cost far more than one lookup, so I only use them once I've proven the multi-hop class genuinely breaks flat RAG.&#8221;</p>
+            <p class="plain">The decompose-retrieve-reflect loop and the edge walk reach the same answer &mdash; one fixes the <em>policy</em>, the other fixes the <em>index</em>. In production you often have both, and a router decides which to spend on.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Pay only when you must</div>
+      <h2>The router that pays only when flat RAG fails</h2>
+      <p>If GraphRAG and agentic loops both cost multiples of top-k, and most real traffic is simple lookups, the obvious production answer writes itself: <strong>don't run the expensive path on every query &mdash; classify first.</strong> This is <em>Adaptive</em> or <em>Router</em> RAG, the de-facto 2026 architecture. A cheap classifier sizes each incoming query and sends it down the lane that can actually answer it, so you stop paying graph and agent costs on the ~80% of queries that are trivial.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 226" role="img" aria-label="A router classifying one query into three lanes: cheap vector top-k for about 80 percent, graph traversal for about 15 percent, and a full agentic loop for about 5 percent">
+            <g><rect class="node" x="18" y="92" width="96" height="44" rx="9"/><text class="lbl-sm" x="66" y="118" text-anchor="middle">query</text></g>
+            <path class="flow" d="M114 114 H 150" marker-end="url(#arrow)"/>
+            <polygon class="node-b" points="196,114 232,84 268,114 232,144"/><text class="lbl-sm" x="232" y="111" text-anchor="middle">classify</text><text class="lbl-sm" x="232" y="124" text-anchor="middle">size it</text>
+            <!-- lane A -->
+            <path class="flow-g" d="M256 96 C 320 64, 360 44, 404 44" marker-end="url(#arrow-g)"/>
+            <rect class="node-g" x="404" y="22" width="218" height="44" rx="9"/>
+            <text class="lbl-sm" x="416" y="41" text-anchor="start" fill="#3f7a2e">~80%  flat vector top-k</text>
+            <text class="lbl-sm" x="416" y="56" text-anchor="start" fill="#3f7a2e">cheap &middot; ~10&ndash;100&nbsp;ms &middot; simple lookup</text>
+            <!-- lane B -->
+            <path class="flow" d="M268 114 H 404" marker-end="url(#arrow)"/>
+            <rect class="node-b" x="404" y="92" width="218" height="44" rx="9"/>
+            <text class="lbl-sm" x="416" y="111" text-anchor="start">~15%  graph / multi-hop</text>
+            <text class="lbl-sm" x="416" y="126" text-anchor="start">medium &middot; relational / global</text>
+            <!-- lane C -->
+            <path class="flow-r" d="M256 132 C 320 164, 360 184, 404 184" marker-end="url(#arrow-r)"/>
+            <rect class="node-r" x="404" y="162" width="218" height="44" rx="9"/>
+            <text class="lbl-sm" x="416" y="181" text-anchor="start" fill="#B0532F">~5%  full agentic loop</text>
+            <text class="lbl-sm" x="416" y="196" text-anchor="start" fill="#B0532F">high &middot; seconds &middot; open-ended research</text>
+          </svg>
+          <figcaption>FIG. 4 — static: one classifier, three price tiers &mdash; spend graph/agent budget only where flat RAG demonstrably fails</figcaption>
+        </div>
+      </figure>
+
+      <p>The 2025 Agentic-RAG surveys (Singh et al.) gave the field its vocabulary &mdash; single-agent, multi-agent, hierarchical, <em>corrective</em>, <em>adaptive</em>, graph-based &mdash; and the framing of "System-1 vs System-2" retrieval is just this router by another name: cheap reflexive lookups for most queries, slow deliberate loops for the few that earn it. The pragmatic enterprise pattern is hybrid graph+vector (vector for broad recall, graph for relationship verification), accepting ~150&ndash;200&nbsp;ms of orchestration overhead for ~15&ndash;25% accuracy gains &mdash; and reaching for the cheaper non-graph fixes of Lesson 18 first. Microsoft even shipped <strong>BenchmarkQED</strong> to auto-generate and grade global vs local query sets, because deciding <em>which</em> strategy a query needs is becoming its own discipline. The router is where the trade-off table from &sect;03 becomes a runtime decision instead of an architecture commitment.</p>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The bridge</div>
+      <h2>Retrieval is the agent pattern</h2>
+      <p>Step back and look at Fig. 3 again with fresh eyes. A model that <em>plans</em>, <em>calls a tool</em>, <em>observes the result</em>, <em>reflects</em>, and <em>decides whether to act again</em> &mdash; that is not a description of retrieval. That is the definition of an <strong>agent</strong>. Agentic retrieval is simply the agent loop with exactly one tool (search) wired in. Swap that tool for a code interpreter, a database query, or an API call and you have Phase 4. This is why the lesson sits where it does: it is the capstone of retrieval and the on-ramp to agents at the same time.</p>
+      <p>The same idea shows up in Anthropic's framing of <strong>just-in-time context engineering</strong>: instead of pre-stuffing everything into the window (the "stuff it all in" failure of Lesson 19), an agent holds lightweight identifiers &mdash; file paths, record IDs, queries &mdash; and pulls data into context <em>on demand</em> at runtime, exactly as Claude Code writes a targeted query over a database rather than loading the whole thing. "Retrieval-as-a-tool inside a reflective loop" <em>is</em> just-in-time context. And it's why the 2025&ndash;2026 "deep research" products &mdash; OpenAI, Gemini, Perplexity, Grok, Qwen &mdash; are all the same productized loop (plan &#8594; search &#8594; reflect &#8594; iterate) run for minutes over many sources: deep research is agentic retrieval with a generous budget.</p>
+      <div class="callout">
+        <span class="k">The phase, complete</span>
+        <p>That closes RAG &amp; Retrieval. You can now build the pipeline (L15), index and store vectors (L16), chunk well (L17), hybrid-search and rerank (L18), and engineer the context window (L19) &mdash; and now, when flat top-k structurally fails, restructure the <em>index</em> with GraphRAG or restructure the <em>policy</em> with agentic loops, routing each query to the cheapest tier that can answer it. Next, <strong>Phase 4 &mdash; Agents &amp; Tool Use</strong> opens with the Augmented LLM (L22): one model equipped with retrieval, tools, and memory. You've already built its most important reflex.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>flat top-k is a similarity prefilter that structurally cannot answer global or multi-hop questions and fetches blindly &mdash; so fix the <strong>index</strong> with GraphRAG (entities &#8594; communities &#8594; map-reduce summaries), fix the <strong>policy</strong> with agentic loops (plan &#8594; retrieve &#8594; reflect &#8594; decide), and because both cost multiples of top-k, route each query to the cheapest tier that can actually answer it.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Two structural failures</b><span>Top-k can't answer <em>global</em> (theme = whole corpus) or <em>multi-hop</em> (chain spans chunks that don't co-occur). More k never fixes either &mdash; it's not a recall problem.</span></div>
+        <div class="tk"><span class="num">02</span><b>The confident wrong answer</b><span>Flat RAG returns Stanford, not "I don't know" &mdash; the visible co-founder's chunk looks like the query while the acquirer never co-occurs with the query terms.</span></div>
+        <div class="tk"><span class="num">03</span><b>GraphRAG = smarter index</b><span>LLM extracts entities+relations &#8594; graph &#8594; Leiden communities (C0&#8594;C3) &#8594; pre-summarized reports. Global = map-reduce; multi-hop = edge walk.</span></div>
+        <div class="tk"><span class="num">04</span><b>Map-reduce + the token cut</b><span>Map: partial answer + 0&ndash;100 score per report, in parallel. Reduce: drop zeros, rank, synthesize. C0 roots cut ~97% of tokens per global query.</span></div>
+        <div class="tk"><span class="num">05</span><b>LazyGraphRAG</b><span>Defers all LLM work to query time (cheap noun-phrase + co-occurrence graph at build). Matches global quality at ~700&times; cheaper queries; one "relevance budget" knob.</span></div>
+        <div class="tk"><span class="num">06</span><b>Agentic = smarter policy</b><span>Retrieval as a tool the model drives: plan, decompose, issue searches, reflect, decide. The number of fetches is chosen by the model, not fixed at k.</span></div>
+        <div class="tk"><span class="num">07</span><b>Self-RAG vs CRAG</b><span>Self-RAG bakes reflection tokens (Retrieve/ISREL/ISSUP/ISUSE) into the model; CRAG bolts on an evaluator that grades docs and falls back to web search.</span></div>
+        <div class="tk"><span class="num">08</span><b>The router is the answer</b><span>Both cost multiples of top-k. 2026 default: classify and route ~80% vector, ~15% graph, ~5% agentic &mdash; pay the expensive path only when flat RAG fails.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the two query shapes where flat top-k structurally fails, and explain why bumping <em>k</em> fixes neither.<br>
+        (2) Walk GraphRAG's indexing end to end (extract &#8594; graph &#8594; Leiden communities &#8594; reports), then describe how a global query is answered by map-reduce.<br>
+        (3) What does LazyGraphRAG defer to query time, and how does that buy ~vector-cost indexing and ~700&times; cheaper queries? What is the "relevance test budget"?<br>
+        (4) Compare Self-RAG and CRAG: reflection tokens vs a retrieval evaluator &mdash; how does each decide the context is good enough or needs another action?<br>
+        (5) In the loop plan&#8594;retrieve&#8594;reflect&#8594;retrieve&#8594;answer, what is decided at "reflect," and how does that fix flat RAG's always-fetch-k habit?<br>
+        (6) Give a concrete multi-hop question; show why one top-k lookup returns the wrong answer, and solve it both by decomposition AND by a graph edge-walk.<br>
+        (7) State the rough cost multipliers for graph and agentic retrieval, and describe the 2026 router pattern &mdash; what fraction goes to each tier and why?<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 20 &middot; GRAPHRAG &amp; AGENTIC RETRIEVAL &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the stretch capstone of the RAG &amp; Retrieval phase &middot; tool names, pricing, and model facts are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* FIG 1 — flat top-k miss vs graph edge walk */
+  makeStepper(document.getElementById('fig-multihop'), [
+    {text:"The question: 'Which university did the founder of the company that acquired Instagram attend?' Flat top-k embeds the literal query and grabs the k nearest chunks in one shot.", active:["mh-embed","mh-topk"], path:"mh-f1", flattext:"embedding query…", flatfail:false, hops:0, graphans:""},
+    {text:"The nearest chunks are all Instagram look-alikes — the acquisition, its visible co-founder Kevin Systrom, and Systrom's school, Stanford. Similarity pulls surface matches.", active:["mh-topk","mh-c1","mh-c2","mh-c3"], path:"mh-f2", flattext:"top-3 retrieved", flatfail:false, hops:0, graphans:""},
+    {text:"None of those chunks names the ACQUIRER. So flat RAG answers 'Stanford' — confidently wrong — or 'can't connect'. More k just piles up more Instagram chunks; the gap is traversal, not recall.", active:["mh-c3","mh-flatans"], path:"mh-flatto", reject:true, flattext:"✗ 'Stanford' — wrong", flatfail:true, hops:0, graphans:""},
+    {text:"Now run the same query on a knowledge graph. Start at the entity the query actually names: Instagram. The relationships are stored as explicit edges.", active:["mh-n-ig"], flattext:"✗ flat: 'Stanford'", flatfail:true, hops:0, graphans:"start: Instagram"},
+    {text:"Hop 1 — walk the acquired_by edge: Instagram → Facebook. This is the link flat retrieval never surfaced, because no chunk co-located 'Instagram' with its acquirer.", active:["mh-n-ig","mh-n-fb"], path:"mh-hop1", flattext:"✗ flat: 'Stanford'", flatfail:true, hops:1, graphans:"Instagram → Facebook"},
+    {text:"Hop 2 — walk founded_by: Facebook → Mark Zuckerberg. Each hop narrows toward the answer along a real relationship, not a fuzzy text match.", active:["mh-n-fb","mh-n-zk"], path:"mh-hop2", flattext:"✗ flat: 'Stanford'", flatfail:true, hops:2, graphans:"… → Zuckerberg"},
+    {text:"Hop 3 — walk attended: Zuckerberg → Harvard. The answer is a direct edge walk: no re-prompting, no guessing, and the right university. Same facts, a structure that can traverse them.", active:["mh-n-zk","mh-n-hv"], path:"mh-hop3", flattext:"✗ flat: 'Stanford'", flatfail:true, hops:3, graphans:"✓ Harvard", win:true}
+  ], function(idx,s){
+    var ft=document.getElementById('mh-flattext'); ft.textContent=s.flattext||'';
+    var box=document.getElementById('mh-flatans-rect');
+    if(s.flatfail){ box.setAttribute('class','node-r'); ft.setAttribute('fill','#B0532F'); }
+    else { box.setAttribute('class','node'); ft.setAttribute('fill','var(--ink-soft)'); }
+    var h=s.hops||0;
+    ['mh-hop1','mh-hop2','mh-hop3'].forEach(function(id,k){
+      document.getElementById(id).style.opacity=(h>k)?1:0.14;});
+    document.getElementById('mh-hv-rect').setAttribute('class', s.win?'node-g':'node');
+    document.getElementById('mh-graphans').textContent=s.graphans||'';
+  });
+
+  /* FIG 2 — GraphRAG build → community summaries → global answer */
+  makeStepper(document.getElementById('fig-build'), [
+    {text:"BUILD, step 1 — feed the corpus through an LLM that extracts entities, relationships, and claims as triples. This is the expensive, LLM-heavy pass you pay once.", active:["gb-docs","gb-llm"], path:"gb-e1", ans:"…"},
+    {text:"The triples assemble into a knowledge GRAPH — nodes are entities, edges are relations. This is the same structure that turned the multi-hop question into an edge walk in Fig. 1.", active:["gb-llm","gb-graph"], path:"gb-e2", ans:"…"},
+    {text:"The Leiden algorithm clusters the graph into a HIERARCHY of communities — a few broad C0 roots down to many fine C3 leaves — so a sweeping question can be answered from a handful of summaries.", active:["gb-graph","gb-leiden"], path:"gb-e3", ans:"…"},
+    {text:"SUMMARIZE — an LLM writes a 'community report' for each community, once, at build time. The corpus-level structure top-k threw away is now precomputed and stored.", active:["gb-leiden","gb-r1","gb-r2","gb-r3"], path:"gb-d2", down:true, ans:"…"},
+    {text:"Now a GLOBAL query — 'main themes across the corpus?' MAP: it fans out to every relevant report in parallel, each emitting a partial answer with a 0–100 helpfulness score.", active:["gb-query","gb-r1","gb-r2","gb-r3"], path:"gb-m2", down:false, map:true, s1:"82", s2:"0", s3:"64", ans:"…"},
+    {text:"REDUCE: drop the zero-scored report, rank the rest, and synthesize one themed answer. Answering from C0 root summaries instead of source text costs ~97% fewer tokens per query.", active:["gb-r1","gb-r3","gb-answer"], path:"gb-rd2", map:true, reduce:true, drop:true, s1:"82", s2:"0 ✗", s3:"64", ans:"3 cross-corpus themes", meter:"C0 roots: ~97% fewer tokens"}
+  ], function(idx,s){
+    ['gb-d1','gb-d2','gb-d3'].forEach(function(id){document.getElementById(id).style.opacity=s.down?1:0.12;});
+    ['gb-m1','gb-m2','gb-m3'].forEach(function(id){document.getElementById(id).style.opacity=s.map?1:0.12;});
+    ['gb-rd1','gb-rd2','gb-rd3'].forEach(function(id){document.getElementById(id).style.opacity=s.reduce?1:0.12;});
+    document.getElementById('gb-r1-s').textContent=s.s1||'';
+    document.getElementById('gb-r2-s').textContent=s.s2||'';
+    document.getElementById('gb-r3-s').textContent=s.s3||'';
+    document.getElementById('gb-r2-rect').setAttribute('class', s.drop?'node-r':'node');
+    document.getElementById('gb-answer-t').textContent=s.ans||'…';
+    document.getElementById('gb-meter').textContent=s.meter||'';
+  });
+
+  /* FIG 3 — agentic retrieval loop */
+  makeStepper(document.getElementById('fig-loop'), [
+    {text:"PLAN. The model sees a multi-hop question and decomposes it into ordered sub-queries — Q1, Q2, Q3 — instead of firing one blind lookup. Retrieval is a tool it will call on demand.", active:["al-model","al-plan"], path:"al-a-mp", count:0, c1:false, c2:false, c3:false, retry:false, fallback:false, done:false},
+    {text:"RETRIEVE. Issue Q1 as a targeted search through the retrieval tool: 'who acquired Instagram?' → Facebook. One fetch, one explicit query — counter ticks to 1.", active:["al-plan","al-retrieve"], path:"al-a-pr", count:1, c1:false, c2:false, c3:false},
+    {text:"REFLECT. Grade what came back (echoing Self-RAG's ISREL/ISSUP and CRAG's correct/ambiguous): Q1 is answered and relevant — but the chain isn't done. Decision: search again.", active:["al-retrieve","al-reflect"], path:"al-a-rr", count:1, c1:true, c2:false, c3:false},
+    {text:"LOOP BACK. Not sufficient, so use Q1's answer to fill Q2: 'who founded Facebook?' → Zuckerberg. The model — not a fixed k — decided to fetch again. Counter: 2.", active:["al-reflect","al-retrieve"], path:"al-a-loop", retry:true, count:2, c1:true, c2:false, c3:false},
+    {text:"Reflect, still incomplete, retrieve once more: 'which university did Zuckerberg attend?' → Harvard. Three targeted fetches, each with its own query, each checked. Counter: 3.", active:["al-reflect","al-retrieve"], path:"al-a-loop", retry:true, count:3, c1:true, c2:true, c3:false},
+    {text:"The safety valve: had any fetch come back weak, irrelevant, or contradictory, REFLECT would trigger a fallback — re-query differently or hit web search (CRAG) — rather than answer on bad context.", active:["al-reflect","al-web"], path:"al-a-web", fallback:true, count:3, c1:true, c2:true, c3:false},
+    {text:"All boxes checked → exit the loop and SYNTHESIZE: Instagram → Facebook → Zuckerberg → Harvard. The number of retrievals was decided by the model — here 3; for chit-chat it would be 0.", active:["al-model","al-answer"], path:"al-a-exit", done:true, count:3, c1:true, c2:true, c3:true}
+  ], function(idx,s){
+    document.getElementById('al-count').textContent='retrievals: '+s.count;
+    var checks=[['al-c1','al-c1box',s.c1],['al-c2','al-c2box',s.c2],['al-c3','al-c3box',s.c3]];
+    checks.forEach(function(c){
+      document.getElementById(c[0]).textContent=c[2]?'✓':'';
+      document.getElementById(c[1]).setAttribute('fill', c[2]?'#E6F1DF':'var(--paper-2)');
+      document.getElementById(c[1]).setAttribute('stroke', c[2]?'#69B34C':'var(--line-strong)');
+    });
+    document.getElementById('al-a-loop').style.opacity = s.retry?1:0.12;
+    document.getElementById('al-a-web').style.opacity = s.fallback?1:0.12;
+    document.getElementById('al-a-exit').style.opacity = s.done?1:0.12;
+  });
+</script>
+</body>
+</html>
