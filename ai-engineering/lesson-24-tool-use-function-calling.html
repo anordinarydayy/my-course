@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 24 — Tool Use &amp; Function Calling (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">Tool Use &amp;<br>Function Calling</div>
+    <h4>Giving the model hands</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>A model that can only talk</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>reason &#8594; act &#8594; observe &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The contract in four objects</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Steering the call: tool_choice &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Two calls at once: parallel &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Designing good tools (the ACI)</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The loop, end to end</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">24</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>Tool Use &amp; Function Calling</h1>
+      <p class="lede">Everything in Phase 4 rests on one move: letting the model do something other than talk. A <strong>tool</strong> is how you give a language model hands &mdash; a typed contract that says "here is a function you may ask me to run." But the model never runs it. It emits a structured request; your code executes; you feed the result back; it decides what to do next. This lesson is that loop &mdash; <em>reason &#8594; act &#8594; observe</em> &mdash; and the small pile of rules (schemas, stop conditions, matching IDs, <code>tool_choice</code>, parallel calls, and tool design) that keep it from hanging, looping, or lying.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The build lesson that opens the agents phase in earnest. It draws on public sources &mdash; Anthropic's <em>Building Effective Agents</em> and "Writing effective tools for AI agents," the Messages API tool-use documentation, OpenAI's function-calling and Structured Outputs guidance, and the Model Context Protocol spec &mdash; but every explanation, diagram, and line of code is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). API shapes, pricing, and model facts are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The gap</div>
+      <h2>A model that can only talk</h2>
+      <p>You have a strong model. Ask it "what's the weather in Hanoi right now?" and it will either refuse or invent a plausible number, because its weights froze at training time and it has no line to the outside world. Ask it "what is 19.99 &times; 1.08?" and it will answer confidently and often wrongly, because it is predicting the next digit, not calculating. A language model can <em>reason about</em> actions in astonishing detail &mdash; and take exactly none of them. It is a brain in a jar.</p>
+      <p>The first fixes people reach for are brittle. You can paste today's weather into the prompt &mdash; but that doesn't scale to live, unbounded, or private data you can't pre-fetch. Or you can instruct the model to print a line like <code>SEARCH: weather Hanoi</code> and scrape it out with a regex &mdash; but now you're re-parsing free text that the model formatted by hope, and one stray comma breaks the pipe. Both hacks are trying to route around the same missing primitive: a reliable, structured hand-off between "the model wants something done" and "your code does it."</p>
+      <p>That primitive is <strong>tool use</strong>, also called <strong>function calling</strong>. You describe a set of <strong>tools</strong> &mdash; each a name, a plain-English description, and a JSON-Schema for its inputs &mdash; and pass them alongside the message. The model, trained to recognize when a tool fits the request, replies not with prose but with a structured <strong>tool_use</strong> request: <em>call get_weather with {location:'Hanoi'}</em>. Your <strong>harness</strong> &mdash; your code &mdash; runs the real function and hands the output back. The model proposes; your code disposes. It never executes anything itself; it only ever <em>asks</em>.</p>
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>A tool call is a <em>request</em>, not an execution. Claude emits <code>{name, input}</code>; <strong>you</strong> run the function; <strong>you</strong> return the result as a <code>tool_result</code>. Keep that boundary sacred and everything else in this lesson &mdash; schemas, the loop, IDs, <code>tool_choice</code>, parallelism &mdash; is just bookkeeping around it. Break it (imagine the model actually running your database delete) and you've built something nobody can reason about or secure.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The core cycle</div>
+      <h2>reason &#8594; act &#8594; observe &#9656;</h2>
+      <p>Here is the whole mechanism as one turn of a loop. The model <em>reasons</em> about the request, <em>acts</em> by emitting a tool request, then you run it and feed back what happened so it can <em>observe</em> and reason again. Step through a single weather lookup and watch where control actually lives at each moment &mdash; and, crucially, where the loop <em>stops</em>:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-tool-loop">
+          <svg viewBox="0 0 640 270" role="img" aria-label="The reason-act-observe loop: you send a message plus tools, Claude returns a tool_use request, your harness runs the real function, you return a tool_result, Claude reasons again, and on end_turn writes the final answer">
+            <g class="st" id="tl-user"><rect class="node" x="54" y="24" width="150" height="48" rx="9"/><text class="lbl-sm" x="129" y="44" text-anchor="middle">1 &middot; you send</text><text class="lbl-sm" x="129" y="60" text-anchor="middle">user msg + tools[]</text></g>
+            <g class="st" id="tl-model"><rect class="node-b" x="54" y="110" width="150" height="58" rx="9"/><text class="lbl" x="129" y="135" text-anchor="middle">CLAUDE</text><text class="lbl-sm" x="129" y="153" text-anchor="middle">reason</text></g>
+            <g class="st" id="tl-answer"><rect class="node-g" x="54" y="204" width="150" height="46" rx="9"/><text class="lbl-sm" x="129" y="224" text-anchor="middle" fill="#3f7a2e">final answer</text><text class="lbl-sm" x="129" y="239" text-anchor="middle" fill="#3f7a2e">&#8594; user</text></g>
+            <g class="st" id="tl-harness"><rect class="node" x="430" y="42" width="164" height="52" rx="9"/><text class="lbl-sm" x="512" y="63" text-anchor="middle">your harness</text><text class="lbl-sm" x="512" y="79" text-anchor="middle">run real code</text></g>
+            <g class="st" id="tl-tool"><rect class="node" x="430" y="176" width="164" height="52" rx="9"/><text class="lbl-sm" x="512" y="197" text-anchor="middle">get_weather()</text><text class="lbl-sm" x="512" y="213" text-anchor="middle">the real call</text></g>
+            <path id="tl-send" class="flow" d="M129 72 V108" marker-end="url(#arrow)"/>
+            <path id="tl-req" class="flow" d="M204 128 C 300 106, 366 72, 428 68" marker-end="url(#arrow)"/>
+            <path id="tl-exec" class="flow" d="M512 94 V174" marker-end="url(#arrow)"/>
+            <path id="tl-res" class="flow" d="M430 204 C 300 214, 224 172, 206 152" marker-end="url(#arrow)"/>
+            <path id="tl-end" class="flow" d="M129 168 V202" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="102" y="96" text-anchor="start" font-size="9.5">send</text>
+            <text class="lbl-sm" x="322" y="84" text-anchor="middle" font-size="9.5">stop_reason: tool_use</text>
+            <text class="lbl-sm" x="520" y="138" text-anchor="start" font-size="9.5">execute</text>
+            <text class="lbl-sm" x="300" y="205" text-anchor="middle" font-size="9.5">tool_result &#8594; new user turn</text>
+            <text class="lbl-sm" x="136" y="190" text-anchor="start" font-size="9.5">end_turn</text>
+            <text id="tl-note" class="readout" x="320" y="264" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: one turn of the loop; control ping-pongs between Claude and your harness, and the loop exits only when stop_reason stops saying "tool_use"</figcaption>
+      </figure>
+
+      <p>The shape is worth memorizing because <em>every</em> agent is this loop with more tools and more turns. You send the conversation plus the tools. Claude comes back with <code>stop_reason: "tool_use"</code> and one or more tool_use blocks. Your code runs each one and appends the results as a new user-role message. You send the whole thing again. You keep going <strong>while</strong> the stop reason is <code>tool_use</code> &mdash; and you stop the instant it is anything else (<code>end_turn</code>, <code>max_tokens</code>, <code>stop_sequence</code>, or a <code>refusal</code>). That "while / stop" is the single most important line of the whole pattern, and the next section pins down the four objects that flow around it.</p>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The wire format</div>
+      <h2>The contract in four objects</h2>
+      <p>Strip away the SDK sugar and the entire protocol is four JSON shapes. Learn these and you can read any provider's tool-use trace. First, the <strong>tool definition</strong> &mdash; what you pass in. It is a name, a description the model actually reads to decide <em>whether</em> and <em>how</em> to call it, and an <code>input_schema</code> that is plain <a href="https://json-schema.org">JSON Schema</a>:</p>
+
+      <pre class="code"><span class="codetag">1 &middot; tool definition (you send this in the tools[] array)</span><code>{
+  <span class="at">"name"</span>: <span class="st">"get_weather"</span>,
+  <span class="at">"description"</span>: <span class="st">"Get current weather for a city. Returns a short summary."</span>,
+  <span class="at">"input_schema"</span>: {
+    <span class="at">"type"</span>: <span class="st">"object"</span>,
+    <span class="at">"properties"</span>: {
+      <span class="at">"location"</span>: {<span class="at">"type"</span>: <span class="st">"string"</span>,
+                   <span class="at">"description"</span>: <span class="st">"City, e.g. 'Hanoi, Vietnam'"</span>},
+      <span class="at">"unit"</span>: {<span class="at">"type"</span>: <span class="st">"string"</span>, <span class="at">"enum"</span>: [<span class="st">"celsius"</span>, <span class="st">"fahrenheit"</span>]}
+    },
+    <span class="at">"required"</span>: [<span class="st">"location"</span>]
+  }
+}</code></pre>
+
+      <p>The <strong>description is not decoration</strong> &mdash; it is the model's only clue about when this tool applies, so it does more routing work than the name. Second, when Claude decides to call it, you get back a <strong>tool_use block</strong> inside the assistant turn: a unique <code>id</code>, the <code>name</code>, and the <code>input</code> the model synthesized to match your schema.</p>
+
+      <pre class="code"><span class="codetag">2 &middot; tool_use block (Claude returns this; stop_reason == "tool_use")</span><code>{<span class="at">"type"</span>: <span class="st">"tool_use"</span>,
+ <span class="at">"id"</span>: <span class="st">"toolu_01A09q..."</span>,
+ <span class="at">"name"</span>: <span class="st">"get_weather"</span>,
+ <span class="at">"input"</span>: {<span class="at">"location"</span>: <span class="st">"Hanoi, Vietnam"</span>, <span class="at">"unit"</span>: <span class="st">"celsius"</span>}}</code></pre>
+
+      <p>Third, you run the real function and hand the output back as a <strong>tool_result block</strong> &mdash; carried in a <em>user-role</em> message, because from the model's point of view the environment is "speaking" to it. The one non-negotiable field is <code>tool_use_id</code>, which must exactly match the <code>id</code> from the tool_use block. Set <code>is_error: true</code> to tell the model the call failed so it can recover instead of trusting garbage.</p>
+
+      <pre class="code"><span class="codetag">3 &middot; tool_result block (you send this back, in a user message)</span><code>{<span class="at">"type"</span>: <span class="st">"tool_result"</span>,
+ <span class="at">"tool_use_id"</span>: <span class="st">"toolu_01A09q..."</span>,   <span class="cm"># MUST match the tool_use id</span>
+ <span class="at">"content"</span>: <span class="st">"31&deg;C, humid, light rain"</span>,
+ <span class="at">"is_error"</span>: <span class="kw">false</span>}                   <span class="cm"># true &#8594; a recoverable failure</span></code></pre>
+
+      <p>The fourth object isn't a block at all &mdash; it's the <strong>stop_reason</strong> on the response, and it is what drives the loop. When it is <code>tool_use</code>, there is work for you to do; on anything else, the model is done talking. Two rules turn these four objects into a system that doesn't error out:</p>
+      <ul>
+        <li><strong>Key the loop on <code>stop_reason</code>, not on "did a tool get called" or a fixed counter.</strong> Looping "until a tool call" can hang forever if the model keeps calling tools; capping at a fixed count can cut off the final answer mid-thought. Loop <em>while</em> <code>stop_reason == "tool_use"</code>; exit on <code>end_turn</code> / <code>max_tokens</code> / <code>stop_sequence</code> / <code>refusal</code>.</li>
+        <li><strong>Answer every tool_use, with a matching ID, before the next model call.</strong> If a turn contains three tool_use blocks, you must return three tool_result blocks, each with the right <code>tool_use_id</code>. A missing or mismatched ID isn't a soft failure &mdash; the next request errors outright.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="k">The two bugs everyone ships first</span>
+        <p>(1) <em>Forgetting the stop condition</em> &mdash; the loop either spins or truncates because it keyed on the wrong signal. (2) <em>Mismatched or missing IDs</em> &mdash; you served two of three tool_use blocks, or copied the wrong <code>tool_use_id</code>, and the API rejects the whole turn. Both are invisible in a one-tool demo and both bite the moment real traffic produces a multi-tool turn. Write the loop against <code>stop_reason</code> and iterate over <em>every</em> tool_use block from day one.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The steering dial</div>
+      <h2>Steering the call: tool_choice &#9656;</h2>
+      <p>By default the model decides for itself whether a tool is even needed &mdash; which is usually what you want, but not always. Sometimes you need to <em>guarantee</em> a tool fires (you're using the call as structured output); sometimes you need to force one specific tool; sometimes you want the tools visible for context but off-limits this turn. That dial is <code>tool_choice</code>, and it has four settings. Watch the same turn resolve under each:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-tool-choice">
+          <svg viewBox="0 0 640 238" role="img" aria-label="tool_choice routing one turn under four modes: auto lets Claude pick a tool or answer in text, any forces some tool, tool forces one named tool, none forbids tools and answers in text only">
+            <text id="tc-mode" class="lbl-sm" x="320" y="16" text-anchor="middle" fill="#B0532F" font-size="11"></text>
+            <g class="st" id="tc-query"><rect class="node" x="24" y="92" width="120" height="52" rx="9"/><text class="lbl-sm" x="84" y="113" text-anchor="middle">the turn</text><text class="lbl-sm" x="84" y="129" text-anchor="middle">user + 2 tools</text></g>
+            <g class="st" id="tc-model"><rect class="node-b" x="206" y="88" width="128" height="60" rx="9"/><text class="lbl" x="270" y="114" text-anchor="middle">CLAUDE</text><text class="lbl-sm" x="270" y="132" text-anchor="middle">may / must / may not</text></g>
+            <g class="st" id="tc-weather"><rect id="tc-weather-r" class="node" x="430" y="26" width="184" height="46" rx="9"/><text class="lbl-sm" x="522" y="53" text-anchor="middle">get_weather</text></g>
+            <g class="st" id="tc-calc"><rect id="tc-calc-r" class="node" x="430" y="95" width="184" height="46" rx="9"/><text class="lbl-sm" x="522" y="122" text-anchor="middle">calculator</text></g>
+            <g class="st" id="tc-text"><rect id="tc-text-r" class="node" x="430" y="164" width="184" height="46" rx="9"/><text class="lbl-sm" x="522" y="191" text-anchor="middle">plain-text answer</text></g>
+            <path id="tc-aw" class="flow" d="M334 104 C 380 72, 400 52, 428 50" marker-end="url(#arrow)" style="opacity:.5"/>
+            <path id="tc-ac" class="flow" d="M334 118 H428" marker-end="url(#arrow)" style="opacity:.5"/>
+            <path id="tc-at" class="flow" d="M334 132 C 380 164, 400 185, 428 187" marker-end="url(#arrow)" style="opacity:.5"/>
+            <text id="tc-note" class="readout" x="320" y="230" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: auto (Claude picks) &middot; any (some tool required) &middot; tool (one named tool forced) &middot; none (tools forbidden, text only)</figcaption>
+      </figure>
+
+      <p>Two settings deserve extra care. Under <code>any</code> or <code>tool</code> you can add <code>disable_parallel_tool_use: true</code> to force <em>exactly one</em> call &mdash; useful when a downstream step expects a single structured result. And when you truly need the model's arguments to conform to your schema no matter what, Anthropic supports <code>strict: true</code> on a tool definition to guarantee the input matches; combine it with <code>tool_choice:{type:'any'}</code> and you've guaranteed both <em>that</em> a tool is called and that its inputs are valid. The other big providers mirror this vocabulary closely, with one sharp incompatibility worth internalizing:</p>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Anthropic (Messages API)</h4>
+          <ul>
+            <li><code>auto</code> &mdash; Claude decides (default when tools are present).</li>
+            <li><code>any</code> &mdash; must call <em>some</em> tool; no plain-text answer.</li>
+            <li><code>tool</code> &mdash; force one named tool, e.g. <code>{type:'tool',name:'get_weather'}</code>.</li>
+            <li><code>none</code> &mdash; no tools this turn (default when you pass none).</li>
+            <li><code>disable_parallel_tool_use:true</code> (+ any/tool) &#8594; exactly one call; <code>strict:true</code> guarantees schema-valid inputs.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>OpenAI (the mirror)</h4>
+          <ul>
+            <li><code>auto</code> (default), <code>required</code> (must call &#8805;1), <code>none</code>, or a named <code>{type:'function',name:'...'}</code>.</li>
+            <li><code>parallel_tool_calls:false</code> &#8594; at most one call per turn.</li>
+            <li><code>strict:true</code> (Structured Outputs) needs <code>additionalProperties:false</code> and every property in <code>required</code>; model optional fields as nullable.</li>
+            <li><strong>The trap:</strong> Structured Outputs is <em>not</em> compatible with parallel calls &mdash; to guarantee schema conformance you must also set <code>parallel_tool_calls:false</code>.</li>
+            <li>Keep fewer than ~20 tools live at a turn's start for reliable routing.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> More than one hand</div>
+      <h2>Two calls at once: parallel tool use &#9656;</h2>
+      <p>Ask "what's the weather in Hanoi <em>and</em> Tokyo?" and the naive loop does the obvious, slow thing: fetch Hanoi, send it back, fetch Tokyo, send it back &mdash; two full round trips for two independent lookups. But the two calls don't depend on each other, so serializing them is pure wasted latency. Claude 4 models handle this well by default: a single assistant turn can emit <em>several</em> tool_use blocks at once. Step through how one turn fans out and comes back together:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-parallel">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Parallel tool use: one assistant turn emits two tool_use blocks for Hanoi and Tokyo, the harness runs both concurrently, both tool_result blocks return in one user message, and Claude answers in a single round trip">
+            <g class="st" id="pl-user"><rect class="node" x="18" y="98" width="124" height="52" rx="9"/><text class="lbl-sm" x="80" y="119" text-anchor="middle">user asks</text><text class="lbl-sm" x="80" y="135" text-anchor="middle">Hanoi AND Tokyo?</text></g>
+            <g class="st" id="pl-model"><rect class="node-b" x="172" y="94" width="120" height="60" rx="9"/><text class="lbl" x="232" y="120" text-anchor="middle">CLAUDE</text><text class="lbl-sm" x="232" y="138" text-anchor="middle">one turn</text></g>
+            <g class="st" id="pl-t1"><rect id="pl-t1-r" class="node" x="352" y="26" width="184" height="48" rx="9"/><text class="lbl-sm" x="444" y="46" text-anchor="middle">get_weather(Hanoi)</text><text id="pl-t1-s" class="lbl-sm" x="444" y="62" text-anchor="middle" fill="#B0532F"></text></g>
+            <g class="st" id="pl-t2"><rect id="pl-t2-r" class="node" x="352" y="150" width="184" height="48" rx="9"/><text class="lbl-sm" x="444" y="170" text-anchor="middle">get_weather(Tokyo)</text><text id="pl-t2-s" class="lbl-sm" x="444" y="186" text-anchor="middle" fill="#B0532F"></text></g>
+            <g class="st" id="pl-merge"><rect class="node" x="352" y="92" width="184" height="42" rx="9"/><text class="lbl-sm" x="444" y="110" text-anchor="middle">tool_result &times;2</text><text class="lbl-sm" x="444" y="125" text-anchor="middle">one user message</text></g>
+            <g class="st" id="pl-answer"><rect class="node-g" x="18" y="190" width="184" height="46" rx="9"/><text class="lbl-sm" x="110" y="210" text-anchor="middle" fill="#3f7a2e">one answer, both cities</text><text class="lbl-sm" x="110" y="225" text-anchor="middle" fill="#3f7a2e">round trips: 1, not 2</text></g>
+            <path id="pl-send" class="flow" d="M142 124 H170" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="pl-req1" class="flow" d="M292 110 C 322 72, 338 44, 350 44" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="pl-req2" class="flow" d="M292 140 C 322 178, 338 186, 350 186" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="pl-m1" class="flow-g" d="M444 74 V90" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <path id="pl-m2" class="flow-g" d="M444 150 V136" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <path id="pl-back" class="flow" d="M352 112 C 330 118, 312 122, 294 124" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="pl-ans" class="flow-g" d="M212 150 C 180 168, 150 180, 116 190" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <text class="lbl-sm" x="300" y="58" text-anchor="middle" font-size="9.5">id_1</text>
+            <text class="lbl-sm" x="300" y="176" text-anchor="middle" font-size="9.5">id_2</text>
+            <text id="pl-note" class="readout" x="320" y="244" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: one turn, two tool_use blocks, run concurrently, returned together &mdash; the round-trip count is the win</figcaption>
+      </figure>
+
+      <p>The engineering rule from Section 02 does the load-bearing work here: <em>every</em> tool_use block in the turn must get a tool_result, and they all go back in <strong>one</strong> user message before the next model call. You run them concurrently &mdash; <code>asyncio.gather</code>, a thread pool, whatever your stack uses &mdash; so wall-clock time is the slowest single call, not the sum. Newer Claude models also ship <strong>token-efficient tool use</strong> and improved parallel calling by default, so you get fewer output tokens per call and better fan-out without opting into anything. Parallelism is free performance <em>only</em> when the calls are genuinely independent; if Tokyo's query depends on Hanoi's answer, you're back to a sequential chain &mdash; and that's fine, that's just the loop turning twice.</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The interface is the product</div>
+      <h2>Designing good tools: the ACI</h2>
+      <p>Here's the part that separates a demo from a system that works: <strong>the model is only as capable as the tools you hand it.</strong> Anthropic calls this the <strong>agent&ndash;computer interface</strong> (ACI) &mdash; the tool layer is a UI, except the "user" is a model, and like any UI its ergonomics decide whether the thing succeeds. The classic beginner mistake is to wrap your REST API one endpoint to one tool. That floods the model with thin, chatty tools and forces it to orchestrate five calls to do one job. Design for the model's job instead:</p>
+      <ul>
+        <li><strong>Consolidate, don't mirror.</strong> Build few high-leverage tools, not 1:1 API wrappers. Replace <code>list_users</code> + <code>list_events</code> + <code>create_event</code> with a single <code>schedule_event</code>; replace <code>get_customer_by_id</code> + <code>list_transactions</code> + <code>list_notes</code> with one <code>get_customer_context</code> that returns the recent slice the agent actually needs. Fewer round trips, less context, better accuracy.</li>
+        <li><strong>Name and namespace clearly.</strong> Use unambiguous, prefixed names like <code>asana_projects_search</code> so the model routes correctly when many tools are present.</li>
+        <li><strong>Return human-readable fields, drop the noise.</strong> Give back names, not raw UUIDs; strip low-signal columns. A tool that returns a wall of internal IDs makes the model burn tokens and mis-reason. Consider a <code>response_format</code> knob (<code>concise</code> vs <code>detailed</code>) &mdash; one Slack-thread tool cut a sample from 206 tokens to 72 just by exposing "concise."</li>
+        <li><strong>Write errors as guidance, not tracebacks.</strong> The single highest-leverage habit. Instead of <code>Error 400</code>, return <em>"No results found. Try narrowing your search, or run several targeted searches instead of one broad query."</em> A recoverable error message is a second chance for the model to get it right on its own.</li>
+        <li><strong>Enforce a token budget.</strong> Paginate, filter, and truncate. A tool that can dump 50,000 tokens into context will, and it will wreck both cost and reasoning.</li>
+      </ul>
+      <p>Good ACI design also has a hard economic edge, because <strong>tool definitions cost tokens on every single request.</strong> Their names, descriptions, and schemas are billed as input tokens, and the API auto-injects a hidden tool-use system prompt on top. Those numbers are small per tool but compound fast:</p>
+
+      <table class="cost">
+        <thead><tr><th>Model (illustrative, mid-2026)</th><th>Price $/Mtok &middot; in / out</th><th>Auto-injected tool-use overhead / request</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Opus 4.8</strong></td><td>$5 / $25</td><td>~500 tok (<code>auto</code>/<code>none</code>) &middot; ~590 (<code>any</code>/<code>tool</code>)</td></tr>
+          <tr><td><strong>Sonnet 4.6</strong></td><td>$3 / $15</td><td>~500 &middot; ~590</td></tr>
+          <tr><td><strong>Haiku 4.5</strong></td><td>$1 / $5</td><td>~500 &middot; ~590</td></tr>
+          <tr><td colspan="3"><strong>Plus each tool definition ~50&ndash;100 tokens</strong> &mdash; a 10-tool agent can add ~2,000&ndash;5,000 input tokens to <em>every</em> call, inflating cost and, past a point, degrading routing. <code>tool_choice:none</code> with zero tools adds 0.</td></tr>
+        </tbody>
+      </table>
+
+      <p>That cost is why the 2025&ndash;2026 frontier moved toward loading tools <em>lazily</em>. Anthropic's <strong>Tool Search Tool</strong> (part of "advanced tool use," shipped late 2025) lets Claude discover and load tool definitions on demand instead of front-loading all of them &mdash; reported as roughly an 85% token reduction with large libraries, and it lifted accuracy on a tool-heavy eval markedly (for one Opus generation, ~49% &#8594; 74%). Reach for it once your tool definitions exceed ~10K tokens or you're wiring in 10+ MCP tools. The companion trick, <strong>programmatic tool calling</strong>, has Claude orchestrate tools by writing code in a sandbox so intermediate results never hit the context window &mdash; a large token cut on multi-step research. Different mechanisms, same lesson: past a handful of tools, <em>which tools are even visible</em> becomes a first-class design decision.</p>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Put it together</div>
+      <h2>The loop, end to end</h2>
+      <p>Time to make it real. The worked example below is the entire pattern in one runnable file &mdash; two well-designed tools, the reason&#8594;act&#8594;observe loop, the stop condition, ID matching, and a recoverable error message &mdash; using the Anthropic Messages API. It's the honest version of every "agent" you'll build after this: a <code>while</code> loop around one API call.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">weather + calculator &middot; full tool loop</span></div>
+        <div class="wbody">
+          <div class="wname">A compound question the model can't answer alone</div>
+          <p class="wprompt">The user asks: <strong>"What's the weather in Hanoi, and what is 19.99 &times; 1.08?"</strong> One clause needs a <em>live lookup</em>; the other needs <em>real arithmetic</em>. The model can do neither from its weights &mdash; and a naive "call one tool, then answer" shape breaks the instant a second tool is needed. You need a loop that keeps going until the model has everything and decides, on its own, to stop.</p>
+          <h4 class="wh">The whole pattern, in real Python</h4>
+          <pre class="code"><span class="codetag">weather_calculator_agent.py &mdash; the reason&#8594;act&#8594;observe loop</span><code><span class="kw">import</span> anthropic
+client = anthropic.Anthropic()
+
+TOOLS = [
+  {<span class="at">"name"</span>: <span class="st">"get_weather"</span>,
+   <span class="at">"description"</span>: <span class="st">"Current weather for a city, as a short summary."</span>,
+   <span class="at">"input_schema"</span>: {<span class="at">"type"</span>: <span class="st">"object"</span>,
+     <span class="at">"properties"</span>: {<span class="at">"location"</span>: {<span class="at">"type"</span>: <span class="st">"string"</span>,
+                    <span class="at">"description"</span>: <span class="st">"City, e.g. 'Hanoi, Vietnam'"</span>}},
+     <span class="at">"required"</span>: [<span class="st">"location"</span>]}},
+  {<span class="at">"name"</span>: <span class="st">"calculator"</span>,
+   <span class="at">"description"</span>: <span class="st">"Evaluate one arithmetic expression, e.g. '19.99 * 1.08'."</span>,
+   <span class="at">"input_schema"</span>: {<span class="at">"type"</span>: <span class="st">"object"</span>,
+     <span class="at">"properties"</span>: {<span class="at">"expression"</span>: {<span class="at">"type"</span>: <span class="st">"string"</span>}},
+     <span class="at">"required"</span>: [<span class="st">"expression"</span>]}},
+]
+
+<span class="kw">def</span> run_tool(name, args):                        <span class="cm"># the ONLY place code runs</span>
+    <span class="kw">if</span> name == <span class="st">"get_weather"</span>:
+        <span class="kw">return</span> <span class="st">"31&deg;C, humid, light rain"</span>          <span class="cm"># &#8592; your real API call</span>
+    <span class="kw">if</span> name == <span class="st">"calculator"</span>:
+        <span class="kw">try</span>:    <span class="kw">return</span> str(eval(args[<span class="st">"expression"</span>], {<span class="st">"__builtins__"</span>: {}}))
+        <span class="kw">except</span> Exception <span class="kw">as</span> e:                    <span class="cm"># recoverable, not a traceback</span>
+            <span class="kw">return</span> f<span class="st">"Could not evaluate: {e}. Send a plain expression."</span>
+
+msgs = [{<span class="at">"role"</span>: <span class="st">"user"</span>,
+         <span class="at">"content"</span>: <span class="st">"Weather in Hanoi, and what is 19.99 * 1.08?"</span>}]
+
+<span class="kw">while</span> <span class="kw">True</span>:
+    r = client.messages.create(model=<span class="st">"claude-opus-4-8"</span>,
+            max_tokens=1024, tools=TOOLS, messages=msgs)
+    <span class="kw">if</span> r.stop_reason != <span class="st">"tool_use"</span>:              <span class="cm"># &#8592; the stop condition</span>
+        <span class="kw">break</span>
+    msgs.append({<span class="at">"role"</span>: <span class="st">"assistant"</span>, <span class="at">"content"</span>: r.content})
+    results = [{<span class="at">"type"</span>: <span class="st">"tool_result"</span>, <span class="at">"tool_use_id"</span>: b.id,
+                <span class="at">"content"</span>: run_tool(b.name, b.input)}
+               <span class="kw">for</span> b <span class="kw">in</span> r.content <span class="kw">if</span> b.type == <span class="st">"tool_use"</span>]
+    msgs.append({<span class="at">"role"</span>: <span class="st">"user"</span>, <span class="at">"content"</span>: results})
+
+print(<span class="st">""</span>.join(b.text <span class="kw">for</span> b <span class="kw">in</span> r.content <span class="kw">if</span> b.type == <span class="st">"text"</span>))</code></pre>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Restate &amp; the naive miss</span><p>The model can neither fetch weather nor multiply reliably. A one-shot <b>"call a tool, then answer"</b> breaks here because <em>two</em> tools are needed, possibly across turns &mdash; and if the model got the calculator input slightly wrong, a one-shot flow has no way to retry. You need iteration keyed on the model's own signal, not on a guess about how many calls it'll make.</p></div>
+            <div class="ws"><span class="wsk">The move &mdash; loop on stop_reason</span><p>The <code>while True</code> re-calls the API and <b>breaks the moment <code>stop_reason</code> isn't <code>"tool_use"</code></b>. Inside the loop, the list comprehension serves <em>every</em> tool_use block in the turn &mdash; so parallel calls (Section 04) work with zero extra code &mdash; then appends all results in one user message. Claude sees Hanoi's weather and the product 21.59 together and writes the final answer.</p></div>
+            <div class="ws"><span class="wsk">The invariant &mdash; propose/dispose, IDs match, errors recover</span><p><code>run_tool</code> is the <b>only</b> place code executes; the model just names a tool and inputs. Each result carries <code>b.id</code> as its <code>tool_use_id</code>, so IDs always match. And the <code>except</code> returns <em>guidance</em>, not a stack trace, so a bad expression becomes a retry instead of a dead end. (In production, sandbox the calculator &mdash; <code>eval</code> here is illustrative.)</p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;The model can reason but not act, so I expose <code>get_weather</code> and <code>calculator</code> as tools and run a loop: send the conversation plus the tools, and while <code>stop_reason</code> is <code>tool_use</code>, execute each requested tool in my harness, return a <code>tool_result</code> with the matching <code>tool_use_id</code>, and send it back. It exits the instant Claude answers with <code>end_turn</code>. The model never runs my code &mdash; it only asks; I dispose.&#8221;</p>
+            <p class="plain">Every agent you meet after this is this file with more tools, a spend cap, and a retry policy. The loop and the stop condition are the load-bearing parts &mdash; get those right and the rest is tool design.</p>
+          </div>
+        </div>
+      </div>
+
+      <p>That loop is the primitive the whole phase is built on. A model that <em>plans</em>, <em>calls a tool</em>, <em>observes the result</em>, and <em>decides whether to act again</em> is the definition of an <strong>agent</strong> &mdash; and this loop with a single search tool <em>is</em> the agentic retrieval of Lesson 20. Swap that tool for a shell (<code>bash</code>), a database query, or a browser and you have the rest of Phase 4. A few frontier notes to carry forward: <strong>server tools</strong> like <code>web_search</code> and <code>code_execution</code> run on Anthropic's own infrastructure &mdash; you never build their <code>tool_result</code>, and they can return <code>stop_reason:"pause_turn"</code>, which means "re-send to continue," not "done." <strong>Interleaved thinking</strong> lets the model reason <em>between</em> tool calls, but you must pass the complete, unmodified <code>thinking</code> blocks back when you continue, or the request errors. And the whole contract &mdash; name, description, JSON-Schema input &mdash; is exactly what the <strong>Model Context Protocol</strong> standardizes so any client can talk to any tool server, which is precisely where Lesson 25 picks up.</p>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>a tool call is a request, not an execution &mdash; the model proposes a structured <code>tool_use</code>, your harness runs it, you return a <code>tool_result</code> with a matching ID, and you loop on <code>stop_reason</code> until the model answers &mdash; then steer with <code>tool_choice</code>, fan out with parallel calls, and design the tools like a UI for a model.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Propose, don't execute</b><span>The model emits a tool_use request; your harness runs the real function; you return a tool_result. The boundary never moves &mdash; the model never runs your code.</span></div>
+        <div class="tk"><span class="num">02</span><b>Four objects</b><span>Tool definition (name/description/input_schema), tool_use (id/name/input), tool_result (tool_use_id/content/is_error), and stop_reason &mdash; which drives everything.</span></div>
+        <div class="tk"><span class="num">03</span><b>reason &#8594; act &#8594; observe</b><span>Send &#8594; tool_use &#8594; execute &#8594; tool_result &#8594; repeat WHILE stop_reason=="tool_use"; exit on end_turn / max_tokens / stop_sequence / refusal.</span></div>
+        <div class="tk"><span class="num">04</span><b>Match every ID</b><span>Each tool_result.tool_use_id must equal a tool_use.id, and ALL tool_use blocks get a result before the next call &mdash; or the request errors outright.</span></div>
+        <div class="tk"><span class="num">05</span><b>tool_choice dial</b><span>auto (decide), any (some tool), tool (force one named), none (text only). disable_parallel / parallel_tool_calls:false forces exactly one; strict guarantees the schema.</span></div>
+        <div class="tk"><span class="num">06</span><b>Parallel by default</b><span>Claude 4 emits several tool_use blocks in one turn; run them concurrently and return all results in one user message &mdash; one round trip, not N.</span></div>
+        <div class="tk"><span class="num">07</span><b>Design the ACI</b><span>Few consolidated tools, namespaced names, human-readable outputs, actionable error messages, token budgets. Definitions cost tokens on every request.</span></div>
+        <div class="tk"><span class="num">08</span><b>The agent primitive</b><span>This loop with one tool is an agent. Server tools, interleaved thinking, Tool Search, and MCP scale it &mdash; and bridge straight into L25.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) A model can describe the weather but not tell you today's. What exactly does a tool add, and who runs the function &mdash; the model or your code?<br>
+        (2) Walk the reason&#8594;act&#8594;observe loop object by object. What is the stop condition, and why are "loop until a tool call" and "loop a fixed number of times" both wrong?<br>
+        (3) What must line up between a tool_use block and the tool_result you send back, and what happens if an ID is missing or unmatched in a multi-tool turn?<br>
+        (4) Name the four <code>tool_choice</code> modes and what each forces. How do you force exactly one tool call, and how do you guarantee schema-valid inputs?<br>
+        (5) How do parallel tool calls change the round-trip count, and what's the rule about answering blocks before the next model call?<br>
+        (6) Give three ACI design principles, and contrast a recoverable error message with a bad one. Why does returning UUIDs hurt?<br>
+        (7) Why do tool definitions cost tokens on every request, and what does the Tool Search Tool buy you once you have 50 tools?<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 24 &middot; TOOL USE &amp; FUNCTION CALLING &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the build lesson that turns a language model into an agent &middot; API shapes, pricing, and model facts are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* FIG 1 — the reason→act→observe loop */
+  makeStepper(document.getElementById('fig-tool-loop'), [
+    {text:"You send one request: the user's message plus a tools[] array describing each function Claude may call. Claude can READ those descriptions — but it cannot run any of them.", active:["tl-user","tl-model"], path:"tl-send", note:"REQUEST — user message + tools[] go to the model"},
+    {text:"Claude REASONS and decides it needs live data. It stops and returns stop_reason:\"tool_use\" with a tool_use block: an id, the name get_weather, and input {location:'Hanoi'}. It 'acted' by asking, not doing.", active:["tl-model","tl-harness"], path:"tl-req", note:"ACT — Claude requests get_weather(location='Hanoi'); it does NOT execute"},
+    {text:"Your harness is the only place code runs. It reads the block, calls the real get_weather('Hanoi'), and gets back '31°C, humid'. The boundary held: the model proposed, your code disposed.", active:["tl-harness","tl-tool"], path:"tl-exec", note:"EXECUTE — your code runs the function; the model never touches it"},
+    {text:"You OBSERVE: wrap the output in a tool_result block carrying the MATCHING tool_use_id, put it in a NEW user-role message, and send the whole conversation back.", active:["tl-tool","tl-model"], path:"tl-res", note:"OBSERVE — tool_result (same tool_use_id) returns as a new user turn"},
+    {text:"Claude sees the result and reasons again: is this enough, or does it need another tool? If it wants more, stop_reason is 'tool_use' again — and you're back at step 2. The loop repeats.", active:["tl-model"], path:null, note:"LOOP — repeat WHILE stop_reason == 'tool_use'"},
+    {text:"This time it has what it needs. It returns stop_reason:\"end_turn\" with NO tool_use block. That is the stop condition — the loop exits on anything that isn't tool_use.", active:["tl-model"], path:null, note:"STOP — end_turn / max_tokens / stop_sequence / refusal ends the loop"},
+    {text:"Claude writes the final answer from the observed data and hands it back to the user. reason → act → observe, repeated until it's done. Every agent is this loop with more tools.", active:["tl-model","tl-answer"], path:"tl-end", note:"ANSWER — final text, grounded in what the tool actually returned"}
+  ], function(idx,s){
+    document.getElementById('tl-note').textContent=s.note;
+  });
+
+  /* FIG 2 — tool_choice modes */
+  makeStepper(document.getElementById('fig-tool-choice'), [
+    {text:"tool_choice is the dial that decides WHETHER and WHICH tool Claude may call this turn. Same setup — a question plus two tools — resolved under all four modes.", active:[], mode:"tool_choice = ?", aw:1, ac:1, at:1, chosen:null, path:null, note:"four modes: auto · any · tool · none"},
+    {text:"auto — the default whenever you pass tools. Claude decides. For a math question it reaches for the calculator; for 'hi there' it would answer in text and call nothing.", active:[], mode:"auto (default with tools)", aw:1, ac:1, at:1, chosen:"tc-calc", path:"tc-ac", note:"auto → Claude may call a tool OR answer in text; here it picks calculator"},
+    {text:"any — Claude MUST call some tool; the plain-text exit is closed. Use it when the tool call IS your output, e.g. force every answer through a structured record_answer tool.", active:[], mode:"any", aw:1, ac:1, at:0, chosen:"tc-calc", path:"tc-ac", note:"any → some tool is required; text-only answers are forbidden"},
+    {text:"tool — force one named tool: tool_choice={type:'tool', name:'get_weather'}. Claude must call exactly that. Pair with disable_parallel_tool_use to force exactly ONE call.", active:[], mode:"tool = get_weather", aw:1, ac:0, at:0, chosen:"tc-weather", path:"tc-aw", note:"tool → get_weather is forced; + disable_parallel_tool_use = exactly one call"},
+    {text:"none — the tools stay visible for context but Claude may not call them; it answers in text only. (This is automatically the case when you pass no tools at all.)", active:[], mode:"none", aw:0, ac:0, at:1, chosen:"tc-text", path:"tc-at", note:"none → tools forbidden this turn; plain-text answer only"}
+  ], function(idx,s){
+    document.getElementById('tc-mode').textContent=s.mode||'';
+    document.getElementById('tc-note').textContent=s.note;
+    var boxes=[['tc-weather','tc-weather-r','tc-aw',s.aw],
+               ['tc-calc','tc-calc-r','tc-ac',s.ac],
+               ['tc-text','tc-text-r','tc-at',s.at]];
+    boxes.forEach(function(b){
+      var g=document.getElementById(b[0]), rect=document.getElementById(b[1]), arr=document.getElementById(b[2]), allowed=!!b[3];
+      g.style.opacity=allowed?1:0.22;
+      arr.style.opacity=allowed?(s.chosen?1:0.5):0.12;
+      rect.setAttribute('class', (s.chosen===b[0])?'node-g':'node');
+    });
+  });
+
+  /* FIG 3 — parallel tool calls */
+  makeStepper(document.getElementById('fig-parallel'), [
+    {text:"The question needs two independent lookups — Hanoi and Tokyo. A naive loop does them one at a time: fetch Hanoi, send back, fetch Tokyo, send back. Two full round trips.", active:["pl-user","pl-model"], path:"pl-send", lit:["pl-send"], t1s:"", t2s:"", tcls:"node", note:"naive: two sequential round trips — one tool per turn"},
+    {text:"Claude 4 emits BOTH tool_use blocks in a SINGLE assistant turn — id_1 get_weather(Hanoi), id_2 get_weather(Tokyo). stop_reason is still tool_use, but now there are two blocks to serve.", active:["pl-model","pl-t1","pl-t2"], path:"pl-req1", lit:["pl-req1","pl-req2"], t1s:"requested", t2s:"requested", tcls:"node", note:"one turn, two tool_use blocks — parallel by default on Claude 4"},
+    {text:"Your harness runs them CONCURRENTLY — asyncio.gather or a thread pool — so wall-clock time is the slower single call, not the sum of the two.", active:["pl-t1","pl-t2"], path:null, lit:["pl-req1","pl-req2"], t1s:"running…", t2s:"running…", tcls:"node", note:"execute both at once; latency ≈ the slower call, not the sum"},
+    {text:"Return BOTH tool_result blocks in ONE user message, each with its matching tool_use_id. The rule: every tool_use block must get a result before the next model call, or the request errors.", active:["pl-t1","pl-t2","pl-merge"], path:"pl-m1", lit:["pl-m1","pl-m2"], t1s:"31°C ✓", t2s:"17°C ✓", tcls:"node-g", note:"ALL tool_use ids answered, together, in a single user message"},
+    {text:"Send it back. Claude now has both observations at once and reasons over the pair — no extra turn spent shuttling them one by one.", active:["pl-merge","pl-model"], path:"pl-back", lit:["pl-back"], t1s:"31°C ✓", t2s:"17°C ✓", tcls:"node-g", note:"model sees both results in one shot"},
+    {text:"end_turn → one answer comparing both cities, in a single round trip instead of two. Parallelism is free performance whenever the calls don't depend on each other.", active:["pl-model","pl-answer"], path:"pl-ans", lit:["pl-ans"], t1s:"31°C ✓", t2s:"17°C ✓", tcls:"node-g", note:"end_turn → one grounded answer; round trips: 1, not 2"}
+  ], function(idx,s){
+    document.getElementById('pl-note').textContent=s.note;
+    document.getElementById('pl-t1-s').textContent=s.t1s||'';
+    document.getElementById('pl-t2-s').textContent=s.t2s||'';
+    document.getElementById('pl-t1-r').setAttribute('class', s.tcls||'node');
+    document.getElementById('pl-t2-r').setAttribute('class', s.tcls||'node');
+    ['pl-send','pl-req1','pl-req2','pl-m1','pl-m2','pl-back','pl-ans'].forEach(function(id){
+      document.getElementById(id).style.opacity=(s.lit&&s.lit.indexOf(id)!==-1)?1:0.14;});
+  });
+</script>
+</body>
+</html>

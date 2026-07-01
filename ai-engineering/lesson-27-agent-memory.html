@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 27 — Agent Memory (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">Agent Memory</div>
+    <h4>Coherent &amp; affordable</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The context that never stops growing</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Two tiers of memory &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Why bigger isn't the fix</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The mitigation ladder</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>A compaction step, in code &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The memory tool &amp; recall &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Assembling the stack</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">27</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>Agent Memory</h1>
+      <p class="lede">A one-shot chat lives and dies in a single context window. An <strong>agent</strong> runs for hundreds of turns, across sessions, and the naive way to keep it coherent &mdash; append everything and hope the window is big enough &mdash; quietly makes it slower, dumber, and ruinously expensive long before it hits the hard limit. This lesson is about the fix: split memory into a bounded <strong>short-term</strong> tier and a durable <strong>long-term</strong> tier, then manage the short one with compaction and context editing while persisting what matters to the long one. Do it well and a long-running agent stays sharp and cheap; do it badly and it forgets the plan on turn 40.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> A pattern lesson in the Agents phase, sitting on top of tool use (Lesson 24), MCP (Lesson 25), and orchestration (Lesson 26). It draws on public sources &mdash; Anthropic's <em>Building Effective Agents</em> and its context-engineering, memory-tool, context-editing and compaction docs; the "lost-in-the-middle" and Chroma "context rot" studies; and 2025&ndash;2026 memory work from Letta, Mem0, and OpenAI &mdash; but every explanation, diagram, and example is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). API identifiers, pricing, and model facts are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The naive default</div>
+      <h2>The context that never stops growing</h2>
+      <p>The simplest possible memory for an agent is no memory system at all: keep the full transcript &mdash; system prompt, tool definitions, every user turn, every tool call, every tool result &mdash; and re-send the whole thing on every step. For a five-turn chat this is fine. For an agent that reads twelve files, runs forty tool calls, and works a task for an hour, it collapses in three separate, compounding ways.</p>
+      <ul>
+        <li><strong>Cost and latency scale with length.</strong> The model re-reads the <em>entire</em> history every single turn. At an illustrative Sonnet&nbsp;4.6 price of <strong>$3&nbsp;per&nbsp;Mtok</strong> input (mid-2026), a 150k-token context costs about <strong>$0.45 just to read the history</strong> &mdash; on every step. Prompt caching softens the repeat cost, but a growing window still means more tokens processed, higher latency, and a bigger bill each turn.</li>
+        <li><strong>Quality degrades as the window fills.</strong> This is the surprising one, and the reason "just use a bigger model" doesn't save you: accuracy <em>drops</em> as input length grows, even when the answer is sitting right there. More on this in &sect;02.</li>
+        <li><strong>The hard limit ends the run.</strong> Eventually the transcript exceeds the context window outright and the agent simply cannot continue &mdash; a long task dies mid-flight from context exhaustion.</li>
+      </ul>
+      <p>Anthropic frames the whole problem as an <strong>attention budget</strong>: every token you add to the window depletes a finite budget. Transformer self-attention has to relate every token to every other token &mdash; an <em>n</em>-squared web of pairwise relationships &mdash; and models carry fewer specialized parameters for very-long-range dependencies. So context quality is a <em>gradient, not a cliff</em>: it erodes smoothly as you spend the budget, and the discipline of agent memory is spending it wisely.</p>
+      <p>The way out is to stop treating "the transcript" as "the memory." We split memory into two tiers. <strong>Short-term memory</strong> is the in-context conversation &mdash; system prompt, tools, and message history, bounded by the window and wiped when the session ends. <strong>Long-term memory</strong> is an external store &mdash; files, a vector database, or a structured DB &mdash; that the agent reads and writes through tools and that <em>persists across sessions</em>. Everything else in this lesson is techniques for keeping the short tier small and moving what must survive into the long one.</p>
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>Context is working memory, not storage. Keep the window small and relevant, and externalize anything that must outlive it. A long-running agent isn't "a model with a huge prompt" &mdash; it's a model with a <em>disciplined budget</em> plus a store it reads and writes on demand.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The split that makes it work</div>
+      <h2>Two tiers of memory &#9656;</h2>
+      <p>Picture the two tiers as a machine. The <strong>context window</strong> is short-term memory &mdash; fast, always fully visible to the model, and bounded. The <strong>external store</strong> is long-term memory &mdash; slower to reach (it costs a tool call), but effectively unbounded and durable. The agent's job is to keep the window lean and to shuttle durable facts down into the store, then pull them back up when a new session needs them. Step through one lifecycle:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-tiers">
+          <svg viewBox="0 0 640 262" role="img" aria-label="Two memory tiers: a bounded context window as short-term memory feeding the model, and an external store as long-term memory the agent writes to and reads back across sessions">
+            <text class="lbl-sm" x="72" y="30" text-anchor="middle" fill="#4A7BA6">per turn</text>
+            <text class="lbl-sm" x="482" y="30" text-anchor="middle" fill="#4A7BA6">the model</text>
+
+            <g class="st" id="tr-user"><rect class="node" x="20" y="92" width="104" height="48" rx="9"/><text class="lbl-sm" x="72" y="112" text-anchor="middle">user turn</text><text class="lbl-sm" x="72" y="127" text-anchor="middle">+ tool result</text></g>
+
+            <g class="st" id="tr-ctx">
+              <rect class="node-b" x="158" y="40" width="224" height="120" rx="10"/>
+              <text class="lbl-sm" x="270" y="60" text-anchor="middle">CONTEXT WINDOW &middot; short-term</text>
+              <text class="lbl-sm" x="270" y="80" text-anchor="middle">system prompt &middot; tools &middot; history</text>
+              <rect x="176" y="96" width="188" height="16" rx="4" fill="var(--blueprint-wash)" stroke="var(--line-strong)"/>
+              <rect id="tr-fill" x="176" y="96" width="40" height="16" rx="4" fill="var(--blueprint-soft)"/>
+              <text id="tr-fillt" class="lbl-sm" x="270" y="134" text-anchor="middle">history &middot; 22%</text>
+            </g>
+
+            <g class="st" id="tr-llm"><rect class="node" x="430" y="92" width="104" height="48" rx="9"/><text class="lbl" x="482" y="120" text-anchor="middle">LLM</text></g>
+
+            <g class="st" id="tr-store"><rect class="node-g" x="158" y="200" width="376" height="46" rx="9"/><text class="lbl-sm" x="346" y="220" text-anchor="middle" fill="#3f7a2e">LONG-TERM STORE &middot; files &middot; vector DB &middot; /memories</text><text class="lbl-sm" x="346" y="235" text-anchor="middle" fill="#3f7a2e">external &middot; persists across sessions</text></g>
+
+            <path id="tr-a-uc" class="flow" d="M124 116 H 156" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="tr-a-cl" class="flow" d="M382 116 H 428" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="tr-a-write" class="flow-g" d="M232 160 V 198" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <path id="tr-a-read" class="flow" d="M308 198 V 162" marker-end="url(#arrow)" style="opacity:.14"/>
+            <text class="lbl-sm" x="204" y="184" text-anchor="middle" font-size="9.5" fill="#3f7a2e">write</text>
+            <text class="lbl-sm" x="336" y="184" text-anchor="middle" font-size="9.5">read</text>
+
+            <text id="tr-note" class="readout" x="346" y="260" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the bounded window is short-term memory; the external store is long-term memory the agent writes to and reads back next session</figcaption>
+      </figure>
+
+      <p>The two tiers have genuinely different physics, and conflating them is the root of most memory bugs:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Short-term &mdash; in-context</h4>
+          <ul>
+            <li>Is the message history <em>inside</em> the window; the model sees all of it, always.</li>
+            <li>Fast and free to "read" (it's already in the prompt), but every token spends the attention budget.</li>
+            <li><strong>Bounded</strong> by the window and <strong>volatile</strong> &mdash; it vanishes when the session ends.</li>
+            <li>Managed by <em>shrinking</em> it: context editing and compaction (&sect;03&ndash;04).</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Long-term &mdash; external store</h4>
+          <ul>
+            <li>Lives outside the window in files, a vector DB, or a structured DB.</li>
+            <li>Costs a tool call to reach, but is effectively <strong>unbounded</strong> and <strong>durable</strong>.</li>
+            <li>Keyed per user or project, so it can be recalled in a <em>later</em> session.</li>
+            <li>Managed by <em>writing</em> to it: the memory tool and retrieval (&sect;05).</li>
+          </ul>
+        </div>
+      </div>
+      <p>The invariant that falls out is blunt and worth memorizing: <strong>anything not written to the long-term store is lost the moment the window resets.</strong> Anthropic bakes this straight into its memory tooling as a rule &mdash; "<em>assume interruption</em>" &mdash; because a long agent's context can be reset at any time (a crash, a compaction, a new session). If progress lives only in short-term memory, an interruption erases it and the agent repeats work. Externalize first, then continue.</p>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The counterintuitive part</div>
+      <h2>Why bigger isn't the fix</h2>
+      <p>The tempting escape hatch is "million-token windows exist &mdash; just fit everything in." That fails on the second of our three costs, and it's the least intuitive one: <strong>quality degrades as the input grows, even when the relevant evidence is present and the task is trivial.</strong> Two well-replicated findings pin this down.</p>
+      <p><strong>Lost-in-the-middle</strong> (Liu et al.) showed that retrieval accuracy is <em>U-shaped</em> by position: a model is best at using information placed at the very <em>start</em> or very <em>end</em> of its context, and worst when the same fact sits in the <em>middle</em> &mdash; a drop of more than <strong>30%</strong>. It held across GPT-3.5/4, Claude, and later replications across roughly 18 frontier models. The practical rule: <em>never bury a must-follow instruction in the middle of a long prompt</em> &mdash; put critical constraints near the top or the bottom.</p>
+      <p><strong>Context rot</strong> (a term popularized by Chroma's 2025 study across ~18 models) went further: accuracy declines as input <em>length</em> grows <em>even when the evidence is fixed, favorably placed, and the task is a trivial lookup</em>. Degradation isn't only about position &mdash; it's a property of attention itself, and training reduces but does not remove it. Their sharpest result: on a long-memory benchmark, a focused <strong>~300-token</strong> prompt <em>beat</em> the full <strong>~113k-token</strong> prompt containing the same answer, and models often did <em>better</em> on a shuffled haystack than a logically structured one. Distractors compound it &mdash; one hurts, four hurt more &mdash; and lower semantic similarity between the question and the needle makes it worse still.</p>
+      <div class="callout tip">
+        <span class="k">The lesson under both studies</span>
+        <p>A token in the window is not free just because it fits. Every irrelevant token you carry <em>dilutes attention</em> and drags accuracy down, on top of the cost and latency it adds. So the goal is not "the most context" &mdash; it's the <em>smallest set of high-signal tokens</em> that fully specifies the task. That reframes memory management as a curation problem: continuously prune what no longer earns its place, and page in only what the current step needs.</p>
+      </div>
+      <p>This is the same instinct as <strong>just-in-time context engineering</strong> from Lessons 19&ndash;20: rather than front-loading everything, the agent holds lightweight identifiers &mdash; file paths, record IDs, stored queries &mdash; and loads full data into the window <em>only when a step needs it</em>, via tools like <code>grep</code>, <code>head</code>, or a SQL query. Often it's hybrid: load a little up front for speed (a <code>CLAUDE.md</code>, a task brief) and discover the rest on demand, using file names, sizes, and timestamps as cheap signals. Memory management and retrieval are the same discipline pointed at different stores.</p>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Lightest touch first</div>
+      <h2>The mitigation ladder</h2>
+      <p>Given a window that's filling up, you have a ladder of techniques, ordered from lightest touch (cheap, low-risk, keeps most context) to heaviest (more machinery, more that can go wrong). Reach for the lightest rung that solves your problem.</p>
+      <ul>
+        <li><strong>Context editing / tool-result clearing.</strong> The safest first move: prune <em>stale tool outputs</em> from the window while keeping the tool <em>calls</em> and the reasoning. A giant file dump or search result from twenty turns ago is dead weight; swap it for a short placeholder. This is surgical &mdash; it clears specific results, not the conversation.</li>
+        <li><strong>Compaction / summarization.</strong> When the window nears its limit, condense the old turns into a summary and restart the window with that summary plus the recent tail. Lossy but powerful &mdash; the whole of &sect;04.</li>
+        <li><strong>Structured note-taking / scratchpads.</strong> The agent writes notes to a file <em>outside</em> the context (a <code>NOTES.md</code>, a to-do list, a progress log) and reads them back on demand. Memory the agent authors itself.</li>
+        <li><strong>Retrieval-based memory.</strong> Embed content into a vector store and recall the top-k relevant pieces when needed, instead of carrying it all inline. Long-term memory as search (&sect;05).</li>
+        <li><strong>Sub-agent isolation.</strong> Spin off a subagent that explores deeply in its <em>own</em> window and returns only a distilled <strong>~1,000&ndash;2,000&nbsp;token</strong> summary &mdash; keeping the detailed search context out of the lead agent's window entirely.</li>
+      </ul>
+      <p>Anthropic's rough task-to-technique mapping is a useful default: use <strong>tool-result clearing</strong> as the low-effort first step; <strong>compaction</strong> for tasks with extensive back-and-forth; <strong>note-taking</strong> for iterative development with clear milestones; and <strong>multi-agent</strong> for research or analysis where parallel exploration pays off. The public numbers are striking: in a 100-turn web-search evaluation, context editing alone <strong>cut token consumption by 84%</strong> and let agents finish tasks that otherwise failed from context exhaustion; combining the memory tool with context editing scored <strong>+39%</strong> over a baseline on an agentic-search benchmark (context editing alone: +29%). The lightest rungs pay off first.</p>
+      <p>The lightest two rungs are one-liners on the Claude Developer Platform &mdash; you configure them, the API applies them:</p>
+      <pre class="code"><span class="codetag">context editing (client-side) — clear stale tool results near a token trigger</span><code><span class="cm"># beta header: anthropic-beta: context-management-2025-06-27</span>
+<span class="st">"context_management"</span>: { <span class="st">"edits"</span>: [ { <span class="st">"type"</span>: <span class="st">"clear_tool_uses_20250919"</span> } ] }
+<span class="cm"># defaults: trigger 100k input tokens, keep the 3 most-recent tool pairs,</span>
+<span class="cm"># clear RESULTS only (keep the calls). Tune: trigger / keep / clear_at_least /</span>
+<span class="cm"># exclude_tools (never clear e.g. web_search, to protect results still in use).</span></code></pre>
+      <div class="callout note">
+        <span class="k">Watch the prompt cache</span>
+        <p>Clearing tool results rewrites the prompt prefix, which can <strong>invalidate the prompt cache</strong> and cost you a cache miss. That's what <code>clear_at_least</code> is for: only fire the edit when it reclaims enough tokens to be worth the miss, and use <code>exclude_tools</code> to protect results a later step still needs. Every response returns <code>applied_edits</code> (<code>cleared_tool_uses</code>, <code>cleared_input_tokens</code>) so you can measure what you saved, and <code>/count_tokens</code> previews it beforehand.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The workhorse technique</div>
+      <h2>A compaction step, in code &#9656;</h2>
+      <p><strong>Compaction</strong> is the rung you'll reach for most on conversational agents: take a history nearing the window limit, summarize it, and reinitialize a fresh window with the summary plus the most-recent turns. The art is entirely in the summary prompt &mdash; write it to <em>maximize recall first</em> (capture architectural decisions, unresolved bugs, key facts, file paths, TODOs), then trim for precision. Watch the cycle, then read the code that implements it:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-compaction">
+          <svg viewBox="0 0 640 250" role="img" aria-label="A compaction cycle: message history feeds a token counter, a budget gate fires when it is crossed, the old turns are split off and summarized by the model, and a new smaller window of summary plus recent tail loops back">
+            <g class="st" id="cp-hist"><rect class="node" x="20" y="40" width="132" height="52" rx="9"/><text class="lbl-sm" x="86" y="61" text-anchor="middle">message history</text><text class="lbl-sm" x="86" y="76" text-anchor="middle">grows each turn</text></g>
+            <g class="st" id="cp-count"><rect class="node-b" x="184" y="40" width="120" height="52" rx="9"/><text class="lbl-sm" x="244" y="60" text-anchor="middle">token counter</text><text id="cp-tok" class="lbl-sm" x="244" y="78" text-anchor="middle" font-weight="600" fill="#1F4E79">62k</text></g>
+            <g class="st" id="cp-gate"><rect id="cp-gate-rect" class="node" x="336" y="40" width="140" height="52" rx="9"/><text class="lbl-sm" x="406" y="60" text-anchor="middle">&#8805; BUDGET ?</text><text id="cp-gatev" class="lbl-sm" x="406" y="78" text-anchor="middle">budget 150k</text></g>
+            <g class="st" id="cp-split"><rect class="node" x="508" y="34" width="120" height="64" rx="9"/><text class="lbl-sm" x="568" y="54" text-anchor="middle">split</text><text class="lbl-sm" x="568" y="70" text-anchor="middle">OLD | RECENT</text><text class="lbl-sm" x="568" y="86" text-anchor="middle">+ system</text></g>
+
+            <g class="st" id="cp-sum"><rect class="node-b" x="500" y="158" width="128" height="56" rx="9"/><text class="lbl-sm" x="564" y="180" text-anchor="middle">summarize OLD</text><text class="lbl-sm" x="564" y="196" text-anchor="middle">LLM &middot; max recall</text></g>
+            <g class="st" id="cp-new"><rect class="node-g" x="286" y="158" width="176" height="56" rx="9"/><text class="lbl-sm" x="374" y="180" text-anchor="middle" fill="#3f7a2e">new window</text><text class="lbl-sm" x="374" y="196" text-anchor="middle" fill="#3f7a2e">summary + recent tail</text></g>
+
+            <path id="cp-a1" class="flow" d="M152 66 H 182" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="cp-a2" class="flow" d="M304 66 H 334" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="cp-a3" class="flow-r" d="M476 66 H 506" marker-end="url(#arrow-r)" style="opacity:.12"/>
+            <path id="cp-a4" class="flow-r" d="M568 98 V 156" marker-end="url(#arrow-r)" style="opacity:.12"/>
+            <path id="cp-a5" class="flow-g" d="M500 186 H 464" marker-end="url(#arrow-g)" style="opacity:.12"/>
+            <path id="cp-a6" class="flow-g" d="M286 186 C 120 176, 60 120, 84 94" marker-end="url(#arrow-g)" style="opacity:.12"/>
+            <text class="lbl-sm" x="491" y="60" text-anchor="middle" font-size="9.5" fill="#B0532F">yes</text>
+            <text class="lbl-sm" x="176" y="150" text-anchor="middle" font-size="9.5" fill="#3f7a2e">loop</text>
+
+            <text id="cp-note" class="readout" x="320" y="236" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: count tokens, fire at the budget, split off the old turns, summarize for recall, and restart the window smaller</figcaption>
+      </figure>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">long-running coding agent &middot; client-side compaction</span></div>
+        <div class="wbody">
+          <div class="wname">The 200-turn refactor that kept forgetting the plan</div>
+          <p class="wprompt">You're building an agent that refactors a codebase over a long session &mdash; it reads files, runs tests, edits, re-runs. Around turn 40 the window is packed with stale file dumps and old test output, latency has doubled, cost per step has quadrupled, and it starts <em>contradicting its own earlier decisions</em> because the plan it wrote on turn 6 is now buried in the lost-in-the-middle zone. How do you keep it coherent and affordable for 200 turns?</p>
+
+          <h4 class="wh">From the naive default to the rule</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Naive &mdash; append forever</span><p>Keep the entire transcript and re-send it every step. <b>Why it breaks:</b> cost and latency climb linearly, the early plan sinks into the low-attention middle, and by turn ~120 you hit the hard window limit and the run dies. You paid the most tokens for the worst behavior.</p></div>
+            <div class="ws"><span class="wsk">The move &mdash; compact at a token budget</span><p>Track the real input size each turn. When it crosses a <b>BUDGET</b> (say ~80% of the window), split the history into <b>OLD</b> (everything but the last N turns) and <b>RECENT</b> (last N + system, kept verbatim). Summarize OLD with a recall-first prompt, then rebuild the window as <em>summary + recent tail</em>. The thread survives; the token count collapses.</p></div>
+            <div class="ws"><span class="wsk">The invariant &mdash; recall before brevity</span><p>Compaction is <b>lossy</b>. If the summary prompt optimizes for shortness, it silently drops decisions and open bugs and the agent repeats or contradicts itself. So the rule is fixed: <b>maximize recall first</b> (decisions, bugs, key facts, file paths, TODOs), then tighten. And always keep the most-recent turns verbatim &mdash; recency is where the active task state lives.</p></div>
+          </div>
+
+          <h4 class="wh">The compaction step, in code</h4>
+          <pre class="code"><span class="codetag">compaction.py — summarize old turns when the window crosses a budget</span><code><span class="kw">from</span> anthropic <span class="kw">import</span> Anthropic
+
+client = Anthropic()
+MODEL  = <span class="st">"claude-sonnet-4-6"</span>       <span class="cm"># illustrative pricing, mid-2026</span>
+BUDGET = 150_000                   <span class="cm"># compact once input crosses ~80% of the window</span>
+KEEP   = 6                         <span class="cm"># newest N turns always survive verbatim</span>
+
+<span class="kw">def</span> n_tokens(system, messages):         <span class="cm"># never estimate — ask the API</span>
+    <span class="kw">return</span> client.messages.count_tokens(
+        model=MODEL, system=system, messages=messages).input_tokens
+
+<span class="kw">def</span> compact(system, messages):
+    <span class="kw">if</span> n_tokens(system, messages) &lt;= BUDGET:
+        <span class="kw">return</span> messages              <span class="cm"># under budget → leave it untouched</span>
+    old, recent = messages[:-KEEP], messages[-KEEP:]
+    transcript  = <span class="st">"\n"</span>.join(<span class="st">f"{m['role']}: {m['content']}"</span> <span class="kw">for</span> m <span class="kw">in</span> old)
+    summary = client.messages.create(
+        model=MODEL, max_tokens=1024,
+        system=(<span class="st">"Summarize this transcript for an agent that will resume the "</span>
+                <span class="st">"task. MAXIMIZE RECALL: keep decisions, unresolved bugs, key "</span>
+                <span class="st">"facts, file paths and TODOs; drop redundant tool output."</span>),
+        messages=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: transcript}],
+    ).content[0].text
+    <span class="cm"># reinitialize the window: summary as the new floor + the verbatim tail</span>
+    <span class="kw">return</span> [{<span class="st">"role"</span>: <span class="st">"user"</span>,
+             <span class="st">"content"</span>: <span class="st">f"[Earlier context, compacted]\n{summary}"</span>}] + recent</code></pre>
+
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;My agent's window kept growing until it was slow, expensive, and forgetting the plan it wrote 30 turns ago. So before each request I count the real input tokens with the count-tokens endpoint, and when it crosses a budget of about 80% of the window I split off the old turns, summarize them with a prompt tuned for recall &mdash; decisions, open bugs, TODOs first &mdash; and rebuild the window as that summary plus the last six turns verbatim. The task thread survives, the token count drops by an order of magnitude, and I keep going.&#8221;</p>
+            <p class="plain">This is exactly what Anthropic's <strong>server-side compaction</strong> automates (type <code>compact_20260112</code>, default trigger 150k input tokens) &mdash; it summarizes the whole conversation into a <code>compaction</code> block and drops the blocks before it &mdash; and what Claude Code does client-side, carrying the summary <em>plus the five most-recently-accessed files</em>. Billing gotcha: the extra summarization pass isn't in the top-level token counts, so you must sum <code>usage.iterations</code> or you'll under-count the cost. As of 2026 Anthropic calls compaction the <em>recommended</em> strategy for long-running conversations.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Making memory durable</div>
+      <h2>The memory tool &amp; long-term recall &#9656;</h2>
+      <p>Compaction keeps a <em>single session</em> alive, but a summary still lives in a window that will eventually vanish. For knowledge that must survive across sessions &mdash; a user's preferences, a project's progress log, a startup script the agent keeps rediscovering &mdash; you need a real long-term store. Anthropic's <strong>memory tool</strong> (type <code>memory_20250818</code>, now generally available on the Messages API with no beta header on Claude&nbsp;4+ models) is the canonical shape, and it's worth understanding because it is <em>entirely client-side</em>: Claude only <em>emits</em> tool calls; <em>your</em> app executes them against storage you control. Step through one round-trip &mdash; and note where the security gate sits:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-memory-tool">
+          <svg viewBox="0 0 640 250" role="img" aria-label="The memory tool handshake: Claude emits a tool call, your app validates the path through a gate that rejects traversal, executes against your store, and returns a result that persists across sessions">
+            <g class="st" id="mt-model"><rect class="node-b" x="18" y="100" width="132" height="56" rx="9"/><text class="lbl" x="84" y="124" text-anchor="middle">CLAUDE</text><text class="lbl-sm" x="84" y="142" text-anchor="middle">emits tool calls</text></g>
+            <g class="st" id="mt-app"><rect class="node" x="238" y="98" width="150" height="60" rx="9"/><text class="lbl-sm" x="313" y="120" text-anchor="middle">YOUR APP</text><text class="lbl-sm" x="313" y="136" text-anchor="middle">memory handler</text><text class="lbl-sm" x="313" y="150" text-anchor="middle">view&middot;create&middot;edit&hellip;</text></g>
+            <g class="st" id="mt-gate"><rect id="mt-gate-rect" class="node" x="238" y="30" width="150" height="42" rx="9"/><text class="lbl-sm" x="313" y="49" text-anchor="middle">PATH GATE</text><text class="lbl-sm" x="313" y="63" text-anchor="middle">confine to /memories</text></g>
+            <g class="st" id="mt-store"><rect class="node-g" x="470" y="100" width="152" height="56" rx="9"/><text class="lbl-sm" x="546" y="122" text-anchor="middle" fill="#3f7a2e">/memories store</text><text class="lbl-sm" x="546" y="138" text-anchor="middle" fill="#3f7a2e">files &middot; DB &middot; cloud</text></g>
+
+            <path id="mt-a-req" class="flow" d="M150 122 H 236" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="mt-a-val" class="flow" d="M313 98 V 74" marker-end="url(#arrow)" style="opacity:.14"/>
+            <path id="mt-a-exec" class="flow-g" d="M388 46 C 468 54, 512 78, 528 98" marker-end="url(#arrow-g)" style="opacity:.14"/>
+            <path id="mt-a-res" class="flow" d="M470 146 C 300 178, 150 168, 120 156" marker-end="url(#arrow)" style="opacity:.14"/>
+
+            <g id="mt-reject" style="display:none"><text class="lbl-sm" x="398" y="92" text-anchor="start" fill="#B0532F" font-size="10">&#10007; /memories/../secrets.env</text><text class="lbl-sm" x="398" y="105" text-anchor="start" fill="#B0532F" font-size="10">blocked</text></g>
+
+            <text class="lbl-sm" x="193" y="114" text-anchor="middle" font-size="9.5">tool_use</text>
+            <text class="lbl-sm" x="298" y="182" text-anchor="middle" font-size="9.5">tool_result</text>
+
+            <text id="mt-note" class="readout" x="320" y="236" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: Claude emits a memory call, your app validates the path, executes against your store, and returns a result that outlives the window</figcaption>
+      </figure>
+
+      <p>Enabling it is one line; the responsibility is all yours:</p>
+      <pre class="code"><span class="codetag">enable the memory tool — GA, no beta header, no input schema</span><code>tools: [ { <span class="st">"type"</span>: <span class="st">"memory_20250818"</span>, <span class="st">"name"</span>: <span class="st">"memory"</span> } ]
+<span class="cm"># the API auto-injects a "MEMORY PROTOCOL": VIEW /memories before acting,</span>
+<span class="cm"># and ASSUME INTERRUPTION (context may reset at any time).</span>
+<span class="cm"># YOU implement the handler for: view · create · str_replace · insert · delete · rename</span>
+<span class="cm"># and YOU must confine every path to /memories (reject ../ and %2e%2e%2f).</span></code></pre>
+      <div class="callout note">
+        <span class="k">Security is entirely on you</span>
+        <p>The memory tool executes whatever file operation Claude requests, so a path like <code>/memories/../../secrets.env</code> is a live <strong>path-traversal</strong> risk. Validate and canonicalize <em>every</em> path, confine strictly to <code>/memories</code>, cap file sizes, strip sensitive data before writing, and expire stale files. This is the same "never trust model-generated arguments" discipline from tool use (Lesson 24) and MCP (Lesson 25) &mdash; a memory store is just another tool with a dangerous surface.</p>
+      </div>
+      <p>The memory tool is <em>file-based</em> long-term memory, but it's one of three shapes. <strong>Retrieval-based memory</strong> embeds content and recalls the top-k relevant pieces on demand &mdash; Mem0's <code>add()</code>/<code>search()</code> API over ~20 vector backends reports LoCoMo <strong>92.5</strong> at only <strong>~6,956 tokens per query</strong>, versus ~26,000 tokens for stuffing the full history in context. <strong>OS-style paging</strong> (Letta/MemGPT) moves data between an in-context "main memory" and external "archival memory" like virtual memory. And a humbling result to keep you honest: Letta's 2025 study found a plain <em>filesystem</em> agent (grep, open, search) hit <strong>74.0%</strong> on LoCoMo, beating a specialized graph-memory system's <strong>68.5%</strong> &mdash; agent capability and tool familiarity often matter more than an elaborate memory framework.</p>
+      <p>Finally, the axis that decides which store you even need: <strong>session vs cross-session</strong>. Session memory lives in one window and is fine to lose; cross-session memory must be externalized and <em>keyed per user or project</em>. The open, unglamorous production problem is <strong>identity resolution</strong> &mdash; tying memories to the right user across anonymous sessions and multiple devices. Get it wrong and you get <em>wrong-user memory bleed</em>, still a real failure mode in 2026 (per Mem0's state-of-memory report). OpenAI's ChatGPT memory has been climbing this curve &mdash; from a manually-curated saved-memory list to a background "Dreaming" process that synthesizes across years of chats &mdash; but programmatic read/write for third parties remains largely anticipated, not shipped.</p>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> One stack, three jobs</div>
+      <h2>Assembling the memory stack</h2>
+      <p>The single most common mistake is treating these as competing choices &mdash; picking "compaction" <em>or</em> "the memory tool" as if one replaces the other. They solve <strong>different problems</strong>, and a serious long-running agent layers all three:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Context editing</h4>
+          <ul>
+            <li>Client-side; surgically clears specific <strong>stale tool results</strong> from the window.</li>
+            <li>Solves: dead weight from old file dumps and search output.</li>
+            <li>Cheapest, lowest-risk &mdash; the first rung.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Compaction</h4>
+          <ul>
+            <li>Server- or client-side; summarizes the <strong>whole conversation</strong> near the limit.</li>
+            <li>Solves: a long back-and-forth that would otherwise exhaust the window.</li>
+            <li>Recommended default for long chats; lossy, so recall-first.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Memory tool</h4>
+          <ul>
+            <li>Externalizes <strong>durable knowledge</strong> to a store keyed per user/project.</li>
+            <li>Solves: what must survive summarization and the session ending.</li>
+            <li>Persists across sessions; you own its security.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The recommended stack combines them: <strong>compaction (or context editing) to keep the active window small, plus the memory tool to preserve what must survive being summarized away.</strong> A concrete multi-session pattern makes it vivid: an <em>initializer</em> session writes memory files up front (a progress log, a feature checklist, a startup-script reference); each later session opens by <em>reading</em> them to restore state without re-exploring the codebase, works one feature end-to-end, verifies it, and closes by <em>updating</em> the progress log. Because state is externalized, an interruption costs nothing &mdash; the next session just reads the log and resumes.</p>
+      <table class="cost">
+        <thead><tr><th>Technique</th><th>Tier it manages</th><th>What it does</th><th>Reach for it when</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Tool-result clearing</strong></td>
+            <td>Short-term</td>
+            <td>Prunes stale tool <em>results</em>, keeps the calls</td>
+            <td>Any tool-heavy agent &mdash; the safe low-effort first step</td>
+          </tr>
+          <tr>
+            <td><strong>Compaction</strong></td>
+            <td>Short-term</td>
+            <td>Summarizes old turns, restarts the window smaller</td>
+            <td>Long conversational back-and-forth near the limit</td>
+          </tr>
+          <tr>
+            <td><strong>Note-taking / scratchpad</strong></td>
+            <td>Long-term (files)</td>
+            <td>Agent writes &amp; reads its own notes outside context</td>
+            <td>Iterative dev with clear milestones; long-horizon tasks</td>
+          </tr>
+          <tr>
+            <td><strong>Retrieval memory</strong></td>
+            <td>Long-term (vector)</td>
+            <td>Embeds content, recalls top-k on demand</td>
+            <td>Large durable knowledge; cross-session user facts</td>
+          </tr>
+          <tr>
+            <td><strong>Sub-agent isolation</strong></td>
+            <td>Short-term (isolation)</td>
+            <td>Explores in its own window, returns a distilled summary</td>
+            <td>Research/analysis where parallel exploration pays off</td>
+          </tr>
+          <tr>
+            <td colspan="4"><strong>Don't over-engineer</strong> &mdash; a plain filesystem beat a graph-memory framework on LoCoMo (74.0% vs 68.5%). Start with notes + compaction; add vector recall only when you've measured that you need it.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>And the payoff is measurable in dollars. That 150k-token window costing <strong>~$0.45 per turn</strong> to read (illustrative Sonnet&nbsp;4.6 input, mid-2026) drops to <strong>~$0.05</strong> after compaction to ~18k tokens &mdash; a 9&times; cut, on every subsequent step, <em>plus</em> the accuracy you win back by escaping context rot. Memory management isn't a nicety you bolt on at the end; it's what makes a long-running agent viable at all.</p>
+      <div class="callout">
+        <span class="k">The through-line to the harness</span>
+        <p>Memory is the third leg of the augmented LLM from Lesson 22 &mdash; retrieval, tools, and now memory &mdash; and it's what lets the orchestration patterns of Lesson 26 run for hours instead of minutes. Next, <strong>Lesson 28 &mdash; Human-in-the-Loop &amp; the Harness</strong> adds the other thing a long-running, memory-carrying agent needs before you give it real power: approval gates, spend caps, and the harness that keeps it safe. An agent that remembers is powerful; an agent that remembers <em>and</em> asks before it acts is one you can trust.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>context is bounded working memory, not storage &mdash; so keep the short-term window small (context editing, then compaction), push durable knowledge into a long-term store (notes, the memory tool, retrieval), and remember the three solve different problems, so a serious agent layers them.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Three compounding costs</b><span>Appending forever means cost/latency scale with length, quality rots as the window fills, and the hard limit eventually kills the run. Bigger windows don't fix the middle one.</span></div>
+        <div class="tk"><span class="num">02</span><b>Two tiers</b><span>Short-term = the in-context conversation (bounded, volatile). Long-term = an external store (files/vector/DB) the agent reads &amp; writes and that persists across sessions.</span></div>
+        <div class="tk"><span class="num">03</span><b>Attention budget</b><span>Every token depletes a finite budget; n&sup2; self-attention makes quality a gradient, not a cliff. The goal is the smallest high-signal context, not the most context.</span></div>
+        <div class="tk"><span class="num">04</span><b>Rot &amp; lost-in-the-middle</b><span>Accuracy is U-shaped by position (&gt;30% mid-context drop) and falls with length even when the evidence is present &mdash; a ~300-token prompt beat a ~113k one on LongMemEval.</span></div>
+        <div class="tk"><span class="num">05</span><b>The mitigation ladder</b><span>Lightest to heaviest: clear stale tool results &#8594; compact &#8594; note-taking &#8594; retrieval &#8594; sub-agents. Context editing cut tokens 84% in a 100-turn eval.</span></div>
+        <div class="tk"><span class="num">06</span><b>Compaction, recall-first</b><span>Cross a token budget &#8594; split OLD/RECENT &#8594; summarize OLD (decisions, bugs, TODOs first) &#8594; rebuild as summary + recent tail. Lossy, so maximize recall, then trim.</span></div>
+        <div class="tk"><span class="num">07</span><b>The memory tool</b><span>Client-side, GA (<code>memory_20250818</code>): Claude emits calls, you execute them under <code>/memories</code>. Validate every path &mdash; traversal is on you. Assume interruption.</span></div>
+        <div class="tk"><span class="num">08</span><b>Layer, don't pick</b><span>Context editing (stale results) + compaction (whole conversation) + memory tool (durable knowledge) solve different problems. Combine them; don't over-engineer.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the three compounding costs of just appending to the context, and explain why a bigger window doesn't cure all three.<br>
+        (2) Define short-term vs long-term memory. What is the invariant behind "assume interruption," and what breaks if you ignore it?<br>
+        (3) What are "lost-in-the-middle" and "context rot," and what practical rule does each give you about where information goes and how much you carry?<br>
+        (4) Walk the compaction cycle end to end. Why must the summary prompt maximize recall before brevity, and why keep the recent turns verbatim?<br>
+        (5) Trace one memory-tool round-trip. Where is the security gate, why is path traversal your responsibility, and what does "client-side" mean here?<br>
+        (6) Context editing, compaction, and the memory tool each solve a different problem &mdash; state which, and describe the recommended layered stack.<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 27 &middot; AGENT MEMORY &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; a pattern lesson in the Agents &amp; Tool Use phase &middot; API identifiers, pricing, and model facts are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* FIG 1 — two tiers of memory */
+  makeStepper(document.getElementById('fig-tiers'), [
+    {text:"Boot the agent: the system prompt and tool definitions load into the context window. This IS short-term memory — everything the model can see, bounded by the window.", active:["tr-ctx"], fill:22, ftxt:"system + tools · 22%", note:"short-term memory = everything in the window", arrows:[]},
+    {text:"Each turn is appended to the message history; the model re-reads the WHOLE window to reply. History only grows — every step re-reads all of it.", active:["tr-user","tr-ctx","tr-llm"], path:"tr-a-uc", fill:45, ftxt:"history · 45%", note:"every turn re-reads the entire window → cost climbs", arrows:["tr-a-uc","tr-a-cl"]},
+    {text:"Keep going and the window fills toward its hard limit. Cost and latency rise with every token, and quality starts to rot. Short-term memory can't grow forever.", active:["tr-ctx"], fill:84, ftxt:"history · 84% ⚠", note:"cost ↑  latency ↑  quality ↓  as the window fills", arrows:[]},
+    {text:"So the agent WRITES durable facts — decisions, user prefs, progress — to an external store through a memory tool. That store is long-term memory.", active:["tr-ctx","tr-store"], path:"tr-a-write", fill:84, ftxt:"wrote a note ✓", note:"long-term memory = an external store the agent reads & writes", arrows:["tr-a-write"]},
+    {text:"The session ends and the context window is discarded. Anything left only in short-term memory is gone — it does not survive.", active:["tr-store"], fill:0, ftxt:"window cleared", note:"assume interruption: the window can vanish at any time", arrows:[]},
+    {text:"A new session starts empty, then READS the store back to restore state — no need to re-explore. Long-term memory persists across sessions.", active:["tr-store","tr-ctx"], path:"tr-a-read", fill:30, ftxt:"restored · 30%", note:"cross-session recall: read the store, resume the task", arrows:["tr-a-read"]}
+  ], function(idx,s){
+    var f=document.getElementById('tr-fill');
+    f.setAttribute('width', (s.fill/100*188));
+    f.setAttribute('fill', s.fill>=80?'#B0532F':'var(--blueprint-soft)');
+    document.getElementById('tr-fillt').textContent=s.ftxt;
+    document.getElementById('tr-note').textContent=s.note;
+    var lit=s.arrows||[];
+    ['tr-a-uc','tr-a-cl','tr-a-write','tr-a-read'].forEach(function(id){
+      document.getElementById(id).style.opacity = lit.indexOf(id)!==-1?1:0.14;});
+  });
+
+  /* FIG 2 — the compaction cycle */
+  makeStepper(document.getElementById('fig-compaction'), [
+    {text:"Turns pile up. Before each request, measure the REAL input size with the token-counting endpoint — never eyeball it, or your budget check drifts.", active:["cp-hist","cp-count"], path:"cp-a1", tok:"62k", gatev:"budget 150k", note:"count tokens exactly, every turn", arrows:["cp-a1"]},
+    {text:"Compare against the BUDGET — here 150k, about 80% of the window. Still under, so do nothing: the cheapest compaction is the one you skip.", active:["cp-count","cp-gate"], path:"cp-a2", tok:"128k", gatev:"128k < 150k → skip", note:"under budget → leave the window untouched", arrows:["cp-a2"]},
+    {text:"A few turns later it crosses the line. NOW compact: split the history into OLD (all but the last N turns) and RECENT (the last N + system, kept verbatim).", active:["cp-gate","cp-split"], path:"cp-a3", tok:"154k", gatev:"154k ≥ 150k → compact", note:"split OLD vs RECENT — recency is kept exact", arrows:["cp-a3"], compact:true},
+    {text:"Summarize OLD with one model call whose prompt MAXIMIZES RECALL first: decisions, open bugs, key facts, file paths, TODOs — then trim. Brevity-first would drop state silently.", active:["cp-split","cp-sum"], path:"cp-a4", tok:"154k", gatev:"summarizing…", note:"compaction is lossy — recall first, brevity second", arrows:["cp-a4"], compact:true},
+    {text:"Reinitialize the window: one summary turn + the verbatim recent tail. 154k collapses to ~18k and the agent keeps working with the thread intact.", active:["cp-sum","cp-new"], path:"cp-a5", tok:"→ 18k", gatev:"rebuilt", note:"window 154k → ~18k, task continues", arrows:["cp-a5"], compact:true},
+    {text:"History grows again; the cycle repeats at every budget crossing. Anthropic automates exactly this server-side (trigger 150k); Claude Code does it client-side — summary + the 5 most-recent files.", active:["cp-new","cp-hist"], path:"cp-a6", tok:"62k", gatev:"budget 150k", note:"a loop: compact whenever the budget is crossed again", arrows:["cp-a6"], compact:true}
+  ], function(idx,s){
+    document.getElementById('cp-tok').textContent=s.tok;
+    document.getElementById('cp-gatev').textContent=s.gatev;
+    document.getElementById('cp-note').textContent=s.note;
+    document.getElementById('cp-gate-rect').setAttribute('class', s.compact?'node-r':'node');
+    var lit=s.arrows||[];
+    ['cp-a1','cp-a2','cp-a3','cp-a4','cp-a5','cp-a6'].forEach(function(id){
+      document.getElementById(id).style.opacity = lit.indexOf(id)!==-1?1:0.12;});
+  });
+
+  /* FIG 3 — the memory tool handshake */
+  makeStepper(document.getElementById('fig-memory-tool'), [
+    {text:"Claude decides it needs memory and EMITS a tool call — view /memories. It only asks; it never touches your storage itself. This is the client-side contract.", active:["mt-model"], path:"mt-a-req", note:"tool_use → view /memories (Claude only emits it)", arrows:["mt-a-req"]},
+    {text:"Your handler receives the tool_use and dispatches on the command: view · create · str_replace · insert · delete · rename. The memory tool is 100% YOUR code.", active:["mt-app"], note:"you execute the command — nothing runs on Anthropic's side", arrows:[]},
+    {text:"SECURITY GATE: canonicalize every path and confine it to /memories. A crafted /memories/../../secrets.env is path traversal — reject it before it ever reaches disk.", active:["mt-app","mt-gate"], path:"mt-a-val", note:"reject ../ and %2e%2e traversal · cap size · strip secrets", arrows:["mt-a-val"], reject:true},
+    {text:"A safe path runs against the store YOU control — files, a database, or cloud storage. All operations stay under /memories.", active:["mt-gate","mt-store"], path:"mt-a-exec", note:"execute against your own durable store", arrows:["mt-a-exec"]},
+    {text:"Return the result in a tool_result block; Claude reads it back and continues, now grounded in recalled knowledge instead of re-deriving it.", active:["mt-store","mt-model"], path:"mt-a-res", note:"tool_result → Claude resumes, grounded in memory", arrows:["mt-a-res"]},
+    {text:"Because the store persists, this memory survives into the NEXT session. The API's MEMORY PROTOCOL even tells Claude to VIEW memory first and ASSUME INTERRUPTION.", active:["mt-store","mt-model"], note:"cross-session: the store outlives the window", arrows:[]}
+  ], function(idx,s){
+    document.getElementById('mt-note').textContent=s.note;
+    document.getElementById('mt-gate-rect').setAttribute('class', s.reject?'node-r':'node');
+    document.getElementById('mt-reject').style.display = s.reject?'':'none';
+    var lit=s.arrows||[];
+    ['mt-a-req','mt-a-val','mt-a-exec','mt-a-res'].forEach(function(id){
+      document.getElementById(id).style.opacity = lit.indexOf(id)!==-1?1:0.14;});
+  });
+</script>
+</body>
+</html>

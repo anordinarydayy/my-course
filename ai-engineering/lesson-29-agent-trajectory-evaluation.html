@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 29 — Agent &amp; Trajectory Evaluation (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">Agent &amp; Trajectory<br>Evaluation</div>
+    <h4>Grade the path</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The right answer, wrong path</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Claim vs outcome &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The metrics of the path</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Diffing against a gold path &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>No gold path &amp; reliability</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>A trajectory evaluator &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Building the eval set</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">29</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>Agent &amp; Trajectory Evaluation</h1>
+      <p class="lede">Everything in the evaluation phase graded one thing: the final answer. For a single-turn model that is the whole job &mdash; the output <em>is</em> the behavior. An agent breaks that assumption. It runs a multi-step <strong>trajectory</strong> of tool calls that changes the world before it ever speaks, so a right answer reached by a wrong, looping, or ruinously expensive path is a latent failure that end-answer eval waves straight through. This lesson is the discipline of grading not just what the agent <em>said</em>, but the <em>path it took</em> and the <em>state it left behind</em>.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The evaluation lesson of the Agents phase. It draws on public sources &mdash; Anthropic's "Demystifying evals for AI agents," the TRACE paper ("Beyond the Final Answer"), the open-source <em>agentevals</em>/LangSmith trajectory evaluators, DeepEval and RAGAS agentic metrics, tau2-bench, SWE-bench, and GAIA/WebArena &mdash; but every explanation, diagram, and line of code is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Tool names, pricing, and model facts are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The latent failure</div>
+      <h2>The right answer, the wrong path</h2>
+      <p>Everything you built in the evaluation phase graded a single artifact: the output. Feed the system an input, capture what it returns, score that return against a reference or a rubric. For a single-turn task &mdash; summarize this, classify that, answer this &mdash; that is exactly correct, because the output is the entirety of what the system did. An <strong>agent</strong> quietly voids that assumption. It doesn't emit an answer so much as run a <strong>trajectory</strong>: a multi-turn sequence of tool calls, observations, and reasoning steps that mutates real state &mdash; a row in a database, a file on disk, a charge on a card &mdash; before it says a word to you. Grade only the sentence it ends on and you are scoring the last frame of a movie you never watched.</p>
+      <p>Make it concrete. Two agents are told to book a flight; both finish with the identical line, <em>"Your flight is booked!"</em> Agent A called <code>search_flights</code> once, called <code>book_flight</code> once, got a confirmation number &mdash; three clean steps. Agent B called <code>search_flights</code> nine times, booked the wrong fare, cancelled it, rebooked, and burned forty thousand tokens and thirty seconds getting there. End-answer eval hands both a green check, because the final answers are byte-for-byte the same. Yet one of these is a production incident wearing a passing grade: it happens to work on this input today and will loop, overspend, or strand a user tomorrow. This is the <strong>right answer, wrong path</strong> failure, and it is measured, not hypothetical &mdash; the 2025 TRACE study ("Beyond the Final Answer") found models routinely arrive at a correct final answer through <em>fundamentally flawed intermediate reasoning</em> (and correct reasoning to a wrong answer), so final-answer-only metrics <em>substantially underestimate</em> how unreliable an agent actually is, especially on out-of-distribution problems and answers you can't independently verify.</p>
+      <p>The way out is to stop conflating three different things. The <strong>transcript</strong> (also called the trace or trajectory) is the complete record of the run &mdash; every tool call, argument, intermediate result, and reasoning step. The <strong>outcome</strong> is the real state of the world afterward &mdash; the reservation row that actually exists &mdash; which is different again from what the agent <em>claims</em> (<em>"booked!"</em>). End-answer eval grades the claim alone. Agent evaluation grades the transcript (the <em>path</em>) and the outcome (the <em>state</em>), and treats the claim as the least trustworthy of the three.</p>
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>For a single-turn model, the output <em>is</em> the behavior. For an agent, the output is only the <em>last line</em> of the behavior. Evaluate the whole trajectory and verify the outcome &mdash; or you're grading a movie by its final frame and trusting the narrator that it ended well.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Claim, transcript, state</div>
+      <h2>Claim vs outcome &#9656;</h2>
+      <p>The single most common latent failure in a deployed agent is the confident lie: the model says it did the thing, and the thing did not happen. A final-answer grader &mdash; string-match the reply, or even judge the reply with an LLM &mdash; reads only what the agent <em>says</em>, so it cannot tell a real booking from a hallucinated one. The fix is an <strong>outcome check</strong> that ignores the claim and interrogates the environment itself. Watch the same run pass one grader and fail the other:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-claim-outcome">
+          <svg viewBox="0 0 640 250" role="img" aria-label="An agent claims a flight is booked; the end-answer grader reads the claim and marks it pass, while the outcome grader queries the reservations database, finds no row, and marks it fail">
+            <g class="st" id="co-task"><rect class="node" x="18" y="101" width="106" height="48" rx="9"/><text class="lbl" x="71" y="122" text-anchor="middle">TASK</text><text class="lbl-sm" x="71" y="139" text-anchor="middle">book a flight</text></g>
+            <path id="co-f1" class="flow" d="M124 125 H 154" marker-end="url(#arrow)"/>
+            <g class="st" id="co-agent"><rect class="node-b" x="156" y="94" width="140" height="62" rx="9"/><text class="lbl" x="226" y="117" text-anchor="middle">AGENT</text><text class="lbl-sm" x="226" y="133" text-anchor="middle">transcript:</text><text class="lbl-sm" x="226" y="148" text-anchor="middle">tool calls + reasoning</text></g>
+            <g class="st" id="co-claim"><rect id="co-claimbox" class="node" x="168" y="176" width="116" height="30" rx="7"/><text id="co-claimt" class="lbl-sm" x="226" y="195" text-anchor="middle">claim</text></g>
+            <path id="co-fc" class="flow" d="M226 156 V 174" marker-end="url(#arrow)"/>
+
+            <g class="st" id="co-naive">
+              <rect class="node" x="338" y="52" width="150" height="48" rx="9"/>
+              <text class="lbl-sm" x="413" y="72" text-anchor="middle">END-ANSWER grader</text>
+              <text class="lbl-sm" x="413" y="88" text-anchor="middle">reads the claim</text>
+              <rect id="co-naivebox" x="512" y="56" width="106" height="40" rx="8" fill="var(--paper-2)" stroke="var(--line-strong)"/>
+              <text id="co-naivev" class="lbl" x="565" y="80" text-anchor="middle">&#8230;</text>
+            </g>
+            <path id="co-fn" class="flow" d="M296 112 C 322 92, 330 78, 336 76" marker-end="url(#arrow)"/>
+
+            <g class="st" id="co-outcome"><rect class="node" x="338" y="158" width="150" height="48" rx="9"/><text class="lbl-sm" x="413" y="178" text-anchor="middle">OUTCOME grader</text><text class="lbl-sm" x="413" y="194" text-anchor="middle">checks real state</text></g>
+            <g class="st" id="co-db"><rect id="co-dbbox" class="node" x="512" y="158" width="106" height="48" rx="8"/><text class="lbl-sm" x="565" y="178" text-anchor="middle">DB state</text><text id="co-dbt" class="lbl-sm" x="565" y="194" text-anchor="middle">reservations</text></g>
+            <path id="co-fo" class="flow" d="M296 140 C 322 158, 330 176, 336 180" marker-end="url(#arrow)"/>
+            <path id="co-fd" class="flow" d="M488 182 H 510" marker-end="url(#arrow)"/>
+
+            <text id="co-note" class="readout" x="320" y="236" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the claim says "booked"; only the outcome check on real state catches that nothing was booked</figcaption>
+      </figure>
+
+      <p>The outcome check is the non-negotiable floor of agent evaluation: a confident final answer is a <em>hypothesis</em> about the world, not evidence, so you verify the state the task was supposed to produce &mdash; the row exists, the file was written, the ticket is genuinely closed. But the outcome alone still can't see the <em>path</em>, and that's the second half of the story. Anthropic's framing splits your scorecard cleanly: <strong>outcome metrics</strong> are state checks that <em>prove</em> success, and <strong>process metrics</strong> read the transcript to <em>reveal</em> the inefficiency and fragility a green outcome hides. You need both, because each is blind exactly where the other sees.</p>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Process vs outcome</div>
+      <h2>The metrics of the path</h2>
+      <p>Having just insisted on the outcome check, the tempting overcorrection is to lean on it entirely: outcome is objective and close to binary, so why not grade <em>only</em> whether the reservation exists? Because outcome-only has the mirror flaw of answer-only. It tells you <em>that</em> the agent succeeded and never <em>how well</em> &mdash; and "succeeded, but in thirty tool calls and at a dollar-fifty a task" is a failure you cannot see in a boolean. A real agent scorecard therefore carries two families of metric side by side:</p>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Outcome metrics &mdash; from the state</h4>
+          <ul>
+            <li>Did the reservation row appear? The file get written? The ticket <em>actually</em> resolve?</li>
+            <li>Task-completion rate and goal accuracy &mdash; the agent's real effect on the world.</li>
+            <li>Objective, code-checkable, close to binary. They <strong>prove success</strong> &mdash; but say nothing about cost or fragility.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Process metrics &mdash; from the transcript</h4>
+          <ul>
+            <li>Turn count, number of tool calls, token usage, latency, time-to-first-token.</li>
+            <li>Cost-per-task &mdash; the sum of every call the run made.</li>
+            <li>Cheap to compute from the trace. They <strong>reveal inefficiency</strong> &mdash; but a great process to the wrong state is still a failure.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>Underneath the process family sit the specific <strong>trajectory metrics</strong> that make "grade the path" operational. None of these is derivable from the final answer &mdash; that is precisely why answer-only eval misses them:</p>
+      <ul>
+        <li><strong>Tool-selection accuracy</strong> &mdash; did the agent pick the right tool at each step? This needs labeled trajectories or a rubric; it is invisible in the output.</li>
+        <li><strong>Tool-call / argument correctness</strong> &mdash; right tool <em>and</em> right parameters. Score arguments by the <em>fraction</em> correct, not exact all-or-nothing match; a good <code>city="london"</code> vs gold <code>"London"</code> shouldn't zero the call.</li>
+        <li><strong>Redundant / looping steps</strong> &mdash; duplicate calls (same tool, identical args) and alternating call patterns that spin without progress.</li>
+        <li><strong>Recovery after a failed tool call</strong> &mdash; when a call errors, did the agent issue a <em>corrective</em> call, or blindly repeat the failing one (a loop) or give up?</li>
+        <li><strong>Number of steps vs a tool budget</strong> &mdash; a hard cap, commonly ~20&ndash;50 calls per task (default around 20), that halts runaway behavior.</li>
+        <li><strong>Cost-per-task and total latency</strong> &mdash; summed across every tool call, now a first-class dimension rather than an afterthought.</li>
+      </ul>
+
+      <p>That tool budget is not paranoia. A named 2025&ndash;2026 risk class is the <strong>overthinking loop</strong>: a verbose or adversarial MCP tool can lure an agent into a cyclic pattern that blows up tokens and latency &mdash; a denial-of-service vector &mdash; and one study found that merely enriching tool descriptions raised average execution steps by roughly <strong>67%</strong>. So a budget plus explicit detection of repeated identical or alternating calls is itself a process metric you gate on, not a nice-to-have.</p>
+
+      <div class="callout tip">
+        <span class="k">Cost is part of the score now</span>
+        <p>An agent at 92% task-completion for <code>$0.03</code>/task and one at 94% for <code>$1.50</code>/task are not the same product &mdash; reports cite up to <strong>50&times;</strong> cost swings for similar accuracy. Read the accuracy/cost <em>frontier</em>, never accuracy alone. Illustratively (mid-2026): a run that fans out to Opus 4.8 at <code>$5/$25</code> per Mtok costs an order of magnitude more than one that routes most steps to Haiku 4.5 at <code>$1/$5</code> for the very same success rate &mdash; and cost-per-task is the metric that makes that visible.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Reference-trajectory</div>
+      <h2>Diffing the run against a gold path &#9656;</h2>
+      <p>The cheapest way to score a path is to write the path down first. <strong>Reference-trajectory</strong> evaluation hard-codes the expected sequence of tool calls &mdash; the gold path &mdash; and diffs the recorded run against it step by step. It is deterministic, fast, cheap, and adds <em>no</em> LLM call, which makes it the right first tool for any well-defined workflow. Step through a diff where the run drifts from gold in three separate ways:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-traj-match">
+          <svg viewBox="0 0 640 250" role="img" aria-label="Diffing an actual run of tool calls against a reference gold trajectory, showing a match, a redundant call, an out-of-order call, and a missing required call">
+            <text class="lbl-sm" x="160" y="24" text-anchor="middle" fill="#4A7BA6">REFERENCE &mdash; gold path</text>
+            <text class="lbl-sm" x="480" y="24" text-anchor="middle" fill="#3f7a2e">ACTUAL RUN</text>
+            <line x1="320" y1="32" x2="320" y2="196" stroke="var(--line-strong)" stroke-width="1.2" stroke-dasharray="5 5"/>
+
+            <g class="st" id="tm-ref1"><rect id="tm-ref1box" class="node" x="58" y="44" width="204" height="38" rx="8"/><text class="lbl-sm" x="160" y="67" text-anchor="middle">1 &middot; search_flights</text></g>
+            <g class="st" id="tm-ref2"><rect id="tm-ref2box" class="node" x="58" y="96" width="204" height="38" rx="8"/><text class="lbl-sm" x="160" y="119" text-anchor="middle">2 &middot; book_flight</text></g>
+            <g class="st" id="tm-ref3"><rect id="tm-ref3box" class="node" x="58" y="148" width="204" height="38" rx="8"/><text class="lbl-sm" x="160" y="171" text-anchor="middle">3 &middot; email_receipt</text></g>
+
+            <g class="st" id="tm-act1"><rect id="tm-act1box" class="node" x="378" y="44" width="204" height="38" rx="8"/><text class="lbl-sm" x="480" y="67" text-anchor="middle">search_flights</text></g>
+            <g class="st" id="tm-act2"><rect id="tm-act2box" class="node" x="378" y="96" width="204" height="38" rx="8"/><text class="lbl-sm" x="480" y="119" text-anchor="middle">search_flights</text></g>
+            <g class="st" id="tm-act3"><rect id="tm-act3box" class="node" x="378" y="148" width="204" height="38" rx="8"/><text class="lbl-sm" x="480" y="171" text-anchor="middle">book_flight</text></g>
+
+            <path id="tm-c1" class="flow" d="M262 63 H 378" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="tm-c2" class="flow" d="M262 115 H 378" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="tm-c2b" class="flow" d="M262 115 C 320 132, 340 152, 378 167" marker-end="url(#arrow)" style="opacity:.12"/>
+            <path id="tm-c3" class="flow-r" d="M262 167 H 316" marker-end="url(#arrow-r)" style="opacity:.12"/>
+
+            <text id="tm-note" class="readout" x="320" y="214" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <text id="tm-mode" class="lbl-sm" x="320" y="236" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: diff the run against a gold trajectory — match, redundant, out-of-order, and a missing required call</figcaption>
+      </figure>
+
+      <p>The open-source <strong>agentevals</strong> package (also surfaced through LangSmith) packages exactly this diff as <code>create_trajectory_match_evaluator</code>, with four <strong>match modes</strong> so you diff at precisely the strictness the task deserves: <strong>strict</strong> (same calls, same order), <strong>unordered</strong> (all required calls, any order), <strong>subset</strong> (the agent used only reference tools, no extras), and <strong>superset</strong> (the agent used at least the reference tools, extras allowed). Argument comparison is a separate knob &mdash; <code>tool_args_match_mode</code> of exact / ignore / subset / superset, or a custom comparator (e.g. a case-insensitive city match) &mdash; and the evaluator returns a tidy <code>{key, score, comment}</code>.</p>
+
+      <pre class="code"><span class="codetag">agentevals — a strict diff with a custom arg comparator</span><code><span class="kw">from</span> agentevals.trajectory.match <span class="kw">import</span> create_trajectory_match_evaluator
+
+evaluator = create_trajectory_match_evaluator(
+    trajectory_match_mode=<span class="st">"strict"</span>,        <span class="cm"># or "unordered" / "subset" / "superset"</span>
+    tool_args_match_mode=<span class="st">"exact"</span>,          <span class="cm"># or "ignore" / a comparator fn</span>
+)
+result = evaluator(outputs=run, reference_outputs=gold)
+<span class="cm"># -&gt; {"key": "trajectory_strict_match", "score": False, "comment": "..."}</span></code></pre>
+
+      <div class="callout tip">
+        <span class="k">Don't pin the whole path</span>
+        <p>Strict, exact, step-by-step matching is a trap of its own: Anthropic warns it is "overly brittle, as agents regularly find valid approaches eval designers didn't anticipate." Diff what <em>truly</em> matters &mdash; the required tools, the few orderings that are genuinely load-bearing, and the outcome &mdash; and reach for <em>unordered</em> or <em>superset</em> everywhere order is irrelevant. Pin the constraints, not the choreography.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Judges, graders, reliability</div>
+      <h2>No gold path &mdash; and reliability</h2>
+      <p>Reference-trajectory matching needs a gold path, and a whole class of tasks doesn't have one. "Research this competitor and write me a brief" has a thousand valid trajectories and no canonical sequence to diff against. That is where <strong>reference-free</strong> evaluation earns its keep: an <strong>LLM-as-judge</strong> reads the entire transcript and scores whether the tool choices and reasoning were <em>reasonable</em>, with nothing to compare against. agentevals ships this too &mdash; <code>create_trajectory_llm_as_judge</code> with a built-in <code>TRAJECTORY_ACCURACY_PROMPT</code> (reference-free) and a <code>..._WITH_REFERENCE</code> variant that also diffs against an expected path, plus continuous float scores, discrete choices, and few-shot calibration. It scales to open-ended work &mdash; but it is non-deterministic, costs a real LLM call per grade, and <em>drifts</em> from human judgment if left uncalibrated. Tame it with structured single-dimension rubrics, an explicit "Unknown" escape hatch to curb hallucinated verdicts, frequent calibration against domain experts, and multi-judge consensus where the stakes justify it.</p>
+
+      <p>Reference-based and reference-free are really two ends of a wider <strong>grader taxonomy</strong>. You don't choose one; you combine all three:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Code-based</h4>
+          <ul>
+            <li>String/regex match, static analysis, and outcome/state checks.</li>
+            <li>Fast, cheap, objective, perfectly reproducible.</li>
+            <li>Brittle to valid variation &mdash; a code grader once rejected a correct <code>96.12</code> against gold <code>96.124991&#8230;</code> on CORE-Bench.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Model-based</h4>
+          <ul>
+            <li>LLM-as-judge: rubric scoring, natural-language assertions, pairwise preference.</li>
+            <li>Flexible, handles nuance and open-ended paths.</li>
+            <li>Non-deterministic and costs money per grade; must be calibrated.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Human</h4>
+          <ul>
+            <li>SME review and spot-checks of transcripts.</li>
+            <li>The gold standard &mdash; it calibrates the other two.</li>
+            <li>Slow and expensive, so used sparingly and deliberately.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>Once you can grade a run, the last question is how <em>often</em> a good run repeats &mdash; and here the metric you pick decides whether you ship. <strong>pass@k</strong> is the probability of at least one success in <em>k</em> attempts; it <em>rises</em> with <em>k</em> and is the right lens when a single working solution suffices (code you can unit-test, keep the one that passes). <strong>pass^k</strong> is the probability that <em>all k</em> trials succeed; it <em>falls</em> with <em>k</em> and is the standard for a customer-facing agent that has to work <em>every</em> time. The gap is brutal and worth memorizing: a plausibly "good" agent at 75% per-trial success clears <code>pass^3 = 0.75&#179; &#8776; 42%</code> &mdash; it succeeds all three times for only about four users in ten. Report <strong>pass^k</strong>, not pass@k, whenever reliability is the product, so a right answer reached by a lucky path can't masquerade as dependable.</p>
+
+      <div class="callout note">
+        <span class="k">Why this matters for the path</span>
+        <p>pass^k is where "grade the path" pays off numerically. Two agents can post the same single-trial accuracy, but the one with the shakier trajectory &mdash; more redundant calls, weaker recovery, looser tool selection &mdash; collapses faster under pass^k, because fragility compounds across trials. The process metrics of &sect;02 are the early-warning signal for the pass^k cliff you'd otherwise discover in production.</p>
+      </div>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> In code</div>
+      <h2>A trajectory evaluator, end to end &#9656;</h2>
+      <p>Now assemble the pieces into one scorer. It takes a recorded run &mdash; a list of <code>{tool, args, ok}</code> steps &mdash; and rolls it into a scorecard: tool-choice, argument correctness, step efficiency, recovery, cost, and latency, combined into <strong>partial credit</strong> rather than a binary pass. Watch the scorecard fill in metric by metric:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-score-run">
+          <svg viewBox="0 0 640 262" role="img" aria-label="A recorded agent run scored into a trajectory scorecard: tool-choice, argument correctness, step efficiency, recovery after a failed call, cost and latency, rolled up into partial credit">
+            <text class="lbl-sm" x="140" y="22" text-anchor="middle" fill="#4A7BA6">RECORDED RUN</text>
+            <g class="st" id="sr-run1"><rect class="node" x="28" y="34" width="224" height="30" rx="7"/><text class="lbl-sm" x="42" y="53" text-anchor="start">1 &middot; get_order &mdash; ok</text></g>
+            <g class="st" id="sr-run2"><rect class="node-r" x="28" y="72" width="224" height="30" rx="7"/><text class="lbl-sm" x="42" y="91" text-anchor="start" fill="#B0532F">2 &middot; get_customer &mdash; FAIL</text></g>
+            <g class="st" id="sr-run3"><rect class="node-g" x="28" y="110" width="224" height="30" rx="7"/><text class="lbl-sm" x="42" y="129" text-anchor="start" fill="#3f7a2e">3 &middot; get_customer &mdash; ok</text></g>
+            <g class="st" id="sr-run4"><rect class="node" x="28" y="148" width="224" height="30" rx="7"/><text class="lbl-sm" x="42" y="167" text-anchor="start">4 &middot; issue_refund &mdash; ok</text></g>
+            <g class="st" id="sr-run5"><rect class="node" x="28" y="186" width="224" height="30" rx="7"/><text class="lbl-sm" x="42" y="205" text-anchor="start">5 &middot; send_email &mdash; ok</text></g>
+
+            <path id="sr-flow" class="flow" d="M252 125 H 300" marker-end="url(#arrow)"/>
+
+            <text class="lbl-sm" x="461" y="22" text-anchor="middle" fill="#4A7BA6">TRAJECTORY SCORECARD</text>
+            <rect x="300" y="32" width="322" height="200" rx="10" fill="var(--paper-2)" stroke="var(--line-strong)"/>
+            <text class="lbl-sm" x="316" y="62" text-anchor="start">tool-choice</text><text id="sr-toolv" class="lbl" x="606" y="62" text-anchor="end">&#8212;</text>
+            <text class="lbl-sm" x="316" y="92" text-anchor="start">argument correctness</text><text id="sr-argv" class="lbl" x="606" y="92" text-anchor="end">&#8212;</text>
+            <text class="lbl-sm" x="316" y="122" text-anchor="start">step efficiency</text><text id="sr-effv" class="lbl" x="606" y="122" text-anchor="end">&#8212;</text>
+            <text class="lbl-sm" x="316" y="152" text-anchor="start">recovery after fail</text><text id="sr-recv" class="lbl" x="606" y="152" text-anchor="end">&#8212;</text>
+            <text class="lbl-sm" x="316" y="182" text-anchor="start">cost &middot; latency</text><text id="sr-costv" class="lbl" x="606" y="182" text-anchor="end">&#8212;</text>
+            <line x1="316" y1="198" x2="606" y2="198" stroke="var(--line)" stroke-width="1"/>
+            <text class="lbl" x="316" y="222" text-anchor="start" fill="#B0532F">VERDICT</text><text id="sr-verdictv" class="lbl" x="606" y="222" text-anchor="end" fill="#B0532F">&#8212;</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: one recorded run scored into a trajectory scorecard, rolled up as partial credit</figcaption>
+      </figure>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">recorded run &middot; tool-choice + efficiency</span></div>
+        <div class="wbody">
+          <div class="wname">The run that got the right answer the shaky way</div>
+          <p class="wprompt">A refund agent closes a ticket: the customer got their money, so the <strong>outcome</strong> check passes &mdash; and so does end-answer eval. But the <strong>transcript</strong> tells a different story: <code>get_customer</code> failed once, was retried, and the run spent five tool calls where four would do. On this ticket it's fine. Deploy a fleet of these and the shaky path becomes a looping incident. <em>How do you make that dent visible without failing an agent that did, in fact, refund the customer?</em></p>
+          <h4 class="wh">Score the transcript, not just the outcome</h4>
+          <pre class="code"><span class="codetag">trajectory_eval.py — score one recorded run, no framework</span><code><span class="kw">def</span> score_trajectory(run, expected_tools, min_steps, arg_ok):
+    used = [s[<span class="st">"tool"</span>] <span class="kw">for</span> s <span class="kw">in</span> run]
+    <span class="cm"># 1 · tool-choice — order-independent coverage of the ideal set</span>
+    tool_choice = len(set(used) <span class="kw">&amp;</span> set(expected_tools)) / len(expected_tools)
+    <span class="cm"># 2 · argument correctness — mean fraction of correct params</span>
+    checked = [arg_ok[s[<span class="st">"tool"</span>]](s[<span class="st">"args"</span>]) <span class="kw">for</span> s <span class="kw">in</span> run
+               <span class="kw">if</span> s[<span class="st">"tool"</span>] <span class="kw">in</span> arg_ok]
+    arg_score = sum(checked) / len(checked) <span class="kw">if</span> checked <span class="kw">else</span> <span class="st">1.0</span>
+    <span class="cm"># 3 · step efficiency — ideal vs actual; a repeat after a SUCCESS is waste</span>
+    loops = sum(<span class="st">1</span> <span class="kw">for</span> a, b <span class="kw">in</span> zip(run, run[<span class="st">1</span>:])
+                <span class="kw">if</span> a[<span class="st">"ok"</span>] <span class="kw">and</span> a[<span class="st">"tool"</span>] == b[<span class="st">"tool"</span>] <span class="kw">and</span> a[<span class="st">"args"</span>] == b[<span class="st">"args"</span>])
+    efficiency = min_steps / (len(run) + loops)
+    <span class="cm"># 4 · recovery — every failed call followed by a corrective (ok) call</span>
+    recovered = all(run[i + <span class="st">1</span>][<span class="st">"ok"</span>]
+                    <span class="kw">for</span> i, s <span class="kw">in</span> enumerate(run[:-<span class="st">1</span>]) <span class="kw">if</span> <span class="kw">not</span> s[<span class="st">"ok"</span>])
+    <span class="cm"># 5 · roll up into PARTIAL CREDIT, and carry cost + latency</span>
+    cost = sum(s.get(<span class="st">"cost"</span>, <span class="st">0</span>) <span class="kw">for</span> s <span class="kw">in</span> run)
+    ms   = sum(s.get(<span class="st">"ms"</span>, <span class="st">0</span>) <span class="kw">for</span> s <span class="kw">in</span> run)
+    score = <span class="st">.4</span>*tool_choice + <span class="st">.2</span>*arg_score + <span class="st">.3</span>*efficiency + <span class="st">.1</span>*recovered
+    <span class="kw">return</span> {<span class="st">"score"</span>: round(score, <span class="st">3</span>), <span class="st">"tool_choice"</span>: tool_choice,
+            <span class="st">"arg_score"</span>: round(arg_score, <span class="st">3</span>), <span class="st">"efficiency"</span>: round(efficiency, <span class="st">3</span>),
+            <span class="st">"recovered"</span>: recovered, <span class="st">"cost"</span>: cost, <span class="st">"latency_ms"</span>: ms}</code></pre>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Restate &mdash; why the naive check is blind</span><p>The ticket closed, so an outcome-only check and end-answer eval <b>both</b> flash green. Neither can see the failed <code>get_customer</code>, the retry, or the fifth step that four could have covered. A binary pass launders a shaky path into a clean record.</p></div>
+            <div class="ws"><span class="wsk">The move &mdash; read the transcript into metrics</span><p>Record every step as <code>{tool, args, ok, cost, ms}</code>, then compute: tool-choice as order-independent set overlap, arg-score as the fraction of correct parameters, efficiency as <code>min_steps / actual</code> with a penalty only for repeats <em>after a success</em>, and recovery as "every failed call is followed by an <code>ok</code> call." Here that's <b>tool-choice 1.00</b>, <b>arg 0.92</b>, <b>efficiency 0.80</b> (4 ideal, 5 actual), <b>recovered &#10003;</b> &#8594; roughly <b>0.92</b> partial credit &mdash; a pass with a visible dent, not a silent green.</p></div>
+            <div class="ws"><span class="wsk">The invariant &mdash; and the reliability caveat</span><p>Grade the path and credit it partially, then report reliability as <strong>pass^k</strong>. A 0.92-ish per-trial agent clears <code>pass^3 &#8776; 0.92&#179; &#8776; 78%</code> &mdash; and the shaky step you just surfaced is exactly what erodes that number at scale. The rule: <b>a run is only as trustworthy as the worst process metric you were willing to look at.</b></p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;The ticket closed, so answer-only and outcome-only both green-lit the run. But I score the transcript: the agent chose all four right tools (1.00), its arguments were 92% correct, it spent five steps where four would do (efficiency 0.80) &mdash; and crucially, after <code>get_customer</code> failed it issued a corrective call instead of looping (recovery &#10003;). That's <em>0.92 partial credit</em>, not a binary pass, and it's honest about the wasted step. Then I report pass^k, not pass@k, because customer-facing means it has to work every time &mdash; 0.92 per trial is only ~78% across three.&#8221;</p>
+            <p class="plain">Outcome proves it worked once; process reveals whether it will keep working. Grade both, credit partially, and report the reliability metric that punishes fragility &mdash; a right answer via a shaky path is a latent incident, and the trajectory is the only place it's visible.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The set, the benchmarks</div>
+      <h2>Building an agent eval set</h2>
+      <p>The instinct, once you can score a run, is to grab a public benchmark and declare the agent "evaluated." Two problems sink that. First, a generic benchmark doesn't test <em>your</em> agent's failure modes &mdash; it tests someone else's. Anthropic's guidance is to seed an <strong>agent eval set</strong> with <strong>20&ndash;50 tasks sourced from real user failures and bug reports</strong> &mdash; the things your agent actually got wrong &mdash; before scaling anything. Then hold the set to a few disciplines that separate a real eval from theater:</p>
+      <ul>
+        <li><strong>Unambiguous specs.</strong> Write each task so two domain experts independently reach the <em>same</em> pass/fail. If they disagree, the spec, not the agent, is broken.</li>
+        <li><strong>Isolated environments.</strong> Give every trial a clean, isolated world &mdash; shared state causes correlated failures and non-reproducible results.</li>
+        <li><strong>Partial credit.</strong> Prefer graded scores over binary pass/fail, so a mostly-right path is distinguishable from a disaster.</li>
+        <li><strong>Negative cases.</strong> Include tasks where a tool should <em>not</em> fire, or the answer is "I can't do that" &mdash; class imbalance hides false-positive behavior.</li>
+        <li><strong>Read transcripts.</strong> Regularly sanity-check that the grader is fair; a 0% pass@100 almost always means a broken task or grader, not an incapable agent, and every task should ship with a reference solution proving it's solvable.</li>
+      </ul>
+
+      <p>Public benchmarks are still useful as <em>capability</em> signals &mdash; if you know their traps:</p>
+      <ul>
+        <li><strong>tau2-bench</strong> (Sierra, 2025; successor to tau-bench) pioneered a <em>dual-control</em> setup where both the agent <em>and</em> a simulated user can call tools and mutate a shared world &mdash; a realistic model of tech support. It grades action correctness against <code>evaluation_criteria.actions</code>, gates on <code>reward_basis</code>, and reports <strong>pass^k</strong>. Tellingly, its v1.0.0 (Mar 2026) shipped 75+ fixes to its own incorrect gold labels &mdash; the reliability of a benchmark's <em>labels</em> is now itself a tracked concern.</li>
+        <li><strong>SWE-bench Verified</strong> became partly <em>contaminated</em>: an audit found frontier models could reproduce verbatim gold patches that had leaked into training data, and scores climbed from ~30% to &gt;80% in a year. Two lessons: prefer unseen-task variants (SWE-bench Pro), and treat <strong>saturation</strong> &mdash; an agent nearing ~100% &mdash; as the signal to graduate a capability eval into your regression suite.</li>
+        <li><strong>GAIA</strong> (general assistants) and <strong>WebArena</strong> (live-browser tasks) remain the reference suites &mdash; and the framing that won 2025 was that a strong GAIA scaffold hit ~65% while being <em>Pareto-optimal on the accuracy/cost frontier</em>. Cost is part of the score, not a footnote to it.</li>
+        <li><strong>Simulated users are imperfect proxies</strong> ("Lost in Simulation," 2026): tau-bench-style user-simulation pass rates can diverge from real human behavior, so treat them as <em>directional</em>, never as ground truth.</li>
+      </ul>
+
+      <div class="callout">
+        <span class="k">The bridge to shipping</span>
+        <p>This is the reflex the Agents phase has been building toward: an agent that can <em>act</em> is only shippable once you can <em>measure the path it took</em> &mdash; transcript, outcome, process metrics, reliability. Next, <strong>L30 &mdash; Shipping an Agent MVP</strong> wires exactly these gates around a real loop with a human approval step, a spend cap, and replayable traces. You've just built the instrument that tells you whether that MVP is safe to widen.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>an agent's output is only the last line of its behavior, so evaluate the whole trajectory &mdash; verify the <strong>outcome</strong> (real state, not the claim), score the <strong>path</strong> with process metrics (tool selection, arguments, redundant/looping steps, recovery, steps, cost, latency), diff against a gold trajectory where one exists and judge the transcript where it doesn't, build the set from 20&ndash;50 real failures, and report <strong>pass^k</strong> so a right answer via a lucky path can't hide fragility.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Right answer, wrong path</b><span>Two agents can end on the same line via a clean 3-step path or a 9-step loop. Final-answer eval passes both; the second is a latent incident.</span></div>
+        <div class="tk"><span class="num">02</span><b>Claim &ne; outcome</b><span>"Booked!" is a hypothesis, not proof. The outcome check queries real state (the DB row); a confident answer with no row is a hallucinated success.</span></div>
+        <div class="tk"><span class="num">03</span><b>Process vs outcome</b><span>Outcome metrics (state) prove success; process metrics (turns, tokens, calls, latency, cost) reveal inefficiency and fragility. Carry both.</span></div>
+        <div class="tk"><span class="num">04</span><b>Trajectory metrics</b><span>Tool selection, argument correctness (fraction, not exact), redundant/looping steps, recovery after a failed call, steps vs a tool budget, cost + latency.</span></div>
+        <div class="tk"><span class="num">05</span><b>Reference-trajectory</b><span>Hard-code the gold path and diff it &mdash; strict / unordered / subset / superset. Deterministic and cheap; but pin constraints, not choreography.</span></div>
+        <div class="tk"><span class="num">06</span><b>Reference-free judge</b><span>No gold path? An LLM-as-judge reads the transcript for reasonableness. Scales to open-ended work; non-deterministic, must be calibrated.</span></div>
+        <div class="tk"><span class="num">07</span><b>pass@k vs pass^k</b><span>pass@k (&ge;1 success) rises with k; pass^k (all succeed) falls with k. 75% per-trial &#8594; pass^3 &#8776; 42%. Use pass^k for customer-facing.</span></div>
+        <div class="tk"><span class="num">08</span><b>Build from real failures</b><span>20&ndash;50 tasks from bug reports, unambiguous specs (two experts agree), isolated envs, partial credit, negative cases. Watch benchmark contamination.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Two agents finish with the identical answer. Why can end-answer eval pass a latent failure, and what does the TRACE result say about how badly answer-only underestimates unreliability?<br>
+        (2) Distinguish the claim, the transcript, and the outcome. What exactly does an outcome check do that an LLM-judge on the reply cannot?<br>
+        (3) Split process vs outcome metrics and name three of each. Why is outcome-only as flawed as answer-only?<br>
+        (4) List the core trajectory metrics. Why can't any of them be derived from the final answer, and what is a "tool budget" defending against?<br>
+        (5) Name the four agentevals match modes and when you'd relax from strict. Why is pinning the exact step sequence a trap?<br>
+        (6) When do you use reference-free LLM-as-judge, and how do you keep it from drifting? Give the three grader types and what each is good and bad at.<br>
+        (7) Define pass@k and pass^k, compute pass^3 for a 75% agent, and say which you'd report for a customer-facing agent and why.<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 29 &middot; AGENT &amp; TRAJECTORY EVALUATION &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the evaluation lesson of the Agents &amp; Tool Use phase &middot; tool names, pricing, and model facts are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* FIG 1 — claim vs outcome */
+  makeStepper(document.getElementById('fig-claim-outcome'), [
+    {text:"The task is not 'say the flight is booked' — it's to ACTUALLY book it. That gap between a sentence and a state change is the whole lesson.", active:["co-task"], path:"co-f1", claimt:"…", naivev:"…", pass:false, dbt:"reservations", dbfail:false, claimwarn:false, note:"the goal is a real state change, not a nice sentence"},
+    {text:"The agent runs and leaves a TRANSCRIPT — the full record of every tool call, argument, and reasoning step it took to get here.", active:["co-task","co-agent"], path:"co-f1", claimt:"working…", naivev:"…", pass:false, dbt:"reservations", dbfail:false, claimwarn:false, note:"transcript = the complete record of the run (a.k.a. trace / trajectory)"},
+    {text:"It finishes and emits its final answer — a confident CLAIM: 'Your flight is booked!' A claim is a sentence, and a sentence is not proof.", active:["co-agent","co-claim"], path:"co-fc", claimt:"'Booked!'", naivev:"…", pass:false, dbt:"reservations", dbfail:false, claimwarn:true, note:"the agent CLAIMS success — grading the claim is the trap"},
+    {text:"The naive END-ANSWER grader reads only that claim, matches the word 'booked,' and marks the run PASS. By this signal you are done.", active:["co-claim","co-naive"], path:"co-fn", claimt:"'Booked!'", naivev:"✓ PASS", pass:true, dbt:"reservations", dbfail:false, claimwarn:true, note:"grade the claimed answer → PASS. looks complete. it isn't."},
+    {text:"The OUTCOME grader ignores the claim entirely and checks the environment itself: it queries the reservations table for the row this booking should have created.", active:["co-outcome","co-db"], path:"co-fo", claimt:"'Booked!'", naivev:"✓ PASS", pass:true, dbt:"query…", dbfail:false, claimwarn:true, note:"outcome = the real environment state, not what the agent says"},
+    {text:"There is no row. The booking never happened; 'Booked!' was a hallucination. End-answer eval PASSED a latent failure — only the outcome check caught it.", active:["co-outcome","co-db","co-claim"], path:"co-fd", reject:true, claimt:"'Booked!'", naivev:"✓ PASS", pass:true, dbt:"✗ no row", dbfail:true, claimwarn:true, note:"claim: booked · DB: empty → end-answer eval passed a failure"}
+  ], function(idx,s){
+    document.getElementById('co-claimt').textContent=s.claimt;
+    var nv=document.getElementById('co-naivev'); nv.textContent=s.naivev;
+    var nb=document.getElementById('co-naivebox');
+    if(s.pass){ nb.setAttribute('fill','#E6F1DF'); nb.setAttribute('stroke','var(--green)'); nv.setAttribute('fill','#3f7a2e'); }
+    else { nb.setAttribute('fill','var(--paper-2)'); nb.setAttribute('stroke','var(--line-strong)'); nv.setAttribute('fill','var(--ink)'); }
+    var dbt=document.getElementById('co-dbt'); dbt.textContent=s.dbt;
+    var db=document.getElementById('co-dbbox');
+    if(s.dbfail){ db.setAttribute('class','node-r'); dbt.setAttribute('fill','#B0532F'); }
+    else { db.setAttribute('class','node'); dbt.setAttribute('fill','var(--ink-soft)'); }
+    document.getElementById('co-claimbox').setAttribute('class', s.claimwarn?'node-r':'node');
+    document.getElementById('co-note').textContent=s.note;
+  });
+
+  /* FIG 2 — reference-trajectory diff */
+  makeStepper(document.getElementById('fig-traj-match'), [
+    {text:"Reference-trajectory eval hard-codes the expected sequence of tool calls — the gold path — and diffs the run against it. Deterministic, cheap, no LLM call.", active:["tm-ref1","tm-ref2","tm-ref3"], hi:["tm-ref1box","tm-ref2box","tm-ref3box"], note:"the gold path: search_flights → book_flight → email_receipt", mode:"reference-trajectory: diff the run, no judge"},
+    {text:"Line up the actual run beside it. Step 1 matches exactly — the agent called search_flights first, just as expected. A clean hit.", active:["tm-ref1","tm-act1"], ok:["tm-ref1box","tm-act1box"], path:"tm-c1", note:"step 1: search_flights == search_flights ✓", mode:"tool_args_match_mode: 'exact'"},
+    {text:"Step 2 of the run is search_flights AGAIN — a redundant, duplicate call the reference never asked for. Under STRICT mode that's a mismatch and a wasted step.", active:["tm-ref2","tm-act2"], hi:["tm-ref2box"], bad:["tm-act2box"], path:"tm-c2", note:"run step 2: redundant search_flights — an extra call ✗", mode:"STRICT: same calls, same order"},
+    {text:"book_flight does happen — but at position 3, one step late. STRICT dings the ordering; UNORDERED would accept it, since the required call is present somewhere.", active:["tm-ref2","tm-act3"], hi:["tm-ref2box"], ok:["tm-act3box"], path:"tm-c2b", note:"book_flight present, but out of position", mode:"UNORDERED: all required calls, any order → would pass"},
+    {text:"And email_receipt never runs at all — a MISSING required call. That's the costliest miss: the receipt the user expected was silently skipped.", active:["tm-ref3"], bad:["tm-ref3box"], path:"tm-c3", reject:true, note:"email_receipt: MISSING — a required call never fired ✗", mode:"SUBSET allows omissions · SUPERSET allows extras"},
+    {text:"Tally the diff: 1 match, 1 redundant, 1 out-of-order, 1 missing. The final answer might still read 'done' — but the path diverged from gold in three places.", active:[], ok:["tm-act1box","tm-act3box"], bad:["tm-act2box","tm-ref3box"], note:"strict verdict ✗ — 1 match · 1 redundant · 1 late · 1 missing", mode:"evaluator returns {key, score, comment}"}
+  ], function(idx,s){
+    var boxes=['tm-ref1box','tm-ref2box','tm-ref3box','tm-act1box','tm-act2box','tm-act3box'];
+    boxes.forEach(function(id){document.getElementById(id).setAttribute('class','node');});
+    (s.ok||[]).forEach(function(id){document.getElementById(id).setAttribute('class','node-g');});
+    (s.bad||[]).forEach(function(id){document.getElementById(id).setAttribute('class','node-r');});
+    (s.hi||[]).forEach(function(id){document.getElementById(id).setAttribute('class','node-b');});
+    ['tm-c1','tm-c2','tm-c2b','tm-c3'].forEach(function(id){
+      document.getElementById(id).style.opacity=(id===s.path)?1:0.12;});
+    document.getElementById('tm-note').textContent=s.note||'';
+    document.getElementById('tm-mode').textContent=s.mode||'';
+  });
+
+  /* FIG 3 — a trajectory evaluator scoring a recorded run */
+  makeStepper(document.getElementById('fig-score-run'), [
+    {text:"Start from the recorded run: a list of steps, each a {tool, args, ok} triple. Step 2 failed and was retried at step 3 — this transcript is the raw material every metric reads.", active:["sr-run1","sr-run2","sr-run3","sr-run4","sr-run5"], tool:"—", arg:"—", eff:"—", rec:"—", cost:"—", verdict:"—"},
+    {text:"TOOL-CHOICE. Intersect the tools actually used with the ideal set — order-independent. All four required tools appear: 4 / 4 = 1.00.", active:["sr-run1","sr-run2","sr-run3","sr-run4","sr-run5"], path:"sr-flow", tool:"4/4 = 1.00", arg:"—", eff:"—", rec:"—", cost:"—", verdict:"—"},
+    {text:"ARGUMENT correctness. For each matched call, score the fraction of parameters that are right — not exact-match all-or-nothing. Here that averages 0.92.", active:["sr-run1","sr-run2","sr-run3","sr-run4","sr-run5"], path:"sr-flow", tool:"4/4 = 1.00", arg:"0.92", eff:"—", rec:"—", cost:"—", verdict:"—"},
+    {text:"STEP EFFICIENCY. ideal / actual. The failed get_customer forced a retry, so 4 ideal / 5 actual = 0.80. A duplicate call after a SUCCESS would dock it further.", active:["sr-run2","sr-run3"], path:"sr-flow", tool:"4/4 = 1.00", arg:"0.92", eff:"4/5 = 0.80", rec:"—", cost:"—", verdict:"—"},
+    {text:"RECOVERY. Step 2's get_customer returned ok=false — but step 3 was a corrective successful call, not a blind repeat. Recovery = ✓ (a repeat would flag a loop).", active:["sr-run2","sr-run3"], path:"sr-flow", tool:"4/4 = 1.00", arg:"0.92", eff:"4/5 = 0.80", rec:"✓", cost:"—", verdict:"—"},
+    {text:"Roll up with cost = Σ per-call $ and latency = Σ step times, then combine into PARTIAL CREDIT — 0.92, not a binary pass. One number hides the path; this scorecard shows it.", active:[], path:"sr-flow", tool:"4/4 = 1.00", arg:"0.92", eff:"4/5 = 0.80", rec:"✓", cost:"$0.021 · 3.4s", verdict:"0.92 partial"}
+  ], function(idx,s){
+    document.getElementById('sr-toolv').textContent=s.tool;
+    document.getElementById('sr-argv').textContent=s.arg;
+    document.getElementById('sr-effv').textContent=s.eff;
+    document.getElementById('sr-recv').textContent=s.rec;
+    document.getElementById('sr-costv').textContent=s.cost;
+    document.getElementById('sr-verdictv').textContent=s.verdict;
+  });
+</script>
+</body>
+</html>
