@@ -29,14 +29,23 @@ prep, hosted as static HTML on GitHub Pages.
 - **[AI Engineering](ai-engineering/index.html)** — building applications on foundation
   models, the AI layer on top of strong software engineering. A 48-lesson map across nine
   phases (model internals, prompting, evaluation, RAG, agents, fine-tuning, inference, ops,
-  safety); the first twenty-two lessons are live and interactive — the AI-engineering landscape,
+  safety); all forty-eight lessons are live and interactive — the AI-engineering landscape,
   how a foundation model works, tokenization & token economics, sampling & decoding,
   embeddings & the vector space, the model landscape & choosing a model, prompting as a
   discipline, structured output & function calling, prompts as assets, defensive prompting,
   why evaluation is the core problem, the three kinds of eval, golden sets & eval-driven
   development, evaluating the whole system, CI gates & catching regressions, the RAG pipeline,
   embeddings & vector databases, chunking strategies, hybrid search & re-ranking, context
-  engineering, GraphRAG & agentic retrieval, and evaluating retrieval quality.
+  engineering, GraphRAG & agentic retrieval, evaluating retrieval quality, the augmented
+  LLM, workflows vs agents, tool use & function calling, the Model Context Protocol,
+  orchestration patterns, agent memory, human-in-the-loop & the harness, agent & trajectory
+  evaluation, shipping an agent MVP, when to fine-tune (and when not to), SFT, RLHF & DPO,
+  parameter-efficient fine-tuning (LoRA & QLoRA), dataset engineering, latency & throughput
+  metrics, model optimization (quantization, distillation, pruning), service optimization
+  (KV cache, batching, speculative decoding), model routing & cost engineering, the AI
+  engineering stack, model gateways & deployment, observability for AI, the feedback loop,
+  prompt injection & jailbreaks, guardrails & content safety, MCP security & least-privilege
+  tools, hallucination & faithfulness, and responsible AI & human oversight.
 - **[Elasticsearch](elasticsearch/index.html)** — the search & analytics engine and the
   Elastic Stack. A 45-lesson map across ten phases: engine internals (the inverted index,
   text analysis, the write path), data modeling & mapping, querying & relevance (BM25 and
