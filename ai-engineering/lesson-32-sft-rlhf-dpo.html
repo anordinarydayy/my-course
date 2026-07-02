@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 32 &mdash; SFT, RLHF &amp; DPO (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">SFT, RLHF<br>&amp; DPO</div>
+    <h4>The alignment toolkit</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why post-training exists</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>SFT: imitate the answer &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>RLHF: learn from rankings &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Why RLHF is heavy</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>DPO: skip the reward model &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The family &amp; when RL wins</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Choosing your method</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">32</span><span>Concept &middot; AI Engineering</span></div>
+      <h1>SFT, RLHF &amp; DPO</h1>
+      <p class="lede">Phase 5 &mdash; <strong>Fine-tuning &amp; Model Adaptation</strong> &mdash; opens with the stage that turns a raw pretrained model into an assistant. Pretraining buys <em>capability</em>; <strong>post-training</strong> (alignment) buys <em>behaviour</em> &mdash; following instructions, adopting a helpful, harmless persona, and matching human preferences. This lesson walks the modern toolkit end to end: <strong>SFT</strong> teaches the format, <strong>RLHF</strong> learns from human rankings through a reward model, and <strong>DPO</strong> proves you can often throw that reward model away and optimise preferences directly.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The first lesson of the fine-tuning phase. It draws on public sources for <em>framing</em> &mdash; the InstructGPT recipe (Ouyang et al., 2022), the DPO paper (<em>&ldquo;Your Language Model Is Secretly a Reward Model,&rdquo;</em> 2023), AllenAI&rsquo;s Tülu 3, DeepSeek-R1, Anthropic&rsquo;s Constitutional AI, and Chip Huyen&rsquo;s <em>&ldquo;AI Engineering&rdquo;</em> &mdash; but every explanation, diagram, and number here is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Model names, prices, and benchmark figures are illustrative and current to mid-2026 &mdash; verify live before you cite them.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The naive fix</div>
+      <h2>Pretraining buys capability; alignment buys behaviour</h2>
+      <p>When pretraining finishes, you have a <strong>base model</strong>: a next-token predictor that has read a large slice of the web and learned, astonishingly well, what token tends to follow what. Ask it a question and it may not <em>answer</em> &mdash; it may cheerfully <em>continue</em> your text, list ten more questions, or drift into a Reddit thread, because &ldquo;what comes next in this document&rdquo; is all it was ever trained to do. It has no notion that you want a helpful reply, no consistent persona, and no instinct to refuse a harmful request. The knowledge is in there; the <em>behaviour</em> is not.</p>
+      <p>The naive instinct is to reach for scale: train a bigger base model on more tokens and surely it will start behaving. It won&rsquo;t &mdash; not reliably. Scale sharpens <em>capability</em> (it knows more, reasons better), but instruction-following, tone, and values are a different axis entirely. A larger base model is a more capable <em>autocomplete</em>, not a more obedient <em>assistant</em>. Bridging that gap is a distinct, separate stage that happens <em>after</em> pretraining, and the field has a name for it: <strong>post-training</strong>, or <strong>alignment</strong>.</p>
+      <p>Post-training is not one trick but a small pipeline, and the canonical modern shape is remarkably stable across labs: <strong>SFT &rarr; preference optimisation / RL</strong>. First you show the model how to answer at all (supervised fine-tuning). Then you refine <em>which</em> answer it prefers, using human or AI comparisons (RLHF, DPO, or their descendants). Everything in this lesson is a way of doing that second step &mdash; and all of them stand on the first.</p>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Base model (post-pretraining)</h4>
+          <ul>
+            <li><strong>Knowledgeable</strong> &mdash; has absorbed web-scale facts and patterns.</li>
+            <li><strong>Continues, doesn&rsquo;t answer</strong> &mdash; completes text rather than replying.</li>
+            <li><strong>No persona</strong> &mdash; no consistent helpful/harmless stance, no refusals.</li>
+            <li><strong>Bigger &ne; better-behaved</strong> &mdash; scale adds capability, not obedience.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Aligned model (post-training)</h4>
+          <ul>
+            <li><strong>Follows instructions</strong> &mdash; treats the prompt as a task to satisfy.</li>
+            <li><strong>Formatted</strong> &mdash; answers in the shape you asked for.</li>
+            <li><strong>Has a persona</strong> &mdash; helpful, honest, and declines the unsafe.</li>
+            <li><strong>Preference-shaped</strong> &mdash; tuned toward answers humans actually prefer.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>Pretraining makes a model that <em>knows</em>; post-training makes a model that <em>helps</em>. The modern recipe is <strong>SFT then preference tuning</strong> &mdash; supervised imitation to fix the format, then RLHF or DPO to fix the preferences. The rest of this lesson is those two moves, taken apart.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The foundation</div>
+      <h2>SFT: imitate the ideal answer &#9656;</h2>
+      <p><strong>Supervised fine-tuning</strong> (SFT), also called <em>instruction tuning</em>, is the simplest and most important of the three. You assemble a dataset of <strong>(prompt, ideal completion)</strong> pairs &mdash; a question and the exact answer a good human would give &mdash; and train the model to reproduce the completion. That&rsquo;s it: it is ordinary supervised learning, with the same <strong>cross-entropy (next-token) loss</strong> used in pretraining. The only twist is <em>where</em> the loss applies.</p>
+      <p>In practice the loss is <strong>masked to the completion tokens only</strong>: the model is graded on the answer it should have produced, not on re-predicting the prompt you already handed it. Get that mask wrong and you waste capacity teaching the model to echo questions. Step through one turn of the loop &mdash; draw a pair, predict, score, update &mdash; and watch what SFT actually optimises.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-sft">
+          <svg viewBox="0 0 640 292" role="img" aria-label="The supervised fine-tuning loop: a prompt and ideal completion are drawn from a dataset, the model runs a forward pass to predict the completion, a cross-entropy loss masked to the completion tokens scores it, backpropagation takes one gradient step to update the weights, and the loop repeats over the dataset">
+            <g id="sft-data"><rect id="sft-data-r" class="node" x="26" y="44" width="156" height="58" rx="9"/><text class="lbl" x="104" y="70" text-anchor="middle">dataset</text><text class="lbl-sm" x="104" y="88" text-anchor="middle">(prompt, ideal answer)</text></g>
+            <g id="sft-fwd"><rect id="sft-fwd-r" class="node" x="244" y="44" width="152" height="58" rx="9"/><text class="lbl" x="320" y="70" text-anchor="middle">forward pass</text><text class="lbl-sm" x="320" y="88" text-anchor="middle">predict completion</text></g>
+            <g id="sft-loss"><rect id="sft-loss-r" class="node" x="458" y="44" width="156" height="58" rx="9"/><text class="lbl" x="536" y="70" text-anchor="middle">cross-entropy</text><text class="lbl-sm" x="536" y="88" text-anchor="middle">loss vs ideal tokens</text></g>
+            <g id="sft-weights"><rect id="sft-weights-r" class="node" x="244" y="170" width="152" height="58" rx="9"/><text class="lbl" x="320" y="196" text-anchor="middle">update weights</text><text class="lbl-sm" x="320" y="214" text-anchor="middle">one gradient step</text></g>
+            <path id="sf1" class="flow" d="M182,73 H242" marker-end="url(#arrow)"/>
+            <path id="sf2" class="flow" d="M396,73 H456" marker-end="url(#arrow)"/>
+            <path id="sf3" class="flow-r" d="M536,102 C 536,150 448,199 398,199" marker-end="url(#arrow-r)"/>
+            <path id="sf4" class="flow-g" d="M244,199 C 122,199 104,150 104,104" marker-end="url(#arrow-g)"/>
+            <text id="sft-bplab" class="lbl-sm" x="452" y="140" fill="#B0532F">backprop</text>
+            <text id="sft-looplab" class="lbl-sm" x="150" y="150" text-anchor="end" fill="#3f7a2e">loop &middot; next pair</text>
+            <text id="sft-phase" class="readout" x="320" y="256" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <text id="sft-note" class="readout" x="320" y="278" text-anchor="middle" font-size="12.5" fill="var(--ink-soft)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: SFT imitates ideal completions with a masked cross-entropy loop &mdash; the stable foundation RLHF and DPO both build on</figcaption>
+      </figure>
+
+      <p>What SFT teaches is <strong>format and instruction-following</strong> &mdash; <em>how</em> to answer &mdash; far more than new facts. The base model already holds the knowledge; SFT reshapes how it is expressed: answer the question, use the requested structure, adopt the assistant voice. This is why a few thousand high-quality examples can transform a model&rsquo;s usefulness, and why data quality dominates data quantity here.</p>
+      <p>SFT is also the <em>cheapest and most stable</em> of the three methods, which is exactly why it is the shared starting point: both RLHF and DPO begin from an SFT model, never a raw base model. The pitfalls are the mirror of its strengths &mdash; <strong>overfitting</strong> to surface format, <strong>catastrophic forgetting</strong> of base-model skills if you push too hard, acute sensitivity to <strong>data quality</strong>, and the ever-present bug of <strong>forgetting to mask the prompt</strong> so the loss lands on completion tokens only.</p>
+
+      <div class="callout">
+        <span class="k">The invariant</span>
+        <p>SFT is <em>imitation</em>: show the model one gold answer per prompt and train it to reproduce that answer. It is powerful precisely because it is simple &mdash; but it can only teach the model to copy the single answer you provided. When there is no single right answer, and you only know which of two answers is <em>better</em>, you need the next tool.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Learn from preference</div>
+      <h2>RLHF: rank, reward, and rein in &#9656;</h2>
+      <p>SFT hits a ceiling on open-ended tasks. What is the single &ldquo;ideal&rdquo; answer to <em>&ldquo;write me a poem about the sea&rdquo;</em>, or the one correct tone for a refund apology? There isn&rsquo;t one. But humans can easily say which of two drafts they <em>prefer</em>. <strong>RLHF</strong> &mdash; Reinforcement Learning from Human Feedback &mdash; is built to learn from exactly that signal, and it is the recipe (InstructGPT, Ouyang et al., 2022) that produced the first genuinely helpful ChatGPT- and Claude-class assistants.</p>
+      <p>It runs in <strong>three stages</strong>. (1) Start from the SFT model. (2) Sample several outputs per prompt, have humans <em>rank</em> them, and train a separate <strong>reward model</strong> &mdash; a Bradley-Terry pairwise objective &mdash; to predict which output a human would prefer. (3) Optimise the policy with <strong>PPO</strong> to maximise that reward, plus a per-token <strong>KL penalty</strong> that leashes the policy to a frozen copy of the SFT model. Step through the whole pipeline:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-rlhf">
+          <svg viewBox="0 0 640 318" role="img" aria-label="The RLHF pipeline: the SFT model becomes the starting policy and a frozen reference, the policy samples several outputs, humans rank them, a separate reward model is trained on the rankings, PPO optimises the policy to maximise reward, and a dashed KL penalty arrow leashes the policy back to the frozen reference">
+            <g id="rl-sft"><rect id="rl-sft-r" class="node" x="14" y="40" width="132" height="58" rx="9"/><text class="lbl-sm" x="80" y="64" text-anchor="middle">SFT model</text><text class="lbl-sm" x="80" y="82" text-anchor="middle">starting policy</text></g>
+            <g id="rl-sample"><rect id="rl-sample-r" class="node" x="176" y="40" width="132" height="58" rx="9"/><text class="lbl-sm" x="242" y="64" text-anchor="middle">sample outputs</text><text class="lbl-sm" x="242" y="82" text-anchor="middle">k completions</text></g>
+            <g id="rl-rank"><rect id="rl-rank-r" class="node" x="338" y="40" width="132" height="58" rx="9"/><text class="lbl-sm" x="404" y="64" text-anchor="middle">humans rank</text><text class="lbl-sm" x="404" y="82" text-anchor="middle">best &rarr; worst</text></g>
+            <g id="rl-rm"><rect id="rl-rm-r" class="node" x="500" y="40" width="126" height="58" rx="9"/><text class="lbl-sm" x="563" y="64" text-anchor="middle">reward model</text><text class="lbl-sm" x="563" y="82" text-anchor="middle">predicts pref.</text></g>
+            <g id="rl-ppo"><rect id="rl-ppo-r" class="node" x="356" y="176" width="210" height="60" rx="9"/><text class="lbl" x="461" y="202" text-anchor="middle">PPO &middot; update policy</text><text class="lbl-sm" x="461" y="220" text-anchor="middle">maximise reward</text></g>
+            <g id="rl-ref"><rect id="rl-ref-r" class="node" x="60" y="176" width="196" height="60" rx="9"/><text class="lbl" x="158" y="202" text-anchor="middle">frozen reference</text><text class="lbl-sm" x="158" y="220" text-anchor="middle">(the SFT model)</text></g>
+            <path id="ra1" class="flow" d="M146,69 H174" marker-end="url(#arrow)"/>
+            <path id="ra2" class="flow" d="M308,69 H336" marker-end="url(#arrow)"/>
+            <path id="ra3" class="flow" d="M470,69 H498" marker-end="url(#arrow)"/>
+            <path id="ra4" class="flow" d="M540,98 C 522,140 500,152 480,174" marker-end="url(#arrow)"/>
+            <path id="rl-copy" class="flow" d="M80,98 C 80,140 110,152 132,174" marker-end="url(#arrow)"/>
+            <path id="rl-kl" class="flow-r" d="M356,206 H262" stroke-dasharray="6 5" marker-end="url(#arrow-r)"/>
+            <text id="rl-copylab" class="lbl-sm" x="80" y="150" text-anchor="middle" fill="#4A7BA6">copy &middot; freeze</text>
+            <text id="rl-rslab" class="lbl-sm" x="548" y="146" text-anchor="middle" fill="#4A7BA6">reward signal</text>
+            <text id="rl-kllab" class="lbl-sm" x="309" y="198" text-anchor="middle" fill="#B0532F">KL penalty &middot; leash</text>
+            <text id="rl-phase" class="readout" x="320" y="272" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <text id="rl-note" class="readout" x="320" y="296" text-anchor="middle" font-size="12.5" fill="var(--ink-soft)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: RLHF ranks samples, trains a reward model, then PPO climbs it under a KL leash to the frozen reference</figcaption>
+      </figure>
+
+      <p>The two ideas that make RLHF work are worth naming. The <strong>reward model</strong> turns a handful of discrete human rankings into a smooth, differentiable score for <em>any</em> completion &mdash; a learned stand-in for the human judge that PPO can optimise against millions of times. And the <strong>KL leash</strong> is the safety cable: it penalises the policy for drifting from the frozen SFT reference, so it can climb the reward without wandering into gibberish that happens to score well. Take the leash off and the policy will exploit every flaw in the reward model it can find.</p>
+
+      <div class="callout">
+        <span class="k">Why the leash matters</span>
+        <p>The reward model is an <em>imperfect proxy</em> for human preference. Left unconstrained, the policy will chase the proxy off a cliff &mdash; producing text the reward model loves and humans hate. The KL penalty keeps the policy in the neighbourhood of a model we already trust (the SFT reference). It is the single most important stabiliser in the whole pipeline &mdash; and, as we&rsquo;ll see next, still not enough on its own.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The cost</div>
+      <h2>Three models, one tightrope</h2>
+      <p>RLHF is powerful, but it is <em>heavy</em>, and the weight is concrete. During PPO you can have up to <strong>four models resident at once</strong>: the <strong>policy</strong> being trained, the <strong>frozen reference</strong> for the KL term, the <strong>reward model</strong> scoring outputs, and a <strong>value / critic</strong> network estimating future reward. Four models in memory, sampling on-policy every step, with a famously twitchy RL algorithm &mdash; that is why RLHF is expensive to run and notoriously hard to stabilise, with many hyperparameters that all interact.</p>
+      <p>The deeper problem is <strong>reward hacking</strong> (a.k.a. reward over-optimisation), and it is just <strong>Goodhart&rsquo;s law</strong>: <em>when a measure becomes a target, it ceases to be a good measure.</em> The policy optimises the reward <em>model</em>, not true human preference, so as training continues, real quality rises &mdash; and then <em>falls</em> &mdash; while the reward score keeps climbing. The model has learned to game an imperfect proxy. This is the core RLHF failure mode, and the main reason the KL leash exists.</p>
+      <p>But here is the sharp part: the <strong>KL penalty is necessary yet not sufficient</strong>. KL treats every deviation from the reference the same way, so a policy can adopt a low-probability spurious feature &mdash; a subtly sycophantic tone, say &mdash; at negligible KL cost while still scoring high on the reward model. Severe over-optimisation can happen even under a strict KL budget. You have a tightrope, and the safety cable only catches some of the falls.</p>
+
+      <table class="cost">
+        <thead>
+          <tr><th>What RLHF/PPO demands</th><th>Why it hurts</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Up to 4 models resident</strong></td><td>Policy + frozen reference + reward model + value/critic &mdash; memory-heavy and costly to serve during training.</td></tr>
+          <tr><td><strong>A separate reward model</strong></td><td>Must be trained, validated, and kept &mdash; and it is an <em>imperfect proxy</em> that the policy will try to exploit.</td></tr>
+          <tr><td><strong>On-policy PPO</strong></td><td>Unstable, sample-hungry, many interacting hyperparameters; hard to reproduce.</td></tr>
+          <tr><td><strong>Reward hacking (Goodhart)</strong></td><td>Quality rises then falls as the policy games the proxy; the KL leash helps but does not fully prevent it.</td></tr>
+        </tbody>
+      </table>
+
+      <p>Read that table as a to-do list you would rather not have. It is the practical reason a wave of open teams, staring at four resident models and an unstable RL loop, asked a simple question: <em>do we actually need the reward model and the RL at all?</em> In 2023 the answer arrived &mdash; and it was &ldquo;often, no.&rdquo;</p>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The insight</div>
+      <h2>DPO: your model is secretly a reward model &#9656;</h2>
+      <p><strong>Direct Preference Optimization</strong> (Rafailov et al., <em>arXiv:2305.18290</em>, May 2023; NeurIPS 2023) is one of those results that feels like a magic trick until you see the algebra. Its subtitle says it plainly: <em>&ldquo;Your Language Model Is Secretly a Reward Model.&rdquo;</em> The authors prove that the RLHF objective &mdash; maximise reward subject to a KL constraint &mdash; has a <strong>closed-form optimum</strong>. Rearrange that solution and the reward turns out to be a simple function of the log-probability ratio between the optimal policy and the reference. In other words, the policy <em>implicitly</em> encodes its own reward; you never needed a separate model to represent it.</p>
+      <p>That lets you collapse the whole RLHF machine. Instead of training a reward model and running PPO, you optimise the policy <strong>directly</strong> on <strong>(prompt, chosen, rejected)</strong> triples with a single <strong>binary-classification-style loss</strong> over log-probability ratios &mdash; policy versus a frozen reference &mdash; scaled by a temperature <strong>&beta;</strong> (commonly around 0.1) that plays the role of the KL constraint. No sampling during training, no reward model, no RL loop. Step through it and watch what DPO <em>deletes</em>:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-dpo">
+          <svg viewBox="0 0 640 300" role="img" aria-label="Direct Preference Optimization: the separate reward model that RLHF required is deleted, then a prompt with chosen and rejected answers is scored under the policy and a frozen reference, and a single preference loss scaled by beta updates the policy directly">
+            <g id="dpo-rm"><rect id="dpo-rm-r" class="node" x="224" y="16" width="196" height="44" rx="9"/><text class="lbl-sm" x="322" y="38" text-anchor="middle">reward model</text><text class="lbl-sm" x="322" y="53" text-anchor="middle">(RLHF only)</text></g>
+            <g id="dpo-cross" style="opacity:0"><path class="flow-r" d="M228,20 L416,56" marker-end="none"/><path class="flow-r" d="M416,20 L228,56" marker-end="none"/></g>
+            <text id="dpo-del" class="lbl-sm" x="440" y="42" text-anchor="start" fill="#B0532F" style="opacity:0">deleted by DPO</text>
+
+            <g id="dpo-prompt"><rect id="dpo-prompt-r" class="node" x="20" y="108" width="124" height="42" rx="8"/><text class="lbl-sm" x="82" y="134" text-anchor="middle">prompt</text></g>
+            <g id="dpo-chosen"><rect id="dpo-chosen-r" class="node" x="20" y="158" width="124" height="42" rx="8"/><text class="lbl-sm" x="82" y="184" text-anchor="middle">chosen &#10003;</text></g>
+            <g id="dpo-rejected"><rect id="dpo-rejected-r" class="node" x="20" y="208" width="124" height="42" rx="8"/><text class="lbl-sm" x="82" y="234" text-anchor="middle">rejected &#10007;</text></g>
+
+            <g id="dpo-policy"><rect id="dpo-policy-r" class="node" x="200" y="118" width="150" height="54" rx="9"/><text class="lbl" x="275" y="142" text-anchor="middle">policy &pi;&theta;</text><text class="lbl-sm" x="275" y="160" text-anchor="middle">being trained</text></g>
+            <g id="dpo-ref"><rect id="dpo-ref-r" class="node" x="200" y="190" width="150" height="54" rx="9"/><text class="lbl" x="275" y="214" text-anchor="middle">frozen ref &pi;<tspan font-size="9">ref</tspan></text><text class="lbl-sm" x="275" y="232" text-anchor="middle">the SFT model</text></g>
+
+            <g id="dpo-loss"><rect id="dpo-loss-r" class="node" x="410" y="150" width="196" height="66" rx="9"/><text class="lbl" x="508" y="178" text-anchor="middle">DPO preference loss</text><text class="lbl-sm" x="508" y="198" text-anchor="middle">log-ratio &middot; &beta; &asymp; 0.1</text></g>
+
+            <path id="df1" class="flow" d="M144,130 C 172,130 180,140 198,142" marker-end="url(#arrow)"/>
+            <path id="df2" class="flow" d="M144,226 C 172,226 180,216 198,214" marker-end="url(#arrow)"/>
+            <path id="df3" class="flow" d="M350,145 C 380,150 392,165 408,172" marker-end="url(#arrow)"/>
+            <path id="df4" class="flow" d="M350,213 C 380,208 392,196 408,190" marker-end="url(#arrow)"/>
+            <path id="df5" class="flow-g" d="M486,150 C 470,100 350,100 302,116" marker-end="url(#arrow-g)"/>
+            <text id="dpo-uplab" class="lbl-sm" x="392" y="92" text-anchor="middle" fill="#3f7a2e">update &pi;&theta; directly</text>
+            <text id="dpo-phase" class="readout" x="320" y="272" text-anchor="middle" font-size="13" fill="var(--ink)"></text>
+            <text id="dpo-note" class="readout" x="320" y="292" text-anchor="middle" font-size="12.5" fill="var(--ink-soft)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: DPO deletes the reward model &mdash; one preference loss on (prompt, chosen, rejected) updates the policy directly</figcaption>
+      </figure>
+
+      <p>The payoff is fewer moving parts, and it compounds. Two models instead of four (policy plus frozen reference). One stable supervised-style loss instead of an RL loop. No reward model to train, validate, or serve. The result is <strong>stable, cheap, and reproducible</strong> &mdash; which is why DPO became the <strong>workhorse of open post-training</strong>, powering Zephyr, Llama-3-Instruct-era recipes, and Tülu. The &beta; term still keeps the policy near the reference, so you keep the KL-style leash without the KL-style machinery.</p>
+      <p>One honest caveat before you fall in love with it. DPO is <strong>offline / off-policy by default</strong>: it learns from a <em>fixed</em> preference dataset, which may not reflect what your current model actually generates. And it has a known failure mode &mdash; <strong>likelihood displacement</strong> &mdash; where, during training, the probability of the <em>chosen</em> response can actually <em>decrease</em>, sometimes shifting mass toward unintended or even opposite-meaning responses (&ldquo;unintentional unalignment&rdquo;).</p>
+
+      <div class="callout tip">
+        <span class="k">Pitfall: likelihood displacement</span>
+        <p>DPO only ever optimises the <em>gap</em> between chosen and rejected log-ratios &mdash; nothing pins the chosen probability up in absolute terms, so it can drift <em>down</em> as long as the rejected drops faster. The 2024&ndash;2025 fixes all add a stabiliser: <strong>DPO+NLL</strong> (a plain negative-log-likelihood term on the chosen response), <strong>DPO-Positive (DPOP)</strong>, and <strong>DPO-Shift</strong>. If your chosen-response probabilities are sliding during training, this &mdash; not your learning rate &mdash; is usually why.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The landscape</div>
+      <h2>The family, and where RL still wins</h2>
+      <p>DPO spawned a <strong>family</strong>, each member tweaking the loss for a different situation. <strong>IPO</strong> (Identity Preference Optimization) adds a regulariser to fight DPO&rsquo;s tendency to overfit the preference set. <strong>KTO</strong> (Kahneman-Tversky Optimization) is the useful oddball: it works on <em>unpaired</em> binary good/bad labels &mdash; no chosen-versus-rejected pairs required &mdash; using a prospect-theory-style utility, which matters when your data is &ldquo;thumbs up / thumbs down,&rdquo; not ranked pairs. <strong>ORPO</strong> (Odds-Ratio Preference Optimization) is <em>reference-model-free</em> and folds SFT and preference tuning into a <em>single</em> step, dropping the separate SFT stage entirely.</p>
+      <p>The tempting question is &ldquo;which variant is best?&rdquo; &mdash; and the honest answer is <em>none reliably</em>. Controlled studies keep finding the variants do not consistently beat vanilla DPO despite extra hyperparameter tuning. One illustrative run on GSM8K: <strong>DPO 58.91%</strong> vs IPO 56.40%, KTO 54.59%, ORPO 55.42%. Do not read that as a universal ranking &mdash; read it as: pick a variant for its <strong>data fit</strong> (KTO when you only have unpaired labels; ORPO when you want to skip a separate SFT stage), not for a promised accuracy bump. DPO remains the sensible default.</p>
+
+      <h3>The 2025&ndash;2026 twist: online, verifiable, and AI feedback</h3>
+      <p>Three shifts define the current frontier. First, DPO is increasingly run <strong>on-policy / iteratively</strong>: sample fresh responses from the <em>current</em> model, label them (often with an AI judge), run DPO, and repeat &mdash; closing the gap with online RL. Tülu 3 (AllenAI, <em>arXiv:2411.15124</em>, Nov 2024) explicitly mixes off- and on-policy preference data in its open, end-to-end recipe: <strong>SFT &rarr; DPO &rarr; RLVR</strong>.</p>
+      <p>Second, and the breakout of 2025: <strong>RLVR</strong> &mdash; Reinforcement Learning from <em>Verifiable</em> Rewards. It keeps the RL loop but replaces the learned reward model with a <strong>programmatic verifier</strong>: an exact-answer match, a unit-test / code execution, a math checker. Because the reward is ground truth, it largely sidesteps reward hacking &mdash; but it only works where correctness is <em>checkable</em> (math, code, formatted output). RLVR is how reasoning models are trained: it powers OpenAI o1/o3-style models, DeepSeek-R1 (<em>arXiv:2501.12948</em>, January 2025), and Qwen&rsquo;s reasoning line. The RL algorithm of choice is now <strong>GRPO</strong> (Group Relative Policy Optimization, from DeepSeek), which drops PPO&rsquo;s value/critic network and instead computes each response&rsquo;s advantage <em>relative to a group</em> of sampled rollouts for the same prompt &mdash; cutting memory and cost. DeepSeek-R1-Zero even showed reasoning can <em>emerge</em> from pure RL on a base model with no SFT cold-start at all.</p>
+      <p>Third, <strong>RLAIF</strong> &mdash; RL from <em>AI</em> Feedback, including Anthropic&rsquo;s <strong>Constitutional AI</strong> (<em>arXiv:2212.08073</em>, Dec 2022) &mdash; replaces expensive human preference labels with an AI &ldquo;judge&rdquo; guided by a written set of principles (a <em>constitution</em>). It matches RLHF on tasks like summarisation and dialogue while scaling far more cheaply, shifting human effort from labelling individual examples to writing the rules. The trade-off: if the judge has hidden biases, they get baked in and amplified across model generations &mdash; an echo-chamber / model-collapse risk.</p>
+
+      <div class="vs three">
+        <div class="col">
+          <h4>DPO (offline pref.)</h4>
+          <ul>
+            <li><strong>Reward:</strong> implicit, from a fixed (chosen, rejected) set.</li>
+            <li><strong>Cost:</strong> cheapest &mdash; 2 models, one loss, no sampling.</li>
+            <li><strong>Best for:</strong> chat, style, helpfulness on a small team.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>RLHF / PPO (online)</h4>
+          <ul>
+            <li><strong>Reward:</strong> a learned reward model over human rankings.</li>
+            <li><strong>Cost:</strong> heavy &mdash; up to 4 models, unstable RL.</li>
+            <li><strong>Best for:</strong> peak alignment with online preference collection.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>RLVR / GRPO (verifiable)</h4>
+          <ul>
+            <li><strong>Reward:</strong> a programmatic verifier &mdash; ground truth.</li>
+            <li><strong>Cost:</strong> RL loop, but no reward-model hacking.</li>
+            <li><strong>Best for:</strong> reasoning &mdash; math, code, checkable output.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <span class="k">The live debate</span>
+        <p>There is an active 2025&ndash;2026 argument that <em>online, on-policy RL beats offline DPO at the frontier</em> &mdash; some work blames DPO&rsquo;s weakness on &ldquo;representation misspecification.&rdquo; The practical read: DPO help chat benchmarks but gives marginal or even negative gains on hard mathematical reasoning, which is precisely why RLVR/GRPO, not DPO, trains the reasoning models. The field has split by <em>task type</em>, not by a single winner.</p>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The rule</div>
+      <h2>Choosing your post-training method</h2>
+      <p>Strip away the acronyms and the choice comes down to three questions: <em>what does your data look like, what is your reward signal, and how much infra can you run?</em> If you have preference pairs and want to align chat, style, and helpfulness with a small team, <strong>DPO</strong> is the default. If you can collect preferences online at scale and are chasing peak alignment, <strong>RLHF/PPO</strong> still earns its cost. If correctness is <em>checkable</em> &mdash; math, code, structured output &mdash; reach for <strong>RLVR</strong> with GRPO. And if human labels are the bottleneck, <strong>RLAIF</strong> lets an AI judge stand in. In every case, an <strong>SFT</strong> pass comes first (except ORPO, which folds it in).</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Reason about it</span><span class="lc">8k preference pairs &middot; a small team</span></div>
+        <div class="wbody">
+          <div class="wname">The alignment run that didn&rsquo;t need an RL cluster</div>
+          <p class="wprompt">You&rsquo;ve fine-tuned an SFT model for a support assistant and collected roughly <strong>8,000 human preference pairs</strong> (each a prompt with a chosen and a rejected reply). You have two engineers and a modest GPU budget &mdash; no RL infra team. Do you build the classic RLHF stack, or reach for DPO?</p>
+          <h4 class="wh">Restate &rarr; the naive take &rarr; the insight &rarr; the rule</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Restate the problem</span><p>You have <b>paired</b> preference data and want the model to prefer the chosen replies. The constraint is <b>people and infra</b>, not raw model quality &mdash; two engineers can&rsquo;t babysit an unstable four-model PPO loop.</p></div>
+            <div class="ws"><span class="wsk">The naive take</span><p>&ldquo;Preferences means RLHF &mdash; that&rsquo;s how ChatGPT was built.&rdquo; So you plan a reward model plus PPO. But that&rsquo;s a reward model to train, validate, and serve, a value network, a frozen reference, and a twitchy RL loop &mdash; up to <b>four models resident</b> and a reward you&rsquo;ll spend weeks keeping from being hacked.</p></div>
+            <div class="ws"><span class="wsk">The insight</span><p>The RLHF objective has a <b>closed form</b>: the reward is implicit in the policy&rsquo;s log-ratio to the reference. With paired data you can skip the reward model and the RL entirely and optimise the preference <b>directly</b> &mdash; DPO. Two models, one stable loss, offline, reproducible.</p></div>
+            <div class="ws"><span class="wsk">The rule / trade-off</span><p>With ~8k pairs and a small team, <b>use DPO</b>. Keep a &beta; term (&asymp; 0.1) so the policy stays near the SFT model. RLHF still wins when you can collect preferences <b>online</b> and chase peak alignment; RLVR wins for <b>reasoning</b>, where a verifier gives a real, unhackable reward. None of those is your situation &mdash; so don&rsquo;t pay for them.</p></div>
+          </div>
+          <pre class="code"><span class="codetag">two stacks for the same goal</span><code><span class="cm"># RLHF stack — a reward model + an RL loop, up to 4 models resident</span>
+policy = sft_model
+reward = <span class="kw">train</span>(reward_model, human_rankings)     <span class="cm"># a whole extra model to fit &amp; serve</span>
+policy = <span class="kw">ppo</span>(policy, reward, ref=sft_model)        <span class="cm"># unstable · policy · ref · reward · critic</span>
+
+<span class="cm"># DPO stack — one model, one loss, no reward model</span>
+policy = sft_model
+policy = <span class="kw">dpo</span>(policy, pref_pairs, ref=sft_model, beta=<span class="lit">0.1</span>)
+        <span class="cm"># pref_pairs = (prompt, chosen, rejected) · beta keeps the KL-style leash</span></code></pre>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&ldquo;I have 8k paired preferences and a two-person team, and my first instinct was RLHF because that&rsquo;s how the famous assistants were built. But RLHF means a reward model plus PPO &mdash; up to four models resident and a reward I&rsquo;d spend weeks keeping from being hacked. The RLHF objective has a closed form, so with <em>paired</em> data I can skip the reward model entirely and run DPO: two models, one stable loss, offline. I keep a &beta; leash to the SFT model. I&rsquo;d only go back to RLHF for online preference collection, or to RLVR if my task were checkable, like math or code.&rdquo;</p>
+            <p class="plain">Match the method to your data and infra. Paired preferences + small team &rarr; DPO. Verifiable answers &rarr; RLVR. Online preference at scale &rarr; RLHF.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <span class="k">The productised menu</span>
+        <p>Hosted fine-tuning now mirrors this toolkit. OpenAI&rsquo;s API exposes <strong>SFT</strong>, <strong>DPO</strong> (preference fine-tuning), and <strong>RFT</strong> (Reinforcement Fine-Tuning) &mdash; the productised, hosted form of RLVR, with user-defined programmable graders for reasoning models. A tooling gotcha: RFT is billed by training-loop <em>wall-clock time</em> (illustratively ~$100 per hour on o4-mini, mid-2026), not by tokens like SFT and DPO &mdash; so a poorly designed grader or long rollouts get expensive fast. Other clouds (Vertex AI, Bedrock, Azure) mostly offer SFT/LoRA today. Confirm live pricing before you commit.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>post-training turns a knowledgeable base model into a helpful assistant, and it has a toolkit &mdash; SFT imitates ideal answers, RLHF learns from ranked preferences through a reward model and a KL-leashed PPO loop, and DPO proves that loop has a closed form so you can optimise preferences directly, no reward model needed. Pick the tool by your data, your reward signal, and your infra.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Pretrain vs post-train</b><span>Pretraining buys capability (a next-token predictor); post-training buys behaviour. A bigger base model is a better autocomplete, not a better assistant.</span></div>
+        <div class="tk"><span class="num">02</span><b>SFT is the foundation</b><span>(prompt, ideal completion) pairs, cross-entropy masked to the completion. Teaches format &amp; instruction-following, not new facts. The shared start for RLHF and DPO.</span></div>
+        <div class="tk"><span class="num">03</span><b>RLHF in three stages</b><span>SFT &rarr; rank samples &amp; train a reward model (Bradley-Terry) &rarr; PPO maximises reward with a KL leash to the frozen reference. It built the first great assistants.</span></div>
+        <div class="tk"><span class="num">04</span><b>RLHF is heavy</b><span>Up to 4 models resident, unstable PPO, and reward hacking (Goodhart): quality rises then falls as the policy games the proxy. KL helps but isn&rsquo;t sufficient.</span></div>
+        <div class="tk"><span class="num">05</span><b>DPO&rsquo;s closed form</b><span>The RLHF optimum makes the policy its own reward model. Optimise (prompt, chosen, rejected) directly with one loss, &beta;&asymp;0.1. 2 models, stable, cheap &mdash; the workhorse.</span></div>
+        <div class="tk"><span class="num">06</span><b>The DPO family</b><span>IPO (anti-overfit), KTO (unpaired good/bad labels), ORPO (reference-free, no separate SFT). They don&rsquo;t reliably beat DPO &mdash; pick by data fit, not accuracy.</span></div>
+        <div class="tk"><span class="num">07</span><b>RLVR &amp; GRPO</b><span>Replace the learned reward with a verifier (math match, unit tests). Sidesteps hacking; trains reasoning models (o1, DeepSeek-R1). GRPO drops PPO&rsquo;s critic.</span></div>
+        <div class="tk"><span class="num">08</span><b>RLAIF &amp; the menu</b><span>An AI judge with a constitution replaces costly human labels (echo-chamber risk). Hosted: OpenAI SFT/DPO/RFT; RFT is billed by wall-clock time, not tokens.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Why is post-training a <em>separate</em> stage from pretraining, and why doesn&rsquo;t a bigger base model fix instruction-following on its own?<br>
+        (2) Describe SFT&rsquo;s data and loss. Why is the loss masked to completion tokens only, and why is SFT the starting point for both RLHF and DPO?<br>
+        (3) Walk the three stages of RLHF. What does the reward model do, and what does the KL penalty protect against?<br>
+        (4) Define reward hacking as an instance of Goodhart&rsquo;s law. Why is the KL leash necessary but not sufficient? Name the four models resident during PPO.<br>
+        (5) State DPO&rsquo;s core insight in one sentence. What does it delete versus RLHF, what data does it need, and what is &beta; for? Name one DPO failure mode and a fix.<br>
+        (6) You have 8k paired preferences and a two-person team &mdash; DPO or RLHF, and why? When would you switch to RLVR instead?<br>
+        (7) Contrast RLHF, DPO, and RLVR by <em>reward source</em> and best-fit task. Where do KTO and ORPO earn their place?<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 32 &middot; SFT, RLHF &amp; DPO &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the opening lesson of Phase 5 &middot; Fine-tuning &amp; Model Adaptation &middot; model names, prices, and benchmark figures are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* ---- small helpers for the architecture steppers (drive everything via onStep) ---- */
+  function gel(id){return document.getElementById(id);}
+  function setCls(id,c){var e=gel(id);if(e)e.setAttribute('class',c);}
+  function setOp(id,o){var e=gel(id);if(e)e.style.opacity=o;}
+  function setTxt(id,t){var e=gel(id);if(e!=null)e.textContent=(t==null?'':t);}
+  function lightNodes(colors,hot){hot=hot||[];for(var id in colors){var on=hot.indexOf(id)>=0;
+    setCls(id+'-r',on?colors[id]:'node');setOp(id,on?1:0.82);}}
+  function lightFlows(all,show){show=show||[];all.forEach(function(f){setOp(f,show.indexOf(f)>=0?1:0.12);});}
+
+  /* fig 1 — the supervised fine-tuning loop */
+  makeStepper(gel('fig-sft'), [
+    {text:"Pretraining leaves a base model that predicts the next token — knowledgeable, but it continues text instead of answering. SUPERVISED FINE-TUNING teaches it to imitate ideal answers. Watch one turn of the training loop.", hot:[], flow:[], phase:"supervised fine-tuning", note:"learn to imitate ideal completions"},
+    {text:"Draw one labelled example: a PROMPT paired with the IDEAL completion a human wrote. SFT is ordinary supervised learning — the 'label' is simply the target text.", hot:["sft-data"], flow:[], phase:"1 · draw a (prompt, ideal answer) pair", note:"the target is a human-written completion"},
+    {text:"Run the prompt through the model. It produces a probability for every next token — its own attempt at the completion, token by token.", hot:["sft-fwd"], flow:["sf1"], phase:"2 · forward pass over the completion", note:"the model predicts each next token"},
+    {text:"Score the attempt with the standard CROSS-ENTROPY (next-token) loss against the ideal tokens — masked to the COMPLETION only, so the model is graded on its answer, not on re-predicting the prompt.", hot:["sft-loss"], flow:["sf2"], phase:"3 · cross-entropy — completion tokens only", note:"prompt tokens are masked out of the loss"},
+    {text:"Backpropagate and take one gradient step. The update nudges the weights to make the ideal completion a little more likely next time — pure imitation.", hot:["sft-weights"], flow:["sf3"], phase:"4 · backprop → one weight update", note:"raise the probability of the ideal answer"},
+    {text:"Loop over thousands of pairs. The model learns FORMAT and instruction-following — how to answer — not new facts. This tuned model is the foundation both RLHF and DPO start from.", hot:["sft-data","sft-fwd","sft-loss","sft-weights"], flow:["sf4"], phase:"5 · repeat over the dataset", note:"teaches behaviour, not knowledge · the shared start"}
+  ], function(idx,s){
+    lightNodes({"sft-data":"node-b","sft-fwd":"node-b","sft-loss":"node-r","sft-weights":"node-g"}, s.hot);
+    lightFlows(["sf1","sf2","sf3","sf4"], s.flow);
+    setOp("sft-bplab", s.flow.indexOf("sf3")>=0?1:0.12);
+    setOp("sft-looplab", s.flow.indexOf("sf4")>=0?1:0.12);
+    setTxt("sft-phase", s.phase); setTxt("sft-note", s.note);
+  });
+
+  /* fig 2 — the RLHF pipeline with a KL leash */
+  makeStepper(gel('fig-rlhf'), [
+    {text:"RLHF starts where SFT ended. The SFT model becomes the initial POLICY — and a frozen COPY of it becomes the reference the training is leashed to. Keep both in mind: up to four models will be in play.", hot:["rl-sft","rl-ref"], flow:["rl-copy"], phase:"1 · SFT model → starting policy + frozen reference", note:"one copy trains, one copy stays frozen"},
+    {text:"For a given prompt, the policy SAMPLES several completions. Open-ended tasks have no single gold answer, so we generate candidates to compare.", hot:["rl-sample"], flow:["ra1"], phase:"2 · sample k candidate outputs", note:"no single right answer → compare several"},
+    {text:"Humans RANK the candidates from best to worst. Judging which of two answers is better is far easier and more reliable than authoring the perfect one.", hot:["rl-rank"], flow:["ra2"], phase:"3 · humans rank best → worst", note:"judging beats authoring · pairwise preferences"},
+    {text:"Train a separate REWARD MODEL on those rankings (a Bradley-Terry pairwise objective) so it outputs a scalar 'how good' score for ANY completion — a learned stand-in for the human judge.", hot:["rl-rm"], flow:["ra3"], phase:"4 · train the reward model", note:"Bradley-Terry · predicts human preference"},
+    {text:"Now optimise the policy with PPO to MAXIMISE that reward: sample, score, push the weights toward higher-scoring outputs. This is the reinforcement-learning core of RLHF.", hot:["rl-ppo"], flow:["ra4"], phase:"5 · PPO climbs the reward", note:"reinforcement learning against the reward model"},
+    {text:"Crucially, add a per-token KL PENALTY (dashed) that punishes drifting from the frozen reference. Without this leash the policy reward-hacks — gaming the imperfect reward model into fluent nonsense.", hot:["rl-ppo","rl-ref"], flow:["rl-kl"], phase:"6 · KL penalty leashes to the reference", note:"stay near SFT · resist drift & reward hacking"}
+  ], function(idx,s){
+    lightNodes({"rl-sft":"node-b","rl-sample":"node-b","rl-rank":"node-b","rl-rm":"node-r","rl-ppo":"node-g","rl-ref":"node-b"}, s.hot);
+    lightFlows(["ra1","ra2","ra3","ra4","rl-copy","rl-kl"], s.flow);
+    setOp("rl-copylab", s.flow.indexOf("rl-copy")>=0?1:0.12);
+    setOp("rl-rslab", s.flow.indexOf("ra4")>=0?1:0.12);
+    setOp("rl-kllab", s.flow.indexOf("rl-kl")>=0?1:0);
+    setTxt("rl-phase", s.phase); setTxt("rl-note", s.note);
+  });
+
+  /* fig 3 — DPO deletes the reward model */
+  makeStepper(gel('fig-dpo'), [
+    {text:"Remember RLHF's price: a whole separate REWARD MODEL, plus a PPO loop with up to four models resident. DPO asks — do we actually need the reward model at all?", hot:["dpo-rm"], flow:[], phase:"RLHF needs a learned reward model", note:"+ PPO loop · up to 4 models resident"},
+    {text:"The DPO insight: the RLHF objective has a CLOSED-FORM optimum, so the reward is implicitly the log-probability ratio between the policy and the frozen reference. 'Your model is secretly a reward model.' So we DELETE the separate reward model.", hot:[], flow:[], phase:"1 · delete the reward model", note:"the optimal policy has a closed form"},
+    {text:"Feed a (PROMPT, CHOSEN, REJECTED) triple straight from a fixed preference dataset — the same human comparisons RLHF used, but with no reward model in between.", hot:["dpo-prompt","dpo-chosen","dpo-rejected"], flow:["df1","df2"], phase:"2 · one (prompt, chosen, rejected) triple", note:"offline preference data · no sampling"},
+    {text:"Score chosen and rejected under the current POLICY and under the FROZEN REFERENCE. What matters is the log-probability RATIO — how much more the policy favours each answer than the reference does.", hot:["dpo-policy","dpo-ref"], flow:["df3","df4"], phase:"3 · policy vs frozen reference log-probs", note:"the ratio is the implicit reward"},
+    {text:"A single classification-style PREFERENCE LOSS, scaled by a temperature β (≈ 0.1), pushes the chosen answer's ratio up and the rejected answer's down. β controls how far the policy may stray from the reference — DPO's built-in leash.", hot:["dpo-loss"], flow:[], phase:"4 · one preference loss · β ≈ 0.1", note:"raise chosen, lower rejected — like a classifier"},
+    {text:"The gradient updates the POLICY directly. No reward model, no sampling, no RL loop — just two models (policy + frozen reference) and one stable loss. That simplicity made DPO the workhorse of open post-training.", hot:["dpo-loss","dpo-policy"], flow:["df5"], phase:"5 · update the policy directly", note:"2 models · one loss · stable & cheap"}
+  ], function(idx,s){
+    var del = idx>=1;
+    setOp("dpo-cross", del?1:0); setOp("dpo-del", del?1:0);
+    if(del){ setCls("dpo-rm-r","node"); setOp("dpo-rm",0.3); }
+    else { setCls("dpo-rm-r","node-b"); setOp("dpo-rm",1); }
+    lightNodes({"dpo-prompt":"node-b","dpo-chosen":"node-g","dpo-rejected":"node-r","dpo-policy":"node-b","dpo-ref":"node-b","dpo-loss":"node-r"}, s.hot);
+    lightFlows(["df1","df2","df3","df4","df5"], s.flow);
+    setOp("dpo-uplab", s.flow.indexOf("df5")>=0?1:0.12);
+    setTxt("dpo-phase", s.phase); setTxt("dpo-note", s.note);
+  });
+</script>
+</body>
+</html>
