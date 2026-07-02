@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern 42 — The Feedback Loop (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-g{fill:#E6F1DF;stroke:var(--green);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2.5;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2.5;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .reveal{transition:opacity .35s ease;}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;
+    padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;}
+  pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .st{color:#3f7a2e;}
+  pre.code .at{color:var(--rust);font-weight:600;}
+  table.cost{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px;}
+  table.cost th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--blueprint-soft);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line-strong);background:var(--blueprint-wash);}
+  table.cost td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.cost tr:last-child td{border-bottom:none;}
+  table.cost code{font-size:12px;}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);
+    overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;
+    background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);
+    border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;}
+  .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;}
+  .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;}
+  .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;} .worked .lc{margin-left:0;}
+    .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;} table.cost{font-size:13.5px;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">AI Engineering &middot; Study Notes</div>
+    <div class="brandtitle">The Feedback<br>Loop</div>
+    <h4>Production is the start line</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Runs, but never learns</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The data flywheel &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Explicit vs implicit signal &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>From a bad trace to a fix &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Guarding the loop</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Wiring the whole course</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Build the loop</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">42</span><span>Pattern &middot; AI Engineering</span></div>
+      <h1>The Feedback Loop</h1>
+      <p class="lede">This is where <strong>Phase 7 &mdash; Architecture, Deploy &amp; Operations</strong> closes, and it closes on a turn of thought most teams never make: shipping is not the finish line, it is the richest data source you will ever own. A deployed model is frozen &mdash; using it does not change its weights &mdash; so a system left alone will run forever at exactly launch-day quality. What separates a system that <em>improves</em> from one that merely <em>runs</em> is a single missing organ: a closed <strong>feedback loop</strong>, the <em>data flywheel</em>. Serve &#8594; collect feedback &#8594; mine failures &#8594; feed fixes back &#8594; serve better &#8594; repeat. This lesson is that loop &mdash; how to capture explicit and implicit signal, turn a bad trace into an eval case and a cluster of bad traces into a fix, and guard the whole thing against the failure modes (model collapse, engagement-chasing, drifting judges) that make a careless flywheel spin the wrong way.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> The closing lesson of the operations phase &mdash; the one that wires L41 (observe), Phase 2 (eval), and Phase 5 (adapt) back into L40 (deploy) and out to serving again. It draws on public framing &mdash; Chip Huyen's <em>AI Engineering</em>, NVIDIA's data-flywheel writing, the OpenTelemetry GenAI conventions, the Nature (2024) model-collapse result, and vendor docs from Langfuse, LangSmith, Arize, and others &mdash; but every explanation, diagram, and line of code is our own. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Tool names, prices, star counts, and numbers are illustrative and current to mid-2026.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The default fate</div>
+      <h2>A system that runs but never learns</h2>
+      <p>You shipped it. The gateway from Lesson 40 routes traffic and fails over cleanly; the traces from Lesson 41 stream into your observability stack; latency is green, cost is under budget, error rates are boring. By every dashboard in Phase 7 the system is <em>done</em>. And yet &mdash; three weeks later it answers exactly as well, and exactly as badly, as it did on launch day. The same customer keeps hitting the same broken refund flow. The same class of question keeps drawing the same confident, wrong answer. Nothing is on fire. Nothing is improving, either.</p>
+      <p>This is the default fate of a production AI system: <strong>it runs; it does not learn.</strong> The reason is structural, not a bug you forgot to fix. A deployed model is <em>frozen</em> &mdash; its weights do not update from being used &mdash; so unless you build a mechanism that carries what happened in production back into the next version, every lesson your users teach you evaporates the instant the response is sent. You are standing under the single most valuable firehose you will ever get &mdash; real users, real inputs, real failures, at real scale &mdash; and pouring it straight onto the floor.</p>
+      <p>The brute-force substitutes are all <em>open-loop</em>, and each fails the same way. You can <strong>guess harder</strong> at the eval set &mdash; but you're guessing at failures from your desk, not the ones users actually hit. You can <strong>wait for a bug report</strong> &mdash; but only the loudest 0.1% of unhappy users ever file one, and by then the pattern has been costing you for weeks. You can <strong>eyeball a few logs on a Friday</strong> &mdash; heroic, unrepeatable, and blind to everything you didn't happen to scroll past. Every one of these treats production as an endpoint. The move is to treat it as a <em>beginning</em>: the start of the next iteration, wired so that the exhaust of normal use becomes the fuel of the next release.</p>
+      <div class="callout note">
+        <span class="k">The one-line version</span>
+        <p>An AI system improves only if you <strong>close the loop</strong>: production must feed the process that makes the next version better. The frozen model won't teach itself; the loop is the teacher. Everything else in this lesson &mdash; which signals to collect, how to turn a trace into a fix, and how to keep the loop from poisoning itself &mdash; is machinery around that one commitment. Skip it and you've built something that runs beautifully and never gets any better.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The core cycle</div>
+      <h2>The data flywheel &#9656;</h2>
+      <p>Here is the whole idea as one turning wheel. <em>Serve</em> real traffic; <em>collect</em> the feedback that traffic throws off; <em>mine</em> the bad traces into failure buckets; <em>improve</em> the system with fixes drawn from those failures; <em>serve better</em> &mdash; and the better version produces fresher, richer data, so the next turn is easier than the last. NVIDIA calls this a <strong>data flywheel</strong>: a self-reinforcing cycle where interaction data improves the model, better results attract more usage, and more usage generates more data. Step around one full turn and watch the eval floor rise each time:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-flywheel">
+          <svg viewBox="0 0 640 300" role="img" aria-label="The data flywheel: serve produces traces, you collect feedback, mine failures into buckets, improve the system behind a gate, then serve a better version — and the eval quality floor rises each turn around the loop">
+            <text class="lbl-sm" x="320" y="128" text-anchor="middle" font-size="9.5" fill="#4A7BA6">DATA FLYWHEEL</text>
+            <text id="fw-quality" class="readout" x="320" y="152" text-anchor="middle" font-size="17" fill="#1F4E79"></text>
+            <text id="fw-turn" class="lbl-sm" x="320" y="172" text-anchor="middle" font-size="10.5"></text>
+            <g id="fw-serve"><rect id="fw-serve-r" class="node-b" x="250" y="18" width="140" height="50" rx="9"/><text class="lbl" x="320" y="40" text-anchor="middle">SERVE</text><text class="lbl-sm" x="320" y="56" text-anchor="middle">answer real users</text></g>
+            <g id="fw-feedback"><rect id="fw-feedback-r" class="node" x="466" y="114" width="156" height="56" rx="9"/><text class="lbl" x="544" y="138" text-anchor="middle">COLLECT</text><text class="lbl-sm" x="544" y="155" text-anchor="middle">feedback signals</text></g>
+            <g id="fw-fail"><rect id="fw-fail-r" class="node" x="250" y="232" width="140" height="52" rx="9"/><text class="lbl" x="320" y="256" text-anchor="middle">MINE</text><text class="lbl-sm" x="320" y="272" text-anchor="middle">failure buckets</text></g>
+            <g id="fw-improve"><rect id="fw-improve-r" class="node" x="18" y="114" width="156" height="56" rx="9"/><text class="lbl" x="96" y="138" text-anchor="middle">IMPROVE</text><text class="lbl-sm" x="96" y="155" text-anchor="middle">eval&#183;prompt&#183;tune</text></g>
+            <path id="fw-a1" class="flow" d="M390 46 C 468 52, 516 78, 528 110" marker-end="url(#arrow)"/>
+            <path id="fw-a2" class="flow" d="M540 170 C 520 214, 458 246, 394 254" marker-end="url(#arrow)"/>
+            <path id="fw-a3" class="flow-r" d="M250 254 C 182 246, 120 216, 100 174" marker-end="url(#arrow-r)"/>
+            <path id="fw-a4" class="flow-g" d="M108 110 C 120 78, 174 52, 250 46" marker-end="url(#arrow-g)"/>
+            <text class="lbl-sm" x="470" y="86" text-anchor="middle" font-size="9">serve&#8594;collect</text>
+            <text class="lbl-sm" x="470" y="214" text-anchor="middle" font-size="9">collect&#8594;mine</text>
+            <text class="lbl-sm" x="168" y="214" text-anchor="middle" font-size="9">mine&#8594;improve</text>
+            <text class="lbl-sm" x="168" y="86" text-anchor="middle" font-size="9">improve&#8594;serve</text>
+            <text id="fw-note" class="readout" x="320" y="296" text-anchor="middle" font-size="12.5" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: one turn of the flywheel; each pass raises the eval floor and sharpens the next iteration's data</figcaption>
+      </figure>
+
+      <p>The shape is worth internalizing because <em>every</em> improving AI system is this wheel, spun faster or slower. The lever that makes it turn is not a smarter model &mdash; it's the discipline of <strong>capturing and routing the data production already gives you for free</strong>. NVIDIA's own headline for its NeMo-microservices flywheel blueprint (distilling a smaller fine-tuned model from captured traffic) claims up to a <em>98.6%</em> inference-cost reduction &mdash; a vendor best-case, treat it as illustrative &mdash; but the mechanism generalizes far past cost: the same loop is how quality, coverage, and reliability compound. A static system sits still; a flywheel accumulates.</p>
+      <div class="callout tip">
+        <span class="k">Why it's a <em>flywheel</em>, not just a loop</span>
+        <p>A flywheel has <strong>momentum</strong>: each turn makes the next one cheaper. The eval set grows richer (so you catch more), the failure buckets get sharper (so fixes land faster), and the improved model produces cleaner traffic (so the signal improves). That compounding is the whole point &mdash; and it's also why the guardrails in Section 04 matter: a wheel with momentum will happily accelerate in the <em>wrong</em> direction if you feed it the wrong signal.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Two kinds of signal</div>
+      <h2>Explicit vs implicit signal &#9656;</h2>
+      <p>Before you can mine failures you have to <em>collect</em> them, and feedback arrives in two very different textures. <strong>Explicit</strong> feedback is the user telling you on purpose &mdash; a thumbs, a rating, a written correction. <strong>Implicit</strong> feedback is behavior you infer &mdash; did they accept the answer, retry it, edit it, abandon the task, and did whatever they were doing downstream actually succeed? Explicit is <em>sparse but clear</em>; implicit is <em>abundant but noisy</em>. A production loop uses both, and a triage step fuses them. Step through each family feeding the triage node:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-feedback-types">
+          <svg viewBox="0 0 640 300" role="img" aria-label="Explicit signals (thumbs, ratings, corrections) and implicit signals (accept/reject, retries, abandonment, downstream success) both feed a triage node, which buckets them into prompt, retrieval, and fine-tune failure clusters">
+            <g id="ft-exp"><rect id="ft-exp-r" class="node-b" x="24" y="42" width="184" height="72" rx="9"/><text class="lbl" x="116" y="68" text-anchor="middle">EXPLICIT</text><text class="lbl-sm" x="116" y="86" text-anchor="middle">thumbs &#183; rating</text><text class="lbl-sm" x="116" y="102" text-anchor="middle">written correction</text></g>
+            <g id="ft-imp"><rect id="ft-imp-r" class="node-b" x="24" y="186" width="184" height="78" rx="9"/><text class="lbl" x="116" y="210" text-anchor="middle">IMPLICIT</text><text class="lbl-sm" x="116" y="228" text-anchor="middle">accept/reject &#183; retry</text><text class="lbl-sm" x="116" y="244" text-anchor="middle">abandon &#183; edit-distance</text><text class="lbl-sm" x="116" y="260" text-anchor="middle">downstream success</text></g>
+            <g id="ft-triage"><rect id="ft-triage-r" class="node-b" x="272" y="112" width="140" height="78" rx="9"/><text class="lbl" x="342" y="140" text-anchor="middle">TRIAGE</text><text class="lbl-sm" x="342" y="158" text-anchor="middle">label &amp;</text><text class="lbl-sm" x="342" y="174" text-anchor="middle">bucket</text></g>
+            <g id="ft-b1"><rect id="ft-b1-r" class="node-r" x="470" y="48" width="150" height="44" rx="9"/><text class="lbl-sm" x="545" y="75" text-anchor="middle">prompt bug</text></g>
+            <g id="ft-b2"><rect id="ft-b2-r" class="node-r" x="470" y="132" width="150" height="44" rx="9"/><text class="lbl-sm" x="545" y="159" text-anchor="middle">retrieval gap</text></g>
+            <g id="ft-b3"><rect id="ft-b3-r" class="node-r" x="470" y="216" width="150" height="44" rx="9"/><text class="lbl-sm" x="545" y="243" text-anchor="middle">needs fine-tune</text></g>
+            <path id="ft-e" class="flow" d="M208 82 C 244 100, 256 118, 270 132" marker-end="url(#arrow)"/>
+            <path id="ft-i" class="flow" d="M208 222 C 244 202, 256 182, 270 168" marker-end="url(#arrow)"/>
+            <path id="ft-b1a" class="flow-r" d="M412 132 C 440 100, 452 76, 468 72" marker-end="url(#arrow-r)"/>
+            <path id="ft-b2a" class="flow-r" d="M412 152 C 438 153, 452 153, 468 154" marker-end="url(#arrow-r)"/>
+            <path id="ft-b3a" class="flow-r" d="M412 170 C 440 202, 452 228, 468 234" marker-end="url(#arrow-r)"/>
+            <text id="ft-note" class="readout" x="320" y="292" text-anchor="middle" font-size="12.5" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: sparse-but-clear explicit signal and abundant-but-noisy implicit signal, fused at triage and sorted into failure buckets</figcaption>
+      </figure>
+
+      <p>The two families have opposite strengths, which is exactly why you keep both. Explicit ratings are gold when you get them &mdash; but <strong>survivorship-biased</strong>: only the delighted and the furious ever click, so a raw thumbs-up rate tells you about the tails, not the middle. Implicit signals are everywhere and cheap, but <strong>confounded</strong>: an abandonment might mean "perfect, I'm done" or "gave up in disgust," and a regeneration might mean "wrong" or "curious what else you'd say." The discipline is corroboration &mdash; never let a single noisy signal act as ground truth.</p>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Explicit &mdash; sparse but clear</h4>
+          <ul>
+            <li><strong>Thumbs up/down</strong>, star ratings, a written "that's wrong."</li>
+            <li><strong>Corrections / edits</strong> to your answer &mdash; the highest-signal explicit feedback there is; the edit <em>is</em> the right answer.</li>
+            <li>Unambiguous, but <strong>rare</strong> and <strong>skewed</strong> &mdash; don't extrapolate a click rate to overall quality.</li>
+            <li>Cheap to make first-class: log <code>thumbs</code> and a free-text box; a "skip" default keeps it low-friction.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Implicit &mdash; abundant but noisy</h4>
+          <ul>
+            <li><strong>Accept / reject</strong> of a suggestion; <strong>edit-distance</strong> between your draft and what they shipped.</li>
+            <li><strong>Retries / regenerations</strong>, <strong>abandonment</strong>, session length.</li>
+            <li><strong>Downstream success</strong> &mdash; did the code run, the ticket close, the purchase complete?</li>
+            <li>Free and plentiful, but <strong>confounded</strong>; a single signal is a rumor &mdash; corroborate across several before trusting it.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Micro-annotations scale collection</span>
+        <p>The cheapest explicit signal is one a human barely notices giving. A lightweight in-product control &mdash; a single up/down, an optional one-line note, defaulting to <em>skip</em> &mdash; collects far more than a modal survey ever will, and it turns ordinary usage into labeled data. Pair it with the abundant implicit stream and you get both <em>coverage</em> (implicit) and <em>confidence</em> (explicit) without asking users to do work.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Trace to fix</div>
+      <h2>From a bad trace to a fix &#9656;</h2>
+      <p>Collecting signal is inert until it changes something. The engine that converts feedback into improvement runs at two grains. A <strong>single</strong> bad trace &mdash; one flagged by a low online-judge score or a thumbs-down &mdash; becomes an <em>eval case</em>: a concrete, replayable example of a failure the system must never repeat. A <strong>cluster</strong> of similar bad traces becomes a <em>systemic fix</em>: the shape of the cluster tells you whether the lever is a prompt, retrieval, or a fine-tune. Step through the pipeline from one real production miss to a locked-in fix:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-trace-to-eval">
+          <svg viewBox="0 0 640 280" role="img" aria-label="From a low-scoring production trace, through a human verifier gate, into the golden eval set, driving a prompt or retrieval or fine-tune fix, to a re-eval that now passes, and back out to serving — closing the loop">
+            <g id="te-trace"><rect id="te-trace-r" class="node-r" x="20" y="34" width="160" height="54" rx="9"/><text class="lbl" x="100" y="56" text-anchor="middle">BAD TRACE</text><text class="lbl-sm" x="100" y="74" text-anchor="middle">judge 0.31 &#183; L41</text></g>
+            <g id="te-gate"><rect id="te-gate-r" class="node-b" x="240" y="34" width="160" height="54" rx="9"/><text class="lbl" x="320" y="56" text-anchor="middle">HUMAN GATE</text><text class="lbl-sm" x="320" y="74" text-anchor="middle">real failure?</text></g>
+            <g id="te-eval"><rect id="te-eval-r" class="node-b" x="460" y="34" width="160" height="54" rx="9"/><text class="lbl" x="540" y="56" text-anchor="middle">GOLDEN SET</text><text class="lbl-sm" x="540" y="74" text-anchor="middle">+1 &#183; Phase 2</text></g>
+            <g id="te-fix"><rect id="te-fix-r" class="node-b" x="460" y="176" width="160" height="54" rx="9"/><text class="lbl" x="540" y="198" text-anchor="middle">FIX</text><text class="lbl-sm" x="540" y="216" text-anchor="middle">prompt/RAG/tune</text></g>
+            <g id="te-reeval"><rect id="te-reeval-r" class="node-g" x="240" y="176" width="160" height="54" rx="9"/><text class="lbl" x="320" y="198" text-anchor="middle">RE-EVAL</text><text class="lbl-sm" x="320" y="216" text-anchor="middle" fill="#3f7a2e">case PASSES</text></g>
+            <g id="te-serve"><rect id="te-serve-r" class="node-g" x="20" y="176" width="160" height="54" rx="9"/><text class="lbl" x="100" y="198" text-anchor="middle">SHIP &amp; SERVE</text><text class="lbl-sm" x="100" y="216" text-anchor="middle" fill="#3f7a2e">loop turns again</text></g>
+            <path id="te-1" class="flow" d="M180 61 H236" marker-end="url(#arrow)"/>
+            <path id="te-2" class="flow" d="M400 61 H456" marker-end="url(#arrow)"/>
+            <path id="te-3" class="flow" d="M540 88 V172" marker-end="url(#arrow)"/>
+            <path id="te-4" class="flow" d="M460 203 H404" marker-end="url(#arrow)"/>
+            <path id="te-5" class="flow-g" d="M240 203 H184" marker-end="url(#arrow-g)"/>
+            <path id="te-6" class="flow" d="M100 176 V92" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="118" y="140" text-anchor="middle" font-size="9">loop back</text>
+            <text id="te-note" class="readout" x="320" y="266" text-anchor="middle" font-size="12.5" fill="var(--ink)"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: one real failure walks trace &#8594; gate &#8594; golden set &#8594; fix &#8594; re-eval passes &#8594; serve; the golden set grows from reality, not guesses</figcaption>
+      </figure>
+
+      <p>Two ideas do the heavy lifting here. The first is <strong>active learning</strong> as a sampling policy: instead of reviewing random traffic, you spend scarce human attention where it pays &mdash; on traces the model scored low on, was uncertain about, or where the LLM-judge and a human disagreed. Those are the samples most likely to teach the system something. The second is that <strong>the golden set is fed by reality</strong>. Lesson 12 built the golden set by hand up front; here it grows continuously from confirmed production failures, so eval-driven development becomes a <em>continuous</em> practice rather than a launch-day snapshot that goes stale. Every confirmed failure that enters the set also arms a CI gate (Lesson 14): fix it once and any future regression on it fails the build.</p>
+
+      <div class="callout tip">
+        <span class="k">One trace tests; a cluster fixes</span>
+        <p>Don't over-react to a single miss &mdash; add it to the eval set and move on. Do react to a <em>cluster</em>: twelve traces failing the same way is a diagnosis. The cluster's shape picks the lever &mdash; a systematic instruction miss is a <strong>prompt</strong> fix, a "right reasoning over wrong documents" pattern is a <strong>retrieval</strong> fix, and a genuine capability gap the base model can't be prompted into is a <strong>fine-tune</strong>. Confirmed preference pairs (a correction, or one regeneration chosen over another) can even become DPO training data in Phase 5 &mdash; provided they pass the gate in Section 04 first.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The guardrails</div>
+      <h2>Guarding the loop</h2>
+      <p>A flywheel with momentum will accelerate in whatever direction you push it &mdash; including the wrong one. Three failure modes turn a well-meaning loop into a machine that degrades itself, and each has a documented, expensive precedent. Naming them is half the defense.</p>
+      <p>First, <strong>never blindly retrain on raw production or model-generated output.</strong> Shumailov et al., in <em>Nature</em> (July 2024, "AI models collapse when trained on recursively generated data"), showed that indiscriminately training on model-generated content causes <em>irreversible</em> defects: the tails of the distribution vanish, then the middle degrades &mdash; <strong>model collapse</strong>. "Strong Model Collapse" (ICLR 2025) sharpened the result, and a 2024 FAccT study showed biased models amplify their own biases through synthetic retraining. The lesson is blunt: production output is a <em>source of candidates</em>, not training data. Nothing re-enters training without curation and a human or trusted-verifier gate.</p>
+      <p>Second, <strong>beware feedback that measures engagement, not correctness.</strong> A thumbs-up, a longer session, a clicked suggestion can all reward a confident, fluent, <em>wrong</em> answer &mdash; the flywheel version of reward hacking. Optimize the loop on engagement proxies and you'll train sycophancy: models that make users feel good and mislead them. Pair every engagement signal with a correctness check &mdash; an LLM-judge on faithfulness or task-completion, downstream success, or a human spot-check &mdash; before it's allowed to steer anything.</p>
+      <p>Third, <strong>a live LLM-judge is production code that drifts.</strong> Running LLM-as-judge on live traffic is now mainstream, but a judge is not an oracle: it carries position bias, verbosity bias, and self-preference bias, and its agreement with humans wanders as traffic and models change. The 2025&ndash;2026 reliability literature ("Reliability without Validity" and kin) is emphatic &mdash; calibrate judges against human labels, use strict binary rubrics, and re-check agreement over time. Treat the judge like any other model in production: monitored, versioned, and re-validated.</p>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Open loop &mdash; the trap</h4>
+          <ul>
+            <li>Fine-tune on <strong>raw</strong> production/model output &#8594; <strong>collapse</strong>, bias amplification.</li>
+            <li>Optimize on <strong>engagement</strong> (thumbs, session length) &#8594; sycophancy, confident wrong answers.</li>
+            <li>Trust a <strong>live judge</strong> uncritically &#8594; position/verbosity/self-preference bias, silent drift.</li>
+            <li>Log raw traffic for training &#8594; <strong>PII / compliance</strong> exposure.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Gated loop &mdash; the guardrail</h4>
+          <ul>
+            <li><strong>Human / verifier gate</strong> before any data re-enters training; curate, don't ingest.</li>
+            <li>Correctness checks (faithfulness, downstream success) <strong>gate</strong> engagement signals.</li>
+            <li>Judges <strong>calibrated</strong> to human labels, binary rubrics, agreement re-checked over time.</li>
+            <li><strong>Redact / anonymize</strong> PII (gateway-side, e.g. Portkey) before the loop touches it.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">The gate is the non-negotiable part</span>
+        <p>If you remember one rule from this section: <strong>a human or a trusted verifier stands between production data and the next model.</strong> It's what keeps collapse, bias, and engagement-chasing out of the flywheel. The gate can be light &mdash; sampled review, an automated verifier for objectively checkable tasks, a second-model cross-check &mdash; but it can never be <em>absent</em>. An ungated loop doesn't just fail to improve; it actively degrades, and (per the collapse literature) the damage can be irreversible.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The synthesis</div>
+      <h2>Wiring the whole course together</h2>
+      <p>The feedback loop is the lesson that makes the rest of the course cohere, because it is the wire that connects phases that otherwise sit in separate chapters. Read the flywheel again with course labels on the nodes: you <strong>observe</strong> (Lesson 41 &mdash; traces, token/cost/latency, drift), you <strong>evaluate</strong> (Phase 2 &mdash; the golden set, judges, CI gates), you <strong>adapt</strong> (Phase 5 &mdash; prompt changes, curated data, DPO/SFT), you <strong>deploy</strong> (Lesson 40 &mdash; gateway, versioning, rollout), and you <strong>serve</strong> again. Each phase was a station; the feedback loop is the track that runs the train through all of them, over and over.</p>
+      <p>Two enabling pieces make this practical. The first is the <strong>LLM gateway</strong> from Lesson 40, which is the natural choke point where the loop is tractable: a single place to log every trace consistently, route and canary a new model or prompt, redact PII, and attach feedback to the request it belongs to. The second is <strong>online evals</strong> &mdash; scoring live traffic as it flows &mdash; which have gone from research idea to product feature. Together they let the golden set auto-curate from real traffic instead of being frozen at launch. A rough map of the mid-2026 choke points:</p>
+
+      <table class="cost">
+        <thead><tr><th>Layer (illustrative, mid-2026)</th><th>Representative tools</th><th>What it gives the loop</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Online evals / tracing</strong></td><td><code>Langfuse</code> (OSS, MIT, ~28k&#9733;)</td><td>Scores live traces at ingest via an async LLM-as-judge queue; turns interesting traces into datasets (Oct 2025 added per-judge execution tracing).</td></tr>
+          <tr><td><strong>Eval platforms</strong></td><td>LangSmith &middot; Arize Phoenix/AX &middot; Braintrust &middot; Datadog LLM Obs</td><td>Annotation queues, live judges, and datasets built from production &mdash; the same capability across framework-agnostic and APM-native stacks.</td></tr>
+          <tr><td><strong>LLM gateway</strong></td><td>LiteLLM (OSS) &middot; OpenRouter &middot; Portkey</td><td>One choke point to log, route, canary, cache, redact PII, and capture feedback consistently across 100+ providers.</td></tr>
+          <tr><td><strong>Trace format</strong></td><td>OpenTelemetry <code>gen_ai.*</code> semconv</td><td>Cross-vendor attributes (<code>gen_ai.operation.name</code>, <code>gen_ai.provider.name</code>, <code>gen_ai.usage.*</code>) &mdash; still <em>Development</em> maturity; needs the opt-in flag.</td></tr>
+          <tr><td><strong>Flywheel platform</strong></td><td>NVIDIA NeMo microservices</td><td>Productized data flywheel: Curator, Customizer, Evaluator, Guardrails &mdash; GA in 2025 with an open Blueprint.</td></tr>
+        </tbody>
+      </table>
+
+      <p>One sharp caution on the trace format, because a writer will be tempted to lean on it as bedrock: the OpenTelemetry GenAI conventions are the emerging cross-vendor standard, but as of 2026 they were moved into a dedicated <code>semantic-conventions-genai</code> repo and remain at <em>Development</em> (experimental) maturity &mdash; <strong>not stable</strong>. Names have already churned (<code>gen_ai.system</code> became <code>gen_ai.provider.name</code>), and instrumentations only emit the newest shape if you set <code>OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental</code> (v1.36 is the transition baseline). Adopt them &mdash; Datadog, Google Cloud, AWS, Azure, MLflow, Langfuse, and Arize Phoenix already do &mdash; but pin versions and expect change.</p>
+
+      <p>Finally, the loop is where <strong>safe rollout</strong> earns its keep, because subtle LLM regressions &mdash; a worse answer, a higher refusal rate, a new hallucination pattern &mdash; don't throw exceptions; they slip straight to users. So you gate every model or prompt change with the <em>same</em> eval rubric you use offline, run online, so any degradation is directly comparable to the baseline. The three complementary strategies:</p>
+
+      <div class="vs three">
+        <div class="col">
+          <h4>Shadow</h4>
+          <ul>
+            <li>Mirror real traffic to the new variant <strong>without</strong> affecting users.</li>
+            <li>Compare outputs offline against the current model.</li>
+            <li>Zero user risk; catches quality/cost/latency shifts before anyone sees them.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Canary</h4>
+          <ul>
+            <li>Ramp a small user % in stages &mdash; e.g. <code>5% &#8594; 10% &#8594; 25% &#8594; 50% &#8594; 100%</code>.</li>
+            <li>Check metrics at each step; <strong>auto-rollback</strong> on regression.</li>
+            <li>Watch p50/p95/p99 latency, cost/req, error &amp; refusal rate, output-length, thumbs-down, regenerations.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>A/B (&amp; blue-green)</h4>
+          <ul>
+            <li>Compare two <em>viable</em> variants once stability is confirmed.</li>
+            <li>Decide on the rubric + feedback signals, not vibes.</li>
+            <li>Blue-green keeps the old version hot for an instant switch/rollback.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Same rubric, offline and online</span>
+        <p>The quiet trick that ties Phase 2 to Phase 7 is reusing the <em>pre-launch rubric</em> on live traffic. When your online judge scores production with the identical rubric that guarded your golden set, a canary's numbers are directly comparable to your baseline &mdash; degradation shows up as a rubric-score drop, not a mystery. Offline eval and online eval stop being two systems and become one continuous measurement.</p>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Put it together</div>
+      <h2>Build the loop</h2>
+      <p>Time to make it real. The worked build below takes the static system from Section 00 &mdash; the one that runs but never improves &mdash; and grows it the missing organ. It is deliberately small: capture the signals, sample the low-scoring traces behind a gate, grow the golden set from confirmed failures, and open fixes for the clusters. This is the honest core of every "self-improving" system you'll read about: a nightly job and a hard rule that raw output never trains a model.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked build</span><span class="lc">static system &#8594; self-improving loop</span></div>
+        <div class="wbody">
+          <div class="wname">The system that never gets better</div>
+          <p class="wprompt">Your assistant has shipped and is stable. Traces flow, dashboards are green &mdash; and the <strong>same refund-flow failure recurs every single week</strong>, because nothing carries last week's misses into next week's build. The task isn't a bigger model; it's a <em>loop</em>. Capture implicit signals (retries, edits, abandonment) plus a lightweight thumbs/correction control, sample the low-eval-score traces from L41 for human review behind a <strong>gate</strong>, grow the Phase-2 golden set from confirmed real failures, and route recurring clusters into prompt / RAG / fine-tune fixes (Phase 5) &mdash; never training blindly on raw output.</p>
+          <h4 class="wh">The loop, sketched: collect &#8594; gate &#8594; eval-set &#8594; fix</h4>
+          <pre class="code"><span class="codetag">feedback_loop.py &mdash; turn served traffic into the next version's fuel</span><code><span class="cm"># every served turn already emits a trace (Lesson 41) — attach signal to it</span>
+<span class="kw">from</span> collections <span class="kw">import</span> Counter
+buckets = Counter()
+
+<span class="kw">def</span> on_serve(trace, resp):              <span class="cm"># 1 &#183; COLLECT — explicit + implicit</span>
+    log_feedback(trace.id, {
+        <span class="at">"thumbs"</span>:     resp.rating,            <span class="cm"># EXPLICIT: sparse, clear</span>
+        <span class="at">"edited"</span>:     edit_distance(resp.draft, resp.sent) &gt; <span class="lit">0</span>,  <span class="cm"># IMPLICIT</span>
+        <span class="at">"retried"</span>:    resp.regenerations,     <span class="cm"># IMPLICIT: noisy</span>
+        <span class="at">"abandoned"</span>:  <span class="kw">not</span> resp.downstream_ok, <span class="cm"># IMPLICIT: confounded</span>
+        <span class="at">"judge"</span>:      resp.online_score,      <span class="cm"># LLM-as-judge on live traffic</span>
+    })
+
+<span class="kw">def</span> nightly_curate():                    <span class="cm"># 2 &#183; GATE  and  3 &#183; GROW the eval set</span>
+    <span class="cm"># ACTIVE LEARNING: sample where the model scored low or was uncertain</span>
+    <span class="kw">for</span> t <span class="kw">in</span> query_traces(judge_lt=<span class="lit">0.5</span>, or_thumbs_down=<span class="kw">True</span>):
+        v = human_gate(t)                 <span class="cm"># &lt;- the guardrail. never skip it.</span>
+        <span class="kw">if</span> v.is_real_failure:
+            golden_set.add(t.as_eval_case())  <span class="cm"># grows the Phase-2 golden set</span>
+            buckets[v.failure_kind] += <span class="lit">1</span>      <span class="cm"># cluster the failures</span>
+
+    <span class="kw">for</span> kind, n <span class="kw">in</span> buckets.most_common():  <span class="cm"># 4 &#183; FIX clusters, not one-offs</span>
+        <span class="kw">if</span> n &gt;= <span class="lit">20</span>:                      <span class="cm"># a recurring pattern → a systemic fix</span>
+            open_fix(kind)  <span class="cm"># prompt &#183; retrieval &#183; or curated DPO data (Phase 5)</span>
+    <span class="cm"># RULE: never fine-tune on raw model output → collapse. Curated, gated only.</span></code></pre>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Restate &amp; the naive miss</span><p>The static system has no memory across releases, so a failure that isn't caught this week recurs next week, forever. The naive "we'll fix bugs when someone reports them" is <b>open-loop</b>: it waits on the loudest 0.1% and learns nothing from the silent majority. <code>on_serve</code> flips that &mdash; every turn now leaves a labeled trail (explicit <em>and</em> implicit), so the data to improve is being <em>captured</em> instead of discarded.</p></div>
+            <div class="ws"><span class="wsk">The move &mdash; sample low, gate, grow the set</span><p><code>nightly_curate</code> doesn't review random traffic; it <b>active-learns</b>, pulling the traces where the judge scored low or the user thumbed down &mdash; the ones most likely to teach something. Each candidate passes through <code>human_gate</code> before it counts, and confirmed failures both <b>grow the golden set</b> (so eval-driven development stays continuous) and increment a <b>failure bucket</b>. A single case earns a test; a bucket that crosses a threshold earns a real fix.</p></div>
+            <div class="ws"><span class="wsk">The invariant &mdash; the gate, and never train blind</span><p>The load-bearing line is the comment: <em>raw output never trains a model.</em> Skip the gate and you get model collapse (Nature 2024) and bias amplification &mdash; irreversible. So <code>human_gate</code> is not optional decoration; it is the guardrail that lets production data safely re-enter Phase 5. The flywheel beats the static system precisely because it <em>accumulates</em> curated, real failures &mdash; and the gate is what keeps that accumulation clean.</p></div>
+          </div>
+          <div class="say">
+            <span class="k">Say it back in one breath</span>
+            <p>&#8220;A frozen model won't improve itself, so I close the loop: every served turn logs explicit and implicit signal onto its trace; a nightly job active-learns the low-score and thumbed-down traces, runs each past a human gate, and adds confirmed failures to the golden set; clusters that recur become prompt, retrieval, or curated fine-tune fixes &mdash; and raw output <em>never</em> trains a model, because that's collapse. Production isn't the finish line; it's the fuel.&#8221;</p>
+            <p class="plain">The metric to watch: the <strong>recurrence rate of a confirmed failure bucket across releases</strong> &mdash; if the refund-flow bucket shrinks release over release while the golden set grows from real traffic, the flywheel is turning. If it doesn't, your gate or your fix is broken, not your model.</p>
+          </div>
+        </div>
+      </div>
+
+      <p>That nightly job is the whole difference between a system that runs and one that improves. Everything grand about "self-improving AI" reduces to this shape with more automation bolted on: online evals that auto-curate the eval set, production preference pairs feeding DPO, feedback-driven prompt optimization, LLM-judges watching live traffic. The mechanism never changes &mdash; serve, collect, mine, fix, serve better &mdash; and neither does the guardrail: a human or verifier gate between production and the next model. Get the loop and the gate right, and the rest is tuning how fast the wheel spins.</p>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea runs through the lesson: <em>what makes an AI system improve rather than merely run is a closed feedback loop &mdash; a data flywheel. Serve, collect explicit and implicit feedback, mine failure buckets, turn a bad trace into an eval case and a cluster into a fix, feed it back through a human gate, and serve better &mdash; wiring observe (L41) &#8594; eval (Phase 2) &#8594; adapt (Phase 5) &#8594; deploy (L40) &#8594; serve into one continuous cycle.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Production is the start line</b><span>A frozen model won't teach itself; the richest data you'll ever get flows through production. Close the loop or the system runs forever at launch-day quality.</span></div>
+        <div class="tk"><span class="num">02</span><b>The data flywheel</b><span>Serve &#8594; collect &#8594; mine failures &#8594; improve &#8594; serve better &#8594; repeat. Each turn raises the eval floor and sharpens the next iteration's data &mdash; momentum, not just a loop.</span></div>
+        <div class="tk"><span class="num">03</span><b>Two kinds of signal</b><span>Explicit (thumbs, ratings, corrections) is sparse but clear; implicit (accept/reject, retries, abandonment, downstream success) is abundant but noisy. Use both; corroborate.</span></div>
+        <div class="tk"><span class="num">04</span><b>Trace &#8594; eval; cluster &#8594; fix</b><span>One bad trace becomes an eval case; a cluster names the lever &mdash; prompt, retrieval, or fine-tune. Active-learn: review where the model scored low or was uncertain.</span></div>
+        <div class="tk"><span class="num">05</span><b>The golden set grows from reality</b><span>Feed the Phase-2 set from confirmed production failures, not up-front guesses. Eval-driven development becomes continuous, and each case arms a CI gate.</span></div>
+        <div class="tk"><span class="num">06</span><b>Guard against collapse</b><span>Never train on raw model/production output &mdash; model collapse (Nature 2024) and bias amplification are irreversible. Curate; keep a human/verifier gate.</span></div>
+        <div class="tk"><span class="num">07</span><b>Engagement &#8800; correctness</b><span>Thumbs-up and long sessions reward sycophancy and confident wrong answers. Pair engagement with correctness checks; calibrate live judges &mdash; they drift.</span></div>
+        <div class="tk"><span class="num">08</span><b>The loop wires the course</b><span>Observe (L41) &#8594; eval (P2) &#8594; adapt (P5) &#8594; deploy (L40) &#8594; serve. Gateway + online evals make it tractable; shadow/canary/A-B gate every change on the same rubric.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Why does a deployed system default to never improving, and what single thing changes that? Name the five stations of the flywheel in order.<br>
+        (2) Contrast explicit and implicit feedback with an example of each. Why is a raw thumbs-up rate misleading, and why can't you trust one implicit signal alone?<br>
+        (3) Walk one bad trace from L41 to a locked-in fix. Where does the golden set come from now versus in Lesson 12, and what does "active learning" decide?<br>
+        (4) When is a fix a prompt change vs a retrieval change vs a fine-tune? What turns a single trace into a systemic fix?<br>
+        (5) State the three guardrails: the model-collapse rule, the engagement-vs-correctness trap, and judge drift. What is the one non-negotiable component in all three?<br>
+        (6) How do shadow, canary, and A/B differ, and why reuse the offline eval rubric online? Name three LLM metrics you'd watch on a canary ramp.<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PATTERN 42 &middot; THE FEEDBACK LOOP &middot; interactive edition<br>
+      Original study notes for software engineers entering AI work &middot; the closing lesson of operations &mdash; the data flywheel that makes a production system improve instead of merely run &middot; tool names, prices, and numbers are illustrative, mid-2026.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(map[e.target.id])map[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the System Design + DSA courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  /* FIG 1 — the data flywheel */
+  makeStepper(document.getElementById('fig-flywheel'), [
+    {text:"Ship v1 and serve real traffic. It works — but on its own it will answer the SAME way forever. Today's ~71% on your eval rubric is a fixed ceiling unless something feeds back. Production is the start line, not the finish.",
+      on:["fw-serve"], arr:[], q:"v1 · 71%", turn:"serving — the starting floor", note:"SERVE — v1 answers real users; every turn is logged as a trace (L41)"},
+    {text:"Every served turn throws off feedback: a thumbs-down here, a silent retry there, an answer the user edited before shipping. You capture all of it — the flywheel's fuel is the exhaust of ordinary use.",
+      on:["fw-feedback"], arr:["fw-a1"], q:"v1 · 71%", turn:"collecting signal", note:"COLLECT — explicit (thumbs, edits) + implicit (retries, abandonment)"},
+    {text:"Triage the signal into failure buckets. One bad trace is an anecdote; a CLUSTER of similar ones — twelve retrieval misses on the same doc type — is a diagnosis that points straight at a fix.",
+      on:["fw-fail"], arr:["fw-a2"], q:"v1 · 71%", turn:"mining failures", note:"MINE — cluster the bad traces; a cluster names a systemic fix"},
+    {text:"Feed confirmed failures back as fixes: a sharper prompt, a re-chunked index, or curated preference data for a fine-tune — always behind a human gate, never trained blindly on raw output.",
+      on:["fw-improve"], arr:["fw-a3"], q:"v1 → v2", turn:"improving (gated)", note:"IMPROVE — prompt / retrieval / curated fine-tune, behind the gate"},
+    {text:"Ship v2. The failure mode that recurred every week is gone, and the eval floor rises to ~78%. Crucially, v2 now serves — producing fresh traces and fresh feedback.",
+      on:["fw-serve"], serveGreen:true, arr:["fw-a4"], q:"v2 · 78%", turn:"serving better", note:"SERVE (better) — the recurring failure no longer appears"},
+    {text:"Round the loop again and again. Each turn raises the floor and enriches the eval set. THIS is the difference between a system that merely runs and one that improves: a closed loop, spinning on data only production can give.",
+      on:["fw-serve","fw-feedback","fw-fail","fw-improve"], serveGreen:true, arr:["fw-a1","fw-a2","fw-a3","fw-a4"], q:"v3 · 83% ↑", turn:"the flywheel spins", note:"FLYWHEEL — each turn compounds; production makes the next version better"}
+  ], function(idx,s){
+    var natural={ 'fw-serve':'node-b','fw-feedback':'node-b','fw-fail':'node-r','fw-improve':'node-b' };
+    if(s.serveGreen) natural['fw-serve']='node-g';
+    var on=s.on||[];
+    ['fw-serve','fw-feedback','fw-fail','fw-improve'].forEach(function(id){
+      var g=document.getElementById(id), rect=document.getElementById(id+'-r');
+      var isOn=on.indexOf(id)!==-1;
+      g.style.opacity=isOn?1:0.3;
+      rect.setAttribute('class', isOn?natural[id]:'node');
+    });
+    ['fw-a1','fw-a2','fw-a3','fw-a4'].forEach(function(a){
+      document.getElementById(a).style.opacity=(s.arr&&s.arr.indexOf(a)!==-1)?1:0.16;});
+    document.getElementById('fw-quality').textContent=s.q||'';
+    document.getElementById('fw-turn').textContent=s.turn||'';
+    document.getElementById('fw-note').textContent=s.note||'';
+  });
+
+  /* FIG 2 — explicit vs implicit signal */
+  makeStepper(document.getElementById('fig-feedback-types'), [
+    {text:"Feedback comes in two flavors, and a healthy loop uses BOTH. On the left, two source families; in the middle, a triage step that labels and buckets whatever arrives. Watch each family in turn.",
+      on:["ft-exp","ft-imp","ft-triage"], arr:[], note:"two feedback families feed one triage step"},
+    {text:"EXPLICIT feedback is the user telling you on purpose: a thumbs-down, a 1-star, a written 'that's wrong', or an edit that corrects your answer. Unambiguous — but rare, and skewed toward the delighted and the furious.",
+      on:["ft-exp","ft-triage"], arr:["ft-e"], note:"EXPLICIT — thumbs, ratings, corrections: sparse but clear (survivorship-biased)"},
+    {text:"IMPLICIT feedback is behavior. Accept or reject the suggestion? Retry, regenerate, edit before sending, abandon the session? Did the downstream task actually succeed? Abundant and cheap — but noisy and confounded.",
+      on:["ft-imp","ft-triage"], arr:["ft-i"], note:"IMPLICIT — accept/reject, retries, abandonment, downstream success: abundant but noisy"},
+    {text:"Triage fuses them. A lone implicit signal is a rumor; corroborated by a thumbs-down or a low judge score it becomes evidence. Combining sparse-clear with abundant-noisy gives you both coverage AND confidence.",
+      on:["ft-triage"], arr:["ft-e","ft-i"], note:"COMBINE — corroborate a noisy signal against a clear one; never trust one alone"},
+    {text:"Out the other side: failure buckets. Similar failures cluster, and the cluster names the fix — a prompt bug, a retrieval gap, or a capability the base model lacks and only fine-tuning will add.",
+      on:["ft-triage","ft-b1","ft-b2","ft-b3"], arr:["ft-b1a","ft-b2a","ft-b3a"], note:"BUCKET — sort failures into prompt / retrieval / fine-tune clusters"},
+    {text:"One trap to name now: engagement is NOT correctness. A thumbs-up, a longer chat, a click can all reward a confident, sycophantic, WRONG answer. Pair every engagement signal with a correctness check before it steers the loop.",
+      on:["ft-exp","ft-imp","ft-triage","ft-b1","ft-b2","ft-b3"], arr:["ft-e","ft-i","ft-b1a","ft-b2a","ft-b3a"], note:"WATCH OUT — engagement ≠ correctness; pair every signal with a correctness check"}
+  ], function(idx,s){
+    var natural={ 'ft-exp':'node-b','ft-imp':'node-b','ft-triage':'node-b','ft-b1':'node-r','ft-b2':'node-r','ft-b3':'node-r' };
+    var on=s.on||[];
+    ['ft-exp','ft-imp','ft-triage','ft-b1','ft-b2','ft-b3'].forEach(function(id){
+      var g=document.getElementById(id), rect=document.getElementById(id+'-r');
+      var isOn=on.indexOf(id)!==-1;
+      g.style.opacity=isOn?1:0.3;
+      rect.setAttribute('class', isOn?natural[id]:'node');
+    });
+    ['ft-e','ft-i','ft-b1a','ft-b2a','ft-b3a'].forEach(function(a){
+      document.getElementById(a).style.opacity=(s.arr&&s.arr.indexOf(a)!==-1)?1:0.14;});
+    document.getElementById('ft-note').textContent=s.note||'';
+  });
+
+  /* FIG 3 — from a bad trace to a fix */
+  makeStepper(document.getElementById('fig-trace-to-eval'), [
+    {text:"Start with one concrete artifact: a production trace your observability layer (L41) flagged — the online judge scored it 0.31 and the user thumbed it down. Not a hypothetical; a real miss a real user hit.",
+      on:["te-trace"], arr:[], note:"a real production failure — online judge scored it 0.31 (from L41's traces)"},
+    {text:"Route it through the gate. A human (or a trusted verifier) confirms it's a genuine failure — not judge noise, position bias, or an actually-correct answer. This gate is the guardrail that keeps garbage out of everything downstream.",
+      on:["te-gate"], arr:["te-1"], note:"HUMAN / VERIFIER GATE — genuine failure, or just judge noise?"},
+    {text:"Turn the confirmed failure into an eval case and add it to the golden set from Phase 2. Your eval suite now grows from failures users actually hit — not the ones you guessed before launch. Eval-driven development goes continuous.",
+      on:["te-eval"], arr:["te-2"], note:"GOLDEN SET grows from REAL failures, not up-front guesses (Phase 2)"},
+    {text:"One case earns a test; a CLUSTER of like cases earns a fix. The bucket tells you which lever: sharpen the prompt, patch retrieval, or — for a true capability gap — mine curated preference pairs for DPO (Phase 5).",
+      on:["te-fix"], arr:["te-3"], note:"CLUSTER → FIX — prompt / retrieval / curated fine-tune; never train on raw output"},
+    {text:"Re-run the eval. The case that scored 0.31 now passes cleanly against the identical rubric — and because it lives in the golden set, any future regression on it fails CI (L14). The fix is locked in.",
+      on:["te-reeval"], arr:["te-4"], note:"RE-EVAL — the once-failing case now PASSES against the same rubric"},
+    {text:"Ship it behind a canary, and the improved version serves — throwing off fresh traces and fresh feedback. Trace → gate → eval → fix → re-eval → serve: the whole flywheel, made concrete on a single failure.",
+      on:["te-serve"], arr:["te-5","te-6"], note:"SHIP & SERVE — the better version produces new traces; the loop turns again"}
+  ], function(idx,s){
+    var natural={ 'te-trace':'node-r','te-gate':'node-b','te-eval':'node-b','te-fix':'node-b','te-reeval':'node-g','te-serve':'node-g' };
+    var on=s.on||[];
+    ['te-trace','te-gate','te-eval','te-fix','te-reeval','te-serve'].forEach(function(id){
+      var g=document.getElementById(id), rect=document.getElementById(id+'-r');
+      var isOn=on.indexOf(id)!==-1;
+      g.style.opacity=isOn?1:0.3;
+      rect.setAttribute('class', isOn?natural[id]:'node');
+    });
+    ['te-1','te-2','te-3','te-4','te-5','te-6'].forEach(function(a){
+      document.getElementById(a).style.opacity=(s.arr&&s.arr.indexOf(a)!==-1)?1:0.14;});
+    document.getElementById('te-note').textContent=s.note||'';
+  });
+</script>
+</body>
+</html>
