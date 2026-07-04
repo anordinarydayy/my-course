@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 27 — Locking &amp; Deadlocks (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Locking &amp; Deadlocks</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>When you need to block</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Row locks: FOR UPDATE &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Table locks &amp; fail-fast</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>How a deadlock forms &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>A deadlock-free transfer &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">27</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Locking &amp; Deadlocks</h1>
+      <p class="lede">Most of the time PostgreSQL lets you forget locks exist — its MVCC design keeps readers and writers out of each other's way. But when two transactions fight over the same row, or you must protect an invariant like a balance or a stock count, you reach for locks <em>deliberately</em> — and the moment a transaction holds two of them, deadlock becomes possible. This practice lesson is about taking locks on purpose, reading how they block, and writing code that never deadlocks.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> A hands-on practice lesson for <strong>PostgreSQL (PG 17/18)</strong>. It assumes you have already met MVCC and isolation levels, and turns to the deliberate side of concurrency: row locks, table locks, and deadlocks. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>), and it ends in a <strong>worked SQL problem</strong> — a deadlock-free money transfer — plus a set of <strong>graded drills</strong> to test yourself.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>27</b> When to block</div>
+      <h2>When you <em>do</em> need to block</h2>
+      <p>Start with the good news, because it is most of the news: under <strong>MVCC</strong> (multi-version concurrency control), Postgres gives every transaction its own snapshot of the data. Readers never block writers and writers never block readers — an <code>UPDATE</code> writes a new row version while old readers keep seeing the old one. For the overwhelming majority of your queries, you never take a lock by hand, and you should lean on that default rather than reaching for locks out of nervousness.</p>
+      <p>But MVCC has one hard limit it cannot wish away: <strong>two transactions that write the same row must serialize.</strong> Whoever writes second has to wait for the first to commit or roll back — otherwise one update would silently overwrite the other, a <strong>lost update</strong>. Postgres enforces this automatically, with a <em>row lock</em> taken by every <code>UPDATE</code> and <code>DELETE</code>. You don't ask for it; it's simply there whenever two writers collide on a row.</p>
+      <p>There is a second, sharper reason to lock on purpose: <strong>invariants that span your read and your write.</strong> If your logic is "read the stock, check it is above zero, then decrement," that check is only meaningful if nobody changes the row between your read and your write. MVCC alone will happily let another transaction slip in there. To close the gap you must hold a lock on the row <em>while you decide</em> — the classic <strong>read-modify-write</strong> pattern, and exactly what <code>SELECT &hellip; FOR UPDATE</code> is for.</p>
+      <p>Postgres offers two granularities of lock, and it helps to keep them straight from the start:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Row locks</h4>
+          <ul>
+            <li>Protect <strong>individual rows</strong>, not the table.</li>
+            <li>Taken by <code>UPDATE</code>/<code>DELETE</code> and by <code>SELECT &hellip; FOR UPDATE</code>/<code>FOR SHARE</code>.</li>
+            <li>Fine-grained: different rows lock independently, so concurrency stays high.</li>
+            <li>Your everyday tool for same-row contention and read-modify-write.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Table locks</h4>
+          <ul>
+            <li>Protect a <strong>whole table</strong>.</li>
+            <li>Taken automatically by everything — a weak one for <code>SELECT</code>, the strongest for <code>ALTER</code>/<code>DROP</code>.</li>
+            <li>Coarse: the strong modes exclude every other query on the table.</li>
+            <li>You rarely take them by hand, but <strong>DDL does</strong> — where migrations bite.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout note">
+        <span class="k">Lock last, not first</span>
+        <p>The instinct from other systems is "lock the data before you touch it." In Postgres that instinct is usually wrong: MVCC already isolates snapshots, so a manual lock is a deliberate choice you make only for same-row write contention or a read-modify-write invariant. Every lock you hold is concurrency you gave up — so take the weakest lock that does the job, hold it for the shortest window, and let MVCC do the rest.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>27</b> Row locks</div>
+      <h2>Row locks: <code>FOR UPDATE</code> and friends &#9656;</h2>
+      <p>The workhorse is <code>SELECT &hellip; FOR UPDATE</code>. It reads the matching rows <em>and</em> takes an exclusive lock on each one, as if to announce "I am about to update these." Any other transaction that tries to <code>UPDATE</code>, <code>DELETE</code>, or <code>SELECT &hellip; FOR UPDATE</code> those same rows will wait until you commit or roll back. It does not error, it does not read a stale value — it queues.</p>
+      <p>A plain <code>UPDATE</code> or <code>DELETE</code> already takes a row lock for you — technically <code>FOR NO KEY UPDATE</code>, a hair weaker than <code>FOR UPDATE</code> (it still lets the <code>FOR KEY SHARE</code> that foreign-key checks use pass through). The practical effect is identical: a second writer to the same row waits. The four row-lock strengths, weakest to strongest:</p>
+      <ul>
+        <li><strong><code>FOR KEY SHARE</code></strong> — weakest; taken by foreign-key checks. Blocks only changes to the row's key.</li>
+        <li><strong><code>FOR SHARE</code></strong> — a shared read lock; many transactions can hold it at once, but it blocks writers. Use it when you need a row to <em>stay put</em> while you read related data.</li>
+        <li><strong><code>FOR NO KEY UPDATE</code></strong> — what a plain <code>UPDATE</code> takes; exclusive against other writers.</li>
+        <li><strong><code>FOR UPDATE</code></strong> — the strongest row lock; fully exclusive. Reach for it when you will modify the row after reading it.</li>
+      </ul>
+      <p>Watch two sessions contend for the exclusive lock on one row. The point is that the second one <em>waits</em> — it is not rejected, and it never sees the value the first is busy changing:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-forupdate">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Two sessions taking SELECT FOR UPDATE on the same row: the second one blocks until the first commits">
+            <text class="lbl-sm" x="56" y="48" text-anchor="start">T1 &middot; session A</text>
+            <text class="lbl-sm" x="56" y="226" text-anchor="start">T2 &middot; session B</text>
+            <g id="g-f1-a1" style="opacity:.2"><rect class="chip cA" x="56" y="58" width="200" height="42" rx="8"/><text class="chiptext" x="156" y="84" text-anchor="middle">T1  SELECT&hellip;FOR UPDATE</text></g>
+            <g id="g-f1-a2" style="opacity:.2"><rect class="chip cA" x="404" y="58" width="200" height="42" rx="8"/><text class="chiptext" x="504" y="84" text-anchor="middle">T1  UPDATE; COMMIT</text></g>
+            <g id="g-f1-b1" style="opacity:.2"><rect class="chip cBad" x="56" y="234" width="200" height="42" rx="8"/><text class="chiptext" x="156" y="260" text-anchor="middle">T2  SELECT&hellip;FOR UPDATE</text></g>
+            <g id="g-f1-b2" style="opacity:.2"><rect class="chip cB" x="404" y="234" width="200" height="42" rx="8"/><text class="chiptext" x="504" y="260" text-anchor="middle">T2  lock acquired</text></g>
+            <text class="lbl-sm" x="330" y="128" text-anchor="middle">row 7 &middot; exclusive lock</text>
+            <rect id="f1-lockbox" class="balbox" x="250" y="136" width="160" height="56" rx="9"/>
+            <text id="f1-lock" x="330" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="700" fill="#20201D">row 7</text>
+            <path d="M40 212 H 624" class="flow-d"/>
+            <text class="lbl-sm" x="622" y="207" text-anchor="end">time &#8594;</text>
+            <text id="f1-verdict" x="330" y="322" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: <code>FOR UPDATE</code> makes the second writer wait, not clobber — the two serialize</figcaption>
+      </figure>
+
+      <p>Here is the read-modify-write done right — a stock decrement that cannot lose an update, because the row is locked from the read through the write:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">BEGIN</span>;
+<span class="cm">-- lock row 7 AND read its current stock in one shot</span>
+<span class="kw">SELECT</span> stock <span class="kw">FROM</span> products <span class="kw">WHERE</span> id = <span class="lit">7</span> <span class="kw">FOR UPDATE</span>;
+<span class="cm">-- app decides: stock is 3, so selling one is fine</span>
+<span class="kw">UPDATE</span> products <span class="kw">SET</span> stock = stock - <span class="lit">1</span> <span class="kw">WHERE</span> id = <span class="lit">7</span>;
+<span class="kw">COMMIT</span>;   <span class="cm">-- commit releases the lock</span></code></pre>
+      <div class="callout tip">
+        <span class="k">The lock lives only inside the transaction</span>
+        <p><code>FOR UPDATE</code> only helps if it wraps the read <em>and</em> the write in <strong>one transaction</strong>. If you <code>SELECT &hellip; FOR UPDATE</code>, <code>COMMIT</code>, and then <code>UPDATE</code> in a fresh transaction, you have thrown the lock away before using it — the gap reopens. A row lock is held until the transaction that took it commits or rolls back, and not one statement longer.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>27</b> Table locks</div>
+      <h2>Table-level locks, and failing fast</h2>
+      <p>Every statement also takes a <strong>table-level lock</strong>, usually one so weak you never notice it. They exist to keep DDL from yanking a table out from under a running query. There are eight modes; you mostly care about the two ends of the ladder and one rule that connects them.</p>
+      <ul>
+        <li><strong><code>ACCESS SHARE</code></strong> — taken by a plain <code>SELECT</code>. The weakest mode; it conflicts only with <code>ACCESS EXCLUSIVE</code>. Many readers hold it at once.</li>
+        <li><strong><code>ROW SHARE</code> / <code>ROW EXCLUSIVE</code></strong> — taken by <code>SELECT &hellip; FOR UPDATE</code> and by <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>. Ordinary writes; they don't block one another at the table level (row locks sort out the row-by-row conflicts).</li>
+        <li><strong><code>SHARE</code> / <code>SHARE ROW EXCLUSIVE</code></strong> — taken by a non-concurrent <code>CREATE INDEX</code> and some <code>ALTER</code>s.</li>
+        <li><strong><code>ACCESS EXCLUSIVE</code></strong> — the strongest. Taken by most <code>ALTER TABLE</code>, by <code>DROP TABLE</code>, <code>TRUNCATE</code>, and <code>VACUUM FULL</code>. It conflicts with <em>everything</em>, including a plain <code>SELECT</code>.</li>
+      </ul>
+      <p>The rule to remember: <strong>readers share, DDL excludes.</strong> Any number of <code>ACCESS SHARE</code> locks coexist happily, so concurrent reads never block each other. But an <code>ACCESS EXCLUSIVE</code> lock must wait for every current query on the table to finish, and while it waits it blocks every <em>new</em> query behind it.</p>
+      <p>That is why an innocent-looking <code>ALTER TABLE</code> on a busy table can freeze your whole app. It queues behind the running queries to get its <code>ACCESS EXCLUSIVE</code> lock, and while it sits in that queue, every fresh query queues behind <em>it</em>. A five-millisecond schema change can cause a five-minute stall. Doing DDL safely on a live table is its own craft — <strong>Phase 9, L52</strong> — but the core defense is to not let a lock wait be unbounded.</p>
+      <p>Two tools let you <strong>fail fast</strong> instead of waiting forever:</p>
+      <ul>
+        <li><strong><code>NOWAIT</code></strong> — <code>SELECT &hellip; FOR UPDATE NOWAIT</code> errors immediately (SQLSTATE <code>55P03</code>) if the row is already locked, rather than blocking. Good when a wait would be pointless.</li>
+        <li><strong><code>lock_timeout</code></strong> — <code>SET lock_timeout = '2s'</code> caps how long <em>any</em> lock acquisition may block before it errors. A safety valve, especially around migrations, so a stuck lock fails fast instead of piling connections up behind it.</li>
+      </ul>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- error out at once if row 7 is already locked</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> products <span class="kw">WHERE</span> id = <span class="lit">7</span> <span class="kw">FOR UPDATE NOWAIT</span>;
+
+<span class="cm">-- or: wait at most 2 seconds for any lock, then fail</span>
+<span class="kw">SET</span> lock_timeout = <span class="lit">'2s'</span>;
+<span class="kw">ALTER TABLE</span> products <span class="kw">ADD COLUMN</span> note text;</code></pre>
+      <div class="callout note">
+        <span class="k"><code>NOWAIT</code> vs <code>lock_timeout</code></span>
+        <p><code>NOWAIT</code> means "never wait at all — fail the instant the lock is taken." <code>lock_timeout</code> means "wait, but no longer than N." For migrations the standard guardrail is a <em>short</em> <code>lock_timeout</code> plus a retry: the <code>ALTER</code> either grabs its lock quickly or bows out cleanly, so it can never be the thing holding an <code>ACCESS EXCLUSIVE</code> lock while a hundred queries pile up behind it.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>27</b> Deadlocks</div>
+      <h2>How a deadlock forms &#9656;</h2>
+      <p>A deadlock is not a Postgres bug — it is a <em>shape</em> your transactions make. It needs exactly two ingredients: two transactions, each holding a lock the other one wants, arranged in a cycle. The classic recipe:</p>
+      <ul>
+        <li>T1 locks row A, then asks for row B.</li>
+        <li>T2 locks row B, then asks for row A.</li>
+        <li>Neither can proceed and neither will release. That mutual wait is the cycle.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-deadlock">
+          <svg viewBox="0 0 680 336" role="img" aria-label="A deadlock cycle between two transactions, resolved when the detector aborts one victim with error 40P01">
+            <text class="lbl-sm" x="48" y="48" text-anchor="start">T1</text>
+            <text class="lbl-sm" x="48" y="226" text-anchor="start">T2</text>
+            <g id="g-f2-a1" style="opacity:.2"><rect class="chip cA" x="48" y="58" width="200" height="42" rx="8"/><text class="chiptext" x="148" y="84" text-anchor="middle">T1  LOCK row A</text></g>
+            <g id="g-f2-a3" style="opacity:.2"><rect class="chip cA" x="436" y="58" width="200" height="42" rx="8"/><text class="chiptext" x="536" y="84" text-anchor="middle">T1  gets B; COMMIT</text></g>
+            <g id="g-f2-b1" style="opacity:.2"><rect class="chip cB" x="48" y="234" width="200" height="42" rx="8"/><text class="chiptext" x="148" y="260" text-anchor="middle">T2  LOCK row B</text></g>
+            <g id="g-f2-b3" style="opacity:.2"><rect class="chip cBad" x="436" y="234" width="200" height="42" rx="8"/><text class="chiptext" x="536" y="260" text-anchor="middle">T2  ABORT &middot; 40P01</text></g>
+            <text class="lbl-sm" x="340" y="128" text-anchor="middle">wait-for graph</text>
+            <rect id="f2-lockbox" class="balbox" x="250" y="136" width="180" height="56" rx="9"/>
+            <text id="f2-lock" x="340" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="700" fill="#20201D">A &#8594; T1</text>
+            <path d="M40 212 H 644" class="flow-d"/>
+            <text class="lbl-sm" x="642" y="207" text-anchor="end">time &#8594;</text>
+            <text id="f2-verdict" x="340" y="322" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: opposite lock orders build a cycle; the detector breaks it by aborting a victim (<code>40P01</code>)</figcaption>
+      </figure>
+
+      <p>Postgres does not hang. Each waiting transaction, after blocking for <code>deadlock_timeout</code> (1&nbsp;second by default), triggers the <strong>deadlock detector</strong>, which builds the wait-for graph and looks for a cycle. Find one and it breaks the cycle by aborting a single transaction — the <strong>victim</strong> — which fails with SQLSTATE <code>40P01</code> (<em>deadlock detected</em>). The other transaction's wait ends and it proceeds as if nothing had happened.</p>
+      <p>Two consequences for you. First, a deadlock is a <strong>normal, recoverable error</strong>: catch <code>40P01</code> and retry the victim's transaction from the top — it usually succeeds on the second try, because the contention has cleared. Second, better than retrying is <em>not deadlocking</em>: since the cycle needs two transactions grabbing the same locks in <em>opposite</em> orders, you prevent every deadlock of this kind by always grabbing locks in a <strong>consistent order</strong>. That single discipline is the heart of the worked problem next.</p>
+      <div class="callout">
+        <span class="k"><code>deadlock_timeout</code> is a detection delay, not a fix</span>
+        <p>It is tempting to "solve" deadlocks by raising <code>deadlock_timeout</code>. Don't — it only makes real deadlocks take <em>longer</em> to surface, so your transactions sit blocked for longer before the victim is chosen. Leave it near the default; the detector runs rarely and cheaply. The real fix is to design the cyclic ordering out of your code so the detector has nothing to find.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>27</b> Worked problem</div>
+      <h2>A deadlock-free balance transfer &#9656;</h2>
+      <p>Time to put it together. The bank transfer is the canonical concurrency exercise because the naive version deadlocks under load and the fix is a one-line discipline. We will build it in six moves.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> accounts (
+  id      bigint  <span class="kw">PRIMARY KEY</span>,
+  balance numeric <span class="kw">NOT NULL</span> <span class="kw">CHECK</span> (balance &gt;= <span class="lit">0</span>)
+);</code></pre>
+      <p>Note the <code>CHECK</code>: the database itself refuses a negative balance, so an overdrawn transfer aborts even if the application's own guard slips. Correctness backstops live in the schema, not just in code.</p>
+
+      <h3>2 &middot; The task</h3>
+      <p>Move an amount from one account to another, under heavy concurrency, without ever <strong>losing money</strong>, going <strong>negative</strong>, or <strong>deadlocking</strong>.</p>
+
+      <h3>3 &middot; The naive version, and why it deadlocks</h3>
+      <p>The obvious code locks the "from" account, then the "to" account:</p>
+      <p class="codetag">sql &middot; naive — locks in payment order</p>
+      <pre class="code"><code><span class="kw">BEGIN</span>;
+<span class="kw">SELECT</span> balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">$1</span> <span class="kw">FOR UPDATE</span>;   <span class="cm">-- lock "from" ($1) first</span>
+<span class="kw">SELECT</span> balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">$2</span> <span class="kw">FOR UPDATE</span>;   <span class="cm">-- then "to" ($2)</span>
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance - <span class="lit">$3</span> <span class="kw">WHERE</span> id = <span class="lit">$1</span>;
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance + <span class="lit">$3</span> <span class="kw">WHERE</span> id = <span class="lit">$2</span>;
+<span class="kw">COMMIT</span>;</code></pre>
+      <p>Now run two transfers in opposite directions at the same moment — one <code>1 &#8594; 2</code>, one <code>2 &#8594; 1</code> — and watch the interleave:</p>
+      <p class="codetag">the interleaving</p>
+      <pre class="code"><code><span class="cm">-- time   Tx A  (1 -> 2)                 Tx B  (2 -> 1)</span>
+<span class="cm">--  t1    lock row 1  ok</span>
+<span class="cm">--  t2                                   lock row 2  ok</span>
+<span class="cm">--  t3    want row 2  -> waits (B has it)</span>
+<span class="cm">--  t4                                   want row 1  -> waits (A has it)</span>
+<span class="cm">--  --    cycle: each waits on the other -> one is aborted with 40P01</span></code></pre>
+      <p>Each transaction locked its own "from" account first, so under this direction pair they grabbed rows 1 and 2 in <em>opposite</em> orders — the exact recipe from FIG.&nbsp;2.</p>
+
+      <h3>4 &middot; The fix: one consistent lock order</h3>
+      <p>Lock every row the transaction needs up front, in a fixed <strong>canonical order</strong> — ascending <code>id</code> — before touching anything. A single <code>SELECT &hellip; ORDER BY id FOR UPDATE</code> does exactly that:</p>
+      <p class="codetag">sql &middot; the fix — ordered locking</p>
+      <pre class="code"><code><span class="kw">BEGIN</span>;
+<span class="cm">-- lock BOTH rows in one statement, always in ascending id order</span>
+<span class="kw">SELECT</span> id, balance
+  <span class="kw">FROM</span> accounts
+ <span class="kw">WHERE</span> id <span class="kw">IN</span> (<span class="lit">$1</span>, <span class="lit">$2</span>)
+ <span class="kw">ORDER BY</span> id
+   <span class="kw">FOR UPDATE</span>;
+<span class="cm">-- both rows are ours now; apply the transfer</span>
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance - <span class="lit">$3</span> <span class="kw">WHERE</span> id = <span class="lit">$1</span>;   <span class="cm">-- debit "from"</span>
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance + <span class="lit">$3</span> <span class="kw">WHERE</span> id = <span class="lit">$2</span>;   <span class="cm">-- credit "to"</span>
+<span class="kw">COMMIT</span>;</code></pre>
+      <p>Step through what the two opposite transfers do now — they <em>queue</em> instead of cycling:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-transfer">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Two opposite transfers using ascending-id lock order: the second one queues behind the first, so no cycle forms">
+            <text class="lbl-sm" x="56" y="48" text-anchor="start">Tx A &middot; 1 &#8594; 2</text>
+            <text class="lbl-sm" x="56" y="226" text-anchor="start">Tx B &middot; 2 &#8594; 1</text>
+            <g id="g-f3-a1" style="opacity:.2"><rect class="chip cA" x="56" y="58" width="200" height="42" rx="8"/><text class="chiptext" x="156" y="84" text-anchor="middle">TxA  lock 1&#8594;2</text></g>
+            <g id="g-f3-a2" style="opacity:.2"><rect class="chip cA" x="404" y="58" width="200" height="42" rx="8"/><text class="chiptext" x="504" y="84" text-anchor="middle">TxA  UPDATE&#215;2; COMMIT</text></g>
+            <g id="g-f3-b1" style="opacity:.2"><rect class="chip cBad" x="56" y="234" width="200" height="42" rx="8"/><text class="chiptext" x="156" y="260" text-anchor="middle">TxB  wants 1; waits</text></g>
+            <g id="g-f3-b2" style="opacity:.2"><rect class="chip cB" x="404" y="234" width="200" height="42" rx="8"/><text class="chiptext" x="504" y="260" text-anchor="middle">TxB  lock 1&#8594;2; COMMIT</text></g>
+            <text class="lbl-sm" x="330" y="128" text-anchor="middle">lock order: id ASC</text>
+            <rect id="f3-lockbox" class="balbox" x="250" y="136" width="160" height="56" rx="9"/>
+            <text id="f3-lock" x="330" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="700" fill="#20201D">rule: id ASC</text>
+            <path d="M40 212 H 624" class="flow-d"/>
+            <text class="lbl-sm" x="622" y="207" text-anchor="end">time &#8594;</text>
+            <text id="f3-verdict" x="330" y="322" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: ascending-<code>id</code> locking makes both transfers reach for row 1 first, so they queue — no cycle</figcaption>
+      </figure>
+
+      <h3>5 &middot; Why it is now safe</h3>
+      <p>Both transfers, regardless of direction, ask for the <em>lower</em> id first. So the transaction that wins row 1 also goes on to get row 2; the other simply waits for both. There is no way to build a cycle when every transaction reaches for locks in the same order — the pre-condition for this class of deadlock is gone. The <code>CHECK (balance &gt;= 0)</code> handles the other risk: a transfer that would overdraw the source aborts on the debit, and atomicity rolls the whole thing back.</p>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>In an interview you would say it like this: <em>"The transfer touches two rows, and two concurrent transfers in opposite directions is the textbook deadlock. I take both row locks in a single <code>SELECT &hellip; FOR UPDATE</code> with <code>ORDER BY id</code>, so every transaction acquires its locks low-id-first — that makes a wait cycle impossible. The <code>CHECK (balance &gt;= 0)</code> constraint backstops overdrafts. And I still wrap the whole thing in a retry loop that catches <code>40P01</code>, with a <code>lock_timeout</code> so a stuck lock fails fast instead of hanging a connection — belt and suspenders."</em></p>
+      <div class="callout tip">
+        <span class="k"><code>lock_timeout</code> and a retry loop still belong here</span>
+        <p>Ordered locking removes <em>this</em> deadlock, but it can't promise no other code path ever locks these rows in a different order — a bulk job, a report, a future feature. So keep the cheap insurance: a short <code>lock_timeout</code> to bound the wait, and a loop that catches <code>40P01</code> (and lock-timeout errors) and re-runs the transaction from the top. You do the ordering to make deadlocks <em>rare</em>; you keep the retry to make them <em>harmless</em>.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>27</b> Drills &amp; traps</div>
+      <h2>Graded drills, then the traps</h2>
+      <p>Read each challenge, write your answer, <em>then</em> open the solution. No peeking — the value is in the attempt.</p>
+
+      <h3>Drill 1 — read-modify-write vs the lost update</h3>
+      <p>Add a <code>$20</code> credit to account 1. Write it so two concurrent credits cannot lose each other's money — then show the version that <em>does</em> lose one.</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql &middot; correct</p>
+        <pre class="code"><code><span class="kw">BEGIN</span>;
+<span class="kw">SELECT</span> balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">1</span> <span class="kw">FOR UPDATE</span>;    <span class="cm">-- lock + read</span>
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance + <span class="lit">20</span> <span class="kw">WHERE</span> id = <span class="lit">1</span>;   <span class="cm">-- relative write</span>
+<span class="kw">COMMIT</span>;</code></pre>
+        <p class="codetag">sql &middot; lost update</p>
+        <pre class="code"><code><span class="kw">SELECT</span> balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">1</span>;               <span class="cm">-- reads 100, no lock</span>
+<span class="cm">-- a concurrent tx also read 100 and committed 120...</span>
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = <span class="lit">120</span> <span class="kw">WHERE</span> id = <span class="lit">1</span>;         <span class="cm">-- clobbers it: should be 140</span></code></pre>
+        <p><strong>Why:</strong> <code>FOR UPDATE</code> serializes the two writers, and <code>balance = balance + 20</code> applies the delta on top of whatever committed first — so both credits land.</p>
+      </div>
+
+      <h3>Drill 2 — kill a deadlock with lock ordering</h3>
+      <p>A nightly job locks rows in <code>id</code> order; a new feature locks the same rows in reverse to "process newest first." QA reports random <code>40P01</code>s. Fix it <em>without</em> slowing the job.</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p>Standardize the <em>lock-acquisition</em> order across both paths; the order you <em>process</em> results in is independent and free to differ. Keep <code>FOR UPDATE &hellip; ORDER BY id</code> everywhere, then re-sort the output however you like afterward:</p>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">SELECT</span> * <span class="kw">FROM</span> tasks <span class="kw">WHERE</span> id <span class="kw">IN</span> (&hellip;) <span class="kw">ORDER BY</span> id <span class="kw">FOR UPDATE</span>;  <span class="cm">-- lock low -> high</span>
+<span class="cm">-- then process the locked rows newest-first in the app, if you want</span></code></pre>
+        <p><strong>Why:</strong> deadlocks come from the order locks are <em>acquired</em>, not the order rows are <em>used</em>. Standardize the former; the latter costs nothing.</p>
+      </div>
+
+      <h3>Drill 3 — don't wait at all (preview of L28)</h3>
+      <p>A pool of workers each want the next unclaimed job row. You don't want a worker to block on a row another worker already locked — it should just take a different one. What clause?</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">SELECT</span> id <span class="kw">FROM</span> jobs
+ <span class="kw">WHERE</span> state = <span class="lit">'ready'</span>
+ <span class="kw">ORDER BY</span> id
+ <span class="kw">FOR UPDATE SKIP LOCKED</span>
+ <span class="kw">LIMIT</span> <span class="lit">1</span>;</code></pre>
+        <p><strong>Why:</strong> <code>SKIP LOCKED</code> silently steps over rows another transaction holds, so each worker grabs a <em>different</em> job with zero waiting — a lock-free work queue. (<code>NOWAIT</code> would instead <em>error</em> on a locked row; <code>SKIP LOCKED</code> just ignores it.) This queue pattern is the whole of <strong>L28</strong>.</p>
+      </div>
+
+      <h3>Drill 4 — bound a wait with <code>lock_timeout</code></h3>
+      <p>One report query occasionally sits behind a long transaction's lock for minutes, exhausting the connection pool. Make it give up after 3 seconds instead of hanging.</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">SET</span> lock_timeout = <span class="lit">'3s'</span>;    <span class="cm">-- session-wide (or SET LOCAL inside one txn)</span>
+<span class="kw">BEGIN</span>;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">1</span> <span class="kw">FOR UPDATE</span>;  <span class="cm">-- errors after 3s if still blocked</span></code></pre>
+        <p><strong>Why:</strong> <code>lock_timeout</code> caps how long any single lock acquisition may block, turning an unbounded hang into a fast, catchable error you can retry or surface to the user.</p>
+      </div>
+
+      <h3>The traps</h3>
+      <ul>
+        <li><strong>Inconsistent lock order</strong> — the deadlock generator. Two code paths taking the same rows in different orders will eventually cycle. Enforce one canonical order (ascending <code>id</code>) everywhere.</li>
+        <li><strong>Long transactions holding locks</strong> — a lock lives until <code>COMMIT</code>/<code>ROLLBACK</code>. A transaction that locks a row and then does slow work (an HTTP call, user think-time) blocks every other writer to that row. Keep the locked window short.</li>
+        <li><strong>Read-modify-write with no <code>FOR UPDATE</code></strong> — the silent lost update. If the "check" and the "write" are separate statements, lock the row (or fold it into a single relative <code>UPDATE</code>) so nobody can slip between them.</li>
+        <li><strong>DDL at peak</strong> — <code>ALTER</code>/<code>DROP</code>/<code>TRUNCATE</code> take <code>ACCESS EXCLUSIVE</code> and block every query on the table. Run migrations off-peak, with a short <code>lock_timeout</code>, and see <strong>Phase 9, L52</strong>.</li>
+      </ul>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>locks are the tool you reach for when MVCC's optimism isn't enough — when two writers hit one row, or an invariant spans your read and your write. Take them deliberately, in a consistent order, and hold them briefly, and a deadlock becomes something you design out rather than debug.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>MVCC first</b><span>Readers and writers don't block each other. Reach for a manual lock only for same-row write contention or a read-modify-write invariant.</span></div>
+        <div class="tk"><span class="num">02</span><b><code>FOR UPDATE</code></b><span>Takes an exclusive row lock while it reads. A second writer of that row waits until you commit or roll back — it never clobbers.</span></div>
+        <div class="tk"><span class="num">03</span><b>The lock ladder</b><span><code>FOR KEY SHARE</code> &lt; <code>FOR SHARE</code> &lt; <code>FOR NO KEY UPDATE</code> (a plain <code>UPDATE</code>) &lt; <code>FOR UPDATE</code>.</span></div>
+        <div class="tk"><span class="num">04</span><b>Table locks</b><span><code>ACCESS SHARE</code> for a <code>SELECT</code> up to <code>ACCESS EXCLUSIVE</code> for DDL. Readers share; DDL on a busy table blocks everything.</span></div>
+        <div class="tk"><span class="num">05</span><b>A deadlock is a cycle</b><span>Two transactions each holding what the other wants. The detector fires after <code>deadlock_timeout</code> and aborts a victim with <code>40P01</code>.</span></div>
+        <div class="tk"><span class="num">06</span><b>Order your locks</b><span>Grab rows in one canonical order (ascending <code>id</code>, via <code>ORDER BY id FOR UPDATE</code>) and a cycle can't form.</span></div>
+        <div class="tk"><span class="num">07</span><b>Fail fast</b><span><code>NOWAIT</code> errors instead of waiting; <code>SKIP LOCKED</code> steps over locked rows; <code>lock_timeout</code> bounds the wait. All beat hanging.</span></div>
+        <div class="tk"><span class="num">08</span><b>Retry the victim</b><span><code>40P01</code> is normal and recoverable: catch it and re-run the transaction. Keep the retry even after you've ordered your locks.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) When does MVCC <em>not</em> save you from taking a lock by hand? Name the two situations.<br>
+        (2) What lock does <code>SELECT &hellip; FOR UPDATE</code> take, and what does a plain <code>UPDATE</code> take? What happens to a second writer of the same row?<br>
+        (3) Which table lock does a plain <code>SELECT</code> take, and which does <code>ALTER TABLE</code> take? Why can a migration freeze a busy table?<br>
+        (4) Draw the two-transaction deadlock. What does Postgres do about it, after how long, and with which SQLSTATE?<br>
+        (5) Explain why locking rows in ascending <code>id</code> order makes the transfer deadlock-free. Would ordering only the <em>output</em> help?<br>
+        (6) Give one use each for <code>FOR UPDATE NOWAIT</code>, <code>SKIP LOCKED</code>, and <code>lock_timeout</code>.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 27 &middot; LOCKING &amp; DEADLOCKS &middot; interactive edition<br>
+      Original study notes &middot; PostgreSQL 17/18 &middot; lock on purpose, in one order, and keep the window short.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — FOR UPDATE makes the second writer wait */
+  makeStepper(_g('fig-forupdate'), [
+    {text:"T1 runs SELECT … FOR UPDATE on row 7. It takes an exclusive row lock and reads the current value.", lit:["a1"], box:"row 7 → T1", boxc:"", v:"T1 holds the lock on row 7"},
+    {text:"T2 runs the same SELECT … FOR UPDATE on row 7. The row is already locked, so T2 blocks — it waits, it does not error, and it will not read a stale value.", lit:["a1","b1"], box:"row 7 → T1", boxc:"", v:"T2 blocked — queued behind T1"},
+    {text:"T1 finishes its read-modify-write — UPDATE, then COMMIT. Committing releases every lock T1 held.", lit:["a1","a2","b1"], box:"row 7 → free", boxc:"", v:"T1 committed → lock released"},
+    {text:"T2 was next in the wait queue, so it now acquires the lock and re-reads the fresh, committed value.", lit:["a1","a2","b1","b2"], box:"row 7 → T2", boxc:"kok", v:"T2 wakes, locks, reads fresh"},
+    {text:"The two writers ran one after the other, never on top of each other. No lost update — that serialization is exactly what FOR UPDATE buys.", lit:["a2","b2"], box:"serialized ✓", boxc:"kok", v:"✓ serialized — no lost update"}
+  ], function(idx,s){
+    ['a1','a2','b1','b2'].forEach(function(id){var g=_g('g-f1-'+id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f1-lock').textContent=s.box;
+    _g('f1-lock').setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#20201D'));
+    _g('f1-lockbox').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    var vd=_g('f1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — how a deadlock forms and resolves */
+  makeStepper(_g('fig-deadlock'), [
+    {text:"T1 takes an exclusive lock on row A.", lit:["a1"], box:"A → T1", boxc:"", v:"T1 holds A"},
+    {text:"T2 takes a lock on row B — a different row, so there is no conflict yet.", lit:["a1","b1"], box:"A→T1 · B→T2", boxc:"", v:"T2 holds B"},
+    {text:"Now T1 asks for row B — but T2 holds it. T1 blocks and starts waiting on T2.", lit:["a1","b1"], box:"T1 waits → B", boxc:"", v:"T1 waits for T2"},
+    {text:"T2 asks for row A — but T1 holds it. T2 blocks too. Each transaction now waits for the other: a cycle.", lit:["a1","b1"], box:"CYCLE ⟳", boxc:"kbad", v:"✗ deadlock — mutual wait"},
+    {text:"After deadlock_timeout, whichever transaction's timer fires first runs the detector, finds the cycle, and aborts one victim — T1 fired first here — with SQLSTATE 40P01. The survivor proceeds; you retry the victim.", lit:["a1","b1","b3"], box:"abort T1 · 40P01", boxc:"kbad", v:"detector aborts the victim"},
+    {text:"T2's rollback frees row B, so T1's wait ends: it gets B and commits. You simply retry T2 from the top.", lit:["a1","a3"], box:"T1 gets B ✓", boxc:"kok", v:"✓ T1 proceeds · retry T2"}
+  ], function(idx,s){
+    ['a1','a3','b1','b3'].forEach(function(id){var g=_g('g-f2-'+id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f2-lock').textContent=s.box;
+    _g('f2-lock').setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#20201D'));
+    _g('f2-lockbox').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — the deadlock-free ordered transfer */
+  makeStepper(_g('fig-transfer'), [
+    {text:"Both transfers touch rows 1 and 2, so both agree to lock them in the same order: ascending id — row 1, then row 2.", lit:["a1"], box:"rule: id ASC", boxc:"", v:"one canonical lock order"},
+    {text:"Tx A (transfer 1→2) runs SELECT … WHERE id IN (1,2) ORDER BY id FOR UPDATE. It locks row 1, then row 2.", lit:["a1"], box:"1,2 → TxA", boxc:"", v:"TxA holds rows 1 and 2"},
+    {text:"Tx B (transfer 2→1) runs the very same ordered SELECT. It needs row 1 first — but TxA holds it, so TxB just waits. No cycle: both wanted row 1 first.", lit:["a1","b1"], box:"TxB waits → 1", boxc:"", v:"TxB blocked — queued (no cycle)"},
+    {text:"Tx A applies its two UPDATEs (debit 1, credit 2) and COMMITs, releasing both locks.", lit:["a1","a2","b1"], box:"TxA freed", boxc:"", v:"TxA done → locks released"},
+    {text:"Tx B wakes, locks rows 1 then 2 in order, applies its UPDATEs, and COMMITs.", lit:["a1","a2","b1","b2"], box:"1,2 → TxB", boxc:"kok", v:"TxB proceeds"},
+    {text:"Both transfers applied, one after the other. A cycle was impossible because every transaction grabbed locks in the same order — deadlock-free by construction.", lit:["a2","b2"], box:"serialized ✓", boxc:"kok", v:"✓ no deadlock — ordered locking"}
+  ], function(idx,s){
+    ['a1','a2','b1','b2'].forEach(function(id){var g=_g('g-f3-'+id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f3-lock').textContent=s.box;
+    _g('f3-lock').setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#20201D'));
+    _g('f3-lockbox').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    var vd=_g('f3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

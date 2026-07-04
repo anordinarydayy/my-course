@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 14 — Pagination Done Right (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Pagination Done Right</div>
+    <h4>Paging at scale</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Two ways to page a big list</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Why OFFSET gets slower &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Keyset (seek) pagination</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>OFFSET vs keyset on the index &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: a feed endpoint &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">14</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Pagination Done Right</h1>
+      <p class="lede">Everyone reaches for <code>LIMIT ... OFFSET ...</code> the first time they page a list, and it works beautifully on page&nbsp;1. The trap is what happens at depth: OFFSET must <em>produce and throw away</em> every row you skip, so the same query that returns in 8&nbsp;milliseconds on page&nbsp;1 can take 8&nbsp;seconds on page&nbsp;10,000. Keyset (seek) pagination replaces "skip <em>m</em> rows" with "seek past the last row I saw," and stays constant-time at any depth. This lesson makes the cost visible, then drills the pattern you should reach for by default.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> A hands-on lesson for engineers who page real data in interviews and in production. Everything is <strong>PostgreSQL</strong> (tested against PG&nbsp;17/18) and runnable. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked SQL problem and graded drills</strong>, so keep a psql window open and try before you peek.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The setup</div>
+      <h2>Two ways to page a big list</h2>
+      <p>A list too large to send in one response gets delivered in <strong>pages</strong>. There are exactly two mental models for "give me the next chunk," and choosing the wrong one is one of the most common quiet performance bugs in web backends.</p>
+      <ul>
+        <li><strong>Page numbers &mdash; <code>LIMIT / OFFSET</code>.</strong> "Give me 20 rows, skipping the first 200,000." The client thinks in page indices; the server translates page&nbsp;<em>k</em> into <code>OFFSET (k&minus;1)&times;20</code>. Trivial to write, and it supports <em>jump to page N</em>.</li>
+        <li><strong>A cursor &mdash; keyset / seek.</strong> "Give me 20 rows that come <em>after</em> the last row I already have." The client sends back a small token &mdash; the sort key of the last row it saw &mdash; and the server seeks straight past it. A bit more code, no page numbers, but constant time at any depth.</li>
+      </ul>
+      <p>Keep one concrete scenario in mind for the whole lesson: an <strong>infinite-scroll feed</strong>, newest posts first, 20 per page. A user has been thumbing the screen for a while and is now on <strong>page 5,000</strong>. With page numbers, the server is about to ask Postgres to skip 100,000 rows to hand back 20. With a cursor, it will hand over the same 20 rows for essentially the same cost as page&nbsp;1. That gap &mdash; and <em>why</em> it exists &mdash; is the entire lesson.</p>
+      <div class="callout">
+        <span class="k">The one-line summary, up front</span>
+        <p><code>OFFSET m</code> is <strong>O(m)</strong>: the database still has to <em>generate</em> the skipped rows in order before discarding them. Keyset is <strong>O(page size)</strong>: it seeks to a boundary in an index and reads only what it returns. For anything that scrolls, prefer keyset; keep OFFSET for small page-number UIs where jumping to an arbitrary page matters more than depth.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The cost of skipping</div>
+      <h2>Why OFFSET gets slower &#9656;</h2>
+      <p>The critical thing to internalize is what <code>OFFSET m LIMIT n</code> actually <em>does</em>. It does not tell the storage engine "jump straight to row <em>m</em>." SQL has no notion of "the <em>m</em>-th row" until the rows are <strong>ordered and produced</strong>. So the executor must produce the first <code>m + n</code> rows <em>in the requested order</em>, <strong>discard the first m</strong>, and return the last <code>n</code>. Producing and throwing away those <em>m</em> rows is real, measurable work.</p>
+      <p>This is true <em>even with a perfect index</em> on the sort column. An index makes the rows come out pre-sorted, so Postgres skips the sort step &mdash; but it still has to <em>walk</em> the first <code>m + n</code> index entries (and, for a plain index scan, visit their heap rows) before <code>LIMIT</code> can take effect. The index turns "sort 10&nbsp;million rows" into "walk <em>m + n</em> of them," which is a huge win &mdash; but <em>m + n</em> still grows with page depth.</p>
+      <p>Put numbers on it. On a 10-million-row feed table, indexed on <code>(created_at DESC, id DESC)</code>, 20 rows per page:</p>
+      <ul>
+        <li><strong>Page 1</strong> &mdash; <code>OFFSET 0</code> &mdash; walk 20 entries &mdash; ~8&nbsp;ms.</li>
+        <li><strong>Page 1,000</strong> &mdash; <code>OFFSET 20,000</code> &mdash; walk 20,020 &mdash; ~900&nbsp;ms.</li>
+        <li><strong>Page 10,000</strong> &mdash; <code>OFFSET 200,000</code> &mdash; walk 200,020 &mdash; ~8&nbsp;s.</li>
+      </ul>
+      <p>Notice the returned page never changes size &mdash; it is always 20 rows. What grows is the <em>discarded prefix</em>. Step through it and watch the kept slice stay tiny while the thrown-away work runs away:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-offset">
+          <svg viewBox="0 0 640 308" role="img" aria-label="A sorted feed scanned by OFFSET: the discarded prefix grows with page depth while the returned page stays 20 rows">
+            <text class="lbl-sm" x="320" y="20" text-anchor="middle">OFFSET m LIMIT 20 &mdash; the same query, deeper and deeper</text>
+            <rect class="chip cBad" x="90" y="34" width="15" height="15" rx="2"/>
+            <text class="lbl-sm" x="112" y="46" text-anchor="start">discarded prefix (m rows)</text>
+            <rect class="chip cA" x="360" y="34" width="15" height="15" rx="2"/>
+            <text class="lbl-sm" x="382" y="46" text-anchor="start">returned page (n = 20)</text>
+            <rect class="node" x="40" y="62" width="560" height="40" rx="6"/>
+            <rect id="of-disc" class="chip cBad" x="44" y="65" width="0" height="34"/>
+            <rect id="of-keep" class="chip cA" x="48" y="65" width="30" height="34"/>
+            <text id="of-offset" class="readout" x="320" y="134" text-anchor="middle" font-size="13">OFFSET m &middot; LIMIT 20</text>
+            <rect id="of-box" class="balbox" x="210" y="150" width="220" height="50" rx="9"/>
+            <text id="of-time" x="320" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="22" font-weight="700" fill="#20201D">&mdash;</text>
+            <text id="of-scan" class="lbl-sm" x="320" y="230" text-anchor="middle">entries walked before LIMIT can act</text>
+            <text id="of-verdict" x="320" y="286" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: OFFSET must produce then throw away the first m rows; the discarded prefix, not the page, sets the cost</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">Convenience with a hidden linear tax</span>
+        <p>OFFSET feels free because it's one keyword and it <em>can</em> jump to any page number. But every deep jump pays an O(m) tax you never see in the SQL text. If your list scrolls rather than paginates by number, you are paying that tax on every fetch &mdash; and it compounds exactly where engagement is highest (deep in a long feed).</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The seek pattern</div>
+      <h2>Keyset (seek) pagination</h2>
+      <p>Keyset pagination replaces "skip <em>m</em> rows" with a far cheaper instruction: "start <em>after</em> the last row I already have." Instead of a page number, the client hands back a <strong>cursor</strong> &mdash; the <em>sort key of the last row on the previous page</em>. The next query then asks for everything that sorts after that boundary:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, author_id, created_at, body
+<span class="kw">FROM</span>   posts
+<span class="kw">WHERE</span>  (created_at, id) &lt; (<span class="lit">$1</span>, <span class="lit">$2</span>)   <span class="cm">-- ($1,$2) = last row of the previous page</span>
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">LIMIT</span>  <span class="lit">20</span>;</code></pre>
+      <p>Two pieces do the work. First, the <strong>row-value comparison</strong> <code>(created_at, id) &lt; ($1, $2)</code>. Postgres compares tuples <em>lexicographically</em>, exactly the way a dictionary orders words, so that single expression expands to:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code>created_at &lt; <span class="lit">$1</span>
+<span class="kw">OR</span> (created_at = <span class="lit">$1</span> <span class="kw">AND</span> id &lt; <span class="lit">$2</span>)</code></pre>
+      <p>Read that as "either the post is strictly older, or it's the same instant but a lower id." That is <em>precisely</em> "everything that comes after the boundary row in <code>created_at DESC, id DESC</code> order" &mdash; no more, no less. Write the expanded form by hand and it's easy to get the boundary condition subtly wrong (a stray <code>&lt;=</code> duplicates a row; splitting it as <code>created_at &lt; $1 AND id &lt; $2</code> is simply wrong &mdash; it drops legitimate rows). The tuple form is the one to memorize.</p>
+      <p>Second, the <strong>matching index</strong>. With <code>CREATE INDEX ON posts (created_at DESC, id DESC)</code>, that WHERE/ORDER BY pair maps directly onto the index's own order. Postgres pushes the row comparison into the index as a starting condition, <strong>descends the B-tree straight to the boundary</strong>, and reads forward exactly <code>LIMIT</code> entries. Cost is <strong>O(page size)</strong> &mdash; independent of how deep you are. Page 1 and page 10,000 do the same amount of work.</p>
+      <div class="callout note">
+        <span class="k">The tiebreaker is mandatory, not decoration</span>
+        <p>The <code>id</code> in the sort key is not optional polish &mdash; it's what makes paging <em>correct</em>. <code>created_at</code> alone is not unique: many posts can share a millisecond. If you page on <code>created_at</code> only, a page boundary that lands in the middle of a group of ties will either <strong>skip</strong> rows (with <code>&lt;</code>) or <strong>show them twice</strong> (with <code>&lt;=</code>) as the user scrolls. Appending a <strong>unique</strong> column (the primary key) gives every row a <em>total order</em>, so the boundary is a single, unambiguous point. Rule: the last column of any keyset sort must be unique.</p>
+      </div>
+      <p>The price you pay for constant-time depth is that keyset has <strong>no page numbers</strong>. You can go to the next page (you hold its cursor) and, by keeping a stack of cursors, to the previous one &mdash; but you cannot say "jump to page 738," because you don't have page&nbsp;737's last row to seek from. That's the right trade for feeds and infinite scroll, and the wrong trade for an admin table that shows "page 12 of 40." Match the tool to the UI.</p>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Same index, two walks</div>
+      <h2>OFFSET vs keyset on the index &#9656;</h2>
+      <p>Here's the clarifying picture: <em>both</em> strategies walk the very same sorted index in the very same direction. The only difference is <strong>where they start</strong> and <strong>how much they touch</strong>. OFFSET always starts at the top of the index and discards its way down to your page. Keyset seeks straight to the boundary key and reads only the page. Watch the same request &mdash; "the three posts after 5007" &mdash; served both ways on one index:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-seek">
+          <svg viewBox="0 0 640 400" role="img" aria-label="One sorted index served two ways: OFFSET walks and discards from the top, keyset seeks to the boundary and reads the page">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">one sorted index &mdash; two ways to reach posts 5006, 5005, 5004</text>
+            <rect class="thead" x="200" y="40" width="220" height="28" rx="4"/>
+            <text class="tcap" x="310" y="59" text-anchor="middle">index: posts (created_at DESC, id DESC)</text>
+            <rect class="tcell" id="idx-1"  x="200" y="68"  width="220" height="28"/><text class="tval" x="310" y="87"  text-anchor="middle">post #5012  (newest)</text>
+            <rect class="tcell" id="idx-2"  x="200" y="96"  width="220" height="28"/><text class="tval" x="310" y="115" text-anchor="middle">post #5011</text>
+            <rect class="tcell" id="idx-3"  x="200" y="124" width="220" height="28"/><text class="tval" x="310" y="143" text-anchor="middle">post #5010</text>
+            <rect class="tcell" id="idx-4"  x="200" y="152" width="220" height="28"/><text class="tval" x="310" y="171" text-anchor="middle">post #5009</text>
+            <rect class="tcell" id="idx-5"  x="200" y="180" width="220" height="28"/><text class="tval" x="310" y="199" text-anchor="middle">post #5008</text>
+            <rect class="tcell" id="idx-6"  x="200" y="208" width="220" height="28"/><text class="tval" x="310" y="227" text-anchor="middle">post #5007  &larr; boundary</text>
+            <rect class="tcell" id="idx-7"  x="200" y="236" width="220" height="28"/><text class="tval" x="310" y="255" text-anchor="middle">post #5006</text>
+            <rect class="tcell" id="idx-8"  x="200" y="264" width="220" height="28"/><text class="tval" x="310" y="283" text-anchor="middle">post #5005</text>
+            <rect class="tcell" id="idx-9"  x="200" y="292" width="220" height="28"/><text class="tval" x="310" y="311" text-anchor="middle">post #5004</text>
+            <rect class="tcell" id="idx-10" x="200" y="320" width="220" height="28"/><text class="tval" x="310" y="339" text-anchor="middle">post #5003  (older)</text>
+            <text class="lbl-sm" x="150" y="76"  text-anchor="middle">newest</text>
+            <text class="lbl-sm" x="150" y="342" text-anchor="middle">older</text>
+            <text id="seek-cur" class="lbl-sm" x="108" y="246" text-anchor="end" style="opacity:0">seek &#8594;</text>
+            <path id="seek-arc" d="M112 250 C 150 250, 165 250, 196 250" class="flow-d" style="opacity:0" marker-end="url(#arrow-s)"/>
+            <text id="seek-read" class="readout" x="320" y="378" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: OFFSET touches 9 entries to return 3; keyset seeks to the boundary and touches 3 — at any depth</figcaption>
+      </figure>
+
+      <p>The shapes tell the story. OFFSET's touched region <em>starts at the top</em> and its discarded part grows every page. Keyset's touched region is always just the page, wherever the boundary happens to be. At page 3 the difference is 9 vs 3; at page 10,000 it's 200,020 vs 20. Same index, same order, wildly different cost &mdash; because one counts from the top and the other seeks.</p>
+      <div class="callout">
+        <span class="k">Why an index alone doesn't save OFFSET</span>
+        <p>People sometimes think "just add an index and OFFSET is fine." The index <em>is</em> already there in this picture &mdash; it's what lets Postgres avoid a sort and a full-table scan. But OFFSET's semantics force it to <em>walk past</em> the skipped entries regardless. The index removes the sort; only keyset removes the walk.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Worked: a feed endpoint &#9656;</h2>
+      <p>Let's build the thing end to end &mdash; schema, the naive query, why it's slow, the correct query, the index, the plans, and how you'd say it out loud in an interview.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> posts (
+  id          bigint <span class="kw">GENERATED ALWAYS AS IDENTITY PRIMARY KEY</span>,
+  author_id   bigint      <span class="kw">NOT NULL</span>,
+  created_at  timestamptz <span class="kw">NOT NULL DEFAULT</span> <span class="fn">now</span>(),
+  body        text        <span class="kw">NOT NULL</span>
+);
+
+<span class="cm">-- the feed index: matches ORDER BY created_at DESC, id DESC exactly</span>
+<span class="kw">CREATE INDEX</span> posts_feed_idx <span class="kw">ON</span> posts (created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>);</code></pre>
+      <p>Ten million rows. <code>created_at</code> is <code>NOT NULL</code> on purpose (a nullable sort column is a keyset trap we'll name later), and <code>id</code> is the unique tiebreaker.</p>
+
+      <h3>2 &middot; The task</h3>
+      <p><em>Serve an infinite-scroll feed, newest first, 20 posts per page, that stays fast at any scroll depth.</em></p>
+
+      <h3>3 &middot; First attempt (OFFSET) &mdash; and why it's slow</h3>
+      <p>The obvious version translates "page 10,000" into an offset:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, author_id, created_at, body
+<span class="kw">FROM</span>   posts
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">OFFSET</span> <span class="lit">200000</span> <span class="kw">LIMIT</span> <span class="lit">20</span>;   <span class="cm">-- page 10,000</span></code></pre>
+      <p>It returns the right rows, but it makes Postgres produce 200,020 rows in sorted order and discard the first 200,000. The plan shows the tell &mdash; the scan under <code>Limit</code> reports far more rows than the 20 you asked for:</p>
+      <p class="codetag">explain &middot; illustrative</p>
+      <pre class="code"><code>Limit  (cost=89440.43..89449.37 rows=20 width=88)
+       (actual time=804.6..804.7 rows=20 loops=1)
+  -&gt;  Index Scan using posts_feed_idx on posts
+       (cost=0.43..4472500.00 rows=10000000 width=88)
+       (actual time=0.05..782.3 rows=200020 loops=1)
+ Planning Time: 0.15 ms
+ Execution Time: 804.8 ms</code></pre>
+      <p>Read it bottom-up: the <strong>Index Scan</strong> feeds rows already sorted (good &mdash; no <code>Sort</code> node), but <code>actual ... rows=200020</code> means it had to emit 200,020 entries before <code>Limit</code> could keep the last 20. Almost all of the ~800&nbsp;ms is spent walking &mdash; and heap-fetching &mdash; the discarded prefix. Deeper page, bigger prefix, slower query. Linear in depth.</p>
+
+      <h3>4 &middot; The correct query (keyset)</h3>
+      <p>Carry a cursor &mdash; the last row's <code>(created_at, id)</code> &mdash; and seek past it:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, author_id, created_at, body
+<span class="kw">FROM</span>   posts
+<span class="kw">WHERE</span>  (created_at, id) &lt; (<span class="lit">$1</span>, <span class="lit">$2</span>)   <span class="cm">-- cursor from the previous page</span>
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">LIMIT</span>  <span class="lit">20</span>;</code></pre>
+
+      <h3>5 &middot; The index that helps + the improved plan</h3>
+      <p>No new index &mdash; <code>posts_feed_idx</code> on <code>(created_at DESC, id DESC)</code> already matches. The difference is that Postgres now uses it as a <em>seek</em>, pushing the row comparison into the scan as an <code>Index Cond</code>:</p>
+      <p class="codetag">explain &middot; illustrative</p>
+      <pre class="code"><code>Limit  (cost=0.43..0.68 rows=20 width=88)
+       (actual time=0.03..0.10 rows=20 loops=1)
+  -&gt;  Index Scan using posts_feed_idx on posts
+       (cost=0.43..1240.55 rows=98450 width=88)
+       Index Cond: (ROW(created_at, id) &lt; ROW($1, $2))
+       (actual time=0.02..0.07 rows=20 loops=1)
+ Planning Time: 0.12 ms
+ Execution Time: 0.13 ms</code></pre>
+      <p>The <code>Index Cond</code> line is the whole point: the row-value comparison became the <em>starting position</em> of the scan, so the scan opens at the boundary and stops after 20 (<code>actual ... rows=20</code>, not 200020). The planner's <code>rows=98450</code> is just its estimate for the whole matching range; <code>Limit</code> plus the actual <code>rows=20</code> show it never reads that far. ~0.1&nbsp;ms &mdash; and it stays ~0.1&nbsp;ms on page 10,000. That's the ~800&nbsp;ms &rarr; ~0.1&nbsp;ms win, from the same data and the same index.</p>
+
+      <h3>6 &middot; The cursor the API returns</h3>
+      <p>The client never sees SQL. The endpoint returns the page plus an opaque <code>next_cursor</code> encoding the last row's sort key &mdash; typically base64 of <code>created_at</code> and <code>id</code>:</p>
+      <p class="codetag">http</p>
+      <pre class="code"><code>GET /feed                     &rarr; 20 posts + next_cursor
+GET /feed?cursor=MjAyNi0wN...  &rarr; decode &rarr; ($1,$2) = (created_at, id)
+                                &rarr; next 20 + a fresh next_cursor</code></pre>
+      <p>Encoding it (rather than exposing raw values) keeps the contract opaque, lets you version or sign it, and stops clients from hand-crafting boundaries. Watch one request flow through the engine:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-feed">
+          <svg viewBox="0 0 640 380" role="img" aria-label="Serving one keyset feed page: decode the cursor, seek the B-tree to the boundary, read the next 20, return page plus a new cursor">
+            <text class="lbl-sm" x="320" y="24" text-anchor="middle">one keyset page &middot; constant cost at any depth</text>
+            <g class="st" id="fstk-0"><rect class="node-b" x="140" y="40" width="360" height="46" rx="8"/><text class="lbl" x="320" y="68" text-anchor="middle">GET /feed?cursor=&hellip;</text></g>
+            <g class="st" id="fstk-1"><rect class="node-b" x="140" y="102" width="360" height="46" rx="8"/><text class="lbl" x="320" y="130" text-anchor="middle">decode cursor &#8594; (created_at, id)</text></g>
+            <g class="st" id="fstk-2"><rect class="node-r" x="140" y="164" width="360" height="52" rx="8"/><text class="lbl" x="320" y="186" text-anchor="middle" fill="#B0532F">B-tree seek to the boundary</text><text class="lbl-sm" x="320" y="203" text-anchor="middle" fill="#B0532F">on (created_at DESC, id DESC)</text></g>
+            <g class="st" id="fstk-3"><rect class="node-b" x="140" y="232" width="360" height="46" rx="8"/><text class="lbl" x="320" y="260" text-anchor="middle">read the next 20 entries + fetch rows</text></g>
+            <g class="st" id="fstk-4"><rect class="node-t" x="140" y="294" width="360" height="52" rx="8"/><text class="lbl" x="320" y="316" text-anchor="middle" fill="#7a2c43">return 20 posts + next_cursor</text><text class="lbl-sm" x="320" y="333" text-anchor="middle" fill="#7a2c43">cursor = last row's (created_at, id)</text></g>
+            <rect x="520" y="40" width="100" height="306" rx="10" fill="none" stroke="#A23A5B" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="570" y="193" text-anchor="middle" fill="#A23A5B" transform="rotate(-90 570 193)">O(page size) &middot; any depth</text>
+            <path id="fsp-0" class="flow" d="M320 24 V 38" marker-end="url(#arrow)"/>
+            <path id="fsp-1" class="flow" d="M320 86 V 100" marker-end="url(#arrow)"/>
+            <path id="fsp-2" class="flow" d="M320 148 V 162" marker-end="url(#arrow)"/>
+            <path id="fsp-3" class="flow" d="M320 216 V 230" marker-end="url(#arrow)"/>
+            <path id="fsp-4" class="flow" d="M320 278 V 292" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="320" y="366" text-anchor="middle">&#8593; the new cursor drives the next page &#8593;</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: a keyset page — decode the cursor, seek to the boundary, read 20, hand back a fresh cursor</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">Narrate it (how you'd answer aloud)</span>
+        <p>"OFFSET pagination is O(m) in the page depth &mdash; Postgres still has to produce and discard every skipped row, so page 10,000 walks 200,000 entries and takes hundreds of milliseconds to seconds. For a feed I use keyset pagination: I carry the last row's sort key as a cursor and query <code>WHERE (created_at, id) &lt; ($1, $2) ORDER BY created_at DESC, id DESC LIMIT 20</code>, backed by an index on <code>(created_at DESC, id DESC)</code>. The row-value comparison expands lexicographically and Postgres pushes it into the index as an <code>Index Cond</code>, so it seeks straight to the boundary and reads only 20 rows &mdash; constant time at any depth. The <code>id</code> tiebreaker is required so rows sharing a timestamp aren't skipped or duplicated across pages. The trade-off is no random page jumps, which is fine for infinite scroll."</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Drills &amp; traps</div>
+      <h2>Graded drills + traps</h2>
+      <p>Reason each out before opening the callout. Assume the <code>posts</code> schema and <code>posts_feed_idx</code> from the worked problem unless told otherwise.</p>
+
+      <h3>Drill 1 &mdash; the next page</h3>
+      <p>Write the <code>WHERE</code> and <code>ORDER BY</code> for the page <em>after</em> a row whose cursor is <code>($1, $2) = (last_created_at, last_id)</code>, newest first, 20 per page, with <code>id</code> as tiebreaker.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">WHERE</span> (created_at, id) &lt; (<span class="lit">$1</span>, <span class="lit">$2</span>)
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="lit">20</span>;</code></pre>
+        <p><em>Why:</em> the tuple comparison and the <code>ORDER BY</code> must use the <em>same</em> column order and direction as the index, so Postgres can seek instead of scan-and-discard.</p>
+      </div>
+
+      <h3>Drill 2 &mdash; the very first page</h3>
+      <p>There's no cursor yet (the user just opened the feed). Write page 1.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">SELECT</span> id, author_id, created_at, body
+<span class="kw">FROM</span>   posts
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">LIMIT</span>  <span class="lit">20</span>;</code></pre>
+        <p><em>Why:</em> the first page is just the keyset query with the <code>WHERE</code> omitted &mdash; no boundary to seek past yet. Take the last row of this result to build the cursor for page 2. (Don't special-case it with <code>OFFSET 0</code>; keep one code path.)</p>
+      </div>
+
+      <h3>Drill 3 &mdash; a leaderboard by score</h3>
+      <p>Page a leaderboard highest score first, 20 per page. Scores are <em>not</em> unique. Give the query and the index.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">CREATE INDEX</span> lb_idx <span class="kw">ON</span> scores (score <span class="kw">DESC</span>, id <span class="kw">DESC</span>);
+
+<span class="kw">SELECT</span> id, player, score
+<span class="kw">FROM</span>   scores
+<span class="kw">WHERE</span>  (score, id) &lt; (<span class="lit">$1</span>, <span class="lit">$2</span>)
+<span class="kw">ORDER BY</span> score <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">LIMIT</span>  <span class="lit">20</span>;</code></pre>
+        <p><em>Why:</em> same pattern, different sort column. Because <code>score</code> ties are common, the unique <code>id</code> tiebreaker is doing real work here &mdash; without it, players tied on a boundary score would flicker in and out across pages.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; how many pages are there?</h3>
+      <p>The UI wants a "page X of N" total. Why is <code>SELECT count(*) FROM posts</code> a bad idea on a 10M-row feed, and what can you do instead?</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p><code>count(*)</code> has to visit every row (a full sequential or index-only scan) &mdash; O(N) &mdash; just to render a number, and you'd pay it on every page load. For an infinite feed you usually don't need a total at all. If you must show an <em>approximate</em> one, read the planner's estimate in O(1):</p>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">SELECT</span> reltuples::bigint <span class="kw">AS</span> approx_rows
+<span class="kw">FROM</span>   pg_class
+<span class="kw">WHERE</span>  relname = <span class="lit">'posts'</span>;</code></pre>
+        <p><em>Why:</em> <code>pg_class.reltuples</code> is the row-count estimate Postgres keeps for the planner, refreshed by <code>ANALYZE</code>/autovacuum. It's approximate but instant &mdash; perfect for a fuzzy "~10M posts" label, useless for exact accounting.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Traps to avoid</span>
+        <p>
+        &bull; <strong>OFFSET for deep pages.</strong> Fine for "page 3 of 20"; a linear-cost trap for anything that scrolls far.<br>
+        &bull; <strong>Missing / non-unique tiebreaker.</strong> Paging on a non-unique key alone <em>skips</em> rows (with <code>&lt;</code>) or <em>duplicates</em> them (with <code>&lt;=</code>) at page boundaries. Always end the sort with a unique column.<br>
+        &bull; <strong>Non-deterministic ORDER BY.</strong> No total order &rarr; the same row can appear on two pages or none. Ties must be broken; "sorted enough" isn't.<br>
+        &bull; <strong>A nullable sort column.</strong> With <code>created_at DESC</code>, NULLs sort <em>first</em> by default (<code>NULLS FIRST</code>), and a row-value comparison returns UNKNOWN when the NULL sits at the deciding position (a leading <code>created_at</code> does) &mdash; so keyset silently drops NULL-dated rows. Keep the sort column <code>NOT NULL</code>, or handle the NULL block as a separate, explicit range.<br>
+        &bull; <strong>Expanding the tuple wrong.</strong> <code>created_at &lt; $1 AND id &lt; $2</code> is <em>not</em> the same as <code>(created_at, id) &lt; ($1, $2)</code> &mdash; it wrongly drops rows. Use the row-value form (or the exact <code>OR</code> expansion).<br>
+        &bull; <strong>Expecting random page jumps.</strong> Keyset can't leap to "page 738." Use OFFSET (or a numbered index) for page-number UIs; keyset for feeds.
+        </p>
+      </div>
+      <div class="callout tip">
+        <span class="k">Modern note (PG 18)</span>
+        <p>PostgreSQL&nbsp;18 (GA Sept&nbsp;2025) added B-tree <strong>skip scans</strong>, which help some multicolumn-index cases &mdash; when a query omits an equality on a leading index column &mdash; by letting the planner "skip" between distinct prefix values instead of scanning the whole index. That's a real win for certain filters, but it does <em>not</em> change the pagination story: skip scan still can't make <code>OFFSET</code> constant-time. For feeds, keyset remains the right pattern.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea to carry out: <em><code>OFFSET m</code> makes the database produce and throw away m rows, so it's O(m) in page depth; keyset pagination seeks to the last row's sort key and reads only the page, so it's O(page size) at any depth. Give every keyset sort a unique tiebreaker and a matching index, and deep pages stop hurting.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>OFFSET discards</b><span><code>OFFSET m LIMIT n</code> produces m+n rows in order and throws away the first m. The work is real, even with an index.</span></div>
+        <div class="tk"><span class="num">02</span><b>Linear in depth</b><span>Page 1 ~8&nbsp;ms, page 10,000 (OFFSET 200k) ~8&nbsp;s. The returned page stays 20 rows; the discarded prefix runs away.</span></div>
+        <div class="tk"><span class="num">03</span><b>Keyset is a seek</b><span>Carry the last row's sort key as a cursor; query for everything after it. O(page size), independent of depth.</span></div>
+        <div class="tk"><span class="num">04</span><b>Row-value compare</b><span><code>(created_at, id) &lt; ($1, $2)</code> expands lexicographically to <code>a&lt;x OR (a=x AND b&lt;y)</code> — exactly "after the boundary."</span></div>
+        <div class="tk"><span class="num">05</span><b>Match the index</b><span>An index on <code>(created_at DESC, id DESC)</code> lets Postgres push the compare into an <code>Index Cond</code> and seek straight to the boundary.</span></div>
+        <div class="tk"><span class="num">06</span><b>Unique tiebreaker</b><span>The last sort column must be unique, or rows sharing a value get skipped or shown twice as pages advance.</span></div>
+        <div class="tk"><span class="num">07</span><b>No page numbers</b><span>Keyset can go next/prev via cursors but can't jump to page N. Use OFFSET for numbered UIs, keyset for feeds.</span></div>
+        <div class="tk"><span class="num">08</span><b>Skip the total</b><span><code>count(*)</code> is O(N). For a fuzzy total use <code>pg_class.reltuples</code>; for a feed, usually omit it entirely.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) In one sentence, why does <code>OFFSET m LIMIT n</code> get slower as the page gets deeper — even with the right index?<br>
+        (2) Write the keyset query for "20 newest posts after cursor <code>($1,$2)</code>," and name the index it needs.<br>
+        (3) Expand <code>(created_at, id) &lt; ($1, $2)</code> into its <code>OR</code> form. Why is <code>created_at &lt; $1 AND id &lt; $2</code> wrong?<br>
+        (4) Why is the unique tiebreaker mandatory? Describe the exact bug when it's missing.<br>
+        (5) In the keyset <code>EXPLAIN</code>, which line proves Postgres is seeking rather than scanning-and-discarding, and what does the scan's <code>rows=20</code> tell you?<br>
+        (6) When would you deliberately choose OFFSET over keyset, and how would you show a total row count cheaply?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and rebuild the query from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 14 &middot; PAGINATION DONE RIGHT &middot; interactive edition<br>
+      Original study notes for engineers &middot; run every query, read every plan, and page by seeking — not by counting from the top.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+  function idxSet(ids,cls){ids.forEach(function(id){var e=_g(id); if(e) e.setAttribute('class','tcell'+(cls?' '+cls:''));});}
+
+  /* FIG 1 — why OFFSET gets slower */
+  makeStepper(_g('fig-offset'), [
+    {text:"Each page is OFFSET m LIMIT 20 over the sorted feed. SQL has no “the m-th row” until rows are produced in order — so the engine makes the first m+20, discards m, and returns 20.",
+      disc:0, keepx:48, off:"OFFSET m · LIMIT 20   (m = (page−1)×20)", time:"—", scan:"produce m+20 in order → discard m → return 20", v:"the discard is real work", box:""},
+    {text:"Page 1: OFFSET 0. Nothing to discard — walk 20 index entries and return them. Cheap.",
+      disc:5, keepx:51, off:"page 1 · OFFSET 0 · LIMIT 20", time:"≈ 8 ms", scan:"index entries walked: 20", v:"shallow page — cheap", box:""},
+    {text:"Page 100: OFFSET 2,000. Now 2,000 entries are produced only to be thrown away before the 20 you keep. Already ~10× slower.",
+      disc:150, keepx:196, off:"page 100 · OFFSET 2,000 · LIMIT 20", time:"≈ 90 ms", scan:"index entries walked: 2,020", v:"discarded prefix growing", box:""},
+    {text:"Page 1,000: OFFSET 20,000. The kept page is still 20 rows, but the discarded prefix now dominates the cost. Users feel this.",
+      disc:330, keepx:376, off:"page 1,000 · OFFSET 20,000 · LIMIT 20", time:"≈ 900 ms", scan:"index entries walked: 20,020", v:"the prefix, not the page, is the cost", box:""},
+    {text:"Page 10,000: OFFSET 200,000. Postgres produces 200,020 rows and discards 200,000 to hand back 20. Roughly 8 seconds.",
+      disc:520, keepx:566, off:"page 10,000 · OFFSET 200,000 · LIMIT 20", time:"≈ 8 s", scan:"index entries walked: 200,020", v:"✗ deep page — the prefix dominates", box:"kbad"},
+    {text:"The pattern: the returned page is always 20 rows, but the thrown-away prefix grows without bound. Work is O(m + n) — linear in page depth. The fix is to seek, not to count from the top.",
+      disc:520, keepx:566, off:"deep pages: the prefix, not the page, sets the cost", time:"O(m+n)", scan:"seek to the boundary instead → next section", v:"OFFSET convenience = a hidden linear tax", box:""}
+  ], function(idx,s){
+    _g('of-disc').setAttribute('width', s.disc);
+    _g('of-keep').setAttribute('x', s.keepx);
+    _g('of-offset').textContent = s.off;
+    _g('of-time').textContent = s.time;
+    _g('of-scan').textContent = s.scan;
+    _g('of-box').setAttribute('class','balbox'+(s.box?' '+s.box:''));
+    _g('of-time').setAttribute('fill', s.box==='kbad'?'#B0532F':'#20201D');
+    var vd=_g('of-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.box==='kbad'?'#B0532F':'#5A574E');
+  });
+
+  /* FIG 2 — OFFSET vs keyset on the same sorted index */
+  var idxAll=['idx-1','idx-2','idx-3','idx-4','idx-5','idx-6','idx-7','idx-8','idx-9','idx-10'];
+  makeStepper(_g('fig-seek'), [
+    {text:"Here is the index in physical order — newest first, exactly the order a range scan walks. Both methods must land on posts 5006, 5005, 5004.",
+      read:"index entries in sorted order — the physical walk order"},
+    {text:"OFFSET 6 starts at the very TOP and walks down, discarding the first 6 entries (5012 … 5007).",
+      dis:['idx-1','idx-2','idx-3','idx-4','idx-5','idx-6'], read:"OFFSET 6: walk from the top, discard the first 6"},
+    {text:"…only then does it return the next 3. It touched 9 entries to hand back 3 — and deeper pages discard even more.",
+      dis:['idx-1','idx-2','idx-3','idx-4','idx-5','idx-6'], keep:['idx-7','idx-8','idx-9'], read:"then return 3 — touched 9 to return 3  (O(m+n))"},
+    {text:"Keyset instead remembers the last row seen. It seeks straight to that boundary key (5007) — no walk from the top.",
+      bnd:['idx-6'], arc:true, read:"keyset: seek to the boundary key (last seen = 5007)"},
+    {text:"From the boundary it reads just the next 3 entries. It touched 3, not 9 — and page 1 and page 10,000 cost exactly the same.",
+      bnd:['idx-6'], keep:['idx-7','idx-8','idx-9'], arc:true, read:"read the next 3 — touched 3  (O(n), any depth)"}
+  ], function(idx,s){
+    idxSet(idxAll,'');
+    _g('seek-arc').style.opacity = s.arc?1:0;
+    _g('seek-cur').style.opacity = s.arc?1:0;
+    if(s.dis) idxSet(s.dis,'kt');
+    if(s.bnd) idxSet(s.bnd,'kb');
+    if(s.keep) idxSet(s.keep,'kg');
+    _g('seek-read').textContent = s.read;
+  });
+
+  /* FIG 3 — serving one keyset page */
+  makeStepper(_g('fig-feed'), [
+    {text:"The client sends the previous page's cursor — an opaque token encoding the last row's (created_at, id).", active:["fstk-0"], path:"fsp-0"},
+    {text:"The API decodes the token back into the boundary values (created_at, id) to seek past.", active:["fstk-1"], path:"fsp-1"},
+    {text:"Postgres descends the B-tree on (created_at DESC, id DESC) straight to that boundary — the row comparison becomes the scan's starting position, not a filter.", active:["fstk-2"], path:"fsp-2"},
+    {text:"It reads just the next 20 index entries in order and fetches their rows — O(20), whatever the depth.", active:["fstk-3"], path:"fsp-3"},
+    {text:"It returns 20 posts plus a fresh next_cursor built from the last row's (created_at, id). The client sends that back to fetch page +1.", active:["fstk-4"], path:"fsp-4"}
+  ]);
+</script>
+</body>
+</html>

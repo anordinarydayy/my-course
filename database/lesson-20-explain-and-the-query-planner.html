@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 20 — EXPLAIN &amp; the Query Planner (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">EXPLAIN &amp; the Query Planner</div>
+    <h4>The debugging skill</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The planner shows its work</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Reading the plan tree &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The nodes you&#8217;ll see</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Estimate vs actual &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: a slow query &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">20</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>EXPLAIN &amp; the Query Planner</h1>
+      <p class="lede">This is the single most-used debugging skill in the whole course. When a query is slow, you don&#8217;t guess &mdash; you ask Postgres to show its work with <code>EXPLAIN</code>, read the plan tree it chose, and compare what it <em>expected</em> to what actually <em>happened</em>. By the end you&#8217;ll read a plan bottom-up, name every node, spot the tell-tale gap between estimated and actual rows, and turn a full-table scan into an index scan on purpose.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers preparing for interviews and real production systems. Examples are <strong>PostgreSQL</strong> (PG&nbsp;17/18); the plan output shown is <em>illustrative</em> but uses real node types and numbers you can reproduce on your own tables. Contains <strong>three interactive diagrams</strong> (press <em>Play</em>, or step with <em>Next</em>). This is a practice lesson &mdash; it ends in a <strong>worked SQL problem and graded drills</strong>, so keep a <code>psql</code> session open and run the plans yourself.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The tool</div>
+      <h2>The planner shows its work</h2>
+      <p>Every SQL statement you write is a <em>request</em>, not a recipe. You said <em>what</em> rows you want; the <strong>planner</strong> decides <em>how</em> to get them &mdash; which index (if any), which join algorithm, in which order. <code>EXPLAIN</code> is the window into that decision. Put it in front of any query and Postgres prints the plan it would run, annotated with cost and row <strong>estimates</strong> &mdash; without executing anything:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">EXPLAIN</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders <span class="kw">WHERE</span> customer_id = <span class="lit">42</span>;</code></pre>
+      <p>That estimate-only form is fast and safe, but it is a <em>prediction</em>. To learn the truth, add <code>ANALYZE</code>: Postgres actually <strong>runs</strong> the query and records <em>actual</em> time, rows, and loop counts alongside its guesses. Add <code>BUFFERS</code> to see how many 8&nbsp;KB pages it touched in cache versus on disk:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">EXPLAIN</span> (<span class="kw">ANALYZE</span>, <span class="kw">BUFFERS</span>)
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders <span class="kw">WHERE</span> customer_id = <span class="lit">42</span>;</code></pre>
+      <div class="callout note">
+        <span class="k">ANALYZE runs it &mdash; wrap writes in a transaction</span>
+        <p><code>EXPLAIN ANALYZE</code> <em>executes</em> the statement for real. On a <code>SELECT</code> that&#8217;s harmless; on an <code>UPDATE</code>/<code>DELETE</code>/<code>INSERT</code> it <strong>actually modifies your data</strong>. To profile a mutating statement safely, run it inside a transaction and roll back:</p>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">BEGIN</span>;
+<span class="kw">EXPLAIN</span> (<span class="kw">ANALYZE</span>, <span class="kw">BUFFERS</span>)
+<span class="kw">UPDATE</span> orders <span class="kw">SET</span> status = <span class="lit">'shipped'</span> <span class="kw">WHERE</span> id = <span class="lit">42</span>;
+<span class="kw">ROLLBACK</span>;   <span class="cm">-- the plan ran &amp; timed for real; ROLLBACK undoes the write</span></code></pre>
+      </div>
+      <p>The output looks like an indented list, but it is really a <strong>tree</strong>. Each indented line is a <em>node</em> &mdash; a scan, a join, a sort &mdash; and its children are the nodes indented one level deeper beneath it. The crucial reading rule, which trips up everyone at first: <strong>a plan executes bottom-up.</strong> The most-indented leaves run first and hand their rows to their parents; the top line is the <em>last</em> thing that happens, the node whose rows are returned to you. Read it like a call tree evaluated inside-out, not like a program run top-to-bottom.</p>
+      <div class="callout">
+        <span class="k">Two questions this lesson answers</span>
+        <p>Nearly every &#8220;why is this slow?&#8221; reduces to two reads of the plan. <strong>(1) What scan/join did it choose, and was there a cheaper option it missed?</strong> &mdash; usually a Seq Scan where an Index Scan belonged. <strong>(2) Did reality match the estimate?</strong> &mdash; a big gap between estimated and actual rows means the planner was working from bad statistics and likely picked the wrong plan downstream. Master those two and you&#8217;ve mastered the tool.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Reading it</div>
+      <h2>Reading the plan tree &#9656;</h2>
+      <p>Let&#8217;s read a real plan. Suppose we want the ten biggest line-items across all orders, joining <code>order_items</code> to <code>products</code> to compute a value, sorted, top ten. Here is the <code>EXPLAIN ANALYZE</code> output &mdash; don&#8217;t panic at the width, we&#8217;ll walk it from the leaves up:</p>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>Limit  (cost=6812.34..6812.36 rows=10 width=28) (actual time=48.11..48.13 rows=10 loops=1)
+  ->  Sort  (cost=6812.34..6937.34 rows=50000 width=28) (actual time=48.10..48.11 rows=10 loops=1)
+        Sort Key: ((oi.qty * p.price)) DESC
+        Sort Method: top-N heapsort  Memory: 27kB
+        ->  Hash Join  (cost=27.00..4200.00 rows=50000 width=28) (actual time=0.42..38.90 rows=50000 loops=1)
+              Hash Cond: (oi.product_id = p.id)
+              ->  Seq Scan on order_items oi  (cost=0.00..1834.00 rows=50000 width=12) (actual time=0.01..12.30 rows=50000 loops=1)
+              ->  Hash  (cost=17.00..17.00 rows=800 width=20) (actual time=0.39..0.39 rows=800 loops=1)
+                    ->  Seq Scan on products p  (cost=0.00..17.00 rows=800 width=20) (actual time=0.01..0.18 rows=800 loops=1)
+Planning Time: 0.204 ms
+Execution Time: 48.203 ms</code></pre>
+      <p>Every node carries the same two annotations. The first parenthesis is the <strong>estimate</strong>: <code>cost=startup..total</code> (abstract units, <em>not</em> milliseconds), <code>rows=</code> how many the planner expects, <code>width=</code> average bytes per row. With <code>ANALYZE</code>, the second parenthesis is the <strong>truth</strong>: <code>actual time=first_row..last_row</code> (ms), <code>rows=</code> how many really came out, and <code>loops=</code> how many times this node executed. Step through how rows flow upward:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-plan">
+          <svg viewBox="0 0 660 418" role="img" aria-label="A query plan tree executing bottom-up: two scans feed a hash join, then a sort, then a limit">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">EXPLAIN plan &mdash; executes bottom-up &#8593;</text>
+
+            <g class="st" id="f1-stk-0">
+              <rect class="node-t" x="205" y="32" width="250" height="50" rx="9"/>
+              <text class="lbl" x="330" y="54" text-anchor="middle" fill="#7a2c43">Limit</text>
+              <text class="lbl-sm" x="330" y="72" text-anchor="middle" fill="#7a2c43">rows=10 &middot; returned to client</text>
+            </g>
+            <g class="st" id="f1-stk-1">
+              <rect class="node-b" x="205" y="110" width="250" height="50" rx="9"/>
+              <text class="lbl" x="330" y="132" text-anchor="middle">Sort</text>
+              <text class="lbl-sm" x="330" y="150" text-anchor="middle">key: qty*price DESC &middot; rows=50000</text>
+            </g>
+            <g class="st" id="f1-stk-2">
+              <rect class="node-b" x="205" y="188" width="250" height="50" rx="9"/>
+              <text class="lbl" x="330" y="210" text-anchor="middle">Hash Join</text>
+              <text class="lbl-sm" x="330" y="228" text-anchor="middle">cond: oi.product_id = p.id</text>
+            </g>
+            <g class="st" id="f1-stk-3">
+              <rect class="node" x="40" y="316" width="240" height="58" rx="9"/>
+              <text class="lbl" x="160" y="340" text-anchor="middle">Seq Scan order_items</text>
+              <text class="lbl-sm" x="160" y="358" text-anchor="middle">rows=50000 &middot; the probe side</text>
+            </g>
+            <g class="st" id="f1-stk-4">
+              <rect class="node" x="380" y="316" width="240" height="58" rx="9"/>
+              <text class="lbl" x="500" y="340" text-anchor="middle">Hash &#8592; Seq Scan products</text>
+              <text class="lbl-sm" x="500" y="358" text-anchor="middle">rows=800 &middot; the small, build side</text>
+            </g>
+
+            <path id="f1-sp-3" class="flow" d="M160 314 C 160 275, 250 258, 288 240" marker-end="url(#arrow)"/>
+            <path id="f1-sp-4" class="flow" d="M500 314 C 500 275, 412 258, 372 240" marker-end="url(#arrow)"/>
+            <path id="f1-sp-2" class="flow" d="M330 186 V 162" marker-end="url(#arrow)"/>
+            <path id="f1-sp-1" class="flow" d="M330 108 V 84" marker-end="url(#arrow)"/>
+            <path id="f1-sp-0" class="flow" d="M330 30 V 12" marker-end="url(#arrow)"/>
+
+            <text id="f1-read" class="readout" x="330" y="404" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: leaves run first; rows flow up through the join and sort to the limit at the top</figcaption>
+      </figure>
+
+      <p>Two reading habits fall out of that. First, the <strong>top-N heapsort</strong> line and the <code>Limit</code> cooperating: notice the Sort&#8217;s <em>actual rows=10</em>, not 50,000 &mdash; because a <code>LIMIT</code> above a <code>Sort</code> lets Postgres keep only the top ten in a small heap instead of fully sorting. Second, look at where the <em>time</em> is: the Hash Join&#8217;s actual time reaches 38.9&nbsp;ms and the Sort finishes at 48.1&nbsp;ms, so most of the wall-clock is the join scanning 50,000 rows. The plan didn&#8217;t just tell you the shape &mdash; it told you the bottleneck.</p>
+      <div class="callout tip">
+        <span class="k">The four numbers to read on every node</span>
+        <p><strong>cost</strong> (relative, for comparing plans &mdash; never a time), <strong>rows</strong> (estimate) versus <strong>actual rows</strong> (truth), and <strong>loops</strong>. A node&#8217;s <em>actual time</em> is <em>per loop</em> &mdash; the real work is <code>time &times; loops</code>. We&#8217;ll lean on the estimate-vs-actual comparison in the next section; it is the master diagnostic.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The vocabulary</div>
+      <h2>The nodes you&#8217;ll see</h2>
+      <p>A plan is built from a small alphabet of node types. You don&#8217;t need to memorize their internals to debug &mdash; you need to know, at a glance, <em>what each one signals</em>. Here is the working set, grouped by job. One line each:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Scans (get rows)</h4>
+          <ul>
+            <li><strong>Seq Scan</strong> &mdash; reads every page. Right for tiny tables or when most rows match; a red flag on a big table with a selective filter.</li>
+            <li><strong>Index Scan</strong> &mdash; walk the index, then fetch each matching heap row (random I/O). Good for a few rows.</li>
+            <li><strong>Index Only Scan</strong> &mdash; all needed columns are in the index and the page is all-visible, so it skips the heap entirely.</li>
+            <li><strong>Bitmap Index + Bitmap Heap Scan</strong> &mdash; many matches: build a bitmap of row locations, then read pages in physical order.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Joins (combine)</h4>
+          <ul>
+            <li><strong>Nested Loop</strong> &mdash; for each outer row, probe the inner side. Great when the outer side is <em>tiny</em>; watch <code>loops</code>.</li>
+            <li><strong>Hash Join</strong> &mdash; hash the small side, probe with the big side. Equality joins only; the usual choice for large sets.</li>
+            <li><strong>Merge Join</strong> &mdash; both inputs arrive sorted, then zip together. Good when the data is already ordered.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Shaping &amp; more</h4>
+          <ul>
+            <li><strong>Sort / Incremental Sort</strong> &mdash; order rows; the incremental form reuses an already-sorted prefix.</li>
+            <li><strong>HashAggregate / GroupAggregate</strong> &mdash; <code>GROUP BY</code> via a hash table, or via already-sorted groups.</li>
+            <li><strong>WindowAgg</strong> &mdash; computes window functions over ordered partitions.</li>
+            <li><strong>Limit</strong> &mdash; stop once N rows are produced. <strong>Gather</strong> &mdash; collect rows from parallel worker processes.</li>
+          </ul>
+        </div>
+      </div>
+      <p>A few pairings are worth internalizing because they show intent. <strong>Bitmap</strong> scans appear when a filter matches too many rows for a plain Index Scan (random fetches) but too few for a Seq Scan &mdash; the planner compromises. A <strong>Nested Loop</strong> over an <em>Index Scan</em> inner side is the classic &#8220;lookup per outer row&#8221; shape, and it&#8217;s excellent right up until the outer side turns out to be huge (that&#8217;s the disaster in the next section). And a <strong>Sort</strong> feeding a <strong>Merge Join</strong> or a <strong>GroupAggregate</strong> is often the node you can delete by adding the right index &mdash; the data was already ordered, you just didn&#8217;t give Postgres a way to know.</p>
+      <div class="callout note">
+        <span class="k">Parallelism reads a little differently</span>
+        <p>When you see <code>Gather</code> near the top with <code>Parallel Seq Scan</code> below it, the work was split across worker processes. Under <code>ANALYZE</code>, the child node&#8217;s <em>rows</em> are <strong>per worker</strong>; multiply by <code>loops</code> (and remember the leader helps too) to reconcile the totals. Don&#8217;t read a Parallel Seq Scan&#8217;s per-worker row count as the whole-table count.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The master tell</div>
+      <h2>Estimate vs actual &mdash; the tell &#9656;</h2>
+      <p>Here is the one diagnostic that finds more bad plans than all the others combined: on every node, compare the planner&#8217;s <code>rows=</code> <strong>estimate</strong> with the <code>actual rows=</code> <strong>truth</strong>. When they&#8217;re close, the plan is standing on solid ground. When they diverge by 10&times;, 100&times;, or 1000&times;, the planner made its choices believing a number that turned out to be wildly wrong &mdash; and a bad estimate at the bottom of the tree <em>cascades</em> into a bad join at the top. Watch it unfold:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-tell">
+          <svg viewBox="0 0 660 342" role="img" aria-label="A scan estimated at 5 rows actually returns 50000, so the chosen nested loop runs 50000 times">
+            <text class="lbl-sm" x="60" y="34" text-anchor="start">PLANNER BELIEVES (estimate)</text>
+            <g id="f2-c-p1"><rect class="chip cA" x="60" y="44" width="228" height="44" rx="8"/><text class="chiptext" x="174" y="71" text-anchor="middle">Index Scan &middot; rows=5</text></g>
+            <text class="chiptext" x="330" y="71" text-anchor="middle" fill="#5A574E">&#8594;</text>
+            <g id="f2-c-p2"><rect class="chip cA" x="372" y="44" width="228" height="44" rx="8"/><text class="chiptext" x="486" y="71" text-anchor="middle">Nested Loop (cheap)</text></g>
+
+            <text class="lbl-sm" x="330" y="130" text-anchor="middle">estimate vs actual</text>
+            <rect id="f2-box" class="balbox" x="235" y="138" width="190" height="58" rx="9"/>
+            <text id="f2-boxt" x="330" y="174" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="700" fill="#20201D">est 5 &#8776; act 5</text>
+
+            <path d="M40 232 H 604" class="flow-d"/>
+            <text class="lbl-sm" x="604" y="227" text-anchor="end">execution &#8594;</text>
+
+            <text class="lbl-sm" x="60" y="252" text-anchor="start">REALITY (actual)</text>
+            <g id="f2-c-r1"><rect class="chip cBad" x="60" y="260" width="228" height="44" rx="8"/><text class="chiptext" x="174" y="287" text-anchor="middle">scan returns 50,000</text></g>
+            <text class="chiptext" x="330" y="287" text-anchor="middle" fill="#5A574E">&#8594;</text>
+            <g id="f2-c-r2"><rect class="chip cBad" x="372" y="260" width="228" height="44" rx="8"/><text class="chiptext" x="486" y="287" text-anchor="middle">inner runs 50,000&times;</text></g>
+
+            <text id="f2-verdict" x="330" y="330" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: a 5-vs-50,000 estimate error turns a smart Nested Loop into a 50,000&times; disaster</figcaption>
+      </figure>
+
+      <p>The fix is the lesson&#8217;s deepest idea: <strong>you don&#8217;t fix the plan, you fix the inputs the planner reasons from.</strong> Postgres has <em>no</em> query hints. When estimates are off, the cause is almost always stale or missing statistics &mdash; so you run <code>ANALYZE</code> to refresh them, raise <code>default_statistics_target</code> (or the per-column target) on a skewed column, or add <code>CREATE STATISTICS</code> for correlated columns the planner wrongly assumes are independent. Correct the numbers and the planner re-derives a good plan on its own.</p>
+      <div class="callout tip">
+        <span class="k">Two more tells on the same node</span>
+        <p><strong>Rows Removed by Filter</strong>: a large value means the node read a pile of rows only to throw them away &mdash; the filter isn&#8217;t being served by the index (or there&#8217;s no useful index at all). <strong>Buffers</strong> (shown by default under <code>ANALYZE</code> in <strong>PostgreSQL&nbsp;18</strong>): <code>shared hit=</code> is pages found in cache, <code>shared read=</code> is pages fetched from disk. A ballooning <code>read=</code> is your query pounding storage &mdash; often the same root cause as the estimate gap.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Worked: diagnose a slow query &#9656;</h2>
+      <p>Time to do it end to end. Here is the table and the query; we&#8217;ll read the slow plan, name the smoking gun, apply the fix, and re-read the improved plan.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> orders (
+  id          <span class="kw">bigint</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span> <span class="kw">PRIMARY KEY</span>,
+  customer_id <span class="kw">bigint</span>      <span class="kw">NOT NULL</span>,
+  status      <span class="kw">text</span>        <span class="kw">NOT NULL</span>,
+  created_at  <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+<span class="cm">-- ~200,000 rows loaded; only the PRIMARY KEY on id has an index so far.</span></code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>Fetch one customer&#8217;s open orders &mdash; a bread-and-butter application query:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, created_at
+<span class="kw">FROM</span>   orders
+<span class="kw">WHERE</span>  customer_id = <span class="lit">42</span>
+  <span class="kw">AND</span>  status = <span class="lit">'open'</span>;   <span class="cm">-- exactly 4 rows match, out of 200,000</span></code></pre>
+
+      <h3>3 &middot; The naive plan &mdash; and why it&#8217;s slow</h3>
+      <p>There is no index on <code>customer_id</code> or <code>status</code>, so the planner has exactly one option. Run <code>EXPLAIN (ANALYZE, BUFFERS)</code>:</p>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>Seq Scan on orders  (cost=0.00..5000.00 rows=4 width=16) (actual time=0.28..41.03 rows=4 loops=1)
+  Filter: ((customer_id = 42) AND (status = 'open'))
+  Rows Removed by Filter: 199996
+  Buffers: shared read=2000
+Planning Time: 0.12 ms
+Execution Time: 41.06 ms</code></pre>
+      <p>Read it: a single <strong>Seq Scan</strong> node. Its estimate (<code>rows=4</code>) is actually <em>correct</em> &mdash; this is not a statistics problem, it&#8217;s a <em>missing-index</em> problem. The tell is <strong><code>Rows Removed by Filter: 199996</code></strong>: to find 4 matching rows, Postgres read and discarded almost every row in the table. <code>Buffers: shared read=2000</code> confirms it touched all ~2,000 pages, from disk. The work is <em>O(table)</em> when it should be <em>O(matches)</em>.</p>
+
+      <h3>4 &middot; The fix</h3>
+      <p>Both predicates are equalities, so a plain composite B-tree is exactly right. Put the two equality columns in the index:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE INDEX</span> orders_cust_status_idx
+  <span class="kw">ON</span> orders (customer_id, status);</code></pre>
+
+      <h3>5 &middot; The improved plan</h3>
+      <p>Re-run the exact same <code>EXPLAIN (ANALYZE, BUFFERS)</code>:</p>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>Index Scan using orders_cust_status_idx on orders  (cost=0.42..8.52 rows=4 width=16) (actual time=0.03..0.04 rows=4 loops=1)
+  Index Cond: ((customer_id = 42) AND (status = 'open'))
+  Buffers: shared hit=4
+Planning Time: 0.21 ms
+Execution Time: 0.06 ms</code></pre>
+      <p>Now the node is an <strong>Index Scan</strong>. The predicates moved from <code>Filter</code> to <strong><code>Index Cond</code></strong> &mdash; the crucial difference: the index <em>navigates</em> straight to matching rows instead of reading everything and filtering. <code>Rows Removed by Filter</code> is gone (nothing to remove), and <code>Buffers</code> dropped to <code>shared hit=4</code> &mdash; four pages, all from cache. Step through the before/after:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-worked">
+          <svg viewBox="0 0 660 430" role="img" aria-label="Before: a sequential scan reading the whole table. After: an index scan touching four pages.">
+            <text class="tcap" x="40" y="44" text-anchor="start">BEFORE &mdash; no index</text>
+            <rect id="f3-b-node" class="tcell" x="40" y="54" width="580" height="38"/>
+            <text class="tval" x="54" y="78" text-anchor="start">Seq Scan on orders   (rows=4)</text>
+            <rect id="f3-b-filter" class="tcell" x="40" y="94" width="250" height="40"/>
+            <text class="tval" x="54" y="118" text-anchor="start">Filter: cust=42 &amp; open</text>
+            <rect id="f3-b-removed" class="tcell" x="298" y="94" width="170" height="40"/>
+            <text class="tval" x="312" y="118" text-anchor="start">Removed: 199996</text>
+            <rect id="f3-b-buffers" class="tcell" x="476" y="94" width="144" height="40"/>
+            <text class="tval" x="490" y="118" text-anchor="start">read=2000</text>
+
+            <path id="f3-arc" class="flow-d" d="M330 148 V 244" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="346" y="182" text-anchor="start">CREATE INDEX</text>
+            <text class="lbl-sm" x="346" y="200" text-anchor="start">(customer_id, status)</text>
+
+            <text class="tcap" x="40" y="248" text-anchor="start">AFTER &mdash; B-tree(customer_id, status)</text>
+            <rect id="f3-a-node" class="tcell" x="40" y="258" width="580" height="38"/>
+            <text class="tval" x="54" y="282" text-anchor="start">Index Scan  orders_cust_status_idx (rows=4)</text>
+            <rect id="f3-a-cond" class="tcell" x="40" y="298" width="250" height="40"/>
+            <text class="tval" x="54" y="322" text-anchor="start">Index Cond: cust=42 &amp; open</text>
+            <rect id="f3-a-removed" class="tcell" x="298" y="298" width="170" height="40"/>
+            <text class="tval" x="312" y="322" text-anchor="start">Removed: 0</text>
+            <rect id="f3-a-buffers" class="tcell" x="476" y="298" width="144" height="40"/>
+            <text class="tval" x="490" y="322" text-anchor="start">hit=4</text>
+
+            <text id="f3-read" class="readout" x="330" y="392" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the same query, before and after the index — 2,000 disk pages collapse to 4 cache hits</figcaption>
+      </figure>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>Say it out loud, because this is exactly the sentence an interviewer wants: <em>&#8220;The slow plan was a Seq Scan with a Filter, and &#8216;Rows Removed by Filter: 199,996&#8217; told me it was reading the whole 200,000-row table to return 4 rows &mdash; a missing-index problem, not a stats problem, since the row estimate was already correct. I added a composite B-tree on the two equality columns, <code>(customer_id, status)</code>. The new plan is an Index Scan whose <code>Index Cond</code> does the selection, so <code>Rows Removed by Filter</code> disappears and Buffers falls from 2,000 disk reads to 4 cache hits &mdash; about a 1,000&times; drop in pages touched, and roughly 41&nbsp;ms to 0.06&nbsp;ms.&#8221;</em> Notice what made the diagnosis fast: you didn&#8217;t guess &mdash; you read two lines of the plan.</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Drills &amp; traps</div>
+      <h2>Graded drills + traps</h2>
+      <p>Reason each one out before opening the callout. Assume the <code>orders</code> table from the worked problem unless a drill says otherwise.</p>
+
+      <h3>Drill 1 &mdash; the Seq Scan that shouldn&#8217;t be</h3>
+      <p>You see this on a 5-million-row table. What is wrong, and what&#8217;s the fix?</p>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>Seq Scan on events  (cost=0.00..96000.00 rows=38 width=40) (actual time=0.05..612.4 rows=38 loops=1)
+  Filter: (user_id = 991234)
+  Rows Removed by Filter: 4999962
+  Buffers: shared read=42000</code></pre>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>The estimate is <em>right</em> (<code>rows=38</code> matches actual), so it is a <strong>missing-index</strong> problem, not a stats one. The proof is <code>Rows Removed by Filter: 4,999,962</code> &mdash; it read almost all 5M rows to find 38. Fix:</p>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">CREATE INDEX</span> events_user_idx <span class="kw">ON</span> events (user_id);</code></pre>
+        <p><em>Why:</em> a highly selective equality on an unindexed column forces a full scan; a B-tree turns it into an Index Scan that visits only the ~38 matching rows.</p>
+      </div>
+
+      <h3>Drill 2 &mdash; fingerprint a stats problem</h3>
+      <p>This one is <em>not</em> a missing index. What broke, and what&#8217;s the fix?</p>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>Nested Loop  (cost=0.71..48.20 rows=1 width=64) (actual time=0.9..2210.5 rows=61000 loops=1)
+  ->  Index Scan on orders o  (cost=0.42..40.1 rows=1 width=16) (actual time=0.3..38.7 rows=61000 loops=1)
+        Index Cond: (status = 'open')
+  ->  Index Scan on customers c  (cost=0.29..8.1 rows=1 width=48) (actual time=0.03..0.03 rows=1 loops=61000)</code></pre>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>The outer scan is estimated <code>rows=1</code> but actually returns <strong>61,000</strong> &mdash; a 61,000&times; error. Believing &#8220;1&#8221;, the planner chose a Nested Loop, whose inner Index Scan then runs <code>loops=61000</code> times. The fingerprint is estimate&nbsp;&#8776;&nbsp;1 vs actual huge on the driving node. Fix the <em>stats</em>, not the plan:</p>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">ANALYZE</span> orders;
+<span class="cm">-- if 'open' is common &amp; skewed, raise its stats target (grows the MCV list):</span>
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ALTER COLUMN</span> status <span class="kw">SET STATISTICS</span> <span class="lit">1000</span>;
+<span class="kw">ANALYZE</span> orders;</code></pre>
+        <p><em>Why:</em> with a correct estimate (~61,000), the planner switches to a Hash Join and stops running the inner side 61,000 times.</p>
+      </div>
+
+      <h3>Drill 3 &mdash; find the truly expensive node</h3>
+      <p>In Drill 2&#8217;s plan, which node actually <em>costs</em> the 2.2&nbsp;seconds &mdash; the outer scan (38.7&nbsp;ms) or the inner one (0.03&nbsp;ms)?</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>The <strong>inner</strong> Index Scan &mdash; because its <em>actual time is per loop</em>. Multiply by <code>loops</code>: <code>0.03&nbsp;ms &times; 61,000 &#8776; 1,830&nbsp;ms</code>, the bulk of the runtime. The outer scan&#8217;s 38.7&nbsp;ms runs once. <em>Why:</em> a node&#8217;s displayed time is one execution; the real cost of a Nested Loop&#8217;s inner side is <code>time &times; loops</code>. Reading loops is the difference between blaming the wrong node and finding the real one.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; read the Buffers line</h3>
+      <p>Same query, two runs. Run A: <code>Buffers: shared hit=4200</code>. Run B (right after): <code>Buffers: shared hit=4200 read=0</code>. Then someone restarts Postgres and Run C shows <code>Buffers: shared read=4200</code>. What changed, and is the query itself slower?</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p><code>hit</code> = pages served from the shared-buffer cache (fast, RAM); <code>read</code> = pages fetched from disk/OS. The query touched the <em>same</em> 4,200 pages every time &mdash; it is doing the same amount of logical work. Run C is slower only because the cache was cold after the restart, so those pages came from disk. <em>Why:</em> <code>hit</code>+<code>read</code> (total pages) measures the query&#8217;s work; the <code>hit</code>-vs-<code>read</code> <em>split</em> measures cache warmth, not query quality. To make it durably faster you reduce total pages (a better index), not just warm the cache.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Traps to avoid</span>
+        <p>
+        &bull; <strong>Reading top-down.</strong> The top line runs <em>last</em>. Start at the deepest leaves and work up, or you&#8217;ll blame the wrong node.<br>
+        &bull; <strong>Treating cost as milliseconds.</strong> <code>cost</code> is in abstract planner units for <em>comparing</em> plans. Real time is only in <code>actual time</code> under <code>ANALYZE</code>.<br>
+        &bull; <strong>Ignoring loops.</strong> <code>actual time</code> and <code>rows</code> are <em>per loop</em>. Always multiply by <code>loops</code> before deciding a node is cheap.<br>
+        &bull; <strong>Running ANALYZE on a mutating query without a transaction.</strong> <code>EXPLAIN ANALYZE</code> executes it &mdash; an <code>UPDATE</code>/<code>DELETE</code>/<code>INSERT</code> really runs. Wrap it in <code>BEGIN &hellip; ROLLBACK</code>.<br>
+        &bull; <strong>Confusing a missing index with bad stats.</strong> Estimate&nbsp;=&nbsp;actual but slow &rarr; add an index. Estimate wildly &#8800; actual &rarr; fix statistics. They need opposite fixes.<br>
+        &bull; <strong>Chasing the biggest <code>cost</code> instead of the biggest <em>gap</em>.</strong> The node that&#8217;s slow is often the one whose estimate was most wrong, not the one with the largest printed number.
+        </p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one habit: <em>when a query is slow, read its plan &mdash; bottom-up, node by node &mdash; and ask two questions: did it pick the right scan/join, and did reality match the estimate? The answer points at the fix (an index, or better statistics), and you never had to guess.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>EXPLAIN plans, ANALYZE runs</b><span><code>EXPLAIN</code> shows estimates only; <code>EXPLAIN ANALYZE</code> executes and adds actual time/rows/loops. Wrap mutating statements in <code>BEGIN &hellip; ROLLBACK</code>.</span></div>
+        <div class="tk"><span class="num">02</span><b>Read it bottom-up</b><span>A plan is a tree; leaves run first and feed their parents. The top line is the last step and returns your rows.</span></div>
+        <div class="tk"><span class="num">03</span><b>Four numbers per node</b><span><code>cost</code> (relative, not ms), <code>rows</code> estimate vs <code>actual rows</code>, and <code>loops</code>. Real work on a node is time &times; loops.</span></div>
+        <div class="tk"><span class="num">04</span><b>Know the node alphabet</b><span>Seq/Index/Index-Only/Bitmap scans; Nested Loop/Hash/Merge joins; Sort, aggregates, Limit, Gather. Each signals intent.</span></div>
+        <div class="tk"><span class="num">05</span><b>Estimate vs actual is the tell</b><span>A 10&times;/100&times;/1000&times; gap means bad statistics and, usually, a wrong join downstream. It cascades from the bottom.</span></div>
+        <div class="tk"><span class="num">06</span><b>Rows Removed &amp; Buffers</b><span>Big &#8220;Rows Removed by Filter&#8221; = no useful index. In PG18, <code>Buffers</code> shows <code>hit</code> (cache) vs <code>read</code> (disk) by default.</span></div>
+        <div class="tk"><span class="num">07</span><b>Fix inputs, not plans</b><span>Postgres has no hints. Add an index, or refresh/sharpen statistics (<code>ANALYZE</code>, stats target, <code>CREATE STATISTICS</code>) &mdash; the planner re-derives a good plan.</span></div>
+        <div class="tk"><span class="num">08</span><b>Missing index &#8800; bad stats</b><span>Estimate right but slow &rarr; index it. Estimate wrong &rarr; fix stats. Opposite diseases, opposite cures.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) What&#8217;s the difference between <code>EXPLAIN</code> and <code>EXPLAIN ANALYZE</code>, and why must you wrap an <code>UPDATE</code> in a transaction to profile it?<br>
+        (2) In which order does a plan execute, and which line returns rows to the client?<br>
+        (3) On one node you see <code>rows=5</code> but <code>actual rows=50000</code>. What does that gap tell you, and what&#8217;s the fix &mdash; index or statistics?<br>
+        (4) A Nested Loop&#8217;s inner Index Scan shows <code>actual time=0.03 loops=61000</code>. How much time did it really cost, and why is <code>loops</code> the key?<br>
+        (5) You see <code>Rows Removed by Filter: 199996</code> on a Seq Scan whose estimate was correct. Missing index or bad stats? What do you do?<br>
+        (6) In PG18&#8217;s Buffers line, what do <code>shared hit</code> and <code>shared read</code> mean, and which one tells you the query is doing too much <em>work</em> (vs just running cold)?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and re-narrate the plan from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 20 &middot; EXPLAIN &amp; THE QUERY PLANNER &middot; interactive edition<br>
+      Original study notes for engineers &middot; read plans bottom-up, compare estimate to actual, then fix the stats or the index.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — reading the plan tree, bottom-up */
+  makeStepper(_g('fig-plan'), [
+    {text:"A plan is a tree that executes BOTTOM-UP. Start at the leaves: the Seq Scan on order_items produces 50,000 rows — the probe side of the join.", active:["f1-stk-3"], path:"f1-sp-3", note:"Seq Scan order_items → 50,000 rows out"},
+    {text:"The other leaf runs too: a Seq Scan on products, read once and built into a Hash — the small, build side.", active:["f1-stk-4"], path:"f1-sp-4", note:"Seq Scan products → 800 rows, hashed"},
+    {text:"The Hash Join probes that hash with each order_items row and emits matched pairs. Its actual time reaches ~38.9 ms — the real bottleneck.", active:["f1-stk-2"], path:"f1-sp-2", note:"Hash Join → 50,000 joined rows · ~38.9 ms"},
+    {text:"Rows flow up into Sort, ordered by (qty*price) DESC. Because a Limit sits above it, Postgres keeps only the top 10 in a heap — 'top-N heapsort'.", active:["f1-stk-1"], path:"f1-sp-1", note:"Sort → top-N heapsort, keeps 10"},
+    {text:"Finally Limit takes those 10 and returns them. Read each node as you climb: (cost=start..total rows=est width=bytes), and with ANALYZE (actual time=.. rows=.. loops=..).", active:["f1-stk-0"], path:"f1-sp-0", note:"Limit → 10 rows to client · ~48.2 ms total"}
+  ], function(idx,s){ _g('f1-read').textContent=s.note||''; });
+
+  /* FIG 2 — estimate vs actual, the cascade */
+  makeStepper(_g('fig-tell'), [
+    {text:"Every node prints two numbers worth comparing: the planner's estimate (rows=…) and, under ANALYZE, the truth (actual rows=…). When they agree, the plan rests on solid ground.", box:"est 5  ≈  act 5", boxc:"kok", v:"ratio ≈ 1× — healthy", lit:["p1"]},
+    {text:"Here the Index Scan estimated rows=5 but actually returned 50,000. That 10,000× gap is THE master diagnostic — stale or missing statistics.", box:"est 5  →  act 50000", boxc:"kbad", v:"✗ 10,000× off — bad stats", lit:["p1","r1"]},
+    {text:"Believing just 5 rows, the planner chose a Nested Loop — exactly the right join when the outer side is a handful of rows.", box:"est 5  →  act 50000", boxc:"kbad", v:"plan picked for 5, not 50,000", lit:["p1","p2","r1"]},
+    {text:"But 50,000 outer rows make the inner side execute 50,000 times: loops=50,000. Multiply per-loop cost by loops — that is where the time actually went.", box:"loops = 50000", boxc:"kbad", v:"✗ Nested Loop blows up", lit:["p1","p2","r1","r2"]},
+    {text:"Corroborating tells on the same node: 'Rows Removed by Filter: 50000', and in PostgreSQL 18 'Buffers: shared read=…' ballooning — disk, not cache.", box:"Rows Removed 50000", boxc:"kbad", v:"filter + buffers confirm it", lit:["p1","p2","r1","r2"]},
+    {text:"The fix is the stats, not the plan: ANALYZE (or raise the column's statistics target). Now est≈act, the planner switches to a Hash Join, and the query is fast.", box:"est ≈ act (fixed)", boxc:"kok", v:"✓ ANALYZE → Hash Join", lit:[]}
+  ], function(idx,s){
+    ['p1','p2','r1','r2'].forEach(function(id){var g=_g('f2-c-'+id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.22);});
+    _g('f2-boxt').textContent=s.box;
+    _g('f2-box').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    _g('f2-boxt').setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#20201D'));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — worked problem, before/after plan */
+  var f3cells=['f3-b-node','f3-b-filter','f3-b-removed','f3-b-buffers','f3-a-node','f3-a-cond','f3-a-removed','f3-a-buffers'];
+  makeStepper(_g('fig-worked'), [
+    {text:"The task: one customer's open orders — WHERE customer_id = 42 AND status = 'open'. Out of 200,000 rows, exactly 4 match.", set:[], read:"200,000 rows · 4 match"},
+    {text:"With no matching index the planner has ONE option: a Seq Scan. It must read the entire table.", set:[['f3-b-node','kt']], read:"only plan available: Seq Scan"},
+    {text:"It reads all ~2,000 pages and discards 199,996 rows. 'Rows Removed by Filter' this large is the smoking gun; 'Buffers: shared read=2000' shows the disk cost.", set:[['f3-b-node','kt'],['f3-b-filter','kt'],['f3-b-removed','kt'],['f3-b-buffers','kt']], read:"~2,000 pages read · ≈ 41 ms"},
+    {text:"The fix: give it an ordered path — CREATE INDEX ON orders (customer_id, status). Both predicates are equalities, so a plain B-tree is perfect.", set:[['f3-a-node','kg']], read:"CREATE INDEX (customer_id, status)"},
+    {text:"Re-run EXPLAIN: an Index Scan whose Index Cond does the filtering, so Rows Removed by Filter is 0 and 'Buffers: shared hit=4' — four pages, from cache.", set:[['f3-a-node','kg'],['f3-a-cond','kg'],['f3-a-removed','kg'],['f3-a-buffers','kg']], read:"4 pages hit · ≈ 0.06 ms"},
+    {text:"Same rows, same query: ~2,000 pages → 4, ≈ 41 ms → ≈ 0.06 ms. About 1,000× fewer pages — and the plan tree told you exactly why.", set:[['f3-b-node','kt'],['f3-b-removed','kt'],['f3-a-node','kg'],['f3-a-removed','kg']], read:"≈ 1000× fewer pages — measured, not guessed"}
+  ], function(idx,s){
+    f3cells.forEach(function(id){var e=_g(id); if(e) e.setAttribute('class','tcell');});
+    (s.set||[]).forEach(function(p){var e=_g(p[0]); if(e) e.setAttribute('class','tcell '+p[1]);});
+    _g('f3-read').textContent=s.read||'';
+    var arc=_g('f3-arc'); if(arc) arc.style.opacity=(idx>=3?1:0.2);
+  });
+</script>
+</body>
+</html>

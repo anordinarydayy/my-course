@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 48 — Keeping Cache &amp; Search in Sync (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Keeping Cache &amp; Search in Sync with the DB of Record</div>
+    <h4>Keeping derived stores honest</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Two derived copies</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The cache-aside race &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Three ways to stay in sync &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Six hazards to design for</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: search sync via CDC &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">48</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Keeping Cache &amp; Search in Sync with the DB of Record</h1>
+      <p class="lede">Postgres is your <em>system of record</em>; Redis and Elasticsearch are <em>derived copies</em> of it. The moment you keep two copies of the same fact, they can disagree — and every "the search results are stale" or "I edited it but the cache still shows the old value" bug is that disagreement leaking to users. This lesson turns the drift problem you met at row scale into a systems-scale discipline: understand the invalidation race, pick a sync strategy on purpose, and drive derived stores from an ordered, idempotent change feed.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want database depth that pays off in interviews and in real systems. Examples use <strong>PostgreSQL (PG 17/18)</strong> alongside Redis and Elasticsearch, but the ideas — a single source of truth, eventual consistency, idempotency, ordering — are universal. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked SQL problem and graded drills</strong> you should attempt before reading the solutions.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>One source of truth, two derived copies</h2>
+      <p>By this phase you accept a hierarchy that a lot of production incidents are caused by forgetting: <strong>there is exactly one system of record, and everything else is a cache of it.</strong> Postgres holds the authoritative rows. Redis holds a fast copy of some of them so you don't hit the database for every read. Elasticsearch holds a <em>reshaped</em> copy — tokenized, denormalized, scored — so you can search in ways SQL is bad at. Both are <strong>derived</strong>: if you deleted them entirely and rebuilt from Postgres, nothing would be lost.</p>
+      <p>That framing carries a rule with real teeth: <strong>writes go to the record, never to a derived store first.</strong> A cache you write to directly is no longer a cache — it's a second source of truth you now have to reconcile. The whole job of this lesson is keeping the derived copies faithfully <em>following</em> the record, cheaply, and admitting up front that they will lag.</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Postgres — record</h4>
+          <ul>
+            <li>The <strong>authoritative</strong> rows; ACID.</li>
+            <li>Every write commits here <strong>first</strong>.</li>
+            <li>If it's not here, it isn't true.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Redis — cache</h4>
+          <ul>
+            <li>A fast, <strong>partial</strong> copy of hot rows.</li>
+            <li>Read-mostly; <strong>disposable</strong>.</li>
+            <li>Correctness = knowing when to drop a key.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Elasticsearch — search</h4>
+          <ul>
+            <li>A <strong>reshaped</strong> copy for full-text/facets.</li>
+            <li>Denormalized documents, <strong>eventually</strong> in step.</li>
+            <li>Correctness = ordered, idempotent updates.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The hard part is not writing to two systems — it's the <em>gap between them</em>. That gap is the same <strong>drift problem</strong> you saw between a row and its computed value, only now the two copies live in different processes, on different machines, updated by different code paths. Everything below is about shrinking, bounding, and self-healing that gap.</p>
+      <div class="callout">
+        <span class="k">The one rule to carry through</span>
+        <p>Design for <strong>eventual consistency</strong>, not perfect consistency. A derived store <em>will</em> be briefly stale; the engineering question is never "can I make it never stale?" (you can't, cheaply) but "how do I <strong>bound</strong> the staleness, guarantee it <strong>converges</strong>, and make sure a duplicate or out-of-order update can't make it <em>diverge</em>?"</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The classic bug</div>
+      <h2>The cache-aside invalidation race &#9656;</h2>
+      <p>The default caching pattern is <strong>cache-aside</strong> (a.k.a. lazy caching): on a read, look in the cache; on a miss, read the database and populate the cache; on a write, update the database and <em>invalidate</em> (delete) the cache key so the next read reloads. It's simple and it's everywhere — and it has a famous race that produces a value that stays wrong <em>indefinitely</em>, not just briefly.</p>
+      <p>The trap is the order of two interleaved operations: a slow reader that read the <em>old</em> value but hasn't populated the cache yet, and a writer that updates the row and deletes the (empty) key. When the slow reader finally writes, it repopulates the cache with the value it read <em>before</em> the write. Step through the exact interleaving:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-race">
+          <svg viewBox="0 0 640 340" role="img" aria-label="A slow reader and a writer interleave so the cache is repopulated with a stale value">
+            <text class="lbl-sm" x="40" y="30" text-anchor="start">READER</text>
+            <text class="lbl-sm" x="40" y="222" text-anchor="start">WRITER</text>
+            <!-- reader chips -->
+            <g id="f1-r-miss" style="opacity:.2"><rect class="chip cA" x="40" y="40" width="150" height="42" rx="8"/><text class="chiptext" x="115" y="66" text-anchor="middle">R: GET miss</text></g>
+            <g id="f1-r-read" style="opacity:.2"><rect class="chip cA" x="210" y="40" width="176" height="42" rx="8"/><text class="chiptext" x="298" y="66" text-anchor="middle">R: read DB &#8594; v1</text></g>
+            <g id="f1-r-set" style="opacity:.2"><rect class="chip cBad" x="404" y="40" width="196" height="42" rx="8"/><text class="chiptext" x="502" y="66" text-anchor="middle">R: SET cache = v1</text></g>
+            <!-- state boxes -->
+            <text class="lbl-sm" x="205" y="126" text-anchor="middle">cache[product:1]</text>
+            <rect id="f1-cachebox" class="balbox" x="120" y="134" width="170" height="54" rx="9"/>
+            <text id="f1-cacheval" x="205" y="168" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#20201D">&#8709;</text>
+            <text class="lbl-sm" x="445" y="126" text-anchor="middle">products (DB)</text>
+            <rect class="balbox" x="360" y="134" width="170" height="54" rx="9"/>
+            <text id="f1-dbval" x="445" y="168" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#20201D">Ana v1</text>
+            <!-- time axis -->
+            <path d="M40 210 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="205" text-anchor="end">time &#8594;</text>
+            <!-- writer chips -->
+            <g id="f1-w-upd" style="opacity:.2"><rect class="chip cB" x="210" y="234" width="176" height="42" rx="8"/><text class="chiptext" x="298" y="260" text-anchor="middle">W: UPDATE &#8594; v2</text></g>
+            <g id="f1-w-del" style="opacity:.2"><rect class="chip cB" x="404" y="234" width="196" height="42" rx="8"/><text class="chiptext" x="502" y="260" text-anchor="middle">W: DEL cache key</text></g>
+            <text id="f1-verdict" x="320" y="320" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: a slow reader repopulates the cache with a value that was already overwritten in the DB</figcaption>
+      </figure>
+
+      <p>Notice <em>why</em> deleting the key on write is not enough on its own: the delete happened while the key was empty, and the stale write landed <em>after</em> it. The reader's <code>SET</code> has no way to know the value it holds is older than what's now in the database. Two things fix this cleanly, and you'll use both: a <strong>TTL</strong> so the poison self-heals within seconds (a safety net, not a strategy), and — the real fix — making the populate <strong>conditional on a version</strong>, so a write can only ever install a <em>newer</em> value, never an older one. Once the update carries a version, arrival order stops mattering; the same idea reappears verbatim for search in the worked problem.</p>
+      <div class="callout note">
+        <span class="k">Invalidate, don't update — and still bound it</span>
+        <p>On a write, prefer to <code>DEL</code> the key (invalidate) over <code>SET</code>-ing the new value. A <code>DEL</code> that loses the race just causes a cache miss and a fresh reload; a <code>SET</code> that loses the race installs <em>stale</em> data. But even <code>DEL</code>-on-write can't stop the read-repopulate race above — that's what the TTL and the version guard are for. "Always give cache entries a TTL" is the cheapest bug-limiter you will ever add.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Strategies</div>
+      <h2>Three ways to keep a copy in step &#9656;</h2>
+      <p>There are three broad strategies for keeping a derived store in sync, and they trade freshness against complexity. Know all three by name; real systems layer them.</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Cache-aside + TTL</h4>
+          <ul>
+            <li>Lazy: <strong>populate on miss</strong>, invalidate on write.</li>
+            <li>Simplest; the default. Has the race above.</li>
+            <li>TTL <strong>bounds</strong> staleness and self-heals drift.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Write-through</h4>
+          <ul>
+            <li>The write path updates <strong>DB then cache</strong> together.</li>
+            <li>Fresher reads; but it's a <strong>dual-write</strong>.</li>
+            <li>A crash between the two steps <strong>drifts</strong>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>CDC-driven sync</h4>
+          <ul>
+            <li>DB commit &#8594; <strong>change feed</strong> &#8594; update copies.</li>
+            <li>No dual-write; <strong>ordered, replayable</strong>.</li>
+            <li>Most robust; more moving parts.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The third one deserves the spotlight, because it dissolves the two problems the others fight. Instead of the application trying to write two systems atomically (which it <em>cannot</em> do — that's the dual-write problem from the outbox lesson), the change is captured <strong>from the committed WAL</strong> — by logical decoding, or by a transactional <em>outbox</em> row written in the same transaction as the data. A relay reads that single, ordered stream and pushes it to the cache and the search index. Watch the shape:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-sync">
+          <svg viewBox="0 0 640 372" role="img" aria-label="A change captured from the WAL flows through one relay out to Redis and Elasticsearch">
+            <g class="st" id="f2-db"><rect class="node-b" x="210" y="34" width="220" height="48" rx="9"/><text class="lbl" x="320" y="63" text-anchor="middle">Postgres &mdash; system of record</text></g>
+            <g class="st" id="f2-wal"><rect class="node" x="210" y="112" width="220" height="50" rx="9"/><text class="lbl" x="320" y="135" text-anchor="middle">WAL &middot; logical decode</text><text class="lbl-sm" x="320" y="152" text-anchor="middle">(or outbox, same txn)</text></g>
+            <g class="st" id="f2-relay"><rect class="node-r" x="210" y="192" width="220" height="50" rx="9"/><text class="lbl" x="320" y="215" text-anchor="middle" fill="#B0532F">CDC relay / consumer</text><text class="lbl-sm" x="320" y="232" text-anchor="middle" fill="#B0532F">ordered &middot; idempotent</text></g>
+            <g class="st" id="f2-cache"><rect class="node-t" x="60" y="292" width="210" height="50" rx="9"/><text class="lbl" x="165" y="315" text-anchor="middle" fill="#7a2c43">Redis cache</text><text class="lbl-sm" x="165" y="332" text-anchor="middle" fill="#7a2c43">invalidate / set by key</text></g>
+            <g class="st" id="f2-search"><rect class="node-t" x="370" y="292" width="210" height="50" rx="9"/><text class="lbl" x="475" y="315" text-anchor="middle" fill="#7a2c43">Elasticsearch</text><text class="lbl-sm" x="475" y="332" text-anchor="middle" fill="#7a2c43">upsert document</text></g>
+            <path id="f2-sp0" class="flow" d="M320 82 V 110" marker-end="url(#arrow)"/>
+            <path id="f2-sp1" class="flow" d="M320 162 V 190" marker-end="url(#arrow)"/>
+            <path id="f2-sp2" class="flow" d="M280 242 C 210 268, 190 268, 168 290" marker-end="url(#arrow)"/>
+            <path id="f2-sp3" class="flow" d="M360 242 C 430 268, 452 268, 474 290" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: one committed change, one ordered feed, fanned out to both derived stores without a dual-write</figcaption>
+      </figure>
+
+      <p>The elegance is that the <em>DB commit is the only atomic action</em>. Everything downstream is a faithful projection of committed facts, replayed in order. If a consumer crashes, it resumes from its last position and re-applies — which is safe precisely because each update is idempotent. You get no lost events (the change is durably in the WAL/outbox), no dual-write, and a natural place to add a second consumer later (analytics, another cache) without touching the write path.</p>
+      <div class="callout tip">
+        <span class="k">When each strategy is the right call</span>
+        <p>Reach for <strong>cache-aside + TTL</strong> first — for a read cache it's usually enough, and the TTL forgives a lot. Use <strong>write-through</strong> only when a few seconds of staleness is unacceptable <em>and</em> you can tolerate the dual-write risk (or wrap it in the outbox). Graduate to <strong>CDC-driven sync</strong> when you have multiple derived stores, need ordering/replay, or the search index is big enough that rebuilding it from a change feed is your operational lifeline.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Hazards</div>
+      <h2>Six hazards to design for up front</h2>
+      <p>Whichever strategy you pick, the same handful of hazards will find you. Name them now so they're checklist items, not 2&nbsp;a.m. surprises.</p>
+      <ul>
+        <li><strong>TTL is a safety net, not a plan.</strong> A short TTL guarantees any drift self-heals within its window, so a missed invalidation is a bounded bug instead of a permanent one. But TTL alone means every key is stale up to its lifetime and reloads cost a DB hit; it complements correct invalidation, it doesn't replace it.</li>
+        <li><strong>Versioned keys beat blind overwrites.</strong> Attach a monotonically increasing version (a row <code>version</code> column, an <code>updated_at</code>, or the WAL LSN) to every cached/indexed value, and only install an update if its version is <em>newer</em>. This is what makes updates commutative under reordering — the antidote to the race in FIG.&nbsp;1.</li>
+        <li><strong>The expiry stampede (thundering herd).</strong> When a hot key expires, every concurrent reader misses at once and stampedes the database with identical rebuild queries — sometimes enough to fall over. Defenses: <strong>request coalescing</strong> (single-flight — one rebuild, everyone else waits), <strong>jittered TTLs</strong> so keys don't expire in lockstep, <strong>early/probabilistic refresh</strong> before expiry, and <strong>stale-while-revalidate</strong> (serve the old value while one worker refreshes).</li>
+        <li><strong>Out-of-order updates.</strong> Two updates to the same row can be applied to a derived store in the wrong order (retries, parallel consumers, network reordering), leaving the <em>older</em> value winning. Order by version and reject anything not newer — never trust arrival order.</li>
+        <li><strong>Delete propagation.</strong> The easiest change to forget. If a row is deleted but its cache key or search document lingers, users see ghosts — deleted products still searchable, revoked access still cached. Deletes must flow through the same feed as upserts, and a delete's version must guard against a late upsert resurrecting the row (a tombstone).</li>
+        <li><strong>Design for eventual consistency.</strong> Accept a bounded lag and make it non-scary: show "updating…" states, avoid read-your-own-write from a lagging copy for the writer (route their immediate re-read to Postgres), and make every consumer <strong>idempotent</strong> so at-least-once delivery and replays converge instead of corrupt.</li>
+      </ul>
+      <div class="callout note">
+        <span class="k">The through-line</span>
+        <p>Five of these six hazards are solved by the same two properties: <strong>a version on every change</strong> (fixes reordering, blind overwrites, and stale-delete resurrection) and <strong>an idempotent apply</strong> (fixes duplicates and replays). TTL and stampede protection handle the read side. Build those in from the start and you rarely have to reason about a specific interleaving again.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Keeping a search index in sync via CDC &#9656;</h2>
+      <p>Let's build the robust path end to end: a <code>products</code> table in Postgres, mirrored into an Elasticsearch index for search, kept in sync by a transactional outbox and an idempotent consumer that handles duplicates, reordering, and deletes.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql &middot; postgres</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> products (
+  id          <span class="kw">bigint</span> <span class="kw">PRIMARY KEY</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span>,
+  name        <span class="kw">text</span> <span class="kw">NOT NULL</span>,
+  price_cents <span class="kw">integer</span> <span class="kw">NOT NULL</span>,
+  version     <span class="kw">bigint</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="lit">1</span>,   <span class="cm">-- bumped on every UPDATE</span>
+  updated_at  <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+
+<span class="cm">-- the transactional outbox: one row per change, written in the SAME txn</span>
+<span class="kw">CREATE TABLE</span> outbox (
+  id       <span class="kw">bigint</span> <span class="kw">PRIMARY KEY</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span>,
+  doc_id   <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,          <span class="cm">-- product id</span>
+  op       <span class="kw">text</span>   <span class="kw">NOT NULL</span>,          <span class="cm">-- 'upsert' | 'delete'</span>
+  version  <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,          <span class="cm">-- the row's version at change time</span>
+  payload  <span class="kw">jsonb</span>,                     <span class="cm">-- the document body (NULL for delete)</span>
+  sent_at  <span class="kw">timestamptz</span>                <span class="cm">-- NULL until the relay ships it</span>
+);
+<span class="cm">-- a partial index so the relay scans ONLY unsent rows, in order</span>
+<span class="kw">CREATE INDEX</span> outbox_unsent <span class="kw">ON</span> outbox (id) <span class="kw">WHERE</span> sent_at <span class="kw">IS NULL</span>;</code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>Every change to <code>products</code> must reach Elasticsearch exactly in effect — inserts and updates as document upserts, deletes as document deletes — such that <strong>no committed change is lost, duplicates are harmless, and an out-of-order delivery never installs an older value</strong>. The search index may lag by a moment; it may never diverge.</p>
+
+      <h3>3 &middot; The naive attempt, and why it's broken</h3>
+      <p class="codetag">app pseudocode &middot; dual-write (do not do this)</p>
+      <pre class="code"><code><span class="kw">BEGIN</span>;
+  <span class="kw">UPDATE</span> products <span class="kw">SET</span> name = <span class="lit">'Widget Pro'</span>, version = version + <span class="lit">1</span> <span class="kw">WHERE</span> id = <span class="lit">42</span>;
+<span class="kw">COMMIT</span>;
+<span class="cm">// ...then, in application code, right after the commit:</span>
+es.index(<span class="lit">"products"</span>, <span class="lit">42</span>, { name: <span class="lit">"Widget Pro"</span>, ... });   <span class="cm">// <-- second write</span></code></pre>
+      <p>This is the <strong>dual-write problem</strong> wearing a search-shaped hat. The database commit and the <code>es.index()</code> call are two separate writes to two systems with <em>no</em> shared transaction. If the process crashes, the network blips, or Elasticsearch is briefly down <em>between</em> them, Postgres has the new name and the index has the old one — permanent divergence with no record that a sync is owed. Worse, under concurrent updates the two <code>es.index()</code> calls can execute in the opposite order from the two commits, so the index ends up with the <em>older</em> name. There is no ordering guarantee and no durability of the intent to sync.</p>
+
+      <h3>4 &middot; The fix: outbox in the same transaction, idempotent versioned consumer</h3>
+      <p>First, make the intent to sync <strong>part of the transaction</strong> with a trigger, so a committed change and its outbox row are one atomic fact:</p>
+      <p class="codetag">sql &middot; postgres</p>
+      <pre class="code"><code><span class="kw">CREATE FUNCTION</span> <span class="fn">products_to_outbox</span>() <span class="kw">RETURNS</span> <span class="kw">trigger</span> <span class="kw">LANGUAGE</span> plpgsql <span class="kw">AS</span> $$
+<span class="kw">BEGIN</span>
+  <span class="kw">IF</span> TG_OP = <span class="lit">'DELETE'</span> <span class="kw">THEN</span>
+    <span class="kw">INSERT INTO</span> outbox (doc_id, op, version, payload)
+    <span class="kw">VALUES</span> (OLD.id, <span class="lit">'delete'</span>, OLD.version, <span class="kw">NULL</span>);
+    <span class="kw">RETURN</span> OLD;
+  <span class="kw">ELSE</span>
+    <span class="kw">INSERT INTO</span> outbox (doc_id, op, version, payload)
+    <span class="kw">VALUES</span> (NEW.id, <span class="lit">'upsert'</span>, NEW.version,
+            <span class="fn">jsonb_build_object</span>(<span class="lit">'id'</span>, NEW.id, <span class="lit">'name'</span>, NEW.name,
+                               <span class="lit">'price_cents'</span>, NEW.price_cents));
+    <span class="kw">RETURN</span> NEW;
+  <span class="kw">END IF</span>;
+<span class="kw">END</span> $$;
+
+<span class="kw">CREATE TRIGGER</span> products_outbox
+  <span class="kw">AFTER INSERT OR UPDATE OR DELETE</span> <span class="kw">ON</span> products
+  <span class="kw">FOR EACH ROW</span> <span class="kw">EXECUTE FUNCTION</span> <span class="fn">products_to_outbox</span>();</code></pre>
+      <p>Next, a <strong>relay</strong> drains the outbox in id order, claiming a batch with <code>FOR UPDATE SKIP LOCKED</code> so multiple relay workers never grab the same rows:</p>
+      <p class="codetag">sql &middot; the relay's claim query</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, doc_id, op, version, payload
+<span class="kw">FROM</span> outbox
+<span class="kw">WHERE</span> sent_at <span class="kw">IS NULL</span>
+<span class="kw">ORDER BY</span> id
+<span class="kw">LIMIT</span> <span class="lit">100</span>
+<span class="kw">FOR UPDATE SKIP LOCKED</span>;
+<span class="cm">-- ...ship each row to Elasticsearch, then:</span>
+<span class="kw">UPDATE</span> outbox <span class="kw">SET</span> sent_at = <span class="fn">now</span>() <span class="kw">WHERE</span> id = <span class="kw">ANY</span>($1);</code></pre>
+      <p>Finally, the <strong>idempotent, versioned apply</strong> to Elasticsearch. The trick is to let Elasticsearch enforce ordering with <em>external versioning</em>: it will refuse to overwrite a document with an equal-or-lower version, so duplicates and out-of-order deliveries become automatic no-ops.</p>
+      <p class="codetag">http &middot; elasticsearch external versioning</p>
+      <pre class="code"><code><span class="cm"># upsert product 42 at version 5 — rejected (409) if the stored version is >= 5</span>
+PUT /products/_doc/42?version=5&amp;version_type=external
+{ "id": 42, "name": "Widget Pro", "price_cents": 1999 }
+
+<span class="cm"># delete carries a version too, so a late upsert (v4) cannot resurrect the row</span>
+DELETE /products/_doc/42?version=6&amp;version_type=external</code></pre>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-idx">
+          <svg viewBox="0 0 640 340" role="img" aria-label="Ordered outbox events applied idempotently to an Elasticsearch document by external version">
+            <rect id="f3-evt" class="chip cA" x="40" y="36" width="560" height="40" rx="8"/>
+            <text id="f3-evttext" class="chiptext" x="320" y="61" text-anchor="middle"></text>
+            <g class="st" id="f3-outbox"><rect class="node-b" x="30" y="110" width="170" height="56" rx="9"/><text class="lbl" x="115" y="134" text-anchor="middle">Outbox / CDC</text><text class="lbl-sm" x="115" y="153" text-anchor="middle">ordered by LSN</text></g>
+            <g class="st" id="f3-consumer"><rect class="node-r" x="250" y="110" width="150" height="56" rx="9"/><text class="lbl" x="325" y="138" text-anchor="middle" fill="#B0532F">Consumer</text><text class="lbl-sm" x="325" y="155" text-anchor="middle" fill="#B0532F">idempotent</text></g>
+            <g class="st" id="f3-es"><rect class="node-t" x="440" y="110" width="160" height="56" rx="9"/><text class="lbl" x="520" y="143" text-anchor="middle" fill="#7a2c43">Elasticsearch</text></g>
+            <text class="lbl-sm" x="520" y="200" text-anchor="middle">doc id=42</text>
+            <rect id="f3-esbox" class="balbox" x="455" y="208" width="130" height="50" rx="9"/>
+            <text id="f3-esver" x="520" y="240" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="19" font-weight="700" fill="#20201D">(none)</text>
+            <path id="f3-sp0" class="flow" d="M200 138 H 248" marker-end="url(#arrow)"/>
+            <path id="f3-sp1" class="flow" d="M400 138 H 438" marker-end="url(#arrow)"/>
+            <text id="f3-verdict" x="290" y="322" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: external versions make duplicates no-op, reject stale reorders, and let deletes guard against resurrection</figcaption>
+      </figure>
+
+      <h3>5 &middot; Why it's better</h3>
+      <p>The dual-write is gone: the only atomic action is the Postgres commit, and the outbox row rides inside it, so the intent to sync is as durable as the data itself. The relay is at-least-once and crash-safe — it can re-ship a batch after a crash because external versioning makes a re-apply a no-op. Ordering is enforced at the destination by version, not by hoping deliveries arrive in order. The claim query is cheap because it rides the partial index — only unsent rows exist in it:</p>
+      <p class="codetag">explain (illustrative) &middot; the relay claim query</p>
+      <pre class="code"><code>Limit  (cost=0.29..12.4 rows=100 width=140) (actual time=0.031..0.208 rows=100 loops=1)
+  ->  LockRows  (cost=0.29..248.5 rows=2000 width=140) (actual rows=100 loops=1)
+        ->  Index Scan using outbox_unsent on outbox
+              (cost=0.29..228.5 rows=2000 width=140) (actual time=0.021..0.09 rows=100 loops=1)
+Planning Time: 0.14 ms
+Execution Time: 0.31 ms</code></pre>
+      <p>Read that plan: the <strong>Index Scan using outbox_unsent</strong> walks the partial index in id order and stops after the <code>LIMIT</code> — it never touches the millions of already-sent rows, because they aren't in that index at all. The <strong>LockRows</strong> node above it is <code>FOR UPDATE SKIP LOCKED</code> claiming those rows so a second relay worker skips them. Sub-millisecond, regardless of table size.</p>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>"Postgres is the record; Elasticsearch is a derived copy. To keep them in step without a dual-write, a trigger writes an <em>outbox</em> row in the same transaction as every product change, stamped with the row's version. A relay drains that outbox in order using <code>SKIP LOCKED</code>, and applies each change to Elasticsearch with an <em>external version</em>. Because the version guards every write, a duplicate redelivery is a no-op, a late out-of-order event is rejected, and a delete can't be undone by a straggling old upsert. The index lags by milliseconds and always converges — and if it's ever corrupted, I replay the feed to rebuild it."</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Drills</div>
+      <h2>Graded drills &amp; the trap list</h2>
+      <p>Attempt each before opening the solution. They climb from the cache race up to production read-side failure modes.</p>
+
+      <h3>Drill 1 &middot; Bound the read-repopulate race</h3>
+      <p>Your service uses plain cache-aside: read-through on miss, and on write it deletes the key. Users occasionally report a stale value that "sticks" for hours until they edit the record again. What two changes make this bug bounded and then eliminated — without adopting full CDC?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>(1) Give every cached entry a TTL</strong> (say 30–60s): this turns "stale forever" into "stale for at most the TTL," because the poisoned key self-expires and reloads fresh. <strong>(2) Make the populate version-aware:</strong> store <code>{version, value}</code> and, when populating on a miss, only overwrite if your version is newer (a Lua <code>SET</code> that compares, or embed the version in a compare-and-set). Now a slow reader holding v1 cannot clobber a freshly written v2.<br><em>Why:</em> TTL bounds the damage; the version guard removes the race entirely because arrival order stops mattering.</p>
+      </div>
+
+      <h3>Drill 2 &middot; Kill the dual-write to the cache</h3>
+      <p>A teammate proposes write-through: after committing to Postgres, the request handler also does <code>redis.set(key, newValue)</code> so reads are instantly fresh. Name the failure mode and give the minimal safer design that keeps most of the freshness.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>The failure is a <strong>dual-write</strong>: the DB commit and the Redis <code>set</code> aren't atomic, so a crash or error between them (or two concurrent writers landing their <code>set</code>s out of order) leaves the cache holding a value that disagrees with Postgres, with nothing tracking that a fix is owed. Minimal safer design: <strong>invalidate instead of set</strong> — <code>redis.del(key)</code> after commit and let the next read reload from the record; a lost <code>del</code> just costs a miss, and add a TTL as backstop. If you truly need push-freshness, drive the <code>set</code> from the <strong>outbox/CDC feed</strong> (versioned), not the request handler.<br><em>Why:</em> a delete-that-fails degrades to a harmless miss; a set-that-fails installs stale data.</p>
+      </div>
+
+      <h3>Drill 3 &middot; Two updates, wrong order</h3>
+      <p>Two rapid edits to product 42 emit updates v5 then v6, but your parallel consumers apply v6 first, then v5 — so search shows the older name. The transport is at-least-once and you can't guarantee ordered delivery. How do you make the index correct anyway?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>Stop trusting arrival order; enforce it at the destination with a <strong>version</strong>. Carry the row's <code>version</code> (or WAL LSN) on every event and apply <em>last-write-wins by version, not by arrival</em>: in Elasticsearch use <code>version_type=external</code> so v5 arriving after v6 is rejected with a 409 <em>version_conflict</em>; in a SQL-side projection, <code>UPDATE ... WHERE incoming_version &gt; stored_version</code>. Optionally serialize a single key's events to one consumer (partition by <code>doc_id</code>) to reduce conflicts, but the version guard is what makes it <em>correct</em>.<br><em>Why:</em> a monotonic version makes updates commutative — any delivery order converges to the newest value.</p>
+      </div>
+
+      <h3>Drill 4 &middot; The hot key expires at 3 a.m.</h3>
+      <p>A single cache key holds an expensive aggregate every request needs. It has a 60s TTL. When it expires, latency spikes and the database CPU pegs for a second. Diagnose it and give three mitigations.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>This is the <strong>cache stampede / thundering herd</strong>: on expiry, thousands of concurrent requests all miss simultaneously and run the same expensive rebuild against the DB at once. Mitigations: <strong>(1) request coalescing / single-flight</strong> — the first miss takes a lock and rebuilds; everyone else waits for that one result. <strong>(2) Stale-while-revalidate</strong> — serve the just-expired value while one background worker refreshes, so no request blocks on the rebuild. <strong>(3) Probabilistic early expiration</strong> (XFetch) and <strong>jittered TTLs</strong> — refresh slightly before expiry and spread expiries out so keys never all die at the same instant.<br><em>Why:</em> the problem is <em>N</em> simultaneous rebuilds; every fix collapses it to one.</p>
+      </div>
+
+      <p><strong>Traps to keep on a card:</strong></p>
+      <ul>
+        <li><strong>Forgetting deletes.</strong> Upserts get synced, deletes get missed — ghost documents and stale cache entries. Deletes must ride the same feed, versioned.</li>
+        <li><strong>No TTL anywhere.</strong> Any missed invalidation becomes permanent drift. A TTL is the cheapest self-heal you can buy.</li>
+        <li><strong>Dual-writing to a derived store.</strong> The app can't atomically write Postgres and Redis/ES; a crash between them diverges silently. Use invalidate-on-write or an outbox.</li>
+        <li><strong>SET on write instead of DEL.</strong> A losing <code>SET</code> installs stale data; a losing <code>DEL</code> only causes a miss. Prefer invalidation.</li>
+        <li><strong>Trusting arrival order.</strong> Without a version, out-of-order or replayed events let an older value win. Version everything.</li>
+        <li><strong>Synchronized TTLs on hot keys.</strong> Lockstep expiry plus no coalescing equals a stampede. Jitter and single-flight.</li>
+        <li><strong>Treating the cache/replica as a backup.</strong> A derived copy replicates mistakes too; it is not a recovery point.</li>
+      </ul>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea holds the lesson together: <em>keep a single system of record, treat Redis and Elasticsearch as derived copies that will lag, and make every update to them <strong>ordered by version</strong> and <strong>idempotent</strong> so at-least-once, out-of-order, and replayed changes all converge instead of diverge.</em> Cache-aside plus TTL bounds the read side; a transactional outbox plus a versioned consumer removes the dual-write on the write side.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>One record, many copies</b><span>Postgres is authoritative; Redis and Elasticsearch are disposable projections you can rebuild. Writes go to the record first, always.</span></div>
+        <div class="tk"><span class="num">02</span><b>The cache-aside race</b><span>A slow reader repopulates the cache with a value already overwritten in the DB — stale until TTL. Bound with TTL, fix with a version guard.</span></div>
+        <div class="tk"><span class="num">03</span><b>Invalidate, don't set</b><span>On write, <code>DEL</code> the key rather than <code>SET</code> it: a lost delete is a harmless miss; a lost set installs stale data.</span></div>
+        <div class="tk"><span class="num">04</span><b>Three strategies</b><span>Cache-aside + TTL (lazy, default), write-through (fresh but a dual-write), CDC-driven (ordered, replayable, most robust).</span></div>
+        <div class="tk"><span class="num">05</span><b>No dual-writes</b><span>The app can't atomically write two systems. Let the DB commit be the only atomic fact and project it via an outbox/CDC feed.</span></div>
+        <div class="tk"><span class="num">06</span><b>Version everything</b><span>A monotonic version (row version / LSN) makes updates commutative: duplicates no-op, reorders reject, deletes guard resurrection.</span></div>
+        <div class="tk"><span class="num">07</span><b>Deletes are changes too</b><span>Propagate deletes through the same versioned feed, or ghosts linger in search and cache long after the row is gone.</span></div>
+        <div class="tk"><span class="num">08</span><b>Tame the read side</b><span>TTL as safety net, jitter + single-flight + stale-while-revalidate against the expiry stampede, and design for eventual consistency.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Why is a derived store never a valid backup, and what is the one rule about where writes go?<br>
+        (2) Walk the cache-aside read-repopulate race step by step. Which single property removes it, and what does TTL do that the property doesn't?<br>
+        (3) Contrast cache-aside+TTL, write-through, and CDC-driven sync — one strength and one risk each.<br>
+        (4) Explain why an app can't write Postgres and Elasticsearch atomically, and how the transactional outbox sidesteps it.<br>
+        (5) Give three consequences a monotonic version buys you at the destination (name duplicate, reorder, and delete cases).<br>
+        (6) A hot cached aggregate stampedes the DB on expiry — name the failure and three mitigations.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw the flow from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 48 &middot; KEEPING CACHE &amp; SEARCH IN SYNC WITH THE DB OF RECORD &middot; interactive edition<br>
+      Original study notes for engineers &middot; one record, versioned feeds, idempotent copies &mdash; replay, drill, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the cache-aside invalidation race */
+  makeStepper(_g('fig-race'), [
+    {text:"Cache holds nothing for product:1; the DB row is Ana (version 1). Everything is in sync.", lit:[], cache:"∅", db:"Ana v1", cc:"", v:"in sync · DB is the system of record"},
+    {text:"A reader asks for product:1 and gets a cache MISS, so it falls through to Postgres.", lit:["r-miss"], cache:"∅", db:"Ana v1", cc:"", v:"reader: cache miss → read DB"},
+    {text:"The reader reads Ana (v1) from the DB — but is paused (GC, slow network) just before it writes that value back into the cache.", lit:["r-miss","r-read"], cache:"∅", db:"Ana v1", cc:"", v:"reader holds v1, not yet cached"},
+    {text:"Meanwhile a writer UPDATEs the row to v2 and DELetes the cache key. The key is already empty, so the delete is a no-op.", lit:["r-miss","r-read","w-upd","w-del"], cache:"∅", db:"Ana Lee v2", cc:"", v:"writer: DB → v2, DEL key (no-op)"},
+    {text:"Now the slow reader wakes and SETs the cache to the v1 it read earlier — repopulating it with a STALE value.", lit:["r-miss","r-read","w-upd","w-del","r-set"], cache:"Ana v1", db:"Ana Lee v2", cc:"kbad", v:"✗ cache = v1, DB = v2 — stale"},
+    {text:"It stays stale until the key expires or the row is written again. Fixes: always set a TTL, DEL (never SET) on write, and drive the populate from a versioned check that rejects the older write.", lit:["r-miss","r-read","w-upd","w-del","r-set"], cache:"Ana v1", db:"Ana Lee v2", cc:"kbad", v:"✗ stale until TTL — bound it / version it"}
+  ], function(idx,s){
+    ['r-miss','r-read','r-set','w-upd','w-del'].forEach(function(k){
+      var g=_g('f1-'+k); if(g) g.style.opacity=(s.lit.indexOf(k)>=0?1:0.2);});
+    _g('f1-cacheval').textContent=s.cache;
+    _g('f1-dbval').textContent=s.db;
+    _g('f1-cachebox').setAttribute('class','balbox'+(s.cc?' '+s.cc:''));
+    _g('f1-cacheval').setAttribute('fill', s.cc==='kbad'?'#B0532F':(s.cc==='kok'?'#3f7a2e':'#20201D'));
+    var vd=_g('f1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.cc==='kbad'?'#B0532F':(s.cc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — CDC-driven sync fan-out */
+  makeStepper(_g('fig-sync'), [
+    {text:"A write commits to Postgres — the one system of record. The app never writes Redis or Elasticsearch directly; they are derived copies.", active:["f2-db"]},
+    {text:"Rather than dual-write, the committed change is captured from the WAL by logical decoding — or written to an outbox row inside the same transaction. One atomic fact.", active:["f2-wal"], path:"f2-sp0"},
+    {text:"A single relay/consumer reads that ordered change stream. Being the only writer per derived store keeps updates in order.", active:["f2-relay"], path:"f2-sp1"},
+    {text:"It updates the cache idempotently — usually just invalidating (DEL) the key so the next read reloads fresh, keyed by row id.", active:["f2-cache"], path:"f2-sp2"},
+    {text:"And upserts the search document idempotently — applying the same change once or ten times yields the same document.", active:["f2-search"], path:"f2-sp3"},
+    {text:"No dual-write, no lost event: the DB commit is the single source of truth, and both derived stores follow it. Eventually consistent, by design.", active:["f2-db","f2-wal","f2-relay","f2-cache","f2-search"]}
+  ]);
+
+  /* FIG 3 — worked: idempotent, versioned search sync */
+  makeStepper(_g('fig-idx'), [
+    {text:"The outbox (or CDC stream) emits change events in commit order, each stamped with a monotonic version — here the row version, backed by the WAL LSN.", active:["f3-outbox"], evt:"stream: events emitted in LSN order", ec:"cA", esver:"(none)", bc:"", v:"ES doc id=42 — not indexed yet"},
+    {text:"Event v5 (UPDATE id=42) flows to the consumer.", active:["f3-consumer"], path:"f3-sp0", evt:"UPDATE id=42 · version 5", ec:"cA", esver:"(none)", bc:"", v:"consumer received v5"},
+    {text:"The consumer upserts the document with external version 5. Elasticsearch stores it.", active:["f3-es"], path:"f3-sp1", evt:"PUT /products/_doc/42?version=5&external", ec:"cA", esver:"v5", bc:"kok", v:"✓ doc id=42 → version 5"},
+    {text:"At-least-once delivery replays v5. Upsert with external version 5 ≤ 5 → Elasticsearch no-ops. Idempotent.", active:["f3-es"], path:"f3-sp1", reject:true, evt:"duplicate: version 5 (redelivered)", ec:"cBad", esver:"v5", bc:"kok", v:"✓ duplicate ignored — no-op"},
+    {text:"A stale, out-of-order event v4 arrives late. 4 < 5 → version_conflict (409), rejected. The newer document is never clobbered.", active:["f3-es"], path:"f3-sp1", reject:true, evt:"stale: version 4 (out of order)", ec:"cBad", esver:"v5", bc:"kok", v:"✓ v4 rejected — v5 kept"},
+    {text:"A DELETE v6 arrives → delete the document at external version 6. Deletes propagate too, and the version guards any late upsert from resurrecting it.", active:["f3-es"], path:"f3-sp1", evt:"DELETE id=42 · version 6", ec:"cA", esver:"deleted (v6)", bc:"kbad", v:"✓ delete applied at v6"}
+  ], function(idx,s){
+    _g('f3-evt').setAttribute('class','chip '+(s.ec||'cA'));
+    _g('f3-evttext').textContent=s.evt;
+    _g('f3-esver').textContent=s.esver;
+    _g('f3-esbox').setAttribute('class','balbox'+(s.bc?' '+s.bc:''));
+    _g('f3-esver').setAttribute('fill', s.bc==='kbad'?'#B0532F':(s.bc==='kok'?'#3f7a2e':'#20201D'));
+    var vd=_g('f3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.bc==='kbad'?'#B0532F':(s.bc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

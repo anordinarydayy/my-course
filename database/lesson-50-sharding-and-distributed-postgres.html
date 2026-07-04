@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 50 — Sharding &amp; Distributed Postgres (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Sharding &amp; Distributed Postgres</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>When one node runs out</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Sharding by key &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The cost of cross-shard &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Citus &amp; choosing the key</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: shard a tenant app &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">50</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Sharding &amp; Distributed Postgres</h1>
+      <p class="lede">When a single primary can no longer hold your data or absorb your write rate, you <em>shard</em>: split rows across many nodes by a chosen <strong>shard key</strong>. The mechanics are easy; the judgement is not. The two decisions that make or break a sharded system are <em>which key you shard on</em> and <em>how much you pay when a query can't use it</em> — and both are the whole subject of this lesson.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch, tuned to <strong>PostgreSQL PG&nbsp;17/18</strong> and the Citus distributed extension. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked SQL problem and graded drills</strong> so you can reason about shard keys, colocation, and scatter-gather the way an interviewer will push you to.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>When one node runs out of room</h2>
+      <p>You have already scaled Postgres the sane ways: a bigger instance, tuned indexes, read replicas for read-heavy traffic. Those buy you a long runway. But two walls eventually appear that vertical scaling and replicas cannot climb. The first is <strong>data size</strong> — the working set no longer fits, indexes bloat, vacuum falls behind, backups take a day. The second is <strong>write throughput</strong> — every replica still funnels <em>all</em> writes through the one primary, so replicas do nothing for a write ceiling. When you hit either wall, the only way forward is to spread the rows across multiple machines. That is <strong>sharding</strong>.</p>
+      <p>The idea is simple to state: choose a column — the <strong>shard key</strong> (also called the distribution or partition key) — and use a deterministic function of it (a hash, or a range) to decide which node each row lives on. Every row has exactly one home. A query that carries the shard key can be routed to the one node that owns the matching rows; a query that doesn't must be broadcast to <em>all</em> nodes and its partial answers stitched together.</p>
+      <div class="callout tip">
+        <span class="k">Shard late, and only when you must</span>
+        <p>Sharding is the most expensive scaling decision you can make: it complicates every query, every join, every transaction, every backup, and every schema change. Exhaust the cheaper options first — <strong>scale up</strong> the box, add the right <strong>indexes</strong>, offload reads to <strong>replicas</strong>, archive cold data with <strong>partitioning</strong>. Reach for sharding only when a single primary genuinely cannot hold the data or the write rate. Sharding <em>too early</em> is a classic self-inflicted wound — you pay all the complexity for none of the need.</p>
+      </div>
+      <p>Note the relationship to two things you already know. <strong>Partitioning</strong> (Phase 6) splits one table across many child tables <em>inside one server</em>; sharding splits data across <em>many servers</em>. And <strong>replication</strong> (earlier this phase) copies the <em>same</em> rows to more nodes for availability and read scaling; sharding puts <em>different</em> rows on different nodes for capacity. Real systems combine them: each shard is itself a replicated primary-plus-standbys.</p>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The mechanism</div>
+      <h2>Sharding by key &#9656;</h2>
+      <p>Picture a multi-tenant SaaS: every row belongs to some <code>tenant_id</code>. If you shard on <code>tenant_id</code> with a hash function, each tenant's rows deterministically land on one shard, and the number of shards can be far larger than the number of physical nodes (Citus keeps 32 shards per table by default, spread across the workers, so you can rebalance without re-hashing). The payoff is that any query filtering on <code>tenant_id</code> becomes a <strong>single-shard query</strong> — routed to exactly one node, where it runs like ordinary local Postgres.</p>
+      <p>Step through how one logical table gets split, and how a keyed read finds its home in one hop:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-shard">
+          <svg viewBox="0 0 660 420" role="img" aria-label="Interactive: a table split across three shard nodes by hash of tenant_id, and a keyed query routed to one shard">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">one logical table &middot; split across shard nodes by hash(tenant_id)</text>
+            <g class="st" id="f1-q"><rect class="node-b" x="180" y="36" width="300" height="44" rx="8"/><text class="lbl" x="330" y="63" text-anchor="middle">SELECT &hellip; WHERE tenant_id = 42</text></g>
+            <g class="st" id="f1-router"><rect class="node" x="210" y="118" width="240" height="44" rx="8"/><text class="lbl" x="330" y="145" text-anchor="middle">router &middot; hash(tenant_id)</text></g>
+            <path id="f1-pq" class="flow" d="M330 82 V 116" marker-end="url(#arrow)"/>
+            <!-- shard 0 -->
+            <g class="st" id="f1-sh0">
+              <rect class="thead" x="40" y="230" width="170" height="28" rx="4"/><text class="tcap" x="125" y="249" text-anchor="middle">Shard 0 &middot; node A</text>
+              <rect class="tcell" id="f1-t42" x="40" y="258" width="170" height="28"/><text class="tval" x="125" y="277" text-anchor="middle">tenant 42</text>
+              <rect class="tcell" x="40" y="286" width="170" height="28"/><text class="tval" x="125" y="305" text-anchor="middle">tenant 3</text>
+              <rect class="tcell" x="40" y="314" width="170" height="28"/><text class="tval" x="125" y="333" text-anchor="middle">tenant 99</text>
+            </g>
+            <!-- shard 1 -->
+            <g class="st" id="f1-sh1">
+              <rect class="thead" x="235" y="230" width="170" height="28" rx="4"/><text class="tcap" x="320" y="249" text-anchor="middle">Shard 1 &middot; node B</text>
+              <rect class="tcell" x="235" y="258" width="170" height="28"/><text class="tval" x="320" y="277" text-anchor="middle">tenant 7</text>
+              <rect class="tcell" x="235" y="286" width="170" height="28"/><text class="tval" x="320" y="305" text-anchor="middle">tenant 18</text>
+            </g>
+            <!-- shard 2 -->
+            <g class="st" id="f1-sh2">
+              <rect class="thead" x="450" y="230" width="170" height="28" rx="4"/><text class="tcap" x="535" y="249" text-anchor="middle">Shard 2 &middot; node C</text>
+              <rect class="tcell" x="450" y="258" width="170" height="28"/><text class="tval" x="535" y="277" text-anchor="middle">tenant 5</text>
+              <rect class="tcell" x="450" y="286" width="170" height="28"/><text class="tval" x="535" y="305" text-anchor="middle">tenant 21</text>
+            </g>
+            <path id="f1-p0" class="flow" d="M330 164 C 200 195, 130 205, 125 228" marker-end="url(#arrow)"/>
+            <path id="f1-p1" class="flow" d="M330 164 V 228" marker-end="url(#arrow)"/>
+            <path id="f1-p2" class="flow" d="M330 164 C 440 195, 515 205, 525 228" marker-end="url(#arrow)"/>
+            <text id="f1-read" class="readout" x="330" y="410" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: hash(tenant_id) gives every row one home; a keyed read routes to a single shard</figcaption>
+      </figure>
+
+      <p>The crucial property is that the shard key is <em>baked into the physical layout</em>. It is not just another indexed column — it decides <em>which machine</em> the row is on. That is why a well-chosen key feels magical (one hop, full local speed, perfect horizontal scaling) and a badly chosen one is a permanent tax: changing the shard key of a live distributed table means moving essentially every row.</p>
+      <div class="callout note">
+        <span class="k">Hash vs range sharding</span>
+        <p><strong>Hash</strong> sharding (hash the key, then map the hash to a shard &mdash; Citus gives each shard a slice of the 32-bit hash space rather than a literal modulo) spreads rows evenly and kills hotspots, but destroys locality — adjacent keys scatter, so range scans fan out. <strong>Range</strong> sharding (key 1–1000 &#8594; shard A, 1001–2000 &#8594; shard B) keeps ranges local and makes archiving easy, but invites hotspots: if the key is monotonic (a timestamp, a serial id) every new write piles onto the last shard. Multi-tenant systems almost always hash on <code>tenant_id</code>; time-series systems often range on time. Pick for your access pattern, not by default.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The tax</div>
+      <h2>The cost of crossing shards &#9656;</h2>
+      <p>The single-shard query is the dream. The nightmare is its opposite: a query that <em>cannot</em> be routed. If the <code>WHERE</code> clause has no shard key — say you filter by <code>status = 'paid'</code> — the router has no way to know which shard holds the answer, so it must send the query to <strong>every</strong> shard, wait for all of them, and merge the results at the coordinator. This is <strong>scatter-gather</strong> (also called fan-out). It is not always bad — an analytics query <em>wants</em> to touch every shard in parallel — but on a hot OLTP path it multiplies your latency and load by the shard count and turns a distributed system back into a single, slow one.</p>
+      <p>The second source of cross-shard pain is <strong>joins</strong>. If two tables are sharded on different keys, joining them means one side's rows must be shuffled across the network to meet the other's. The cure is <strong>colocation</strong>: shard related tables on the <em>same</em> key so matching rows always live on the same node, and every join runs locally. Watch both the fan-out and the fix:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-scatter">
+          <svg viewBox="0 0 660 420" role="img" aria-label="Interactive: a query without the shard key fans out to all shards (scatter-gather), contrasted with a colocated local join">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">no shard key in WHERE &#8594; the router must ask every shard</text>
+            <g class="st" id="f2-q"><rect class="node-b" x="165" y="36" width="330" height="44" rx="8"/><text class="lbl" x="330" y="63" text-anchor="middle">WHERE status = 'paid'  &mdash; no tenant_id</text></g>
+            <g class="st" id="f2-router"><rect class="node" x="210" y="118" width="240" height="44" rx="8"/><text class="lbl" x="330" y="145" text-anchor="middle">coordinator</text></g>
+            <path id="f2-pq" class="flow" d="M330 82 V 116" marker-end="url(#arrow)"/>
+            <g class="st" id="f2-sh0"><rect class="node" x="40" y="250" width="170" height="92" rx="10"/><text class="lbl" x="125" y="290" text-anchor="middle">Shard 0</text><text class="lbl-sm" x="125" y="312" text-anchor="middle">full scan</text></g>
+            <g class="st" id="f2-sh1"><rect class="node" x="245" y="250" width="170" height="92" rx="10"/><text class="lbl" x="330" y="290" text-anchor="middle">Shard 1</text><text class="lbl-sm" x="330" y="312" text-anchor="middle">full scan</text></g>
+            <g class="st" id="f2-sh2"><rect class="node" x="450" y="250" width="170" height="92" rx="10"/><text class="lbl" x="535" y="290" text-anchor="middle">Shard 2</text><text class="lbl-sm" x="535" y="312" text-anchor="middle">full scan</text></g>
+            <path id="f2-p0" class="flow" d="M330 164 C 200 205, 130 220, 125 248" marker-end="url(#arrow)"/>
+            <path id="f2-p1" class="flow" d="M330 164 V 248" marker-end="url(#arrow)"/>
+            <path id="f2-p2" class="flow" d="M330 164 C 460 205, 530 220, 535 248" marker-end="url(#arrow)"/>
+            <text id="f2-verdict" x="330" y="400" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: a keyless query fans out to all N shards; colocation keeps joins on one node</figcaption>
+      </figure>
+
+      <p>So the entire art of designing a sharded schema reduces to one goal: <strong>make your hot queries single-shard.</strong> Choose the key that appears in almost every query's <code>WHERE</code>, colocate the tables that get joined, and push the unavoidable fan-out queries (reports, admin dashboards) onto a schedule or a replica where their latency doesn't hurt anyone. Every cross-shard query on the critical path is a design smell worth a second look.</p>
+      <div class="callout">
+        <span class="k">Three flavours of distributed query</span>
+        <p><strong>Single-shard</strong> (keyed): routed to one node, runs at local speed &mdash; aim for this. <strong>Colocated multi-shard</strong>: touches several shards but each does independent local work with no cross-node shuffle &mdash; parallel and fine. <strong>Repartition / broadcast</strong>: rows must move between nodes to complete a join &mdash; the slow path, avoid on hot code. Knowing which one a query becomes, before you ship it, is the skill.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The tooling</div>
+      <h2>Citus, and how to choose the key</h2>
+      <p>Vanilla Postgres does not shard across machines by itself. <strong>Citus</strong> — an open-source extension, now maintained by Microsoft and installable with <code>CREATE EXTENSION citus</code> — turns a cluster of Postgres nodes into one distributed database. You keep writing ordinary SQL against a <strong>coordinator</strong> node; Citus stores the metadata (which shard lives on which worker), rewrites your query into per-shard tasks, ships them to the <strong>workers</strong>, and merges the results. It offers three table types you must learn to reach for:</p>
+      <ul>
+        <li><strong>Distributed tables</strong> &mdash; sharded across the workers by a distribution column. This is where your big, tenant-scoped data goes: <code>SELECT create_distributed_table('orders', 'tenant_id')</code>.</li>
+        <li><strong>Reference tables</strong> &mdash; small, shared lookup tables replicated in full to <em>every</em> worker, so any join to them stays local: <code>SELECT create_reference_table('products')</code>. Perfect for currencies, countries, plans, feature flags.</li>
+        <li><strong>Local tables</strong> &mdash; ordinary tables that live only on the coordinator, for things that never need to scale (a small config table, migration bookkeeping).</li>
+      </ul>
+      <p>Everything then hinges on the distribution column. A good shard key has three properties, and a bad key fails at least one of them:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>High cardinality</h4>
+          <ul>
+            <li>Many distinct values, so rows spread across all shards.</li>
+            <li>A boolean or a status column is a <strong>disaster</strong> &mdash; two or three buckets.</li>
+            <li><code>tenant_id</code>, <code>user_id</code>: thousands+ of values.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Even distribution</h4>
+          <ul>
+            <li>No single value dominates &mdash; avoid <strong>skew</strong> and hotspots.</li>
+            <li>One giant tenant on one shard = that shard melts while others idle.</li>
+            <li>Watch for the &ldquo;whale&rdquo; customer; consider isolating it.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Matches the access pattern</h4>
+          <ul>
+            <li>The key is in nearly every query's <code>WHERE</code>.</li>
+            <li>That's what makes hot queries <strong>single-shard</strong>.</li>
+            <li>Multi-tenant &#8594; <code>tenant_id</code> is almost always right.</li>
+          </ul>
+        </div>
+      </div>
+      <p>A few operational truths round it out. Citus keeps a fixed number of <strong>shards</strong> (32 per table by default) independent of the worker count, so adding a worker means <strong>rebalancing</strong> — moving whole shards to the new node with <code>SELECT rebalance_table_shards()</code>, which runs online but costs real I/O and takes time. The distribution column <strong>must be part of every primary key and unique constraint</strong> on a distributed table (Postgres can only enforce uniqueness within a shard). And a transaction that writes to rows on more than one shard is committed with <strong>two-phase commit under the hood</strong> — correct, but slower and subject to the same coordinator-failure risks you met with distributed transactions; keep writes single-shard when you can.</p>
+      <div class="callout note">
+        <span class="k">Multi-region is a different, harder problem</span>
+        <p>Sharding within one region scales capacity. Spanning regions for latency or disaster tolerance adds <em>conflict resolution</em>: if two regions accept writes to the same logical row, which wins? Active-active designs lean on <strong>last-write-wins</strong> (simple, silently loses data) or <strong>CRDTs</strong> (conflict-free replicated data types that merge deterministically). Most teams avoid true active-active and instead keep one write region with the others read-only. Treat multi-region active-active as a last resort, not a starting point.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Shard a multi-tenant app with Citus &#9656;</h2>
+      <p>Let's do it end to end. A B2B SaaS has outgrown one primary: hundreds of thousands of tenants, and the orders table is billions of rows. We'll distribute it on <code>tenant_id</code>, keep a shared catalog as a reference table, then write the hot per-tenant query correctly and see what a careless version costs.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- small shared catalog: replicated in full to every worker</span>
+<span class="kw">CREATE TABLE</span> products (
+    product_id  <span class="kw">bigint</span> <span class="kw">PRIMARY KEY</span>,
+    sku         <span class="kw">text</span> <span class="kw">NOT NULL</span>,
+    name        <span class="kw">text</span> <span class="kw">NOT NULL</span>
+);
+<span class="kw">SELECT</span> <span class="fn">create_reference_table</span>(<span class="lit">'products'</span>);
+
+<span class="cm">-- big tenant-scoped tables: sharded by tenant_id</span>
+<span class="kw">CREATE TABLE</span> customers (
+    tenant_id   <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,
+    customer_id <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,
+    email       <span class="kw">text</span> <span class="kw">NOT NULL</span>,
+    <span class="kw">PRIMARY KEY</span> (tenant_id, customer_id)   <span class="cm">-- shard key must be in the PK</span>
+);
+<span class="kw">SELECT</span> <span class="fn">create_distributed_table</span>(<span class="lit">'customers'</span>, <span class="lit">'tenant_id'</span>);
+
+<span class="kw">CREATE TABLE</span> orders (
+    tenant_id   <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,
+    order_id    <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,
+    customer_id <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,
+    product_id  <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,
+    total_cents <span class="kw">bigint</span> <span class="kw">NOT NULL</span>,
+    placed_at   <span class="kw">timestamptz</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">now</span>(),
+    <span class="kw">PRIMARY KEY</span> (tenant_id, order_id)
+);
+<span class="cm">-- colocate_with keeps a tenant's orders on the SAME shard as its customers</span>
+<span class="kw">SELECT</span> <span class="fn">create_distributed_table</span>(<span class="lit">'orders'</span>, <span class="lit">'tenant_id'</span>,
+                                colocate_with =&gt; <span class="lit">'customers'</span>);</code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>For a tenant's dashboard: list that tenant's orders in the last 30 days, each with the customer's email and the product's name. This runs on every page load — it <em>must</em> be single-shard.</p>
+
+      <h3>3 &middot; The naive attempt (and why it hurts)</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- NAIVE: no tenant_id filter; join on customer_id alone</span>
+<span class="kw">SELECT</span> o.order_id, c.email, p.name, o.total_cents
+<span class="kw">FROM</span> orders o
+<span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.customer_id = o.customer_id
+<span class="kw">JOIN</span> products  p <span class="kw">ON</span> p.product_id  = o.product_id
+<span class="kw">WHERE</span> o.placed_at &gt;= <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'30 days'</span>;</code></pre>
+      <p>Two things are wrong. There is <strong>no <code>tenant_id</code> in the <code>WHERE</code></strong>, so Citus cannot prune to one shard — the query fans out to all 32. Worse, the <code>customers</code> join is on <code>customer_id</code> only, <em>not</em> the distribution column, so Citus cannot prove the matching customer sits on the same shard as the order; it must <strong>repartition</strong> — shuffle <code>customers</code> rows across the network to complete the join. You have turned a one-node lookup into a cluster-wide scatter with a shuffle on top.</p>
+
+      <h3>4 &middot; The fix</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- FIXED: tenant_id prunes to one shard; join includes the colocation key</span>
+<span class="kw">SELECT</span> o.order_id, c.email, p.name, o.total_cents
+<span class="kw">FROM</span> orders o
+<span class="kw">JOIN</span> customers c
+  <span class="kw">ON</span> c.tenant_id   = o.tenant_id       <span class="cm">-- colocation key in the join</span>
+ <span class="kw">AND</span> c.customer_id = o.customer_id
+<span class="kw">JOIN</span> products p <span class="kw">ON</span> p.product_id = o.product_id   <span class="cm">-- reference table: local copy</span>
+<span class="kw">WHERE</span> o.tenant_id = <span class="lit">42</span>
+  <span class="kw">AND</span> o.placed_at &gt;= <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'30 days'</span>;</code></pre>
+      <p>Now <code>tenant_id = 42</code> lets the router hash once and target a single shard. The join carries <code>c.tenant_id = o.tenant_id</code>, so Citus knows the customer is colocated — the join runs locally. And <code>products</code> is a reference table, so its rows are already on that worker. The whole query executes on one node as plain local Postgres.</p>
+
+      <h3>5 &middot; Why it's better — read the plan</h3>
+      <p class="codetag">EXPLAIN (illustrative)</p>
+      <pre class="code"><code>Custom Scan (Citus Adaptive)  (cost=0.00..0.00 rows=180 width=48)
+  Task Count: 1                          <span class="cm">-- one shard, the whole win</span>
+  Tasks Shown: One of 1
+  ->  Task
+        Node: host=worker-1 port=5432 dbname=app
+        ->  Nested Loop  (actual rows=180 loops=1)
+              ->  Hash Join
+                    Hash Cond: (o.customer_id = c.customer_id)
+                    ->  Index Scan using orders_pkey on orders_102042 o
+                          Index Cond: (tenant_id = 42)
+                          Filter: (placed_at >= now() - '30 days')
+                    ->  Hash
+                          ->  Seq Scan on customers_102042 c
+              ->  Index Scan using products_pkey on products_102170 p</code></pre>
+      <p>The tell is <code>Task Count: 1</code>: Citus routed the entire query to one shard (note the shard suffixes — <code>orders_102042</code>, <code>products_102170</code> — real per-shard tables on <code>worker-1</code>). The naive version would instead show <code>Task Count: 32</code> and, for the un-colocated join, a repartition or broadcast step. Same rows, same result — one node versus the whole cluster.</p>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>&ldquo;Because it's multi-tenant, I distribute <code>customers</code> and <code>orders</code> on <code>tenant_id</code> and colocate them, so one tenant's data lives on one shard. The shared catalog is a reference table, replicated everywhere, so joins to it are always local. The dashboard query filters on <code>tenant_id = 42</code>, which prunes to a single shard, and I include <code>tenant_id</code> in the join condition so Citus keeps the join colocated. <code>EXPLAIN</code> shows <code>Task Count: 1</code> — it's a single-shard query running at local Postgres speed, so it scales horizontally: more tenants just means more shards, and each dashboard load still touches exactly one node.&rdquo;</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-citus">
+          <svg viewBox="0 0 660 430" role="img" aria-label="Interactive: a Citus cluster with a coordinator, two workers holding colocated tenant shards and a replicated reference table, and per-tenant vs cross-tenant queries">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">Citus &middot; coordinator holds metadata; workers hold the shards</text>
+            <g class="st" id="f3-coord"><rect class="node-r" x="210" y="34" width="240" height="44" rx="8"/><text class="lbl" x="330" y="61" text-anchor="middle" fill="#B0532F">Coordinator (metadata)</text></g>
+            <!-- worker 1 -->
+            <g class="st" id="f3-w1">
+              <rect class="node" x="40" y="150" width="250" height="212" rx="10"/>
+              <rect class="thead" x="55" y="160" width="220" height="28" rx="4"/><text class="tcap" x="165" y="179" text-anchor="middle">Worker 1</text>
+              <rect class="tcell" id="f3-w1-cust" x="55" y="194" width="220" height="40"/><text class="tval" x="165" y="219" text-anchor="middle">customers &middot; tenant 42</text>
+              <rect class="tcell" id="f3-w1-ord" x="55" y="240" width="220" height="40"/><text class="tval" x="165" y="265" text-anchor="middle">orders &middot; tenant 42</text>
+              <rect class="tcell" id="f3-w1-prod" x="55" y="298" width="220" height="52"/><text class="tval" x="165" y="320" text-anchor="middle">products (reference)</text><text class="lbl-sm" x="165" y="338" text-anchor="middle">full copy</text>
+            </g>
+            <!-- worker 2 -->
+            <g class="st" id="f3-w2">
+              <rect class="node" x="370" y="150" width="250" height="212" rx="10"/>
+              <rect class="thead" x="385" y="160" width="220" height="28" rx="4"/><text class="tcap" x="495" y="179" text-anchor="middle">Worker 2</text>
+              <rect class="tcell" id="f3-w2-cust" x="385" y="194" width="220" height="40"/><text class="tval" x="495" y="219" text-anchor="middle">customers &middot; tenant 7</text>
+              <rect class="tcell" id="f3-w2-ord" x="385" y="240" width="220" height="40"/><text class="tval" x="495" y="265" text-anchor="middle">orders &middot; tenant 7</text>
+              <rect class="tcell" id="f3-w2-prod" x="385" y="298" width="220" height="52"/><text class="tval" x="495" y="320" text-anchor="middle">products (reference)</text><text class="lbl-sm" x="495" y="338" text-anchor="middle">full copy</text>
+            </g>
+            <path id="f3-p1" class="flow" d="M330 80 C 250 110, 180 120, 165 148" marker-end="url(#arrow)"/>
+            <path id="f3-p2" class="flow" d="M330 80 C 410 110, 480 120, 495 148" marker-end="url(#arrow)"/>
+            <text id="f3-read" class="readout" x="330" y="410" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: colocated tenant shards + a replicated reference table; per-tenant reads hit one worker, analytics fan out</figcaption>
+      </figure>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Drills</div>
+      <h2>Graded drills &amp; the trap list</h2>
+      <p>Work each before reading the answer. They climb from &ldquo;spot the bad key&rdquo; to &ldquo;design under skew.&rdquo;</p>
+
+      <h3>Drill 1 &middot; The wrong shard key</h3>
+      <p>A teammate distributes <code>orders</code> on <code>order_id</code> (its own primary key) with <code>create_distributed_table('orders', 'order_id')</code>, reasoning that it's unique and high-cardinality. Every tenant dashboard query then gets slow. Why — and what should the key have been?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><code>order_id</code> is high-cardinality and even, but it fails the third rule: it's <em>not in the access pattern</em>. Dashboard queries filter by <code>tenant_id</code>, not <code>order_id</code>, so with orders scattered by <code>order_id</code> hash, a single tenant's orders spread across all shards — every dashboard read becomes a scatter-gather. The key should be <code>tenant_id</code>, so a tenant's orders colocate on one shard. <em>Why:</em> the best shard key is the column in your hottest queries' <code>WHERE</code>, not the most-unique column.</p>
+      </div>
+
+      <h3>Drill 2 &middot; The query that forgot the key</h3>
+      <p>Tables are correctly distributed on <code>tenant_id</code>. Support runs <code>SELECT * FROM customers WHERE email = 'x@y.com'</code> to find an account and complains it's slow. The fix isn't a new index. What is it, and what's the deeper lesson?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>Even with an index on <code>email</code>, the query has no <code>tenant_id</code>, so Citus fans it out to all shards and each does an index lookup — N shard round-trips for one row. Add the shard key: <code>WHERE tenant_id = 42 AND email = 'x@y.com'</code> makes it single-shard. If support genuinely doesn't know the tenant, keep a small <strong>reference</strong> (or coordinator-local) lookup table mapping <code>email &#8594; tenant_id</code>, resolve it first, then do the keyed query. <em>Why:</em> in a sharded world, &ldquo;which shard?&rdquo; must be answerable from the query itself — an index can't save a keyless fan-out.</p>
+      </div>
+
+      <h3>Drill 3 &middot; Rebalancing and the whale</h3>
+      <p>You add a third worker to relieve load, but one tenant (a huge customer) is 40% of all rows and pins one shard at 100% CPU while the new worker sits idle. Rebalancing shards evenly doesn't help. What's happening, and what are your options?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>This is <strong>data skew</strong>: hash sharding distributes <em>shards</em> evenly, but if one <code>tenant_id</code> dominates, its single shard is a hotspot no rebalance can split (all its rows share one hash bucket). Options: (1) <strong>isolate the whale</strong> — Citus <code>isolate_tenant_to_new_shard()</code> moves that one tenant onto its own shard/node; (2) use a <strong>composite/finer key</strong> so a big tenant's rows spread (e.g. distribute on a <code>(tenant_id)</code> but partition the shard by time within it); (3) give the whale its own dedicated cluster. <em>Why:</em> even distribution is a property of your <em>data</em>, not just your hash — a single dominant key value is unshardable by that key alone.</p>
+      </div>
+
+      <h3>Drill 4 &middot; The cross-tenant analytic</h3>
+      <p>Product wants &ldquo;top 10 products by revenue across all tenants,&rdquo; refreshed hourly. Written naively it's <code>SELECT product_id, SUM(total_cents) FROM orders GROUP BY product_id ORDER BY 2 DESC LIMIT 10</code>. Is fan-out wrong here? How do you serve it without hurting the dashboards?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>Fan-out is <em>correct and even good</em> here — it's an analytic that legitimately touches all shards, and Citus parallelizes it: each worker computes a partial <code>SUM</code> (<code>GroupAggregate</code>/<code>HashAggregate</code> per shard) and the coordinator merges them (<code>Task Count: 32</code>). The problem is only <em>where</em> it runs. Don't let it compete with OLTP: run it on a schedule into a <strong>materialized</strong> result (or a rollup table), or point it at a read replica of the coordinator. <em>Why:</em> scatter-gather isn't inherently bad — it's bad on the hot path. Move unavoidable fan-out off the critical path rather than trying to eliminate it.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">The trap list — memorize these</span>
+        <p>&#9679; <strong>Bad shard key</strong>: low cardinality, skewed, or not in your queries &#8594; hotspots or universal fan-out.<br>
+        &#9679; <strong>Cross-shard joins</strong>: un-colocated tables force a network repartition &#8594; colocate on the same key.<br>
+        &#9679; <strong>Queries missing the key</strong>: no shard key in <code>WHERE</code> &#8594; scatter-gather; an index can't fix it.<br>
+        &#9679; <strong>Rebalancing cost</strong>: adding nodes moves whole shards (real I/O); skew can't be rebalanced away.<br>
+        &#9679; <strong>Distributed transactions</strong>: multi-shard writes use 2PC under the hood &mdash; slower, coordinator-dependent; keep writes single-shard.<br>
+        &#9679; <strong>Sharding too early</strong>: the biggest trap &mdash; scale up, index, and add replicas first; shard only when one node truly can't cope.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>sharding buys capacity by splitting rows across nodes on a shard key — and every design decision is about keeping your hot queries on one shard.</em> Choose the key that lives in your queries' <code>WHERE</code>, colocate the tables you join, push fan-out off the hot path, and shard only when you genuinely must.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Shard for capacity</b><span>Split different rows across nodes when one primary can't hold the data or the write rate. Replicas and scale-up come first.</span></div>
+        <div class="tk"><span class="num">02</span><b>The shard key is physical</b><span>It decides which machine a row lives on, not just how it's indexed. Changing it later means moving every row.</span></div>
+        <div class="tk"><span class="num">03</span><b>Single-shard is the goal</b><span>A query carrying the key routes to one node and runs at local speed. Design so hot queries always do.</span></div>
+        <div class="tk"><span class="num">04</span><b>Scatter-gather is the tax</b><span>No key in the WHERE &#8594; fan out to all N shards and merge. Fine for analytics, painful on the hot path.</span></div>
+        <div class="tk"><span class="num">05</span><b>Colocate to join</b><span>Shard related tables on the same key so joins run locally; reference tables replicate small lookups everywhere.</span></div>
+        <div class="tk"><span class="num">06</span><b>Pick the key well</b><span>High cardinality, even distribution, matches the access pattern. tenant_id for multi-tenant; never a status/boolean.</span></div>
+        <div class="tk"><span class="num">07</span><b>Citus = distributed PG</b><span>Coordinator + workers; distributed, reference, and local tables. Multi-shard writes use 2PC under the hood.</span></div>
+        <div class="tk"><span class="num">08</span><b>Shard late</b><span>The most expensive scaling move. Skew, rebalancing, and cross-shard cost are permanent; earn the complexity.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the two walls that force sharding, and say why read replicas fix neither.<br>
+        (2) What makes a query single-shard vs scatter-gather? Give one example of each against a table sharded on <code>tenant_id</code>.<br>
+        (3) Define colocation and reference table. Why does each keep a join local?<br>
+        (4) List the three properties of a good shard key, and give a column that fails each.<br>
+        (5) In the worked query, what does <code>Task Count: 1</code> prove, and which two changes to the naive query produced it?<br>
+        (6) A dominant &ldquo;whale&rdquo; tenant hotspots one shard. Why can't rebalancing fix it, and what can?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 50 &middot; SHARDING &amp; DISTRIBUTED POSTGRES &middot; interactive edition<br>
+      Original study notes for engineers &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — sharding by key */
+  makeStepper(_g('fig-shard'), [
+    {text:"The orders/customers data has outgrown a single primary — one node can't hold the rows or absorb the write rate. Time to shard.", active:[]},
+    {text:"Pick a shard key — tenant_id — and hash it. Each shard node owns a slice of the hash space; every row belongs to exactly one shard.", active:["f1-sh0","f1-sh1","f1-sh2"]},
+    {text:"On INSERT, the row routes by hash(tenant_id). Tenant 42 hashes to Shard 0 — that is now its permanent home.", active:["f1-sh0"], path:"f1-p0"},
+    {text:"A read WITH the key — WHERE tenant_id = 42 — lets the router hash once and go straight to Shard 0. This is a single-shard query.", active:["f1-q","f1-router","f1-sh0"], path:"f1-p0"},
+    {text:"One shard scanned; the other two stay idle, free for other tenants. That one-hop routing is the whole reason to choose the key well.", active:["f1-sh0"]}
+  ], function(idx,s){
+    var hit=_g('f1-t42'); if(hit) hit.setAttribute('class', (idx===2||idx===3)?'tcell kg':'tcell');
+    _g('f1-read').textContent=['','hash space split across 3 shards','tenant 42 → hash → Shard 0','single-shard read: one hop','2 of 3 shards idle'][idx]||'';
+  });
+
+  /* FIG 2 — scatter-gather vs colocated */
+  makeStepper(_g('fig-scatter'), [
+    {text:"This query filters by status, not by tenant_id. The router has no way to know which shard holds the 'paid' rows.", active:["f2-q","f2-router"], v:""},
+    {text:"So it fans out: it sends the query to Shard 0 …", active:["f2-sh0"], path:"f2-p0", v:"fan-out 1 of 3"},
+    {text:"… and Shard 1 …", active:["f2-sh1"], path:"f2-p1", v:"fan-out 2 of 3"},
+    {text:"… and Shard 2. Every shard does a full scan. With N shards you pay N times the work.", active:["f2-sh2"], path:"f2-p2", v:"fan-out 3 of 3"},
+    {text:"Each shard returns its partial result; the coordinator merges and re-sorts them. This is scatter-gather — fine for analytics, painful for OLTP.", active:["f2-router"], v:"scatter-gather: all N shards touched"},
+    {text:"Colocation is the cure for JOINS: put related tables on the same shard key, and each shard joins its own rows locally — no cross-node shuffle.", active:["f2-sh1"], v:"colocated join → local, single node", good:true}
+  ], function(idx,s){
+    var vd=_g('f2-verdict'); vd.textContent=s.v||'';
+    vd.setAttribute('fill', s.good?'#3f7a2e':(s.v?'#B0532F':'#5A574E'));
+  });
+
+  /* FIG 3 — worked Citus multi-tenant */
+  function f3set(ids,cls){ids.forEach(function(id){var e=_g(id); if(e) e.setAttribute('class','tcell'+(cls?' '+cls:''));});}
+  makeStepper(_g('fig-citus'), [
+    {text:"The coordinator stores only metadata — which shard lives where. All the actual rows sit on the worker nodes.", active:["f3-coord"]},
+    {text:"customers and orders are distributed BY tenant_id and colocated: tenant 42's customers AND orders land on the SAME worker. Tenant 7's live together on another.", active:["f3-w1","f3-w2"]},
+    {text:"products is small and shared, so it's a REFERENCE table — Citus keeps a full copy on every worker, so any join to it stays local.", active:["f3-w1","f3-w2"]},
+    {text:"A per-tenant query — WHERE tenant_id = 42 — routes to Worker 1 alone. customers ⋈ orders ⋈ products all run on one node. Single-shard, fast.", active:["f3-w1"], path:"f3-p1"},
+    {text:"A cross-tenant analytic — SUM over all tenants — fans out to both workers; each computes a partial aggregate and the coordinator merges. Fine for reports, not hot reads.", active:["f3-w1","f3-w2"], path:"f3-p2"}
+  ], function(idx,s){
+    f3set(['f3-w1-cust','f3-w1-ord','f3-w1-prod','f3-w2-cust','f3-w2-ord','f3-w2-prod'],'');
+    if(idx===1){ f3set(['f3-w1-cust','f3-w1-ord','f3-w2-cust','f3-w2-ord'],'kb'); }
+    else if(idx===2){ f3set(['f3-w1-cust','f3-w1-ord','f3-w2-cust','f3-w2-ord'],'kb'); f3set(['f3-w1-prod','f3-w2-prod'],'kt'); }
+    else if(idx===3){ f3set(['f3-w1-cust','f3-w1-ord','f3-w1-prod'],'kg'); }
+    else if(idx===4){ f3set(['f3-w1-cust','f3-w1-ord','f3-w1-prod','f3-w2-cust','f3-w2-ord','f3-w2-prod'],'kt'); }
+    _g('f3-read').textContent=['coordinator = metadata only','distributed + colocated by tenant_id','products replicated to every worker','tenant 42 → Worker 1 only','all tenants → both workers'][idx]||'';
+  });
+</script>
+</body>
+</html>

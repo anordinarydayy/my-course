@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 52 — Migrations &amp; Zero-Downtime Evolution (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Migrations &amp; Zero-Downtime Evolution</div>
+    <h4>The practice run</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Changing a live schema</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The locking danger &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Expand / contract &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The safe toolkit</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: add NOT NULL &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">52</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Migrations &amp; Zero-Downtime Evolution</h1>
+      <p class="lede">Your schema is never finished. The hard part isn't writing the new <code>ALTER</code> — it's applying it to a table that thousands of live queries are hitting <em>right now</em>, without stalling any of them. This lesson turns the danger into a repeatable recipe: the expand/contract pattern, the handful of Postgres tricks that keep every step lock-light, and a full worked migration you could run against production traffic.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written for engineers shipping schema changes on a busy PostgreSQL (PG 17/18) database. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson — it ends in a worked SQL problem and a set of graded drills, so keep a psql window handy and try each one before reading the fix.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>Changing a schema while it is in use</h2>
+      <p>In a tutorial you run <code>ALTER TABLE</code> against an empty table and it returns instantly. In production the same statement runs against a table with a hundred million rows, being read and written by every request in flight — and now the question isn't "does it work?" but "<strong>what lock does it take, and for how long?</strong>" Get that wrong and a one-line migration becomes a customer-visible outage.</p>
+      <p>We first met this danger back in <strong>Phase 4</strong> (indexing) and in the operations phase: a naive DDL statement can grab an <code>ACCESS EXCLUSIVE</code> lock — the strongest lock Postgres has — and hold it for the entire duration of a table rewrite. While that lock is held, <em>every</em> other query on the table, even a plain <code>SELECT</code>, has to wait. On a busy table that wait cascades: connections pile up, the pool exhausts, and the app falls over.</p>
+      <p>The good news is that safe schema evolution is a <em>solved problem</em>, and the solution is a single pattern with a memorable name: <strong>expand / contract</strong> (also called "parallel change"). Instead of one big, locking, irreversible statement, you break the change into a ladder of small steps, each of which is fast, holds no long lock, and can be verified or rolled back on its own. This lesson is about learning that ladder well enough to reach for it by reflex.</p>
+      <div class="callout">
+        <span class="k">The one question to ask every migration</span>
+        <p>Before you run any DDL against a live table, ask: <strong>"Which lock does this take, and does it rewrite or scan the whole table while holding it?"</strong> If the answer is "a strong lock for a long time," you don't run that statement — you decompose it into steps that don't. Everything below is how.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The failure mode</div>
+      <h2>The locking danger &#9656;</h2>
+      <p>Not all DDL is dangerous — that's the crucial nuance. Some <code>ALTER</code>s are <strong>metadata-only</strong>: they change the catalog and return in microseconds, holding <code>ACCESS EXCLUSIVE</code> for only that instant. Since PG 11, <code>ADD COLUMN</code> with a <em>non-volatile constant default</em> is one of these — Postgres stores the default as a "missing value" in the catalog instead of writing it into every row.</p>
+      <p>Others force a <strong>full table rewrite</strong> or a <strong>full table scan</strong> while holding the strong lock. <code>ALTER COLUMN ... TYPE</code>, or <code>ADD COLUMN ... DEFAULT gen_random_uuid()</code> (a <em>volatile</em> default — a different value per row), must touch every row. On a large table that's minutes of held <code>ACCESS EXCLUSIVE</code>, and during those minutes the table is effectively frozen. Watch what that does to live traffic:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-lock">
+          <svg viewBox="0 0 640 340" role="img" aria-label="A rewriting migration takes an ACCESS EXCLUSIVE lock and every app query queues behind it, causing an outage">
+            <text class="lbl-sm" x="54" y="40" text-anchor="start">MIGRATION</text>
+            <text class="lbl-sm" x="54" y="228" text-anchor="start">APP QUERIES</text>
+            <g id="f1-mig-a"><rect class="chip cA" x="54" y="52" width="210" height="44" rx="8"/><text class="chiptext" x="159" y="79" text-anchor="middle">ADD COLUMN — instant</text></g>
+            <g id="f1-mig-b"><rect class="chip cBad" x="380" y="52" width="210" height="44" rx="8"/><text class="chiptext" x="485" y="79" text-anchor="middle">ALTER TYPE — rewrite</text></g>
+            <text class="lbl-sm" x="320" y="128" text-anchor="middle">table lock</text>
+            <rect id="f1-box" class="balbox" x="248" y="136" width="144" height="52" rx="9"/>
+            <text id="f1-boxt" x="320" y="169" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="700" fill="#20201D">FREE</text>
+            <path d="M40 214 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="209" text-anchor="end">time &#8594;</text>
+            <g id="f1-q1"><rect id="f1-q1r" class="chip cB" x="54" y="238" width="150" height="44" rx="8"/><text class="chiptext" x="129" y="265" text-anchor="middle">SELECT</text></g>
+            <g id="f1-q2"><rect id="f1-q2r" class="chip cB" x="246" y="238" width="150" height="44" rx="8"/><text class="chiptext" x="321" y="265" text-anchor="middle">UPDATE</text></g>
+            <g id="f1-q3"><rect id="f1-q3r" class="chip cB" x="438" y="238" width="152" height="44" rx="8"/><text class="chiptext" x="514" y="265" text-anchor="middle">INSERT</text></g>
+            <text id="f1-verdict" x="320" y="322" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: a rewriting ALTER holds ACCESS EXCLUSIVE; every query queues behind it until the app is down</figcaption>
+      </figure>
+
+      <p>The lock queue is what makes this so vicious. In Postgres, lock requests are (roughly) ordered: once the migration's <code>ACCESS EXCLUSIVE</code> request is <em>waiting</em> behind current readers, <strong>every query that arrives after it also waits</strong> — even short <code>SELECT</code>s that would happily coexist with each other. So a slow migration doesn't just block itself; it forms a wall that stops all traffic. The two mistakes here — using a form that rewrites, and holding the lock with no timeout — are exactly what the rest of the lesson removes.</p>
+      <div class="callout note">
+        <span class="k">Metadata-only vs rewrite — the dividing line</span>
+        <p><strong>Instant (metadata-only):</strong> <code>ADD COLUMN</code> nullable or with a constant default, <code>DROP COLUMN</code>, renaming, adding a <code>CHECK ... NOT VALID</code>. <strong>Rewrites or scans the whole table (dangerous):</strong> <code>ALTER COLUMN ... TYPE</code>, a <em>volatile</em> default, <code>SET NOT NULL</code> the naive way, adding a <code>PRIMARY KEY</code> or <code>UNIQUE</code> without a pre-built index. When in doubt, test on a copy and read the lock level in <code>pg_locks</code>.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The pattern</div>
+      <h2>Expand / contract (parallel change) &#9656;</h2>
+      <p>The core insight: you can't safely make a big, atomic, in-place change to a live table — so <strong>don't</strong>. Instead, add the new shape <em>alongside</em> the old one, migrate over to it gradually while both exist, and only then remove the old shape. Old and new coexist for a while; that's the "parallel" in parallel change. Every rung of the ladder is individually safe, deployable, and reversible.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-ec">
+          <svg viewBox="0 0 640 400" role="img" aria-label="The expand/contract ladder: expand, backfill, dual-write, switch reads, contract">
+            <text class="lbl-sm" x="320" y="24" text-anchor="middle">one big locking ALTER &#8594; five safe rungs</text>
+            <g class="st" id="f2-stk-0"><rect class="node-b" x="92" y="34" width="456" height="50" rx="9"/><text class="lbl" x="320" y="56" text-anchor="middle">1 &middot; EXPAND</text><text class="lbl-sm" x="320" y="74" text-anchor="middle">add the new column (nullable) or new table</text></g>
+            <g class="st" id="f2-stk-1"><rect class="node" x="92" y="102" width="456" height="50" rx="9"/><text class="lbl" x="320" y="124" text-anchor="middle">2 &middot; BACKFILL</text><text class="lbl-sm" x="320" y="142" text-anchor="middle">copy old &#8594; new in small committed batches</text></g>
+            <g class="st" id="f2-stk-2"><rect class="node" x="92" y="170" width="456" height="50" rx="9"/><text class="lbl" x="320" y="192" text-anchor="middle">3 &middot; DUAL-WRITE</text><text class="lbl-sm" x="320" y="210" text-anchor="middle">app writes BOTH old and new</text></g>
+            <g class="st" id="f2-stk-3"><rect class="node" x="92" y="238" width="456" height="50" rx="9"/><text class="lbl" x="320" y="260" text-anchor="middle">4 &middot; SWITCH READS</text><text class="lbl-sm" x="320" y="278" text-anchor="middle">app now reads the new column</text></g>
+            <g class="st" id="f2-stk-4"><rect class="node-r" x="92" y="306" width="456" height="50" rx="9"/><text class="lbl" x="320" y="328" text-anchor="middle">5 &middot; CONTRACT</text><text class="lbl-sm" x="320" y="346" text-anchor="middle">drop the old column and the dual-write</text></g>
+            <path id="f2-sp-0" class="flow" d="M320 20 V 32" marker-end="url(#arrow)"/>
+            <path id="f2-sp-1" class="flow" d="M320 86 V 100" marker-end="url(#arrow)"/>
+            <path id="f2-sp-2" class="flow" d="M320 154 V 168" marker-end="url(#arrow)"/>
+            <path id="f2-sp-3" class="flow" d="M320 222 V 236" marker-end="url(#arrow)"/>
+            <path id="f2-sp-4" class="flow" d="M320 290 V 304" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="580" y="200" text-anchor="middle" fill="#A23A5B" transform="rotate(90 580 200)">reversible between any two rungs</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: the parallel-change ladder — no rung holds a long lock, and you can stop or roll back between any two</figcaption>
+      </figure>
+
+      <p>Notice the shape of the deploys. Rungs&nbsp;1 and&nbsp;2 are pure database work (add the column, backfill it). Rung&nbsp;3 is an <strong>application</strong> deploy — the code starts writing the new column too, so from that moment on no new row falls behind. Rung&nbsp;4 is another app deploy that flips reads over. Only rung&nbsp;5 removes the old thing, and by then nothing depends on it. Because each rung is compatible with the code both before and after it, a rollback is never a schema emergency — you just deploy the previous app version.</p>
+      <div class="callout tip">
+        <span class="k">Why the ordering is non-negotiable</span>
+        <p>You must be able to <strong>drop the new column</strong> right up until reads are switched (rung&nbsp;4), and you must <strong>keep writing the old column</strong> until you're sure you'll never need to roll back. That's why dual-write (rung&nbsp;3) comes <em>before</em> switching reads (rung&nbsp;4), and why contract (rung&nbsp;5) is last and separate. Collapse two rungs into one deploy and you lose the safe rollback point between them.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The toolkit</div>
+      <h2>The safe toolkit</h2>
+      <p>Expand/contract is the strategy; these are the specific Postgres tools that keep each rung lock-light. Learn them as a checklist — most real migrations are just a few of these composed together.</p>
+
+      <h3>Add columns the instant way</h3>
+      <p>A nullable column, or a column with a <em>constant</em> default, is metadata-only since PG&nbsp;11. A <em>volatile</em> default (one that produces a different value per row) forces a rewrite — so never do that on a live table.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- instant: metadata only</span>
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> note text;
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> qty int <span class="kw">DEFAULT</span> <span class="lit">1</span> <span class="kw">NOT NULL</span>;   <span class="cm">-- constant default, PG11+</span>
+
+<span class="cm">-- DANGER: volatile default → full table rewrite under ACCESS EXCLUSIVE</span>
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> token uuid <span class="kw">DEFAULT</span> <span class="fn">gen_random_uuid</span>();</code></pre>
+
+      <h3>Build indexes without locking writes</h3>
+      <p>A plain <code>CREATE INDEX</code> takes a <code>SHARE</code> lock that blocks writes for the whole build. <code>CONCURRENTLY</code> builds the index in the background without blocking reads or writes — at the cost of two table scans and not being allowed inside a transaction block. If it fails partway, it leaves an <code>INVALID</code> index you must drop and retry.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE INDEX CONCURRENTLY</span> idx_orders_user <span class="kw">ON</span> orders (user_id);
+
+<span class="cm">-- if a previous attempt failed, clean up the invalid index first:</span>
+<span class="kw">DROP INDEX CONCURRENTLY IF EXISTS</span> idx_orders_user;</code></pre>
+
+      <h3>Add NOT NULL and constraints without a blocking scan</h3>
+      <p>Adding <code>NOT NULL</code> directly, or adding a <code>CHECK</code>/foreign key, normally scans the whole table under a strong lock. The trick is to split "record the rule" from "verify the data": add the constraint <code>NOT VALID</code> (instant — it only enforces <em>new</em> rows), then <code>VALIDATE</code> it in a second step that takes only <code>SHARE UPDATE EXCLUSIVE</code> and does not block reads or writes.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ADD CONSTRAINT</span> orders_total_pos
+  <span class="kw">CHECK</span> (total &gt;= <span class="lit">0</span>) <span class="kw">NOT VALID</span>;          <span class="cm">-- instant, brief lock</span>
+<span class="kw">ALTER TABLE</span> orders <span class="kw">VALIDATE CONSTRAINT</span> orders_total_pos;   <span class="cm">-- scans, but doesn't block DML</span></code></pre>
+
+      <h3>Backfill in chunks, never in one transaction</h3>
+      <p>One giant <code>UPDATE</code> holds row locks on millions of rows, bloats the table with dead tuples, and runs for so long it blocks <code>VACUUM</code> and stalls replication. Instead, loop over small batches, committing each — this keeps transactions short and lets autovacuum keep up.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- run repeatedly (from the app or a script) until 0 rows are updated</span>
+<span class="kw">UPDATE</span> orders
+<span class="kw">SET</span>    status = <span class="lit">'legacy'</span>
+<span class="kw">WHERE</span>  id <span class="kw">IN</span> (
+  <span class="kw">SELECT</span> id <span class="kw">FROM</span> orders <span class="kw">WHERE</span> status <span class="kw">IS NULL</span> <span class="kw">LIMIT</span> <span class="lit">5000</span>
+  <span class="kw">FOR UPDATE SKIP LOCKED</span>
+);</code></pre>
+
+      <h3>Cap how long you'll wait for a lock</h3>
+      <p>Always set <code>lock_timeout</code> before DDL. Without it, if your <code>ALTER</code> can't get its lock immediately it <em>waits</em> — and forms the very queue we saw in Figure&nbsp;1. With a short timeout it fails fast instead, and you simply retry; a failed migration is far better than a stalled one.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SET</span> lock_timeout = <span class="lit">'2s'</span>;      <span class="cm">-- fail fast rather than block traffic</span>
+<span class="kw">SET</span> statement_timeout = <span class="lit">'0'</span>;  <span class="cm">-- but let the (unlocked) work itself run</span>
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> note text;</code></pre>
+      <div class="callout note">
+        <span class="k">Two more habits</span>
+        <p><strong>Avoid long transactions</strong> around migrations — an idle-in-transaction session holds locks and blocks autovacuum. And for tables already bloated by heavy churn, <code>pg_repack</code> rebuilds them without the long <code>ACCESS EXCLUSIVE</code> that <code>VACUUM FULL</code> would take. Every tool here has the same goal: never hold a strong lock for longer than an instant.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Add a NOT NULL column with zero downtime &#9656;</h2>
+      <p>Time to put it together on a realistic task, end to end.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> orders (
+  id      bigint <span class="kw">GENERATED ALWAYS AS IDENTITY</span> <span class="kw">PRIMARY KEY</span>,
+  user_id bigint <span class="kw">NOT NULL</span>,
+  total   numeric(<span class="lit">12</span>,<span class="lit">2</span>) <span class="kw">NOT NULL</span>
+);  <span class="cm">-- ~120 million live rows, heavy read + write traffic</span></code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>Product wants a <code>status</code> column on <code>orders</code>, and it must be <strong>NOT NULL</strong> (every order has a status). Existing rows should default to <code>'legacy'</code>; the app will start setting a real status going forward. Do it without an outage.</p>
+
+      <h3>3 &middot; The naive attempt — and why it fails</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- DON'T: one statement, one long ACCESS EXCLUSIVE lock</span>
+<span class="kw">ALTER TABLE</span> orders
+  <span class="kw">ADD COLUMN</span> status text <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="lit">'legacy'</span>;</code></pre>
+      <p>You might think the constant default makes this instant — and the <em>column add</em> is. But <code>NOT NULL</code> combined with a default on an existing 120M-row table still forces Postgres to be certain no row violates the constraint, and older/edge cases (or later changing the default) drag you toward a full rewrite while holding <code>ACCESS EXCLUSIVE</code>. Worse, teams often reach for a <em>volatile</em> default or a follow-up <code>ALTER COLUMN ... TYPE</code>, guaranteeing a rewrite. Minutes of held lock on this table means the queue-and-outage from Figure&nbsp;1. Even in the versions where the fast path <em>would</em> apply, betting your uptime on that subtlety is the wrong instinct — decompose it and the danger disappears entirely.</p>
+
+      <h3>4 &middot; The fix — expand/contract, step by step</h3>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-work">
+          <svg viewBox="0 0 640 420" role="img" aria-label="The six-step zero-downtime sequence to add a NOT NULL column">
+            <g class="st" id="f3-stk-0"><rect class="node-b" x="70" y="30" width="500" height="52" rx="9"/><text class="lbl" x="320" y="53" text-anchor="middle">&#9312; ADD COLUMN status text  (nullable)</text><text class="lbl-sm" x="320" y="72" text-anchor="middle">instant — metadata only</text></g>
+            <g class="st" id="f3-stk-1"><rect class="node" x="70" y="96" width="500" height="52" rx="9"/><text class="lbl" x="320" y="119" text-anchor="middle">&#9313; deploy app — always writes status</text><text class="lbl-sm" x="320" y="138" text-anchor="middle">before any enforcement — new rows non-null</text></g>
+            <g class="st" id="f3-stk-2"><rect class="node" x="70" y="162" width="500" height="52" rx="9"/><text class="lbl" x="320" y="185" text-anchor="middle">&#9314; backfill in batches &#8594; 'legacy'</text><text class="lbl-sm" x="320" y="204" text-anchor="middle">UPDATE … WHERE status IS NULL LIMIT 5000</text></g>
+            <g class="st" id="f3-stk-3"><rect class="node" x="70" y="228" width="500" height="52" rx="9"/><text class="lbl" x="320" y="251" text-anchor="middle">&#9315; ADD CHECK (status IS NOT NULL) NOT VALID</text><text class="lbl-sm" x="320" y="270" text-anchor="middle">records the rule, no scan, brief lock</text></g>
+            <g class="st" id="f3-stk-4"><rect class="node" x="70" y="294" width="500" height="52" rx="9"/><text class="lbl" x="320" y="317" text-anchor="middle">&#9316; VALIDATE CONSTRAINT</text><text class="lbl-sm" x="320" y="336" text-anchor="middle">SHARE UPDATE EXCL — reads &amp; writes continue</text></g>
+            <g class="st" id="f3-stk-5"><rect class="node-r" x="70" y="360" width="500" height="52" rx="9"/><text class="lbl" x="320" y="383" text-anchor="middle">&#9317; SET NOT NULL  &#8594;  DROP CHECK</text><text class="lbl-sm" x="320" y="402" text-anchor="middle">fast: reuses the validated constraint (PG12+)</text></g>
+            <path id="f3-sp-0" class="flow" d="M320 16 V 28" marker-end="url(#arrow)"/>
+            <path id="f3-sp-1" class="flow" d="M320 82 V 94" marker-end="url(#arrow)"/>
+            <path id="f3-sp-2" class="flow" d="M320 148 V 160" marker-end="url(#arrow)"/>
+            <path id="f3-sp-3" class="flow" d="M320 214 V 226" marker-end="url(#arrow)"/>
+            <path id="f3-sp-4" class="flow" d="M320 280 V 292" marker-end="url(#arrow)"/>
+            <path id="f3-sp-5" class="flow" d="M320 346 V 358" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: six lock-light steps replace one dangerous ALTER — no step blocks live traffic</figcaption>
+      </figure>
+
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- ① EXPAND: nullable column, instant metadata change</span>
+<span class="kw">SET</span> lock_timeout = <span class="lit">'2s'</span>;
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> status text;
+
+<span class="cm">-- ② APP DEPLOY (before any enforcement!): ship the version that writes `status`</span>
+<span class="cm">--    on every INSERT/UPDATE. New rows are now non-null; only the old backlog is NULL.</span>
+
+<span class="cm">-- (optional) a partial index makes each backfill batch an index scan</span>
+<span class="kw">CREATE INDEX CONCURRENTLY</span> idx_orders_status_null
+  <span class="kw">ON</span> orders (id) <span class="kw">WHERE</span> status <span class="kw">IS NULL</span>;
+
+<span class="cm">-- ③ BACKFILL the old rows in batches: loop until 0 rows updated</span>
+<span class="kw">UPDATE</span> orders <span class="kw">SET</span> status = <span class="lit">'legacy'</span>
+<span class="kw">WHERE</span> id <span class="kw">IN</span> (<span class="kw">SELECT</span> id <span class="kw">FROM</span> orders <span class="kw">WHERE</span> status <span class="kw">IS NULL</span> <span class="kw">LIMIT</span> <span class="lit">5000</span>);
+
+<span class="cm">-- ④ record the NOT NULL rule without scanning (safe now: app + backfill both fill status)</span>
+<span class="kw">ALTER TABLE</span> orders
+  <span class="kw">ADD CONSTRAINT</span> orders_status_nn <span class="kw">CHECK</span> (status <span class="kw">IS NOT NULL</span>) <span class="kw">NOT VALID</span>;
+
+<span class="cm">-- ⑤ verify existing rows — SHARE UPDATE EXCLUSIVE, no DML blocked</span>
+<span class="kw">ALTER TABLE</span> orders <span class="kw">VALIDATE CONSTRAINT</span> orders_status_nn;
+
+<span class="cm">-- ⑥ promote to a real NOT NULL — fast, reuses the validated CHECK (PG12+)</span>
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ALTER COLUMN</span> status <span class="kw">SET NOT NULL</span>;
+<span class="kw">ALTER TABLE</span> orders <span class="kw">DROP CONSTRAINT</span> orders_status_nn;
+<span class="kw">DROP INDEX CONCURRENTLY IF EXISTS</span> idx_orders_status_null;</code></pre>
+
+      <h3>5 &middot; Why it's better</h3>
+      <p>No step holds <code>ACCESS EXCLUSIVE</code> for more than an instant. The column add is metadata-only; the backfill is a stream of short transactions; the <code>NOT VALID</code> constraint records the rule without scanning; <code>VALIDATE</code> scans under a weak lock that never blocks reads or writes; and the final <code>SET NOT NULL</code> is near-instant because, since PG&nbsp;12, the planner sees an already-validated <code>CHECK (status IS NOT NULL)</code> and <strong>skips the full-table scan</strong> it would otherwise need. The partial index turns each backfill batch into an index scan instead of a repeated sequential scan of ever-fewer matching rows:</p>
+      <p class="codetag">explain — illustrative</p>
+      <pre class="code"><code>Update on orders  (cost=0.57..842.10 rows=0 width=0) (actual time=41.2..41.2 rows=0)
+  -&gt;  Index Scan using idx_orders_status_null on orders
+        (cost=0.57..817.10 rows=5000 width=14) (actual rows=5000 loops=1)
+Planning Time: 0.19 ms
+Execution Time: 44.6 ms</code></pre>
+      <p>An <code>Index Scan</code> on the partial index touches only the 5,000 rows in this batch — no <code>Seq Scan</code> over 120M rows per iteration. Each batch commits in tens of milliseconds and never contends with live traffic.</p>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>"I never add a <code>NOT NULL</code> column to a big live table in one statement. I <strong>expand</strong> with a nullable column, <strong>backfill</strong> it in small committed batches (indexed so each batch stays cheap), then split the constraint: add it <code>NOT VALID</code> so it guards new rows instantly, and <code>VALIDATE</code> it under a lock that doesn't block DML. After the app deploy guarantees no more NULLs, <code>SET NOT NULL</code> is instant because Postgres trusts the validated check. Every step is fast, and I can stop or roll back between any two."</p>
+    </section>
+
+    <!-- 05 DRILLS -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Graded drills</div>
+      <h2>Drills &amp; traps</h2>
+      <p>Each drill is a migration someone actually shipped. Diagnose the danger and rewrite it safely before opening the solution.</p>
+
+      <h3>Drill 1 — the volatile default (easy)</h3>
+      <p>A teammate wants to add a per-row request token to a busy 80M-row table and runs this in a migration. What happens, and what's the safe version?</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">ALTER TABLE</span> events <span class="kw">ADD COLUMN</span> token uuid
+  <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">gen_random_uuid</span>();</code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> <code>gen_random_uuid()</code> is <em>volatile</em> — a distinct value per row — so this can't use the fast-default path; it <strong>rewrites all 80M rows under ACCESS EXCLUSIVE</strong> and freezes the table for minutes. Do it as expand/contract: add the column nullable, backfill tokens in batches, then add <code>NOT NULL</code> via <code>CHECK ... NOT VALID</code> → <code>VALIDATE</code> → <code>SET NOT NULL</code>.<br><em>Why:</em> a volatile default forces a full rewrite; a nullable add is metadata-only.</p>
+      </div>
+
+      <h3>Drill 2 — the blocking index (easy–medium)</h3>
+      <p>To speed up a lookup, this ran during peak traffic and writes to the table stalled for 90 seconds. Fix it, and name the one operational gotcha of your fix.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE INDEX</span> idx_events_user <span class="kw">ON</span> events (user_id);</code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> A plain <code>CREATE INDEX</code> holds a <code>SHARE</code> lock that blocks all writes for the whole build. Use <code>CREATE INDEX CONCURRENTLY idx_events_user ON events (user_id);</code>. <strong>Gotcha:</strong> it can't run inside a transaction block (so it can't be wrapped with other statements in one migration), it scans the table twice (slower), and if it fails it leaves an <code>INVALID</code> index you must <code>DROP INDEX CONCURRENTLY</code> and retry.<br><em>Why:</em> <code>CONCURRENTLY</code> trades speed and transactionality for not locking writes.</p>
+      </div>
+
+      <h3>Drill 3 — the un-chunked backfill (medium)</h3>
+      <p>This backfill "worked in staging" but on production it ran for 20 minutes, bloated the table, and lagged the replica. Rewrite it.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">UPDATE</span> events <span class="kw">SET</span> region = <span class="fn">lower</span>(region_raw);   <span class="cm">-- all 80M rows, one txn</span></code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> One statement = one long transaction holding row locks on 80M rows, creating 80M dead tuples at once and pinning WAL / blocking <code>VACUUM</code> — which is what lags the replica. Batch it and commit each batch:</p>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="cm">-- repeat until 0 rows; each iteration is its own committed txn</span>
+<span class="kw">UPDATE</span> events <span class="kw">SET</span> region = <span class="fn">lower</span>(region_raw)
+<span class="kw">WHERE</span> id <span class="kw">IN</span> (
+  <span class="kw">SELECT</span> id <span class="kw">FROM</span> events
+  <span class="kw">WHERE</span> region <span class="kw">IS DISTINCT FROM</span> <span class="fn">lower</span>(region_raw) <span class="kw">LIMIT</span> <span class="lit">10000</span>
+);</code></pre>
+        <p><em>Why:</em> short transactions let autovacuum reclaim dead tuples between batches and keep replication caught up.</p>
+      </div>
+
+      <h3>Drill 4 — the missing lock_timeout (medium–hard)</h3>
+      <p>This <em>instant</em> metadata change ran on a quiet-looking table, yet it took the whole app down for two minutes. The DDL itself was cheap. What happened, and how do you prevent it?</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> note text;   <span class="cm">-- metadata only… right?</span></code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> The <code>ALTER</code> is instant, but to <em>start</em> it must acquire <code>ACCESS EXCLUSIVE</code> — and a long-running query (or an idle-in-transaction session) was already holding a weaker lock on <code>orders</code>. The <code>ALTER</code> <strong>waited</strong> for that lock, and while it waited every new query queued <em>behind</em> it (lock-queue ordering). Prevent it by always setting a short <code>lock_timeout</code> so the migration fails fast and retries instead of forming the queue:</p>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">SET</span> lock_timeout = <span class="lit">'2s'</span>;
+<span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> note text;   <span class="cm">-- fails fast if it can't get the lock</span></code></pre>
+        <p><em>Why:</em> the risk isn't the DDL's duration — it's how long it <em>waits</em> for its lock while blocking everyone behind it.</p>
+      </div>
+
+      <h3>The traps, collected</h3>
+      <ul>
+        <li><strong>Volatile default</strong> (<code>gen_random_uuid()</code>, <code>random()</code>) on <code>ADD COLUMN</code> → full table rewrite. Constant defaults are fine.</li>
+        <li><strong>Plain <code>CREATE INDEX</code></strong> on a live table blocks writes for the whole build → use <code>CONCURRENTLY</code>.</li>
+        <li><strong>Naive <code>SET NOT NULL</code> / <code>ADD CHECK</code> / <code>ADD FOREIGN KEY</code></strong> scans the table under a strong lock → use <code>NOT VALID</code> then <code>VALIDATE</code>.</li>
+        <li><strong>One big backfill</strong> = one long transaction → bloat, dead tuples, replica lag → chunk and commit.</li>
+        <li><strong>No <code>lock_timeout</code></strong> → a waiting migration forms a lock queue and takes everything down.</li>
+        <li><strong>Collapsing expand/contract rungs</strong> into one deploy destroys your safe rollback points.</li>
+        <li><strong>ORM auto-generated migrations</strong> emit the naive form by default — review the raw SQL before shipping.</li>
+      </ul>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea holds the whole lesson together: <em>you cannot safely make a big, atomic, in-place change to a live table — so you replace it with a ladder of small, lock-light, reversible steps.</em> Expand/contract is that ladder, and the toolkit (instant adds, <code>CONCURRENTLY</code>, <code>NOT VALID</code>+<code>VALIDATE</code>, chunked backfills, <code>lock_timeout</code>) is how each rung stays cheap.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Ask about the lock</b><span>Before any live DDL: which lock, and does it rewrite/scan the whole table while holding it?</span></div>
+        <div class="tk"><span class="num">02</span><b>Metadata vs rewrite</b><span>Nullable adds and constant defaults are instant; volatile defaults and <code>TYPE</code> changes rewrite everything.</span></div>
+        <div class="tk"><span class="num">03</span><b>The lock queue</b><span>A waiting strong-lock request blocks every query that arrives after it — a slow migration is a wall.</span></div>
+        <div class="tk"><span class="num">04</span><b>Expand / contract</b><span>Add new alongside old → backfill → dual-write → switch reads → drop old. Five safe rungs.</span></div>
+        <div class="tk"><span class="num">05</span><b>Split the constraint</b><span><code>CHECK ... NOT VALID</code> guards new rows instantly; <code>VALIDATE</code> checks old rows without blocking DML.</span></div>
+        <div class="tk"><span class="num">06</span><b>Fast SET NOT NULL</b><span>Since PG12, a validated matching <code>CHECK</code> lets <code>SET NOT NULL</code> skip the full-table scan.</span></div>
+        <div class="tk"><span class="num">07</span><b>Backfill in batches</b><span>Short committed transactions avoid bloat, dead-tuple pileups, and replica lag.</span></div>
+        <div class="tk"><span class="num">08</span><b>Always lock_timeout</b><span>Fail fast and retry beats blocking all traffic while waiting for a lock.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Which single question do you ask of every migration against a live table?<br>
+        (2) Give two DDL statements that are metadata-only and two that rewrite or scan the whole table.<br>
+        (3) Why does a slow-to-start migration block even short <code>SELECT</code>s that would otherwise run fine?<br>
+        (4) Name the five rungs of expand/contract in order, and explain why dual-write must come before switching reads.<br>
+        (5) Walk the six steps to add a <code>NOT NULL</code> column with zero downtime — and say why the final <code>SET NOT NULL</code> is near-instant.<br>
+        (6) What does <code>lock_timeout</code> protect you from, and why is failing a migration better than blocking on it?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and rewrite one drill from scratch.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 52 &middot; MIGRATIONS &amp; ZERO-DOWNTIME EVOLUTION &middot; interactive edition<br>
+      Original study notes for engineers &middot; expand, backfill, dual-write, switch, contract &mdash; never hold a strong lock.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the locking danger (chip timeline) */
+  makeStepper(_g('fig-lock'), [
+    {text:"Baseline: no migration is running. SELECTs, UPDATEs and INSERTs all flow freely against the table.",
+     mig:[], q:["f1-q1","f1-q2","f1-q3"], qbad:[], box:"FREE", boxc:"kok", v:"queries flow — no migration running"},
+    {text:"An instant ALTER — ADD COLUMN with no volatile default — takes ACCESS EXCLUSIVE for only microseconds. Traffic barely notices.",
+     mig:["f1-mig-a"], q:["f1-q1","f1-q2","f1-q3"], qbad:[], box:"metadata", boxc:"kok", v:"metadata-only change — lock held for an instant"},
+    {text:"Now a rewriting ALTER — ALTER COLUMN … TYPE, or a volatile default. It grabs ACCESS EXCLUSIVE and must rewrite every row before releasing it.",
+     mig:["f1-mig-b"], q:["f1-q1","f1-q2","f1-q3"], qbad:[], box:"ACCESS EXCL", boxc:"kbad", v:"full rewrite — lock held for the whole operation"},
+    {text:"Because a strong-lock request queues ahead of newcomers, every arriving query now waits behind the migration — even a plain SELECT.",
+     mig:["f1-mig-b"], q:["f1-q1","f1-q2","f1-q3"], qbad:["f1-q1r","f1-q2r","f1-q3r"], box:"QUEUE ↑", boxc:"kbad", v:"even plain SELECTs wait — the queue grows"},
+    {text:"Minutes pass. The connection pool fills with blocked queries, timeouts fire, and the app is effectively down.",
+     mig:["f1-mig-b"], q:["f1-q1","f1-q2","f1-q3"], qbad:["f1-q1r","f1-q2r","f1-q3r"], box:"OUTAGE", boxc:"kbad", v:"✗ pool exhausted — the app is down"},
+    {text:"The fix: never hold a long strong lock. Use instant forms, CREATE INDEX CONCURRENTLY, NOT VALID + VALIDATE, and a short lock_timeout — the rest of this lesson.",
+     mig:["f1-mig-a"], q:["f1-q1","f1-q2","f1-q3"], qbad:[], box:"FREE", boxc:"kok", v:"✓ short locks only — traffic keeps flowing"}
+  ], function(idx,s){
+    ['f1-mig-a','f1-mig-b'].forEach(function(id){var g=_g(id); if(g) g.style.opacity=(s.mig.indexOf(id)>=0?1:0.22);});
+    [['f1-q1','f1-q1r'],['f1-q2','f1-q2r'],['f1-q3','f1-q3r']].forEach(function(pair){
+      var g=_g(pair[0]); if(g) g.style.opacity=(s.q.indexOf(pair[0])>=0?1:0.22);
+      var r=_g(pair[1]); if(r) r.setAttribute('class','chip '+(s.qbad.indexOf(pair[1])>=0?'cBad':'cB'));
+    });
+    _g('f1-boxt').textContent=s.box;
+    _g('f1-box').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    var vd=_g('f1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — expand / contract ladder (node stack) */
+  makeStepper(_g('fig-ec'), [
+    {text:"The naive path is one big locking ALTER. Parallel change replaces it. Rung 1 — EXPAND: add the new column as nullable (or a whole new table). Instant, and invisible to the app.", active:["f2-stk-0"], path:"f2-sp-0"},
+    {text:"Rung 2 — BACKFILL: copy the old data into the new column in small committed batches. No single long transaction, no table-wide lock.", active:["f2-stk-1"], path:"f2-sp-1"},
+    {text:"Rung 3 — DUAL-WRITE: deploy code that writes BOTH the old and new column. From now on every new row is correct in both places.", active:["f2-stk-2"], path:"f2-sp-2"},
+    {text:"Rung 4 — SWITCH READS: once backfill is done and both are in sync, deploy code that reads the new column. The old one is now dead weight.", active:["f2-stk-3"], path:"f2-sp-3"},
+    {text:"Rung 5 — CONTRACT: drop the old column and the dual-write. The migration is complete.", active:["f2-stk-4"], path:"f2-sp-4"},
+    {text:"The whole ladder: expand → backfill → dual-write → switch reads → contract. No rung holds a long lock, and you can pause, verify, or roll back between any two of them."}
+  ]);
+
+  /* FIG 3 — worked: add a NOT NULL column (node stack) */
+  makeStepper(_g('fig-work'), [
+    {text:"Goal: make orders.status NOT NULL with zero downtime. Step ① — ADD COLUMN status text, nullable, no volatile default: an instant, metadata-only change.", active:["f3-stk-0"], path:"f3-sp-0"},
+    {text:"② Deploy the app version that always supplies status — BEFORE any enforcement. New rows are now non-null; only the old backlog still holds NULLs. (Enforce first and the old app's NULL inserts would start erroring.)", active:["f3-stk-1"], path:"f3-sp-1"},
+    {text:"③ Backfill the existing rows to 'legacy' in batches, committing each. A partial index on (status IS NULL) keeps every batch an index scan, not a full table scan.", active:["f3-stk-2"], path:"f3-sp-2"},
+    {text:"④ Add a CHECK (status IS NOT NULL) marked NOT VALID. It records the rule and enforces it on NEW rows — safe now, because the app (②) already supplies status and the backfill (③) fixed the old rows.", active:["f3-stk-3"], path:"f3-sp-3"},
+    {text:"⑤ VALIDATE CONSTRAINT scans to confirm no NULLs remain — under SHARE UPDATE EXCLUSIVE, which does not block reads or writes.", active:["f3-stk-4"], path:"f3-sp-4"},
+    {text:"⑥ SET NOT NULL — in PG12+ the planner reuses the already-validated CHECK and skips the full scan, so it's near-instant. Then DROP the redundant CHECK. Done, no outage.", active:["f3-stk-5"], path:"f3-sp-5"}
+  ]);
+</script>
+</body>
+</html>

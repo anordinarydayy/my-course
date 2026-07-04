@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 17 &mdash; Upserts &amp; RETURNING (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Upserts &amp; RETURNING</div>
+    <h4>Insert-or-update, safely</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Insert-or-update, atomically</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>INSERT &hellip; ON CONFLICT &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>RETURNING the rows back</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>ON CONFLICT vs MERGE &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: idempotent ingest &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">17</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Upserts &amp; RETURNING</h1>
+      <p class="lede">An <strong>upsert</strong> &mdash; insert this row, or update it if it already exists &mdash; is one of the most common writes an application makes, and one of the easiest to get wrong under concurrency. Postgres gives you two atomic answers: <code>INSERT &hellip; ON CONFLICT</code> for the everyday insert-or-update, and <code>MERGE</code> for the complex, multi-branch cases. This practice lesson wires both to <code>RETURNING</code>, so a single statement changes the data <em>and</em> hands the affected rows back &mdash; no second round-trip, and no race.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch, PostgreSQL-based (<strong>PG&nbsp;17/18</strong>: <code>MERGE&nbsp;RETURNING</code> landed in 17, and <code>OLD.*</code>/<code>NEW.*</code> in <code>RETURNING</code> in 18). Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). Being a practice lesson, it <strong>ends in a worked SQL problem and graded drills</strong> &mdash; do them before you read the solutions.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem</div>
+      <h2>Insert-or-update, atomically</h2>
+      <p>Many of the writes an application makes are <em>idempotent by intent</em>: &ldquo;make sure this user exists,&rdquo; &ldquo;record that we&rsquo;ve seen this event,&rdquo; &ldquo;bump this counter.&rdquo; Each is a write that <strong>may or may not already be there</strong> &mdash; insert it if it&rsquo;s new, update it if it isn&rsquo;t. The single name for that combined operation is an <strong>upsert</strong>.</p>
+      <p>The obvious way to write it is also the classic bug. You <strong>check, then act</strong>:</p>
+      <p class="codetag">sql &middot; naive, do not ship</p>
+      <pre class="code"><code><span class="cm">-- application flow, two separate round-trips:</span>
+<span class="kw">SELECT</span> id <span class="kw">FROM</span> users <span class="kw">WHERE</span> email = <span class="lit">'ana@x.io'</span>;   <span class="cm">-- does it exist?</span>
+<span class="cm">-- if a row came back:</span>
+<span class="kw">UPDATE</span> users <span class="kw">SET</span> name = <span class="lit">'Ana'</span> <span class="kw">WHERE</span> email = <span class="lit">'ana@x.io'</span>;
+<span class="cm">-- else:</span>
+<span class="kw">INSERT INTO</span> users (email, name) <span class="kw">VALUES</span> (<span class="lit">'ana@x.io'</span>, <span class="lit">'Ana'</span>);</code></pre>
+      <p>Between the <code>SELECT</code> and the write there is a gap, and in that gap another session can act. This <strong>check-then-act</strong> pattern (a time-of-check to time-of-use, or <em>TOCTOU</em>, race) breaks two different ways under concurrency:</p>
+      <ul>
+        <li><strong>Race A &mdash; duplicate insert.</strong> Two sessions run the <code>SELECT</code> at the same instant, both see &ldquo;not found,&rdquo; and both <code>INSERT</code>. If <code>email</code> has a <strong>UNIQUE</strong> constraint (recall Lesson&nbsp;04), one insert wins and the other errors with a duplicate-key violation. If it <em>doesn&rsquo;t</em>, you now have two rows for one email &mdash; silent corruption you may not notice for weeks.</li>
+        <li><strong>Race B &mdash; lost update.</strong> Two counter bumps both read the current value, both compute value&nbsp;+&nbsp;1, and both write it back. One increment is silently lost &mdash; the exact <em>lost update</em> from Lesson&nbsp;00, now living inside your upsert.</li>
+      </ul>
+      <p>The fix is not &ldquo;add a lock and hope.&rdquo; It is to hand the whole decision to the database as <strong>one atomic statement</strong> anchored on a real <strong>unique constraint</strong>. Postgres has two of them:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>INSERT &hellip; ON CONFLICT</h4>
+          <ul>
+            <li>Purpose-built for insert-or-update on <strong>one unique key</strong>.</li>
+            <li><strong>Atomic and concurrency-safe</strong> &mdash; the unique index serializes racers.</li>
+            <li>Your default upsert.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>MERGE</h4>
+          <ul>
+            <li>General <strong>multi-branch</strong> logic: match / not-matched / delete.</li>
+            <li>Can <strong>join a source table</strong>.</li>
+            <li>NOT race-safe for a plain upsert &mdash; more on that in &sect;03.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <span class="k">The mental reframe</span>
+        <p>An upsert is not &ldquo;a SELECT followed by an INSERT or an UPDATE.&rdquo; That framing <em>is</em> the bug &mdash; it leaves a gap. An upsert is <strong>a single write that resolves the conflict itself</strong>, using a unique index the database already maintains. Everything in this lesson is about expressing that as one statement.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The core tool</div>
+      <h2>INSERT &hellip; ON CONFLICT &#9656;</h2>
+      <p>The syntax reads like a plan: try to insert, and if the insert would collide with a named unique index, do something else instead.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">INSERT INTO</span> users (email, name)
+<span class="kw">VALUES</span> (<span class="lit">'ana@x.io'</span>, <span class="lit">'Ana'</span>)
+<span class="kw">ON CONFLICT</span> (email)                 <span class="cm">-- the conflict target = the arbiter index</span>
+<span class="kw">DO UPDATE SET</span> name = <span class="kw">EXCLUDED</span>.name;   <span class="cm">-- EXCLUDED = the row that failed to insert</span></code></pre>
+      <p>Three pieces carry the whole feature:</p>
+      <ul>
+        <li>The <strong>conflict target</strong> &mdash; <code>(email)</code> here &mdash; must name a <strong>unique constraint or unique index</strong> (the docs call it the <em>arbiter</em>). You can give the column list, a partial-index predicate, or <code>ON CONFLICT ON CONSTRAINT users_email_key</code>. It is <strong>not</strong> an arbitrary <code>WHERE</code> filter; there has to be a real unique index behind it.</li>
+        <li>The <strong>action</strong> &mdash; <code>DO NOTHING</code> (skip the conflicting row silently) or <code>DO UPDATE SET &hellip;</code> (merge it in).</li>
+        <li><strong><code>EXCLUDED</code></strong> &mdash; inside <code>DO UPDATE</code>, a virtual row holding the values you <em>tried</em> to insert. You reference the existing, stored row by the table name/alias (<code>users.name</code>) and the incoming row as <code>EXCLUDED.name</code>. Mixing those two up is the single most common upsert bug.</li>
+      </ul>
+      <p><code>DO UPDATE</code> even takes its own <code>WHERE</code> to make the update conditional &mdash; skip a write that would change nothing:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">INSERT INTO</span> users (email, name)
+<span class="kw">VALUES</span> (<span class="lit">'ana@x.io'</span>, <span class="lit">'Ana'</span>)
+<span class="kw">ON CONFLICT</span> (email) <span class="kw">DO UPDATE</span>
+  <span class="kw">SET</span> name = <span class="kw">EXCLUDED</span>.name
+  <span class="kw">WHERE</span> users.name <span class="kw">IS DISTINCT FROM</span> <span class="kw">EXCLUDED</span>.name;   <span class="cm">-- no-op writes avoided</span></code></pre>
+      <p>Step through what actually happens at the arbiter index when a row arrives &mdash; the fork between <em>insert</em>, <em>DO NOTHING</em>, and <em>DO UPDATE</em>:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-onconflict">
+          <svg viewBox="0 0 660 420" role="img" aria-label="An INSERT hitting a unique arbiter index, then branching to insert, DO NOTHING, or DO UPDATE using EXCLUDED">
+            <text class="lbl-sm" x="330" y="13" text-anchor="middle">a row to write</text>
+            <path id="ocp-0" class="flow" d="M330 16 V 24" marker-end="url(#arrow)"/>
+            <g class="st" id="oc-0"><rect class="node-b" x="170" y="26" width="320" height="44" rx="8"/><text class="lbl" x="330" y="53" text-anchor="middle">INSERT  (key = 42, v = 'b')</text></g>
+            <path id="ocp-1" class="flow" d="M330 70 V 96" marker-end="url(#arrow)"/>
+            <g class="st" id="oc-1"><rect class="node-r" x="160" y="98" width="340" height="52" rx="8"/><text class="lbl" x="330" y="120" text-anchor="middle" fill="#B0532F">arbiter &middot; UNIQUE index on (key)</text><text class="lbl-sm" x="330" y="138" text-anchor="middle" fill="#B0532F">does key = 42 already exist?</text></g>
+            <path id="ocp-2" class="flow" d="M300 150 C 230 180, 200 186, 169 212" marker-end="url(#arrow)"/>
+            <g class="st" id="oc-2"><rect class="node-t" x="44" y="214" width="250" height="60" rx="8"/><text class="lbl" x="169" y="240" text-anchor="middle" fill="#7a2c43">no match &#8594; row INSERTED</text><text class="lbl-sm" x="169" y="258" text-anchor="middle" fill="#7a2c43">1 row written &middot; returnable</text></g>
+            <path id="ocp-3" class="flow" d="M360 150 C 430 180, 465 186, 494 212" marker-end="url(#arrow)"/>
+            <g class="st" id="oc-3"><rect class="node" x="366" y="214" width="256" height="52" rx="8"/><text class="lbl" x="494" y="236" text-anchor="middle">key exists &#8594; ON CONFLICT</text><text class="lbl-sm" x="494" y="254" text-anchor="middle">a plain insert would violate it</text></g>
+            <path id="ocp-4" class="flow" d="M470 266 C 445 295, 430 300, 414 324" marker-end="url(#arrow)"/>
+            <g class="st" id="oc-4"><rect class="node" x="344" y="326" width="140" height="62" rx="8"/><text class="lbl" x="414" y="352" text-anchor="middle">DO NOTHING</text><text class="lbl-sm" x="414" y="370" text-anchor="middle">skip &middot; 0 rows</text></g>
+            <path id="ocp-5" class="flow" d="M518 266 C 545 295, 560 300, 575 324" marker-end="url(#arrow)"/>
+            <g class="st" id="oc-5"><rect class="node-t" x="500" y="326" width="150" height="62" rx="8"/><text class="lbl" x="575" y="350" text-anchor="middle" fill="#7a2c43">DO UPDATE</text><text class="lbl-sm" x="575" y="368" text-anchor="middle" fill="#7a2c43">v &#8592; EXCLUDED.v</text></g>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: the arbiter index decides insert vs conflict; the conflict then forks DO NOTHING vs DO UPDATE</figcaption>
+      </figure>
+
+      <p>Notice the two failure-shaped outcomes are <em>expected</em>, not errors: a conflict never raises &mdash; it routes. And every branch runs inside one statement holding the right index locks, so two sessions racing on the same key can&rsquo;t both slip through. That is what makes <code>ON CONFLICT</code> the correct answer to &sect;00&rsquo;s races.</p>
+      <div class="callout note">
+        <span class="k">DO NOTHING returns nothing</span>
+        <p>Keep this in your pocket for &sect;02 and the drills: on a conflict, <code>DO NOTHING</code> changes no row and therefore <strong>returns no row</strong> &mdash; a <code>RETURNING</code> clause yields an empty result for the conflicting insert. If you need the existing row&rsquo;s data back, <code>DO NOTHING</code> won&rsquo;t give it to you.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> One round-trip</div>
+      <h2>RETURNING the rows back</h2>
+      <p>A write normally tells you only <em>how many</em> rows it touched. <code>RETURNING</code> makes it tell you <em>which</em> rows &mdash; with any expression over them &mdash; in the <strong>same statement</strong>. It works on <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, and (since PG&nbsp;17) <code>MERGE</code>. The classic use is grabbing a generated key without a follow-up <code>SELECT</code>:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">INSERT INTO</span> orders (user_id, total)
+<span class="kw">VALUES</span> (<span class="lit">42</span>, <span class="lit">99.50</span>)
+<span class="kw">RETURNING</span> id, created_at;   <span class="cm">-- serial/identity id + DEFAULT now(), in one trip</span></code></pre>
+      <p>Because it&rsquo;s just a projection, <code>RETURNING</code> can compute. The most useful upsert idiom asks the returned row a question: <em>was this an insert or an update?</em> The trick uses a hidden system column, <code>xmax</code>:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">INSERT INTO</span> users (email, name)
+<span class="kw">VALUES</span> (<span class="lit">'ana@x.io'</span>, <span class="lit">'Ana'</span>)
+<span class="kw">ON CONFLICT</span> (email) <span class="kw">DO UPDATE SET</span> name = <span class="kw">EXCLUDED</span>.name
+<span class="kw">RETURNING</span> id, (xmax = <span class="lit">0</span>) <span class="kw">AS</span> was_insert;</code></pre>
+      <p>Every row version carries <code>xmax</code>, the id of the transaction that deleted or updated it. A brand-new tuple has <code>xmax = 0</code>. After <code>ON CONFLICT</code>, the row you get back is either the one you just <strong>inserted</strong> (<code>xmax = 0</code> &rarr; <code>was_insert = true</code>) or the one you just <strong>updated</strong> (the update locked/superseded a version, so <code>xmax &ne; 0</code> &rarr; <code>false</code>). One statement, and you know which path fired.</p>
+      <p>You can also feed the returned rows straight into more SQL with a <strong>data-modifying CTE</strong> &mdash; the whole thing is still one round-trip and one transaction:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH</span> ins <span class="kw">AS</span> (
+  <span class="kw">INSERT INTO</span> users (email) <span class="kw">VALUES</span> (<span class="lit">'ana@x.io'</span>)
+  <span class="kw">ON CONFLICT</span> (email) <span class="kw">DO NOTHING</span>
+  <span class="kw">RETURNING</span> id
+)
+<span class="kw">INSERT INTO</span> audit (user_id, action)
+<span class="kw">SELECT</span> id, <span class="lit">'created'</span> <span class="kw">FROM</span> ins;   <span class="cm">-- only logs on a real insert (ins is empty on conflict)</span></code></pre>
+      <div class="callout tip">
+        <span class="k">PG 18: OLD and NEW in RETURNING</span>
+        <p>Postgres&nbsp;18 lets <code>RETURNING</code> reference both <code>OLD.*</code> and <code>NEW.*</code>, so an upsert can report exactly what it changed &mdash; before <em>and</em> after &mdash; in one shot:</p>
+        <p class="codetag" style="margin-top:8px;">sql &middot; pg 18</p>
+        <pre class="code" style="margin-bottom:0;"><code><span class="kw">INSERT INTO</span> inventory (sku, qty) <span class="kw">VALUES</span> (<span class="lit">'A1'</span>, <span class="lit">5</span>)
+<span class="kw">ON CONFLICT</span> (sku) <span class="kw">DO UPDATE SET</span> qty = inventory.qty + <span class="kw">EXCLUDED</span>.qty
+<span class="kw">RETURNING</span> sku, <span class="kw">OLD</span>.qty <span class="kw">AS</span> before, <span class="kw">NEW</span>.qty <span class="kw">AS</span> after;   <span class="cm">-- OLD is NULL on a fresh insert</span></code></pre>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Choosing the tool</div>
+      <h2>ON CONFLICT vs MERGE &#9656;</h2>
+      <p>PostgreSQL&nbsp;15 added <code>MERGE</code>, the SQL-standard statement for &ldquo;look at a source, and for each row decide what to do to a target.&rdquo; It is strictly more expressive than <code>ON CONFLICT</code> &mdash; and, for the plain upsert, strictly more dangerous. Know when to reach for each.</p>
+      <p><code>MERGE</code> joins a <em>source</em> to a <em>target</em> on any condition, then runs the first matching <code>WHEN</code> branch per row:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">MERGE INTO</span> inventory <span class="kw">AS</span> t
+<span class="kw">USING</span> shipment <span class="kw">AS</span> s <span class="kw">ON</span> t.sku = s.sku
+<span class="kw">WHEN MATCHED AND</span> s.qty = <span class="lit">0</span> <span class="kw">THEN DELETE</span>
+<span class="kw">WHEN MATCHED THEN UPDATE SET</span> qty = t.qty + s.qty
+<span class="kw">WHEN NOT MATCHED THEN INSERT</span> (sku, qty) <span class="kw">VALUES</span> (s.sku, s.qty);</code></pre>
+      <p>That is three outcomes &mdash; delete, update, insert &mdash; over a join, which <code>ON CONFLICT</code> simply cannot express (it has no source table and no delete branch). <code>MERGE</code> also supports <code>WHEN NOT MATCHED BY SOURCE</code> (rows in the target with no source match) for full two-way syncs. But now the trade-off you must remember:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>INSERT &hellip; ON CONFLICT</h4>
+          <ul>
+            <li>One target, one <strong>unique arbiter</strong> index.</li>
+            <li>Two outcomes: nothing / update.</li>
+            <li><strong>Atomic &amp; concurrency-safe</strong> &mdash; guaranteed insert-or-update under a race.</li>
+            <li><code>EXCLUDED</code> for the rejected row.</li>
+            <li>The everyday upsert.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>MERGE (PG 15+)</h4>
+          <ul>
+            <li>Arbitrary <strong>join condition</strong>, a source table.</li>
+            <li>Many <code>WHEN</code> branches, incl. <code>DELETE</code> and <code>BY SOURCE/TARGET</code>.</li>
+            <li><strong>NOT concurrency-safe</strong> for the plain upsert &mdash; a race can raise a unique violation.</li>
+            <li><code>RETURNING</code> since PG&nbsp;17; <code>OLD</code>/<code>NEW</code> since PG&nbsp;18.</li>
+            <li>Batch sync &amp; complex conditional logic.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Walk the decision, including the caution that trips people up:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-decide">
+          <svg viewBox="0 0 660 400" role="img" aria-label="Decision: simple insert-or-update goes to ON CONFLICT; complex multi-branch goes to MERGE, which is not race-safe for a plain upsert">
+            <g class="st" id="dc-0"><rect class="node-b" x="210" y="24" width="240" height="52" rx="8"/><text class="lbl" x="330" y="47" text-anchor="middle">you need insert-or-update</text><text class="lbl-sm" x="330" y="65" text-anchor="middle">which tool?</text></g>
+            <path id="dcp-0" class="flow" d="M300 76 C 240 100, 200 108, 177 130" marker-end="url(#arrow)"/>
+            <g class="st" id="dc-1"><rect class="node" x="40" y="132" width="274" height="60" rx="8"/><text class="lbl" x="177" y="158" text-anchor="middle">simple: one unique key</text><text class="lbl-sm" x="177" y="176" text-anchor="middle">insert it, else update it</text></g>
+            <path id="dcp-1" class="flow" d="M177 192 V 246" marker-end="url(#arrow)"/>
+            <g class="st" id="dc-2"><rect class="node-t" x="40" y="248" width="274" height="66" rx="8"/><text class="lbl" x="177" y="276" text-anchor="middle" fill="#7a2c43">INSERT &hellip; ON CONFLICT</text><text class="lbl-sm" x="177" y="294" text-anchor="middle" fill="#7a2c43">atomic &middot; concurrency-safe</text></g>
+            <path id="dcp-2" class="flow" d="M360 76 C 420 100, 460 108, 486 130" marker-end="url(#arrow)"/>
+            <g class="st" id="dc-3"><rect class="node" x="346" y="132" width="280" height="60" rx="8"/><text class="lbl" x="486" y="155" text-anchor="middle">complex: many branches</text><text class="lbl-sm" x="486" y="176" text-anchor="middle">join a source &middot; delete-on-match</text></g>
+            <path id="dcp-3" class="flow" d="M486 192 V 246" marker-end="url(#arrow)"/>
+            <g class="st" id="dc-4"><rect class="node-r" x="346" y="248" width="280" height="66" rx="8"/><text class="lbl" x="486" y="276" text-anchor="middle" fill="#B0532F">MERGE  (PG 15+)</text><text class="lbl-sm" x="486" y="294" text-anchor="middle" fill="#B0532F">WHEN MATCHED / NOT MATCHED</text></g>
+            <path id="dcp-4" class="flow-r" d="M486 314 C 470 326, 450 332, 432 336" marker-end="url(#arrow-r)"/>
+            <g class="st" id="dc-5"><rect class="node-r" x="150" y="336" width="360" height="50" rx="8"/><text class="lbl" x="330" y="360" text-anchor="middle" fill="#B0532F">MERGE &#8800; race-safe for a plain upsert</text><text class="lbl-sm" x="330" y="377" text-anchor="middle" fill="#B0532F">concurrent MERGE can raise a unique violation</text></g>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: pick by complexity; MERGE is powerful but not the safe choice for a hot-path upsert</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="k">Why MERGE races and ON CONFLICT doesn&rsquo;t</span>
+        <p><code>MERGE</code> evaluates its join once. Two concurrent <code>MERGE</code>s for a brand-new key can <em>both</em> find no match, both take the <code>WHEN NOT MATCHED THEN INSERT</code> branch, and the second insert then violates the unique index &mdash; a runtime error you must catch and retry. <code>ON CONFLICT</code> has no such gap: the conflict is resolved <em>at</em> the index, so a loser is routed to <code>DO UPDATE</code> instead of erroring. Rule of thumb: <strong>simple insert-or-update on a unique key &rarr; <code>ON CONFLICT</code>; multi-branch / join a source / delete-on-match &rarr; <code>MERGE</code></strong> (in a batch, or with retry).</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Worked: idempotent event ingest &#9656;</h2>
+      <p>A queue can deliver the same message more than once (&ldquo;at-least-once&rdquo; semantics). Your consumer must process each event <strong>exactly once</strong> even when duplicates or two workers arrive together. This is the classic <em>inbox</em> pattern, and it is a pure upsert. Here is the table:</p>
+      <p class="codetag">sql &middot; schema</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> inbox (
+  event_id   uuid <span class="kw">PRIMARY KEY</span>,                      <span class="cm">-- the natural idempotency key</span>
+  payload    jsonb,
+  seen_count int         <span class="kw">NOT NULL DEFAULT</span> <span class="lit">1</span>,       <span class="cm">-- how many times we&#39;ve received it</span>
+  first_seen timestamptz <span class="kw">NOT NULL DEFAULT</span> <span class="fn">now</span>()
+);</code></pre>
+      <p><strong>Task.</strong> Ingest an event exactly once; on a repeat, bump <code>seen_count</code> instead of re-processing; and return whether <em>this</em> call was the one that newly inserted it.</p>
+
+      <h3>The naive attempt, and why it&rsquo;s wrong</h3>
+      <p>The tempting version is a check-then-act again:</p>
+      <p class="codetag">sql &middot; racy</p>
+      <pre class="code"><code><span class="kw">SELECT</span> <span class="lit">1</span> <span class="kw">FROM</span> inbox <span class="kw">WHERE</span> event_id = $1;   <span class="cm">-- seen before?</span>
+<span class="cm">-- if found: UPDATE inbox SET seen_count = seen_count + 1 WHERE event_id = $1;</span>
+<span class="cm">-- else:     INSERT INTO inbox (event_id, payload) VALUES ($1, $2);</span></code></pre>
+      <p>Two workers get the same <code>event_id</code>, both <code>SELECT</code> &ldquo;not found,&rdquo; both <code>INSERT</code>. The <code>PRIMARY KEY</code> saves you from a duplicate row &mdash; but one worker now crashes with a unique-violation error instead of quietly recording a repeat, and you&rsquo;ve paid for two round-trips. The check and the act must be <strong>one atomic statement</strong>.</p>
+
+      <h3>The correct query</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">INSERT INTO</span> inbox (event_id, payload)
+<span class="kw">VALUES</span> ($1, $2)
+<span class="kw">ON CONFLICT</span> (event_id)
+<span class="kw">DO UPDATE SET</span> seen_count = inbox.seen_count + <span class="lit">1</span>
+<span class="kw">RETURNING</span> (xmax = <span class="lit">0</span>) <span class="kw">AS</span> was_insert;</code></pre>
+      <p>One statement does everything: insert on first sight, bump the counter on every repeat, and hand back <code>was_insert</code> so the app knows whether to run the (once-only) side effects. Note <code>inbox.seen_count</code> reads the <em>stored</em> value &mdash; using <code>EXCLUDED.seen_count</code> here would wrongly re-apply the default of&nbsp;1 every time.</p>
+
+      <h3>The plan that runs it</h3>
+      <p>The <code>PRIMARY KEY</code> already gives us the unique index we need &mdash; <code>inbox_pkey</code> is the arbiter, so no extra index is required. On a repeat event the plan looks like this:</p>
+      <p class="codetag">explain &middot; illustrative</p>
+      <pre class="code"><code><span class="cm">-- EXPLAIN (ANALYZE) on a duplicate ingest:</span>
+Insert on inbox  (cost=0.00..0.01 rows=1 width=56) (actual time=0.052..0.053 rows=1)
+  Conflict Resolution: UPDATE
+  Conflict Arbiter Indexes: inbox_pkey
+  Tuples Inserted: 0
+  Conflicting Tuples: 1
+  -&gt;  Result  (cost=0.00..0.01 rows=1 width=56) (actual time=0.004..0.004 rows=1)
+Planning Time: 0.070 ms
+Execution Time: 0.088 ms</code></pre>
+      <p>Read it top-down. There is <strong>no separate <code>SELECT</code> node</strong> &mdash; the single <code>Insert on inbox</code> node probes <code>inbox_pkey</code> itself, finds the collision (<code>Conflicting Tuples: 1</code>, <code>Tuples Inserted: 0</code>), and applies the update in place. <code>Conflict Resolution: UPDATE</code> confirms the <code>DO UPDATE</code> branch fired, and <code>Conflict Arbiter Indexes: inbox_pkey</code> names the unique index doing the arbitration. On a first-sight event the same node would instead report <code>Tuples Inserted: 1</code>, <code>Conflicting Tuples: 0</code>.</p>
+
+      <p>The concurrency guarantee lives in that arbiter index. When two workers race, the unique index on <code>event_id</code> <strong>serializes</strong> them: exactly one acquires the right to insert the new key; the other blocks, then &mdash; because the key now exists &mdash; is routed into <code>DO UPDATE</code> and bumps the counter. Watch it happen:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-ingest">
+          <svg viewBox="0 0 640 340" role="img" aria-label="Two concurrent workers ingest the same event_id; one inserts, the other blocks then takes DO UPDATE, and seen_count ends at 2">
+            <text class="lbl-sm" x="52" y="46" text-anchor="start">WORKER A</text>
+            <text class="lbl-sm" x="52" y="228" text-anchor="start">WORKER B</text>
+            <g id="g-a-ins"><rect class="chip cA" x="52" y="54" width="150" height="44" rx="8"/><text class="chiptext" x="127" y="81" text-anchor="middle">A: INSERT e</text></g>
+            <g id="g-a-win"><rect class="chip cA" x="228" y="54" width="182" height="44" rx="8"/><text class="chiptext" x="319" y="81" text-anchor="middle">A inserts &middot; count 1</text></g>
+            <g id="g-a-commit"><rect class="chip cA" x="436" y="54" width="150" height="44" rx="8"/><text class="chiptext" x="511" y="81" text-anchor="middle">A commits &#10003;</text></g>
+            <g id="g-b-ins"><rect class="chip cB" x="52" y="232" width="150" height="44" rx="8"/><text class="chiptext" x="127" y="259" text-anchor="middle">B: INSERT e</text></g>
+            <g id="g-b-wait"><rect class="chip cB" x="228" y="232" width="182" height="44" rx="8"/><text class="chiptext" x="319" y="259" text-anchor="middle">B blocks on uniq idx</text></g>
+            <g id="g-b-upd"><rect class="chip cB" x="436" y="232" width="182" height="44" rx="8"/><text class="chiptext" x="527" y="259" text-anchor="middle">B &#8594; DO UPDATE &middot; 2</text></g>
+            <text class="lbl-sm" x="320" y="124" text-anchor="middle">inbox.seen_count  (event_id = e)</text>
+            <rect id="ing-box" class="balbox" x="250" y="132" width="140" height="54" rx="9"/>
+            <text id="ing-count" x="320" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="24" font-weight="700" fill="#20201D">&#8709;</text>
+            <path d="M40 208 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="203" text-anchor="end">time &#8594;</text>
+            <text id="ing-verdict" x="320" y="326" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: the unique index serializes two racers &mdash; one inserts, one updates, seen_count ends at 2</figcaption>
+      </figure>
+
+      <p><strong>Narrate it.</strong> &ldquo;Both workers run the same <code>INSERT &hellip; ON CONFLICT (event_id) DO UPDATE</code>. The primary-key index lets exactly one of them insert; the other blocks on that key, and once the winner commits it is routed to the update branch and increments <code>seen_count</code>. Each returns <code>was_insert</code> correctly &mdash; <code>true</code> for the inserter, <code>false</code> for the updater &mdash; so my side effects run exactly once. There&rsquo;s no <code>SELECT</code>, no application lock, and no duplicate row: the database&rsquo;s own unique index is the concurrency control.&rdquo; This inbox is exactly the idempotency mechanism we build on again in Phase&nbsp;8 (Lesson&nbsp;47).</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Practice</div>
+      <h2>Graded drills &amp; traps</h2>
+      <p>Write each query before you open the solution. Assume the obvious unique constraints exist unless a drill says otherwise.</p>
+
+      <h3>Drill 1 &mdash; a counter row (DO UPDATE)</h3>
+      <p>Table <code>counters(name text PRIMARY KEY, n int NOT NULL DEFAULT 0)</code>. In one statement, either create <code>'signups'</code> with <code>n = 1</code> or increment its existing <code>n</code>, and return the new value.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">INSERT INTO</span> counters (name, n) <span class="kw">VALUES</span> (<span class="lit">'signups'</span>, <span class="lit">1</span>)
+<span class="kw">ON CONFLICT</span> (name) <span class="kw">DO UPDATE SET</span> n = counters.n + <span class="lit">1</span>
+<span class="kw">RETURNING</span> n;</code></pre>
+        <p><em>Why:</em> reference the <strong>stored</strong> row (<code>counters.n</code>) to accumulate. <code>EXCLUDED.n</code> is only the <code>1</code> you tried to insert &mdash; use it when you want to add the <em>incoming</em> amount (<code>counters.n + EXCLUDED.n</code>).</p>
+      </div>
+
+      <h3>Drill 2 &mdash; detect a duplicate (DO NOTHING + RETURNING)</h3>
+      <p>Insert a new <code>users(email)</code>. Return the new <code>id</code> only if the row was actually created; a conflict should quietly produce nothing.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">INSERT INTO</span> users (email) <span class="kw">VALUES</span> ($1)
+<span class="kw">ON CONFLICT</span> (email) <span class="kw">DO NOTHING</span>
+<span class="kw">RETURNING</span> id;</code></pre>
+        <p><em>Why:</em> a returned row means a fresh insert; an <strong>empty result</strong> means the email already existed. If you also need the <em>existing</em> id back on conflict, swap in a harmless <code>DO UPDATE SET email = EXCLUDED.email RETURNING id</code> (a no-op update still returns its row).</p>
+      </div>
+
+      <h3>Drill 3 &mdash; multi-branch sync with a delete (MERGE)</h3>
+      <p>Reconcile <code>products</code> against a <code>staging</code> table keyed by <code>sku</code>: update prices for matches, insert new SKUs, and <strong>delete</strong> a product whose staging row has <code>discontinued = true</code>.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">MERGE INTO</span> products <span class="kw">AS</span> t
+<span class="kw">USING</span> staging <span class="kw">AS</span> s <span class="kw">ON</span> t.sku = s.sku
+<span class="kw">WHEN MATCHED AND</span> s.discontinued <span class="kw">THEN DELETE</span>
+<span class="kw">WHEN MATCHED THEN UPDATE SET</span> price = s.price
+<span class="kw">WHEN NOT MATCHED THEN INSERT</span> (sku, price) <span class="kw">VALUES</span> (s.sku, s.price);</code></pre>
+        <p><em>Why:</em> three outcomes over a join &mdash; branch order matters, and the delete branch is something <code>ON CONFLICT</code> can&rsquo;t do. Run this as a batch job, not on a hot concurrent path.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; return a generated id to the app</h3>
+      <p>Insert an <code>orders</code> row and hand the application the server-generated <code>id</code> and the <code>DEFAULT</code> timestamp &mdash; without a second query.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">INSERT INTO</span> orders (user_id, total) <span class="kw">VALUES</span> (<span class="lit">42</span>, <span class="lit">99.50</span>)
+<span class="kw">RETURNING</span> id, created_at;</code></pre>
+        <p><em>Why:</em> <code>RETURNING</code> gives you the identity/serial id and the <code>now()</code> default in the same round-trip &mdash; no <code>currval()</code> and no follow-up <code>SELECT</code>.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Traps to avoid</span>
+        <p>
+        &bull; <strong>ON CONFLICT needs a real unique index</strong>, not a <code>WHERE</code>. Without a matching unique constraint you get <em>&ldquo;there is no unique or exclusion constraint matching the ON CONFLICT specification.&rdquo;</em><br>
+        &bull; <strong>EXCLUDED vs the target alias.</strong> <code>EXCLUDED.col</code> is the rejected incoming row; <code>tablename.col</code> is the stored row. Swapping them silently computes the wrong value.<br>
+        &bull; <strong>Don&rsquo;t use MERGE for a simple high-concurrency upsert.</strong> Two racing MERGEs can both hit <code>NOT MATCHED</code> and one raises a unique violation &mdash; use <code>ON CONFLICT</code>.<br>
+        &bull; <strong>DO NOTHING returns no row.</strong> On a conflict its <code>RETURNING</code> yields nothing, so don&rsquo;t rely on it to fetch the existing row.
+        </p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea to carry: <em>an upsert is a single atomic write anchored on a unique index &mdash; <code>INSERT &hellip; ON CONFLICT</code> for the everyday insert-or-update, <code>MERGE</code> for complex multi-branch logic &mdash; and <code>RETURNING</code> hands the affected rows back in the same round-trip.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Check-then-act races</b><span>SELECT-then-INSERT/UPDATE has a gap: duplicate inserts or lost updates. Make it one statement.</span></div>
+        <div class="tk"><span class="num">02</span><b>ON CONFLICT (target)</b><span>The target names a real unique constraint/index &mdash; the arbiter. Not a WHERE filter.</span></div>
+        <div class="tk"><span class="num">03</span><b>DO NOTHING vs DO UPDATE</b><span>Skip the conflict, or merge it in. DO NOTHING returns no row.</span></div>
+        <div class="tk"><span class="num">04</span><b>EXCLUDED</b><span>The rejected incoming row. The stored row is the table name/alias. Don&rsquo;t confuse them.</span></div>
+        <div class="tk"><span class="num">05</span><b>RETURNING</b><span>Affected rows back in one trip &mdash; INSERT/UPDATE/DELETE/MERGE. PG18 adds OLD/NEW.</span></div>
+        <div class="tk"><span class="num">06</span><b>xmax = 0 trick</b><span>RETURNING (xmax = 0) tells insert (true) from update (false) in the same statement.</span></div>
+        <div class="tk"><span class="num">07</span><b>MERGE is more, and riskier</b><span>Join a source, many branches, DELETE &mdash; but NOT race-safe for a plain upsert.</span></div>
+        <div class="tk"><span class="num">08</span><b>The arbiter serializes</b><span>Under concurrency the unique index picks one inserter; the loser is routed to DO UPDATE.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the two ways a naive SELECT-then-INSERT/UPDATE races, and what fixes both.<br>
+        (2) In <code>ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name</code>, what is <code>EXCLUDED</code>, and what must <code>(email)</code> be backed by?<br>
+        (3) Write an upsert that increments a stored counter &mdash; and say why <code>EXCLUDED.n</code> would be wrong there.<br>
+        (4) What does <code>RETURNING (xmax = 0)</code> tell you, and why?<br>
+        (5) Give one thing <code>MERGE</code> can do that <code>ON CONFLICT</code> can&rsquo;t &mdash; and one reason not to use <code>MERGE</code> for a hot-path upsert.<br>
+        (6) Explain how the arbiter index makes the idempotent-ingest query safe when two workers race.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and rewrite the query from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 17 &middot; UPSERTS &amp; RETURNING &middot; interactive edition<br>
+      Original study notes &middot; Postgres 17/18 &middot; ON CONFLICT, RETURNING, MERGE &mdash; insert-or-update without races.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — INSERT ... ON CONFLICT branch */
+  makeStepper(_g('fig-onconflict'), [
+    {text:"A write arrives: INSERT one row keyed by key = 42.", active:["oc-0"], path:"ocp-0"},
+    {text:"It reaches the arbiter — the UNIQUE index that ON CONFLICT (key) names. Postgres asks: does key = 42 already exist?", active:["oc-1"], path:"ocp-1"},
+    {text:"Case A — the key is new. No conflict, so the row is inserted normally and can be RETURNED.", active:["oc-2"], path:"ocp-2"},
+    {text:"Case B — a row with key = 42 already exists. A plain insert would violate the unique index, so ON CONFLICT fires instead of raising an error.", active:["oc-3"], path:"ocp-3"},
+    {text:"DO NOTHING — the conflicting insert is silently skipped. Nothing changes and, crucially, no row is returned.", active:["oc-4"], path:"ocp-4"},
+    {text:"DO UPDATE SET v = EXCLUDED.v — the row that failed to insert is exposed as EXCLUDED, and its value is merged into the existing row (v: 'a' → 'b').", active:["oc-5"], path:"ocp-5"}
+  ]);
+
+  /* FIG 2 — ON CONFLICT vs MERGE decision */
+  makeStepper(_g('fig-decide'), [
+    {text:"Every upsert starts here. Two tools do insert-or-update in Postgres — choose by how complex the write is.", active:["dc-0"]},
+    {text:"The common case: one row identified by a single unique constraint — insert it, or update it if it is already there.", active:["dc-1"], path:"dcp-0"},
+    {text:"Reach for INSERT … ON CONFLICT. It is purpose-built, atomic, and safe under heavy concurrency: the unique index serializes racers so exactly one inserts.", active:["dc-2"], path:"dcp-1"},
+    {text:"The hard cases: several conditional branches, joining a source table, or deleting the rows that match.", active:["dc-3"], path:"dcp-2"},
+    {text:"Reach for MERGE: WHEN MATCHED / WHEN NOT MATCHED, join a source and DELETE. Base MERGE is PG15; WHEN NOT MATCHED BY SOURCE and MERGE ... RETURNING arrived in PG17; OLD/NEW in PG18.", active:["dc-4"], path:"dcp-3"},
+    {text:"But MERGE is NOT concurrency-safe for a plain upsert: two concurrent MERGEs can both miss the row and one hits a unique violation. For that, go back to ON CONFLICT.", active:["dc-5"], path:"dcp-4", reject:true}
+  ]);
+
+  /* FIG 3 — concurrent idempotent ingest */
+  makeStepper(_g('fig-ingest'), [
+    {text:"The inbox has no row for event e yet. Two workers receive the same event at the same instant and run the identical idempotent INSERT.", lit:[], count:"∅", boxc:"", v:"seen_count: row absent"},
+    {text:"Both fire INSERT … ON CONFLICT (event_id) … at once. The unique index on event_id will let only one of them actually insert.", lit:["a-ins","b-ins"], count:"∅", boxc:"", v:"both attempt INSERT e"},
+    {text:"Worker A wins the race: it inserts (event_id = e, seen_count = 1) and holds the new row. RETURNING (xmax = 0) gives A was_insert = true.", lit:["a-ins","b-ins","a-win"], count:"1", boxc:"", v:"A inserted · was_insert = true"},
+    {text:"Worker B's insert collides with e in the unique index, so B blocks — it waits for A to finish rather than erroring out.", lit:["a-ins","b-ins","a-win","b-wait"], count:"1", boxc:"", v:"B waits on the arbiter index"},
+    {text:"A commits and releases. B unblocks; its insert still conflicts, so ON CONFLICT DO UPDATE runs: seen_count = 1 + 1 = 2. RETURNING gives B was_insert = false.", lit:["a-ins","b-ins","a-win","a-commit","b-wait","b-upd"], count:"2", boxc:"", v:"B took DO UPDATE · was_insert = false"},
+    {text:"Result: exactly one insert, one update, seen_count = 2, no duplicate row and no lost event. The unique index made concurrent ingest idempotent.", lit:["a-ins","b-ins","a-win","a-commit","b-wait","b-upd"], count:"2", boxc:"kok", v:"✓ idempotent · one row · count = 2"}
+  ], function(idx,s){
+    ['a-ins','a-win','a-commit','b-ins','b-wait','b-upd'].forEach(function(id){
+      var g=_g('g-'+id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('ing-count').textContent=s.count;
+    _g('ing-box').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    var vd=_g('ing-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.boxc==='kok'?'#3f7a2e':'#5A574E');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 38 — Connection Pooling (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Connection Pooling</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why connections are heavy</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The pooler in the middle &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Session vs transaction vs statement &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The transaction-mode catch</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: size &amp; configure a pool &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">38</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Connection Pooling</h1>
+      <p class="lede">A PostgreSQL connection is not a cheap socket — it is a whole operating-system process with its own memory. Open a few thousand of them and the database doesn't get faster, it falls over. This lesson builds the fix from first principles: why connections cost so much, how a <em>pooler</em> multiplexes many clients onto a few backends, the modes it can run in, the sharp edge of transaction pooling, and how to actually size and configure one for a real service.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want database depth that pays off in interviews and in real systems. Targets <strong>PostgreSQL 17/18</strong> and the mainstream poolers (PgBouncer, Supavisor, PgCat). Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a practice lesson: it ends in a <strong>worked sizing-and-config problem</strong> and a set of <strong>graded drills</strong> with solutions.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The cost</div>
+      <h2>Why a Postgres connection is heavy</h2>
+      <p>Most databases you might have met treat a connection as a lightweight thread. PostgreSQL does not. Its architecture is <strong>process-per-connection</strong>: when a client connects, the <em>postmaster</em> <code>fork()</code>s a brand-new operating-system process — a <strong>backend</strong> — that lives for the entire life of that connection and does nothing but serve that one client. That design choice buys robustness (a crashing backend can't corrupt its neighbours) but it makes every connection expensive in three separate ways.</p>
+      <ul>
+        <li><strong>Setup cost.</strong> Each new connection pays for a process <code>fork</code>, authentication (SCRAM, and a TLS handshake if enabled), and backend initialization before it can run a single query. Opening a connection just to run one fast statement can cost more than the statement.</li>
+        <li><strong>Standing memory.</strong> Every backend carries private memory — catalog caches, a relcache, prepared-statement state — commonly on the order of several megabytes even while idle, plus up to <code>work_mem</code> <em>per sort or hash node</em> while it runs a query. A thousand idle backends is gigabytes of RAM doing nothing.</li>
+        <li><strong>Scheduling &amp; contention.</strong> A machine with 4 or 8 CPU cores can only truly run 4 or 8 things at once. Point a thousand active backends at it and the kernel spends its time context-switching between processes and they fight over shared structures (lightweight locks, the buffer mapping) instead of doing work.</li>
+      </ul>
+      <p>This is why <code>max_connections</code> exists and why the sane values are small — a few hundred, not tens of thousands. It is also why a naive web app is dangerous: forty application pods, each with its own local pool of twenty-five connections, quietly aims a thousand connections at a four-core database. Traffic spikes, every pod grabs more connections, and the database greets you with <code>FATAL: sorry, too many connections</code> — or worse, accepts them all and melts under the scheduling storm.</p>
+      <div class="callout">
+        <span class="k">The one-line reframe</span>
+        <p>A Postgres connection is a <strong>process, not a socket</strong>. So the goal is not "let every client hold a connection" — it is "let a <em>small, warm</em> set of backends do the work, and share them." That sharing layer is a <strong>connection pooler</strong>, and everything in this lesson is about running one correctly.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The middle layer</div>
+      <h2>The pooler in the middle &#9656;</h2>
+      <p>A <strong>connection pooler</strong> is a small proxy that sits between your application and PostgreSQL. To the app it looks exactly like a Postgres server, so clients connect to it cheaply and in large numbers. Behind it, the pooler keeps only a <em>small, fixed</em> set of real backend connections open to the actual database, and it hands those few backends out to whichever client needs work done. Thousands of client connections in the front; a couple of dozen server connections out the back.</p>
+      <p>The three you'll meet in the wild: <strong>PgBouncer</strong> — the classic, a single tiny C process, by far the most deployed; <strong>Supavisor</strong> — Supabase's Elixir pooler, built for many tenants and huge client counts; and <strong>PgCat</strong> — a Rust pooler that adds load-balancing and sharding. They differ in features, but the core trick is identical. Step through it:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pool">
+          <svg viewBox="0 0 660 372" role="img" aria-label="Interactive: many app clients on the left, a pooler in the middle, and a small set of Postgres backends on the right">
+            <text class="lbl-sm" x="100" y="26" text-anchor="middle">~500 app clients</text>
+            <text class="lbl-sm" x="330" y="26" text-anchor="middle">pooler</text>
+            <text class="lbl-sm" x="560" y="26" text-anchor="middle">~20 PG backends</text>
+
+            <g class="st" id="f1-clients">
+              <rect class="node" x="30" y="44" width="140" height="40" rx="8"/><text class="lbl-sm" x="100" y="69" text-anchor="middle">web worker</text>
+              <rect class="node" x="30" y="96" width="140" height="40" rx="8"/><text class="lbl-sm" x="100" y="121" text-anchor="middle">web worker</text>
+              <rect class="node" x="30" y="148" width="140" height="40" rx="8"/><text class="lbl-sm" x="100" y="173" text-anchor="middle">background job</text>
+              <rect class="node" x="30" y="200" width="140" height="40" rx="8"/><text class="lbl-sm" x="100" y="225" text-anchor="middle">serverless fn</text>
+              <text class="lbl" x="100" y="268" text-anchor="middle">&#8942;</text>
+            </g>
+
+            <g class="st" id="f1-pool">
+              <rect class="node-r" x="258" y="118" width="144" height="98" rx="10"/>
+              <text class="lbl" x="330" y="160" text-anchor="middle" fill="#B0532F">PgBouncer</text>
+              <text class="lbl-sm" x="330" y="182" text-anchor="middle" fill="#B0532F">N in &#8594; M out</text>
+            </g>
+
+            <g class="st" id="f1-backends">
+              <rect class="node-b" x="490" y="72" width="140" height="38" rx="8"/><text class="lbl-sm" x="560" y="96" text-anchor="middle">backend #1</text>
+              <rect class="node-b" x="490" y="120" width="140" height="38" rx="8"/><text class="lbl-sm" x="560" y="144" text-anchor="middle">backend #2</text>
+              <rect class="node-b" x="490" y="168" width="140" height="38" rx="8"/><text class="lbl-sm" x="560" y="192" text-anchor="middle">backend #3</text>
+              <text class="lbl" x="560" y="226" text-anchor="middle">&#8942;</text>
+            </g>
+
+            <path class="flow-d" d="M170 64 C 212 64, 220 150, 256 152"/>
+            <path class="flow-d" d="M170 116 C 212 116, 222 158, 256 160"/>
+            <path class="flow-d" d="M170 168 C 212 168, 226 168, 256 168"/>
+            <path class="flow-d" d="M170 220 C 212 220, 222 180, 256 178"/>
+            <path class="flow-d" d="M402 152 C 442 152, 452 91, 488 91"/>
+            <path class="flow-d" d="M402 162 C 442 162, 452 139, 488 139"/>
+            <path class="flow-d" d="M402 172 C 442 172, 452 187, 488 187"/>
+
+            <path id="f1-p1" class="flow" style="opacity:0" d="M170 116 C 212 116, 222 158, 256 160"/>
+            <path id="f1-p2" class="flow" style="opacity:0" d="M402 162 C 442 162, 452 139, 488 139"/>
+
+            <text id="f1-read" class="readout" x="330" y="352" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: a pooler accepts N cheap client connections and multiplexes them onto M real backends</figcaption>
+      </figure>
+
+      <p>The economics are the whole point. Client connections to the pooler are cheap — no Postgres process is created for them — so you can have thousands. Server connections are the scarce, expensive resource, so you keep them few and busy. The pooler's job is to make sure a real backend is never sitting idle when a client has work, and never multiplied past what the database can actually run.</p>
+      <div class="callout note">
+        <span class="k">Where the pooler lives</span>
+        <p>Run it as a sidecar next to the database, as its own tier behind a load balancer, or as a managed service (RDS Proxy, Cloud SQL, Supabase all ship one). What matters is that it is <em>shared</em> across all your app processes — that is exactly what an in-process, per-pod pool can never be, and why we return to that distinction in the worked problem.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The modes</div>
+      <h2>Session, transaction, or statement &#9656;</h2>
+      <p>The multiplexing in the last figure only pays off if the pooler can <em>reclaim</em> a backend and give it to someone else. <strong>When</strong> it is allowed to do that is the pooling <strong>mode</strong>, and it is the single most important setting you will choose.</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Session</h4>
+          <ul>
+            <li>A server is pinned to a client for the <strong>whole session</strong> (until it disconnects).</li>
+            <li>Behaves exactly like a raw connection &mdash; every feature works.</li>
+            <li>Almost <strong>no multiplexing</strong>: N clients need &asymp; N servers.</li>
+            <li>Use only when you truly need session state.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Transaction</h4>
+          <ul>
+            <li>A server is assigned <strong>per transaction</strong>, returned at <code>COMMIT</code>/<code>ROLLBACK</code>.</li>
+            <li>Between transactions the backend is free for anyone.</li>
+            <li><strong>Massive multiplexing</strong> &mdash; the common, default-in-practice mode.</li>
+            <li>The catch: no state survives a transaction (&sect;03).</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Statement</h4>
+          <ul>
+            <li>A server is released after <strong>every single statement</strong>.</li>
+            <li>The most aggressive reuse of all.</li>
+            <li><strong>Multi-statement transactions are impossible</strong> &mdash; it forbids them.</li>
+            <li>Niche: fully autocommit, stateless workloads.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Transaction mode is where nearly every production system lives, because a web request typically <em>is</em> one short transaction: begin, run a few statements, commit, done. In the gap before the next request, the backend goes back to the pool. Watch a single backend serve two different clients over time:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-modes">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Interactive: one pooled backend assigned per transaction, first to client X, then reused for client Y, then X again">
+            <text class="lbl-sm" x="34" y="44" text-anchor="start">CLIENT X</text>
+            <g id="f2-xa" style="opacity:.2"><rect class="chip cA" x="70" y="52" width="150" height="42" rx="8"/><text class="chiptext" x="145" y="78" text-anchor="middle">X &middot; txn 1</text></g>
+            <g id="f2-xb" style="opacity:.2"><rect class="chip cA" x="440" y="52" width="150" height="42" rx="8"/><text class="chiptext" x="515" y="78" text-anchor="middle">X &middot; txn 2</text></g>
+
+            <text class="lbl-sm" x="34" y="302" text-anchor="start">CLIENT Y</text>
+            <g id="f2-ya" style="opacity:.2"><rect class="chip cB" x="255" y="246" width="150" height="42" rx="8"/><text class="chiptext" x="330" y="272" text-anchor="middle">Y &middot; txn 1</text></g>
+
+            <path d="M40 170 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="164" text-anchor="end">time &#8594;</text>
+
+            <text class="lbl-sm" x="330" y="128" text-anchor="middle">Backend #1 (pooled)</text>
+            <rect id="f2-box" class="balbox" x="250" y="136" width="160" height="60" rx="9"/>
+            <text id="f2-owner" x="330" y="173" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="17" font-weight="700" fill="#20201D">idle</text>
+
+            <text id="f2-verdict" x="330" y="324" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: transaction mode lets one backend serve many clients, because nobody holds it between transactions</figcaption>
+      </figure>
+
+      <p>That reuse is the entire reason 500 clients can live behind 20 backends. It also draws the boundary of the guarantee: a backend belongs to a client <em>only for the duration of one transaction</em>. The moment that transaction ends, anything the client set up on that particular backend is fair game to disappear — which is the sharp edge we handle next.</p>
+      <div class="callout tip">
+        <span class="k">Rule of thumb</span>
+        <p>Reach for <strong>transaction mode</strong> by default and design your app to be transaction-scoped. Fall back to <strong>session mode</strong> only for the specific connections that genuinely need session features (a worker doing <code>LISTEN/NOTIFY</code>, say), and pay the multiplexing cost knowingly. <strong>Statement mode</strong> is a rarity you will almost never choose.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The sharp edge</div>
+      <h2>The transaction-mode catch: session state doesn't survive</h2>
+      <p>Here is the rule that causes more pooling bugs than anything else, and it follows directly from the last figure: <strong>in transaction mode, nothing that lives at the <em>session</em> level survives across transactions</strong>, because the very next transaction may run on a different backend. Anything you set up assuming "this is <em>my</em> connection for a while" is a landmine. The usual casualties:</p>
+      <ul>
+        <li><strong>Server-side prepared statements.</strong> The classic. Your driver runs <code>PREPARE</code> on one backend, then a later <code>EXECUTE</code> lands on a different backend that never saw it &mdash; <code>prepared statement "S_1" does not exist</code>, or on reuse <code>...already exists</code>. Modern PgBouncer (&ge; 1.21, 2023) can track and rewrite protocol-level prepared statements across backends if you set <code>max_prepared_statements</code>; otherwise you must disable server-side prepared statements in the driver.</li>
+        <li><strong><code>SET</code> (session GUCs).</strong> A plain <code>SET search_path = app</code> or <code>SET timezone = ...</code> lives on one backend and is gone next transaction. Use <code>SET LOCAL</code> (transaction-scoped, safe) inside the same transaction, put the setting in the connection string's <code>options</code>, or bake it into <code>ALTER ROLE ... SET</code> / <code>ALTER DATABASE ... SET</code> defaults.</li>
+        <li><strong>Session advisory locks.</strong> <code>pg_advisory_lock()</code> is held until the session ends or you explicitly unlock &mdash; but "the session" is now a shared backend. Use the transaction-scoped variants: <code>pg_advisory_xact_lock()</code>, released automatically at commit.</li>
+        <li><strong><code>LISTEN</code> / <code>NOTIFY</code>.</strong> <code>LISTEN</code> registers interest for the life of the session; on a pooled backend it will not reliably receive notifications. Give listeners a dedicated <em>session-mode</em> connection.</li>
+        <li><strong>Temp tables, <code>WITH HOLD</code> cursors, session GUCs (<code>SET</code>), <code>LISTEN</code>/<code>NOTIFY</code>.</strong> All are session-scoped state; under a transaction-mode pool the next transaction may land on a different backend that never saw them, so they vanish or error.</li>
+      </ul>
+      <p>None of this makes transaction mode wrong &mdash; it makes it a contract. The contract is: <em>keep everything you need inside a single transaction, or push it out of the session entirely</em> (into the connect string, role defaults, or a dedicated session-mode connection). Almost every "it worked locally but breaks behind PgBouncer" story is a violation of exactly this rule.</p>
+      <p>The other half of running a pool well is <strong>sizing</strong>, and it is delightfully counter-intuitive: bigger is not better. Because a backend only makes progress when it is on a CPU core, the useful concurrency is bounded by cores, not by hope. A well-worn starting point:</p>
+      <div class="callout note">
+        <span class="k">Sizing heuristic</span>
+        <p><code>pool_size &asymp; cores &times; 2&ndash;3</code> (some tune toward <code>cores &times; 2 + effective_spindle_count</code> for spinning disks). The multiplier over 1&times; is there to keep cores busy while some connections wait on I/O. Past that, extra connections don't add throughput &mdash; they add context-switching and lock contention and make everything <em>slower</em>. A small pool with a short wait queue beats a huge pool almost every time.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE / WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Size and configure a pool for a real service &#9656;</h2>
+      <p>Time to put it together on a concrete, common incident.</p>
+
+      <div class="callout note">
+        <span class="k">The task</span>
+        <p>A REST API runs on <strong>40 pods</strong>, each with an in-process pool (HikariCP) of <strong>25 connections</strong>, pointed straight at a <strong>4-vCPU</strong> PostgreSQL with <code>max_connections = 200</code>. Under load it throws <code>FATAL: sorry, too many connections</code>, DB CPU pins at 100%, and latency is awful. <strong>Right-size and re-plumb the connections so the service is stable.</strong></p>
+      </div>
+
+      <h3>1 &middot; The setup</h3>
+      <p class="codetag">topology &middot; before</p>
+      <pre class="code"><code><span class="cm"># the database</span>
+4 vCPU cores  &middot;  max_connections = 200
+
+<span class="cm"># the app tier &mdash; each pod has its own local pool</span>
+40 pods &times; HikariCP maximumPoolSize = 25  =  up to 1000 client connections
+                                              (aimed straight at Postgres)</code></pre>
+
+      <h3>2 &middot; The naive attempt &mdash; and why it fails</h3>
+      <p>The tempting one-liner is to make the error message go away by raising the ceiling:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">ALTER</span> <span class="kw">SYSTEM</span> <span class="kw">SET</span> max_connections = <span class="lit">1000</span>;   <span class="cm">-- then restart Postgres</span></code></pre>
+      <p>This "works" only in the sense that the <code>FATAL</code> stops. It makes the real problem worse. Now up to <strong>1000 backends</strong> can exist, each holding several MB of standing memory (gigabytes total, competing with the shared buffer cache), and up to 1000 processes contend for <strong>4 cores</strong>. The machine drowns in context switches and lightweight-lock contention; throughput <em>drops</em> as concurrency climbs. You didn't fix the overload &mdash; you removed the safety valve that was warning you about it.</p>
+
+      <h3>3 &middot; The fix</h3>
+      <p>Put a pooler in front in <strong>transaction mode</strong>, size the server pool to the <em>database's cores</em>, and let it absorb the thousand client connections. Point the app at the pooler and shrink the per-pod pools so they stop hoarding.</p>
+      <p class="codetag">pgbouncer.ini</p>
+      <pre class="code"><code><span class="cm">[databases]</span>
+appdb = host=10.0.0.5 port=5432 dbname=appdb
+
+<span class="cm">[pgbouncer]</span>
+listen_addr = 0.0.0.0
+listen_port = 6432
+auth_type   = scram-sha-256
+pool_mode   = transaction        <span class="cm"># the workhorse mode</span>
+max_client_conn      = 2000       <span class="cm"># cheap front-side connections</span>
+default_pool_size    = 10         <span class="cm"># ~ 4 cores &times; 2.5, the scarce resource</span>
+reserve_pool_size    = 5          <span class="cm"># small burst headroom</span>
+reserve_pool_timeout = 3
+max_prepared_statements = 200     <span class="cm"># let PgBouncer 1.21+ carry prepared stmts</span></code></pre>
+      <p class="codetag">app side &middot; each pod</p>
+      <pre class="code"><code><span class="cm"># point at PgBouncer, not Postgres, and stop hoarding:</span>
+jdbc:postgresql://pgbouncer:6432/appdb
+HikariCP.maximumPoolSize = 5      <span class="cm"># 40 pods &times; 5 = 200 client conns &#8594; PgBouncer</span></code></pre>
+      <p>The math now lines up: at most <code>40 &times; 5 = 200</code> client connections reach PgBouncer (well under <code>max_client_conn</code>), and PgBouncer maintains just <strong>10</strong> real backends to a database whose <code>max_connections</code> can drop back to a safe <code>~50</code>.</p>
+
+      <h3>4 &middot; Why it's better</h3>
+      <p>Measure the backends directly &mdash; the honest evidence here isn't an <code>EXPLAIN</code> plan (pooling isn't a query-planning problem), it's the backend count in <code>pg_stat_activity</code>:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> state, <span class="fn">count</span>(*)
+<span class="kw">FROM</span> pg_stat_activity
+<span class="kw">WHERE</span> backend_type = <span class="lit">'client backend'</span>
+<span class="kw">GROUP BY</span> state;</code></pre>
+      <p class="codetag">illustrative &middot; before (direct connections)</p>
+      <pre class="code"><code>       state         | count
+---------------------+-------
+ active              |     4      <span class="cm">-- only 4 can really run at once (4 cores)</span>
+ idle                |   960      <span class="cm">-- ~1 GB of backends doing nothing</span>
+ idle in transaction |    36      <span class="cm">-- and these are pinning rows/locks</span></code></pre>
+      <p class="codetag">illustrative &middot; after (behind PgBouncer, transaction mode)</p>
+      <pre class="code"><code>   state    | count
+------------+-------
+ active     |     4
+ idle       |     6      <span class="cm">-- 10 backends total, warm and reused</span></code></pre>
+      <p>The four cores still run four queries at a time either way &mdash; that ceiling is physical. What changed is everything <em>around</em> it: memory reclaimed, context-switching gone, the connection storm collapsed onto a warm pool of ten. Excess concurrency now waits a few milliseconds in PgBouncer's queue instead of thrashing the CPU, so tail latency drops and the <code>FATAL</code> disappears for good.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-size">
+          <svg viewBox="0 0 660 400" role="img" aria-label="Interactive: sizing a pool from the database's core count, the healthy queue, and the thundering-herd anti-pattern of an oversized pool">
+            <g class="st" id="f3-cores"><rect class="node-b" x="170" y="28" width="320" height="44" rx="8"/><text class="lbl" x="330" y="55" text-anchor="middle">DB server &middot; 4 CPU cores</text></g>
+            <g class="st" id="f3-formula"><rect class="node-r" x="170" y="98" width="320" height="50" rx="8"/><text class="lbl" x="330" y="121" text-anchor="middle" fill="#B0532F">pool_size &#8776; cores &times; 2&ndash;3</text><text class="lbl-sm" x="330" y="139" text-anchor="middle" fill="#B0532F">keep cores fed, don't oversubscribe</text></g>
+            <g class="st" id="f3-pool"><rect class="node" x="170" y="174" width="320" height="44" rx="8"/><text class="lbl" x="330" y="201" text-anchor="middle">pool = 10 backends</text></g>
+            <g class="st" id="f3-queue"><rect class="node-t" x="170" y="244" width="320" height="44" rx="8"/><text class="lbl" x="330" y="271" text-anchor="middle" fill="#7a2c43">overflow transactions queue briefly</text></g>
+            <g class="st" id="f3-big"><rect class="node-r" x="140" y="322" width="380" height="52" rx="8"/><text class="lbl" x="330" y="345" text-anchor="middle" fill="#B0532F">pool = 500 &#8594; thundering herd</text><text class="lbl-sm" x="330" y="363" text-anchor="middle" fill="#B0532F">500 backends fight over 4 cores &#10007;</text></g>
+
+            <path id="f3-sp1" class="flow" d="M330 72 V 96" marker-end="url(#arrow)"/>
+            <path id="f3-sp2" class="flow" d="M330 148 V 172" marker-end="url(#arrow)"/>
+            <path id="f3-sp3" class="flow" d="M330 218 V 242" marker-end="url(#arrow)"/>
+            <path id="f3-sp4" class="flow-r" d="M330 288 V 320" marker-end="url(#arrow-r)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: size from the DB's cores; a small pool with a short queue beats a huge pool</figcaption>
+      </figure>
+
+      <h3>5 &middot; Narrate it</h3>
+      <p>If you had to explain this in an interview: <em>"Postgres is process-per-connection, so a thousand direct connections meant a thousand heavy backends fighting over four cores &mdash; the overload wasn't a limit to raise, it was a signal. I put PgBouncer in transaction mode in front, sized the server pool to about the DB's core count &mdash; ten &mdash; and shrank the per-pod app pools so 40 pods times 5 is only 200 client connections. The pooler multiplexes those onto ten warm backends; excess load queues for milliseconds instead of thrashing the CPU. Because we're in transaction mode I set <code>max_prepared_statements</code> so the ORM's prepared statements still work, and I audited for session-scoped things &mdash; <code>SET</code>, advisory locks, <code>LISTEN</code> &mdash; that transaction pooling would have quietly broken."</em></p>
+    </section>
+
+    <!-- 05 DRILLS -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Graded drills</div>
+      <h2>Drills &amp; traps</h2>
+      <p>Four drills, hardest last. Try each before opening the solution.</p>
+
+      <h3>Drill 1 &middot; The vanishing <code>search_path</code></h3>
+      <p>Your app runs <code>SET search_path = app, public</code> once right after connecting, then relies on it for every query. After you move to PgBouncer <strong>transaction mode</strong>, queries intermittently fail with <code>relation "..." does not exist</code>. Why, and what's the fix?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><code>SET</code> is <em>session</em> state. It ran on whatever backend served the first transaction; the next transaction lands on a different, pooled backend that never saw it, so <code>search_path</code> is back to default. <strong>Fix:</strong> stop relying on a runtime <code>SET</code> &mdash; bake it into the role with <code>ALTER ROLE app_user SET search_path = app, public;</code> (or a database default, or the connect-string <code>options=-c search_path=app,public</code>). <em>Why:</em> those apply on every backend automatically, so no session-scoped state is assumed.</p>
+      </div>
+
+      <h3>Drill 2 &middot; The "just make the pool bigger" reflex</h3>
+      <p>To cut latency on the same 4-core DB, a teammate raises <code>default_pool_size</code> from 10 to 300. Under load, latency gets <em>worse</em> and CPU sits at 100%. Explain what happened.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>300 backends oversubscribe 4 cores. Only ~4 can truly run at once; the other ~296 don't add throughput &mdash; they add context-switching, CPU-cache thrash, and contention on shared locks, so total work done per second <em>falls</em>. <strong>Fix:</strong> put it back to roughly <code>cores &times; 2&ndash;3</code> (~10) and let excess transactions queue in the pooler. <em>Why:</em> a bounded number of workers with a short queue maximizes throughput; concurrency beyond the cores is negative-return.</p>
+      </div>
+
+      <h3>Drill 3 &middot; Pool exhaustion with an idle database</h3>
+      <p>Under load, clients get <code>timeout waiting for pool</code> (or HikariCP <code>Connection is not available</code>) &mdash; yet DB CPU is <em>low</em> and few queries are running. What's the most likely cause, and how do you confirm and fix it?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>Transactions are being held open while doing non-DB work &mdash; a slow external HTTP call, or app logic, <em>inside</em> a transaction &mdash; so backends sit <strong>idle in transaction</strong> and are never returned to the pool. The pool drains even though the DB is barely working. <strong>Confirm:</strong> <code>SELECT state, count(*) FROM pg_stat_activity GROUP BY state;</code> shows a pile of <code>idle in transaction</code>. <strong>Fix:</strong> keep transactions short &mdash; never do network I/O inside one &mdash; and set <code>idle_in_transaction_session_timeout</code> as a backstop. <em>Why:</em> raising the pool size only postpones the same exhaustion; the leak is duration, not count.</p>
+      </div>
+
+      <h3>Drill 4 &middot; Prepared statements, and app-pool vs external pooler</h3>
+      <p>Two parts. (a) After switching your ORM to PgBouncer transaction mode you get <code>prepared statement "S_3" already exists</code>. Give two independent fixes. (b) You already had HikariCP in every pod &mdash; so why add an <em>external</em> pooler at all?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>(a)</strong> Either (i) upgrade PgBouncer to &ge; 1.21 and set <code>max_prepared_statements &gt; 0</code> so it tracks and re-prepares statements per backend, or (ii) disable server-side prepared statements in the driver (JDBC <code>prepareThreshold=0</code>; asyncpg <code>statement_cache_size=0</code>). <strong>(b)</strong> An in-process pool only multiplexes <em>within one pod</em> &mdash; 40 pods &times; 25 still equals 1000 connections at the DB, because the pods can't share each other's connections. An external pooler multiplexes across <em>all</em> pods, so it's the only thing that caps <em>total</em> backends. <em>Why:</em> use both &mdash; a small app pool per pod pointing at a shared external pooler.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Traps to keep in your pocket</span>
+        <p>
+        &#9656; Adding a pooler but leaving app pools huge &mdash; they <em>multiply</em>, so shrink the per-pod pool too.<br>
+        &#9656; Believing a bigger pool means more throughput &mdash; past ~<code>cores&times;2&ndash;3</code> it's the opposite.<br>
+        &#9656; Running <code>LISTEN/NOTIFY</code>, session advisory locks, temp tables, or <code>WITH HOLD</code> cursors over transaction mode.<br>
+        &#9656; Forgetting server-side prepared statements need <code>max_prepared_statements</code> (or must be disabled) in transaction mode.<br>
+        &#9656; Long / idle-in-transaction transactions silently draining the pool while the DB looks idle.<br>
+        &#9656; Not watching pool saturation &mdash; PgBouncer's <code>SHOW POOLS</code> (<code>cl_waiting</code>, <code>maxwait</code>) tells you before users do.
+        </p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>a Postgres connection is a heavy OS process, so you don't give one to every client &mdash; you put a pooler in front, run it in transaction mode, and size the small server pool to the database's cores while a short queue absorbs the spikes.</em> Everything else is the fine print of not breaking session state.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Connections are processes</b><span>Process-per-connection means each one costs a fork, standing memory, and a slot in the CPU's scheduling fight. Keep them few.</span></div>
+        <div class="tk"><span class="num">02</span><b>A pooler multiplexes</b><span>N cheap client connections in front, M warm backends out back. PgBouncer, Supavisor, PgCat all do the same trick.</span></div>
+        <div class="tk"><span class="num">03</span><b>Transaction mode wins</b><span>A backend is lent per transaction and reclaimed at commit &mdash; the reuse that lets 500 clients live behind 20 backends.</span></div>
+        <div class="tk"><span class="num">04</span><b>Session state doesn't survive</b><span>Prepared statements, <code>SET</code>, session advisory locks, <code>LISTEN</code>, temp tables all break unless handled. Use <code>SET LOCAL</code>, xact locks, role defaults.</span></div>
+        <div class="tk"><span class="num">05</span><b>Size to the cores</b><span><code>pool_size &asymp; cores &times; 2&ndash;3</code>. The four cores set the real concurrency ceiling; the pool just keeps them fed.</span></div>
+        <div class="tk"><span class="num">06</span><b>Bigger is slower</b><span>Past the sweet spot, more backends add context-switching and contention, not throughput. A short queue beats a giant pool.</span></div>
+        <div class="tk"><span class="num">07</span><b>Short transactions</b><span>Idle-in-transaction backends never return to the pool. Never do network I/O inside a transaction; set a timeout.</span></div>
+        <div class="tk"><span class="num">08</span><b>App pool + external pooler</b><span>In-process pools can't multiplex across pods. Add a shared pooler and shrink the per-pod pools &mdash; both, not either.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the three ways a PostgreSQL connection is expensive, and tie each to the process-per-connection design.<br>
+        (2) Contrast session, transaction, and statement pooling &mdash; when is each backend reclaimed, and how much multiplexing does each give?<br>
+        (3) List four session-scoped features that break under transaction pooling, and give the correct workaround for each.<br>
+        (4) A 4-core DB is drowning under 1000 direct connections. Walk the fix, including how you'd choose <code>default_pool_size</code> and where the app pools go.<br>
+        (5) Why does raising the pool from 10 to 300 on a 4-core box make things <em>slower</em>? Name the mechanism.<br>
+        (6) Clients get "timeout waiting for pool" but the DB CPU is idle &mdash; what's the likely cause, how do you confirm it, and why won't a bigger pool fix it?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 38 &middot; CONNECTION POOLING &middot; interactive edition<br>
+      Original study notes for engineers &middot; size it to the cores, not to your fears.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the pooler in the middle */
+  makeStepper(_g('fig-pool'), [
+    {text:"Every part of the app that talks to Postgres wants a connection — web workers, background jobs, serverless functions. At scale that is hundreds or thousands of would-be connections.", active:["f1-clients"], r:"~500 clients all want a connection"},
+    {text:"Point them straight at Postgres and each one forks its own backend process. Thousands of heavy processes exhaust RAM and thrash the CPU — the database melts.", active:["f1-clients","f1-backends"], r:"direct: N clients = N heavy backends — meltdown"},
+    {text:"So we put a pooler in front. Clients connect to it, not to Postgres — and those front-side connections are cheap, so there can be many.", active:["f1-pool"], path:"f1-p1", r:"clients connect to the pooler — cheap"},
+    {text:"Behind the pooler, only a small, fixed number of real Postgres backends exist. This is the scarce, expensive resource, kept few and warm.", active:["f1-backends"], r:"only ~20 real backends behind it"},
+    {text:"The pooler multiplexes: it hands a client's work to a free backend and reclaims it the instant that work is done, so a backend is never idle while a client waits.", active:["f1-pool","f1-backends"], path:"f1-p2", r:"multiplex: lend a backend, reclaim it"},
+    {text:"Net result: ~500 client connections are served by ~20 backends. Cheap connections in front, scarce backends behind — that's the whole idea.", active:[], r:"500 clients served by 20 backends"}
+  ], function(idx,s){
+    var el=_g('f1-read'); if(el) el.textContent=s.r||'';
+  });
+
+  /* FIG 2 — transaction-mode server reuse */
+  makeStepper(_g('fig-modes'), [
+    {text:"One real Postgres backend, two application clients. In transaction pooling the pooler owns a small set of backends and lends them out one transaction at a time.", lit:[], owner:"idle", cls:"", v:"backend #1 is free"},
+    {text:"Client X begins a transaction. The pooler assigns backend #1 to X — but only for the duration of this one transaction.", lit:["f2-xa"], owner:"→ Client X", cls:"kok", v:"assigned to X for txn 1"},
+    {text:"X commits. The backend is immediately returned to the pool — even though X's own connection to the pooler stays open and idle.", lit:[], owner:"idle", cls:"", v:"txn done → backend released"},
+    {text:"Now Client Y begins a transaction. The very same backend #1 is handed to Y. One backend has now served two different clients.", lit:["f2-ya"], owner:"→ Client Y", cls:"kok", v:"same backend, now serving Y"},
+    {text:"Y commits; X starts a second transaction and again borrows backend #1. Across time, N clients share M backends because nobody holds one between transactions.", lit:["f2-xb"], owner:"→ Client X", cls:"kok", v:"reused again for X · txn 2"},
+    {text:"Session mode would have pinned backend #1 to X for X's whole session — no sharing at all. Transaction mode's per-transaction reuse is what makes 500:20 possible.", lit:[], owner:"1 backend · 3 txns", cls:"kok", v:"✓ transaction pooling multiplexes"}
+  ], function(idx,s){
+    ['f2-xa','f2-xb','f2-ya'].forEach(function(id){var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f2-owner').textContent=s.owner;
+    _g('f2-box').setAttribute('class','balbox'+(s.cls?' '+s.cls:''));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — sizing the pool */
+  makeStepper(_g('fig-size'), [
+    {text:"Start by measuring the database, not the app. This is a 4-vCPU Postgres — four cores is the real ceiling on how many queries can run at the same instant.", active:["f3-cores"]},
+    {text:"Rule of thumb: a busy connection needs a core to run on. Size the pool to roughly cores × 2–3 — enough to keep every core fed while some connections wait on I/O, without wild oversubscription.", active:["f3-formula"], path:"f3-sp1"},
+    {text:"So pool_size ≈ 4 × 2.5 ≈ 10 backends. That single small pool can sit behind hundreds of client connections in transaction mode.", active:["f3-pool"], path:"f3-sp2"},
+    {text:"When all 10 backends are busy, the next transaction WAITS briefly in the pooler's queue instead of spawning an 11th backend. A short queue is healthy back-pressure.", active:["f3-queue"], path:"f3-sp3"},
+    {text:"The classic mistake: 'set the pool to 500 to be safe.' Now 500 backends fight over 4 cores — a context-switch storm and lock contention that makes everyone slower.", active:["f3-big"], path:"f3-sp4", reject:true},
+    {text:"The counter-intuitive truth: a small pool with a little queueing beats a huge pool. Right-size to the DB's cores and let the pooler absorb the spikes.", active:["f3-cores","f3-pool"]}
+  ]);
+</script>
+</body>
+</html>

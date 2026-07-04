@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 46 — The Dual-Write Problem &amp; the Transactional Outbox (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">The Dual-Write Problem &amp; the Outbox</div>
+    <h4>The build</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Two systems, one crash</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Watch the event vanish &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The transactional outbox &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Getting events out</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>A worked order outbox &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">46</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>The Dual-Write Problem &amp; the Transactional Outbox</h1>
+      <p class="lede">Almost every service eventually has to do two things at once: save a row in Postgres <em>and</em> tell the outside world about it — publish an event, invalidate a cache, notify a search index. The moment those are two separate systems with no shared transaction, a single badly-timed crash can leave them permanently out of sync. This practice lesson names that failure precisely, then builds the standard cure — the <strong>transactional outbox</strong> — as real PostgreSQL you can run: one transaction, one extra table, and a relay that can never lose your event.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want database depth that pays off in interviews and in real systems. All SQL is valid <strong>PostgreSQL</strong> and current as of <strong>PG&nbsp;17/18</strong>. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked SQL problem and graded drills</strong> you should attempt before reading the answer.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>46</b> Motivation</div>
+      <h2>Two systems, one crash</h2>
+      <p>Picture the most ordinary handler in a web service: a customer places an order. Your code does two things. First it <strong>saves the order</strong> to Postgres. Then it <strong>publishes an event</strong> — <code>order_placed</code> — to a message broker like Kafka or RabbitMQ, so the email service can send a confirmation, the search index can list the item, and analytics can count the sale. This is a <strong>dual write</strong>: one logical action that must land in <em>two</em> independent systems.</p>
+      <p>Here is the whole problem in one sentence: <strong>a Postgres transaction protects only what happens inside Postgres.</strong> It cannot reach across into the broker. The broker has its own commit, its own durability, its own failure modes. There is no <code>BEGIN</code> that wraps "the order row <em>and</em> the Kafka message" into a single all-or-nothing unit. So the two writes are separate events in time — and any gap between them is a window in which the process can die, the network can drop, or the broker can be unreachable.</p>
+      <p>Whatever order you choose, one ordering's crash betrays you:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Commit first, then publish</h4>
+          <ul>
+            <li>Order is durably saved in Postgres.</li>
+            <li>Process crashes <strong>before</strong> the publish call.</li>
+            <li>The event is <strong>lost forever</strong> — no email, no search entry.</li>
+            <li>No error is raised; the order simply looks placed but silent downstream.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Publish first, then commit</h4>
+          <ul>
+            <li>Event is already on the broker.</li>
+            <li>Transaction <strong>rolls back</strong> (constraint fails, crash, deadlock).</li>
+            <li>Downstream acts on a <strong>ghost order</strong> that never existed.</li>
+            <li>You emailed a confirmation for a purchase that isn't in the database.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Neither ordering is safe, and no amount of "just add a retry" closes the hole — a retry only helps if the process survives long enough to run it, and the crash is precisely the case where it doesn't. This is the <strong>dual-write problem</strong>, and it shows up any time one action must update two stores: database + queue, database + cache, database + search, or two databases. Naming it is half the battle; the other half is a pattern that removes the second system from the critical path entirely.</p>
+      <div class="callout note">
+        <span class="k">Why not one big distributed transaction?</span>
+        <p>The tempting answer is "make Postgres <em>and</em> the broker commit together" — a two-phase commit (<code>PREPARE TRANSACTION</code>). It is a trap we dismantle in a later lesson: the coordinator becomes a single point of failure, and a crash mid-protocol leaves participants <strong>blocked</strong>, holding locks and pinning resources. The pattern that actually ships is far more boring, and that is its virtue.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>46</b> The failure</div>
+      <h2>Watch the event vanish &#9656;</h2>
+      <p>Let's make the failure concrete. Take the common "commit first, then publish" ordering and step through the exact instant it breaks. The order lands in Postgres, the process dies in the gap, and the <code>order_placed</code> event is never born:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-dualwrite">
+          <svg viewBox="0 0 640 330" role="img" aria-label="Interactive: a service commits an order to Postgres, then crashes before publishing the event, which is lost forever">
+            <text class="lbl-sm" x="52" y="50" text-anchor="start">DATABASE (Postgres)</text>
+            <text class="lbl-sm" x="52" y="226" text-anchor="start">BROKER (Kafka)</text>
+            <g id="f1-ins" style="opacity:.2"><rect class="chip cA" x="50" y="58" width="150" height="42" rx="8"/><text class="chiptext" x="125" y="84" text-anchor="middle">INSERT order</text></g>
+            <g id="f1-com" style="opacity:.2"><rect class="chip cA" x="250" y="58" width="150" height="42" rx="8"/><text class="chiptext" x="325" y="84" text-anchor="middle">COMMIT &#10003;</text></g>
+            <g id="f1-crash" style="opacity:.2"><rect class="chip cBad" x="445" y="136" width="150" height="46" rx="8"/><text class="chiptext" x="520" y="164" text-anchor="middle">&#10007; CRASH</text></g>
+            <g id="f1-pub" style="opacity:.2"><rect class="chip cBad" x="430" y="234" width="170" height="42" rx="8"/><text class="chiptext" x="515" y="260" text-anchor="middle">publish event</text></g>
+            <text class="lbl-sm" x="305" y="114" text-anchor="middle">consistency</text>
+            <rect id="f1-box" class="balbox" x="230" y="120" width="150" height="74" rx="9"/>
+            <text id="f1-sdb" x="305" y="150" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#20201D">DB: &mdash;</text>
+            <text id="f1-smq" x="305" y="178" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#20201D">event: &mdash;</text>
+            <path d="M40 210 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="205" text-anchor="end">time &#8594;</text>
+            <text id="f1-verdict" x="320" y="316" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the order commits, the process dies in the gap, and the event is lost — with no error anywhere</figcaption>
+      </figure>
+
+      <p>The cruelest part is how <em>quiet</em> the failure is. Nothing throws. The API returned <code>201 Created</code>; the order really is in the database; the customer's card may even be charged. Only the downstream world never heard about it — and you find out hours later when a support ticket asks where the confirmation email went, or when the analytics numbers don't reconcile. There is no stack trace pointing at the bug because, from each system's local point of view, nothing went wrong.</p>
+      <p>And notice why retries can't save you here. A publish that <em>fails</em> with an exception can be retried — but the crash happens <strong>between</strong> the successful commit and the publish call, killing the very code that would have done the retrying. The window is small, but "small times millions of requests" is a steady drip of lost events. At scale, rare is just a synonym for constant.</p>
+      <div class="callout tip">
+        <span class="k">The gap is fundamental, not a bug you can code around</span>
+        <p>You cannot shrink the window to zero by writing more careful code, because the window is the space <em>between two independent commits</em>. As long as the event's fate lives in a second system that Postgres can't include in its transaction, some crash lands in the gap. The fix is not to protect the gap — it is to <strong>make it disappear</strong> by writing to only one system.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>46</b> The pattern</div>
+      <h2>The transactional outbox &#9656;</h2>
+      <p>The insight is almost too simple: <strong>stop writing to two systems.</strong> Instead of "insert the order, then publish the event," you insert the order <em>and</em> a description of the event into the <strong>same</strong> Postgres transaction. That description goes into an ordinary table called the <strong>outbox</strong>. Because both inserts share one transaction, they are atomic — the order and its pending event commit together, or neither does. The event is now exactly as durable as the order itself.</p>
+      <p>A separate <strong>relay</strong> then reads the outbox and publishes to the broker, marking each row as sent. The broker is no longer in your request's critical path — it's downstream of a table you fully control. Follow the reshaped flow:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-outbox">
+          <svg viewBox="0 0 660 400" role="img" aria-label="Interactive: one transaction inserts the order and an outbox row atomically, then a relay reads the outbox and publishes">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">one request &#8594; one transaction &#8594; the relay</text>
+            <g class="st" id="f2-stk-0"><rect class="node-b" x="160" y="40" width="340" height="42" rx="8"/><text class="lbl" x="330" y="66" text-anchor="middle">App: BEGIN &mdash; one transaction</text></g>
+            <g class="st" id="f2-stk-1"><rect class="node-b" x="160" y="92" width="340" height="46" rx="8"/><text class="lbl" x="330" y="112" text-anchor="middle">INSERT INTO orders</text><text class="lbl-sm" x="330" y="129" text-anchor="middle">the domain row</text></g>
+            <g class="st" id="f2-stk-2"><rect class="node-b" x="160" y="148" width="340" height="46" rx="8"/><text class="lbl" x="330" y="168" text-anchor="middle">INSERT INTO outbox</text><text class="lbl-sm" x="330" y="185" text-anchor="middle">the event &middot; same transaction</text></g>
+            <g class="st" id="f2-stk-3"><rect class="node-r" x="160" y="204" width="340" height="46" rx="8"/><text class="lbl" x="330" y="224" text-anchor="middle" fill="#B0532F">COMMIT &mdash; both rows, or neither</text><text class="lbl-sm" x="330" y="241" text-anchor="middle" fill="#B0532F">atomic: the event can no longer be lost</text></g>
+            <g class="st" id="f2-stk-4"><rect class="node-b" x="160" y="260" width="340" height="42" rx="8"/><text class="lbl" x="330" y="286" text-anchor="middle">Relay reads unsent outbox rows</text></g>
+            <g class="st" id="f2-stk-5"><rect class="node-t" x="160" y="316" width="340" height="46" rx="8"/><text class="lbl" x="330" y="336" text-anchor="middle" fill="#7a2c43">Relay publishes &#8594; marks sent</text><text class="lbl-sm" x="330" y="353" text-anchor="middle" fill="#7a2c43">at-least-once delivery to the broker</text></g>
+            <rect x="512" y="92" width="128" height="158" rx="10" fill="none" stroke="#A23A5B" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="575" y="171" text-anchor="middle" fill="#A23A5B" transform="rotate(-90 575 171)">atomic &middot; one transaction</text>
+            <path id="f2-sp-0" class="flow" d="M330 24 V 38" marker-end="url(#arrow)"/>
+            <path id="f2-sp-1" class="flow" d="M330 82 V 90" marker-end="url(#arrow)"/>
+            <path id="f2-sp-2" class="flow" d="M330 138 V 146" marker-end="url(#arrow)"/>
+            <path id="f2-sp-3" class="flow" d="M330 194 V 202" marker-end="url(#arrow)"/>
+            <path id="f2-sp-4" class="flow" d="M330 250 V 258" marker-end="url(#arrow)"/>
+            <path id="f2-sp-5" class="flow" d="M330 302 V 314" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="330" y="384" text-anchor="middle">&#8593; only ONE system was written to: Postgres &#8593;</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: the order and its event commit together in one transaction; a relay publishes afterward</figcaption>
+      </figure>
+
+      <p>Trace what changed. The dangerous gap from Figure&nbsp;1 &mdash; between the DB commit and the broker publish &mdash; is <strong>gone</strong>, because there is no longer a broker publish inside the request. There is one write, to one system, in one transaction. If the process crashes anywhere before <code>COMMIT</code>, both the order and the outbox row roll back together: no order, no orphan event, consistent. If it crashes anywhere after <code>COMMIT</code>, both are safely on disk and the relay will get to them: the order exists <em>and</em> the event is guaranteed to publish eventually. There is no interleaving that produces an order without its event, or an event without its order.</p>
+      <div class="callout">
+        <span class="k">One source of truth, then fan out</span>
+        <p>The outbox turns a distributed-consistency problem into a local one. Postgres becomes the single source of truth for "what happened," and the outbox is a durable, ordered log of "what needs to be told to the outside world." Everything downstream &mdash; brokers, caches, search indexes &mdash; becomes a <em>consumer</em> of that log rather than a second thing you write to synchronously. You'll see this exact shape again when we sync a cache or a search index without dual-writing.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>46</b> The relay</div>
+      <h2>Getting events out of the outbox</h2>
+      <p>The transaction side is now airtight. The remaining job &mdash; move rows from the outbox to the broker &mdash; is a comfortable, well-understood problem, because it happens <em>after</em> a durable commit and can be retried freely. There are two standard ways to run the relay.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Polling publisher</h4>
+          <ul>
+            <li>A worker loops: <code>SELECT</code> unsent rows &#8594; publish &#8594; mark sent.</li>
+            <li>Runs anywhere; no extra infrastructure.</li>
+            <li>Use <code>FOR UPDATE SKIP LOCKED</code> so several relay workers never grab the same row (recap <strong>L28</strong>).</li>
+            <li>Trade-off: polling adds a little latency and steady query load.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Log tailing (CDC)</h4>
+          <ul>
+            <li>Debezium (or raw logical decoding, <strong>L45</strong>) tails the WAL for outbox inserts.</li>
+            <li>Near-real-time, no polling query at all.</li>
+            <li>Streams changes straight to Kafka via a connector.</li>
+            <li>Trade-off: more moving parts to run and monitor.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Whichever you pick, three properties define whether your relay is correct in production.</p>
+      <p><strong>Delivery is at-least-once, never exactly-once.</strong> Suppose the relay publishes an event to the broker, then crashes before it can mark the outbox row <code>sent</code>. On restart it sees the row still unsent and publishes <em>again</em>. The broker now holds the event twice. This is unavoidable &mdash; there is the same kind of gap between "publish succeeded" and "row marked sent" that we just eliminated on the write side. Exactly-once delivery is a myth; the real guarantee is <strong>at-least-once delivery plus an idempotent consumer</strong> that treats a duplicate as a no-op (the subject of <strong>L47</strong>).</p>
+      <p><strong>Ordering costs care.</strong> Reading the outbox <code>ORDER BY id</code> preserves the order rows were inserted, so a single relay worker publishes events in the order they happened. But the instant you run several relay workers with <code>SKIP LOCKED</code>, two of them can publish out of order relative to each other. If consumers need per-entity order (an order's <code>placed</code> before its <code>cancelled</code>), you must route all events for one aggregate to the same worker or the same broker partition &mdash; a drill below.</p>
+      <p><strong>Sent rows must be cleaned up.</strong> The outbox grows forever if you never prune it. Left alone, the table and its indexes bloat, and even a filtered scan slows. The fix is a <strong>partial index</strong> that indexes only unsent rows (so the relay's poll stays tiny no matter how many millions of sent rows accumulate) plus a periodic delete or partition-drop of old sent rows.</p>
+      <div class="callout note">
+        <span class="k">The outbox is the anti-dual-write, everywhere</span>
+        <p>This same pattern is how you keep a Redis cache or an Elasticsearch index in sync <em>without</em> dual-writing to them: write the change to Postgres and an outbox row atomically, then let a relay (polling or CDC) apply it to the derived store idempotently. Cache, search, warehouse, another service &mdash; they all become consumers of one ordered, durable log instead of a second synchronous write you can lose.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>46</b> Worked build</div>
+      <h2>A worked order outbox, end to end &#9656;</h2>
+      <p>Now assemble the whole thing for an order service. First, watch the healthy lifecycle you are building toward &mdash; and its at-least-once tail, where a duplicate is absorbed by an idempotent consumer:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-worked">
+          <svg viewBox="0 0 680 372" role="img" aria-label="Interactive: an order and outbox row commit atomically, a relay claims and publishes the event, and a duplicate on redelivery is ignored by an idempotent consumer">
+            <text class="lbl-sm" x="40" y="48" text-anchor="start">APP</text>
+            <text class="lbl-sm" x="40" y="254" text-anchor="start">RELAY</text>
+            <g id="f3-tx" style="opacity:.2"><rect class="chip cA" x="40" y="56" width="168" height="40" rx="8"/><text class="chiptext" x="124" y="81" text-anchor="middle">txn: order+outbox</text></g>
+            <g id="f3-commit" style="opacity:.2"><rect class="chip cA" x="230" y="56" width="150" height="40" rx="8"/><text class="chiptext" x="305" y="81" text-anchor="middle">COMMIT &#10003;</text></g>
+            <g id="f3-claim" style="opacity:.2"><rect class="chip cB" x="40" y="262" width="150" height="40" rx="8"/><text class="chiptext" x="115" y="287" text-anchor="middle">claim outbox</text></g>
+            <g id="f3-pub" style="opacity:.2"><rect class="chip cB" x="214" y="262" width="156" height="40" rx="8"/><text class="chiptext" x="292" y="287" text-anchor="middle">publish&#8594;broker</text></g>
+            <g id="f3-mark" style="opacity:.2"><rect class="chip cB" x="392" y="262" width="150" height="40" rx="8"/><text class="chiptext" x="467" y="287" text-anchor="middle">mark sent</text></g>
+            <text class="lbl-sm" x="340" y="118" text-anchor="middle">outbox row &middot; broker</text>
+            <rect id="f3-box" class="balbox" x="252" y="124" width="176" height="78" rx="9"/>
+            <text id="f3-outbox" x="340" y="154" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#20201D">outbox: &mdash;</text>
+            <text id="f3-broker" x="340" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#20201D">broker: &mdash;</text>
+            <path d="M30 224 H 650" class="flow-d"/>
+            <text class="lbl-sm" x="650" y="219" text-anchor="end">time &#8594;</text>
+            <text id="f3-verdict" x="340" y="356" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: order + event commit atomically, the relay publishes, and a redelivered duplicate is absorbed idempotently</figcaption>
+      </figure>
+
+      <h3>1 &middot; The schema</h3>
+      <p>Two tables: the domain <code>orders</code>, and a generic <code>outbox</code> that can carry events for any aggregate. A <strong>partial index</strong> on unsent rows keeps the relay's poll cheap forever.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> orders (
+  id          <span class="kw">bigint</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span> <span class="kw">PRIMARY KEY</span>,
+  customer_id <span class="kw">bigint</span>      <span class="kw">NOT NULL</span>,
+  total_cents <span class="kw">int</span>         <span class="kw">NOT NULL</span>,
+  status      <span class="kw">text</span>        <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="lit">'placed'</span>,
+  created_at  <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+
+<span class="kw">CREATE TABLE</span> outbox (
+  id           <span class="kw">bigint</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span> <span class="kw">PRIMARY KEY</span>,
+  aggregate    <span class="kw">text</span>        <span class="kw">NOT NULL</span>,   <span class="cm">-- 'order'</span>
+  aggregate_id <span class="kw">bigint</span>      <span class="kw">NOT NULL</span>,   <span class="cm">-- the order id</span>
+  event_type   <span class="kw">text</span>        <span class="kw">NOT NULL</span>,   <span class="cm">-- 'order_placed'</span>
+  payload      <span class="kw">jsonb</span>       <span class="kw">NOT NULL</span>,
+  created_at   <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>(),
+  sent_at      <span class="kw">timestamptz</span>              <span class="cm">-- NULL until the relay publishes it</span>
+);
+
+<span class="cm">-- keep the relay's poll tiny: index ONLY the rows still to send</span>
+<span class="kw">CREATE INDEX</span> outbox_unsent_idx <span class="kw">ON</span> outbox (id)
+  <span class="kw">WHERE</span> sent_at <span class="kw">IS NULL</span>;</code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>Write: (a) the <em>wrong</em> dual-write handler and say why it fails; (b) the correct atomic write of order&nbsp;+&nbsp;outbox in one statement; (c) the relay's claim, publish, and mark-sent; (d) prove the poll stays fast with <code>EXPLAIN</code>. Try each before reading on.</p>
+
+      <h3>3 &middot; The naive dual write, and why it is wrong</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- WRONG: two systems, no shared transaction.</span>
+<span class="kw">BEGIN</span>;
+  <span class="kw">INSERT INTO</span> orders (customer_id, total_cents) <span class="kw">VALUES</span> (<span class="lit">$1</span>, <span class="lit">$2</span>);
+<span class="kw">COMMIT</span>;                              <span class="cm">-- Postgres now durably holds the order</span>
+<span class="cm">-- ...then, in application code, AFTER the commit:</span>
+<span class="cm">--   broker.publish('order_placed', ...);</span>
+<span class="cm">-- A crash between COMMIT and publish loses the event forever (Figure 1).</span></code></pre>
+      <p>The commit and the publish are two separate durable events with a gap between them, and that gap is unclosable while the broker is a second system outside the transaction.</p>
+
+      <h3>4 &middot; The fix: one atomic write, then the relay</h3>
+      <p>Insert the order and its outbox row in a <strong>single statement</strong> using a CTE, so the two inserts share one implicit transaction and commit atomically. The order's generated <code>id</code> flows straight into the event payload:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- RIGHT: order + event in ONE transaction — atomic</span>
+<span class="kw">WITH</span> new_order <span class="kw">AS</span> (
+  <span class="kw">INSERT INTO</span> orders (customer_id, total_cents)
+  <span class="kw">VALUES</span> (<span class="lit">$1</span>, <span class="lit">$2</span>)
+  <span class="kw">RETURNING</span> id, customer_id, total_cents
+)
+<span class="kw">INSERT INTO</span> outbox (aggregate, aggregate_id, event_type, payload)
+<span class="kw">SELECT</span> <span class="lit">'order'</span>, id, <span class="lit">'order_placed'</span>,
+       <span class="fn">jsonb_build_object</span>(<span class="lit">'order_id'</span>, id,
+                          <span class="lit">'customer_id'</span>, customer_id,
+                          <span class="lit">'total_cents'</span>, total_cents)
+<span class="kw">FROM</span>   new_order;</code></pre>
+      <p>Now the relay. It claims a batch of unsent rows with <code>FOR UPDATE SKIP LOCKED</code> so parallel relay workers never grab the same rows, publishes each to the broker, then stamps <code>sent_at</code> &mdash; all inside one short transaction, so a failed publish releases the lock and leaves the rows unsent for a later retry:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- RELAY, one transaction: claim → publish → mark sent</span>
+<span class="kw">BEGIN</span>;
+
+<span class="cm">-- claim: lock a batch of unsent events in insert order</span>
+<span class="kw">SELECT</span> id, aggregate_id, event_type, payload
+<span class="kw">FROM</span>   outbox
+<span class="kw">WHERE</span>  sent_at <span class="kw">IS NULL</span>
+<span class="kw">ORDER BY</span> id
+<span class="kw">FOR UPDATE SKIP LOCKED</span>
+<span class="kw">LIMIT</span>  <span class="lit">100</span>;
+
+<span class="cm">-- ...publish each returned event to the broker (application code)...</span>
+
+<span class="cm">-- mark the published rows sent, then COMMIT to release the locks</span>
+<span class="kw">UPDATE</span> outbox <span class="kw">SET</span> sent_at = <span class="fn">now</span>() <span class="kw">WHERE</span> id = <span class="kw">ANY</span>(<span class="lit">$1</span>);
+
+<span class="kw">COMMIT</span>;</code></pre>
+
+      <h3>5 &middot; Why it is better &mdash; and what the planner does</h3>
+      <p>Correctness first: there is now only ever <strong>one</strong> write in the request, to Postgres, in one transaction &mdash; the dual-write window is gone. Performance second: the partial index means the relay's claim never scans the ever-growing table. An illustrative <code>EXPLAIN</code> of the claim shows a <code>LockRows</code> node (that is <code>FOR UPDATE SKIP LOCKED</code>) over an <em>index scan</em> of just the unsent rows:</p>
+      <p class="codetag">text &middot; illustrative</p>
+      <pre class="code"><code><span class="cm">Limit  (cost=0.29..12.45 rows=100 width=57)</span>
+  -&gt;  LockRows  (cost=0.29..40.11 rows=320 width=57)
+        -&gt;  Index Scan using outbox_unsent_idx on outbox
+              (cost=0.29..36.91 rows=320 width=57)</code></pre>
+      <p>The line that matters is <code>Index Scan using outbox_unsent_idx</code> &mdash; not <code>Seq Scan on outbox</code>. Because the partial index holds only unsent rows, its size is bounded by your backlog, not by lifetime volume, so the poll stays a handful of index entries even at ten million published rows. If you ever see a sequential scan here, the partial index is missing or unused and the relay's cost is quietly growing with the whole table.</p>
+      <div class="callout tip">
+        <span class="k">Narrate it in an interview</span>
+        <p>"There's only ever <em>one</em> write: the order row and an outbox row go into Postgres in a single transaction, so they're atomic &mdash; a crash leaves both or neither, and the event can't be lost. A relay claims unsent outbox rows with <code>FOR UPDATE SKIP LOCKED</code>, publishes them, and stamps <code>sent_at</code>. Delivery is at-least-once, so the consumer dedupes on an idempotency key. A partial index on unsent rows keeps the poll an index scan forever." That is the whole design in four sentences &mdash; and the duplicate-handling half is exactly the inbox/idempotency pattern of the next lesson.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>46</b> Drills</div>
+      <h2>Graded drills &amp; traps</h2>
+      <p>Attempt each drill on paper before opening its answer. They all build on the schema and relay from section&nbsp;04.</p>
+
+      <h3>Drill 1 &mdash; Keep the poll fast as the outbox grows</h3>
+      <p>Months in, the outbox holds twenty million <em>sent</em> rows and a few thousand unsent ones. The relay's <code>SELECT ... WHERE sent_at IS NULL</code> has gotten slow. What one object fixes it, and why?</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>A <strong>partial index</strong> on just the unsent rows &mdash; it never contains the twenty million sent rows, so it stays tiny and delivers them already ordered by <code>id</code>:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="kw">CREATE INDEX</span> outbox_unsent_idx <span class="kw">ON</span> outbox (id)
+  <span class="kw">WHERE</span> sent_at <span class="kw">IS NULL</span>;</code></pre>
+        <p style="margin-top:8px">Why: the index size tracks your backlog, not lifetime volume, so the claim is an index scan over a handful of entries regardless of how many events have shipped.</p>
+      </div>
+
+      <h3>Drill 2 &mdash; Reclaim space without blocking the relay</h3>
+      <p>Even with the partial index, the <em>table</em> keeps growing with dead sent rows. Reclaim space without a giant table-locking delete.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Delete old sent rows in bounded batches (safe to run on a schedule), or make <code>outbox</code> range-partitioned by <code>created_at</code> and <code>DROP</code> whole old partitions (recap <strong>L34</strong>):</p>
+        <pre class="code" style="margin-top:10px"><code><span class="kw">DELETE FROM</span> outbox
+<span class="kw">WHERE</span>  id <span class="kw">IN</span> (
+  <span class="kw">SELECT</span> id <span class="kw">FROM</span> outbox
+  <span class="kw">WHERE</span>  sent_at <span class="kw">IS NOT NULL</span>
+    <span class="kw">AND</span>  sent_at &lt; <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'7 days'</span>
+  <span class="kw">LIMIT</span> <span class="lit">10000</span>
+);</code></pre>
+        <p style="margin-top:8px">Why: batched deletes keep each transaction short and avoid one huge lock; partition drops are near-instant and dodge <code>VACUUM</code> entirely.</p>
+      </div>
+
+      <h3>Drill 3 &mdash; Preserve per-order event ordering</h3>
+      <p>An order emits <code>order_placed</code> then <code>order_cancelled</code>. With several relay workers pulling via <code>SKIP LOCKED</code>, worker&nbsp;B could publish the cancel before worker&nbsp;A publishes the placement. How do you guarantee per-order order?</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Ordering is only ever guaranteed <em>per key</em>, and only if one worker handles that key at a time. Route all of an aggregate's events to the same worker by sharding on <code>aggregate_id</code>, and publish with the broker key set to <code>aggregate_id</code> so the broker preserves per-key order:</p>
+        <pre class="code" style="margin-top:10px"><code>  <span class="cm">-- each of N relay workers owns one hash bucket:</span>
+  <span class="kw">WHERE</span>  sent_at <span class="kw">IS NULL</span>
+    <span class="kw">AND</span>  (<span class="fn">hashtextextended</span>(aggregate_id::<span class="kw">text</span>, <span class="lit">0</span>) % <span class="lit">4</span> + <span class="lit">4</span>) % <span class="lit">4</span> = <span class="lit">$worker_id</span>  <span class="cm">-- +4)%4 keeps it 0..3 (hash can be negative)</span>
+  <span class="kw">ORDER BY</span> id
+  <span class="kw">FOR UPDATE SKIP LOCKED</span></code></pre>
+        <p style="margin-top:8px">Why: same aggregate &#8594; same worker &#8594; published in <code>id</code> order; a per-key broker partition keeps that order end to end. Global total order across all orders is neither needed nor worth the serialization.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; Don't hold a row lock across the network publish</h3>
+      <p>The section-04 relay holds <code>FOR UPDATE</code> during the broker publish, so a slow broker stalls the relay and bloats the table. Restructure so the DB lock is <em>not</em> held during the network call.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Split it into a short <strong>claim</strong> transaction and a separate <strong>mark</strong>, with publishing outside any transaction &mdash; exactly the crashed-worker reclaim shape from <strong>L28</strong>. Add a <code>claimed_at</code> column; a sweeper resets stale claims:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="cm">-- 1) claim &amp; commit immediately (lock released at once)</span>
+<span class="kw">UPDATE</span> outbox <span class="kw">SET</span> claimed_at = <span class="fn">now</span>()
+<span class="kw">WHERE</span>  id <span class="kw">IN</span> (
+  <span class="kw">SELECT</span> id <span class="kw">FROM</span> outbox
+  <span class="kw">WHERE</span>  sent_at <span class="kw">IS NULL</span>
+    <span class="kw">AND</span>  (claimed_at <span class="kw">IS NULL</span> <span class="kw">OR</span> claimed_at &lt; <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'1 minute'</span>)
+  <span class="kw">ORDER BY</span> id
+  <span class="kw">FOR UPDATE SKIP LOCKED</span>
+  <span class="kw">LIMIT</span>  <span class="lit">100</span>
+)
+<span class="kw">RETURNING</span> id, aggregate_id, event_type, payload;
+
+<span class="cm">-- 2) publish each event OUTSIDE any transaction (no lock held)</span>
+<span class="cm">-- 3) mark sent</span>
+<span class="kw">UPDATE</span> outbox <span class="kw">SET</span> sent_at = <span class="fn">now</span>() <span class="kw">WHERE</span> id = <span class="kw">ANY</span>(<span class="lit">$1</span>);</code></pre>
+        <p style="margin-top:8px">Why: the lock lasts only for the quick claim, not the slow publish. It is still at-least-once (a crash after publish, before mark, re-sends) &mdash; so consumers stay idempotent.</p>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">The five traps that break real outboxes</span>
+        <p>
+        (1) <strong>Assuming exactly-once.</strong> The outbox is at-least-once &mdash; a relay can re-publish after a crash. Ship non-idempotent consumers and you get double charges. Always dedupe on an idempotency key (<strong>L47</strong>).<br>
+        (2) <strong>Publishing inside the domain transaction "to be safe."</strong> That <em>is</em> the dual write again. The whole point is that the only write is to Postgres; the broker is touched only by the relay, afterward.<br>
+        (3) <strong>Marking sent before publishing.</strong> If the publish then fails, the event is lost &mdash; you have re-introduced the exact bug. Mark <code>sent_at</code> only <em>after</em> a successful publish.<br>
+        (4) <strong>No partial index or no cleanup.</strong> The outbox bloats, the poll degrades, and <code>VACUUM</code> struggles. Index unsent rows; prune or partition sent ones.<br>
+        (5) <strong>Reaching for two-phase commit instead.</strong> <code>PREPARE TRANSACTION</code> across DB and broker gives a coordinator SPOF and blocked prepared transactions pinning locks and WAL. The boring outbox is the correct answer (<strong>L49</strong>).</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one line: <em>you cannot atomically write Postgres and a broker, so don't &mdash; write the domain row and an outbox row in one transaction (atomic), and let a relay publish the outbox afterward at-least-once, with idempotent consumers absorbing the inevitable duplicates.</em> One write, one source of truth, and the dual-write window disappears.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>The dual-write hole</b><span>A Postgres transaction can't span a broker. A crash between the commit and the publish loses the event &mdash; silently.</span></div>
+        <div class="tk"><span class="num">02</span><b>Reordering doesn't help</b><span>Publish-then-commit just trades a lost event for a ghost event. Either ordering breaks on a badly-timed crash.</span></div>
+        <div class="tk"><span class="num">03</span><b>Write one system</b><span>The outbox insert and the domain insert share one transaction, so they commit together &mdash; both or neither.</span></div>
+        <div class="tk"><span class="num">04</span><b>The event is now durable</b><span>Committed with the data, the event can't be lost. The relay will always get to it.</span></div>
+        <div class="tk"><span class="num">05</span><b>The relay is decoupled</b><span>Poll with SKIP LOCKED, or tail the WAL via CDC. The broker leaves the request's critical path.</span></div>
+        <div class="tk"><span class="num">06</span><b>At-least-once, always</b><span>A relay can re-publish after a crash. Exactly-once is a myth; pair it with idempotent consumers.</span></div>
+        <div class="tk"><span class="num">07</span><b>Order &amp; cleanup cost care</b><span>Per-key ordering needs one worker per key; sent rows need a partial index plus pruning or partitioning.</span></div>
+        <div class="tk"><span class="num">08</span><b>Not 2PC</b><span>Two-phase commit across DB and broker is a blocked-coordinator trap. The boring outbox wins.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) State the dual-write problem in one sentence. Why can't a Postgres transaction include the broker publish?<br>
+        (2) Walk both orderings (commit-then-publish, publish-then-commit) and name the exact bad outcome of each on a crash.<br>
+        (3) What does the outbox change so the event can no longer be lost? Which single property does it rely on?<br>
+        (4) Write the atomic order+outbox insert from memory. Why is it one statement, and why does that make it atomic?<br>
+        (5) Why is outbox delivery at-least-once and not exactly-once? What must the consumer do about it?<br>
+        (6) What partial index keeps the relay fast, and what line in <code>EXPLAIN</code> proves it is working at scale?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and rebuild the atomic write from a blank page.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 46 &middot; THE DUAL-WRITE PROBLEM &amp; THE TRANSACTIONAL OUTBOX &middot; interactive edition<br>
+      Original study notes for engineers &middot; write the atomic insert from memory, replay each crash, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the dual-write loss */
+  makeStepper(_g('fig-dualwrite'), [
+    {text:"A handler owes two writes: save the order in Postgres AND publish an 'order_placed' event to the broker. No transaction spans both systems.", lit:[], sdb:"DB: —", smq:"event: —", c:"", v:""},
+    {text:"It INSERTs the order row inside a Postgres transaction.", lit:["f1-ins"], sdb:"DB: order (uncommitted)", smq:"event: —", c:"", v:"INSERT order"},
+    {text:"It COMMITs. Postgres now durably, irrevocably holds the order.", lit:["f1-ins","f1-com"], sdb:"DB: order ✓", smq:"event: —", c:"", v:"order committed"},
+    {text:"Now it must publish the event — but the process crashes in the gap between COMMIT and the publish call.", lit:["f1-ins","f1-com","f1-crash"], sdb:"DB: order ✓", smq:"event: LOST", c:"kbad", v:"✗ crash before publish"},
+    {text:"The order exists, but the event was never sent. Email, search, and analytics never learn the order happened — permanent inconsistency, and no error anywhere.", lit:["f1-ins","f1-com","f1-crash"], sdb:"DB: order ✓", smq:"event: LOST", c:"kbad", v:"✗ DB has order, broker has nothing"},
+    {text:"Swapping the order is no fix: publish first, then crash before COMMIT, and you get a ghost event for an order that never existed. Two systems, one crash — you lose either way.", lit:["f1-ins","f1-crash","f1-pub"], sdb:"DB: — (rolled back)", smq:"event: sent!", c:"kbad", v:"✗ reverse: ghost event, no order"}
+  ], function(idx,s){
+    ['f1-ins','f1-com','f1-crash','f1-pub'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f1-sdb').textContent=s.sdb;
+    _g('f1-smq').textContent=s.smq;
+    _g('f1-box').setAttribute('class','balbox'+(s.c?' '+s.c:''));
+    var vd=_g('f1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.c==='kbad'?'#B0532F':(s.c==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — the transactional outbox */
+  makeStepper(_g('fig-outbox'), [
+    {text:"A single request arrives. The handler opens one database transaction — everything inside it commits together or not at all.", active:["f2-stk-0"], path:"f2-sp-0"},
+    {text:"It INSERTs the order row into orders — the real domain change.", active:["f2-stk-1"], path:"f2-sp-1"},
+    {text:"In the SAME transaction it INSERTs a row into an outbox table describing the event to publish. No broker is touched yet.", active:["f2-stk-2"], path:"f2-sp-2"},
+    {text:"COMMIT. Because both inserts share one transaction, the order and its event are now durable together — atomically. A crash here leaves both, or neither. The event can no longer be lost.", active:["f2-stk-3"], path:"f2-sp-3"},
+    {text:"Separately, a relay process reads unsent rows from the outbox — decoupled from the request, and free to retry.", active:["f2-stk-4"], path:"f2-sp-4"},
+    {text:"The relay publishes each event to the broker and marks the outbox row sent. The dual-write is gone: there was only ever one write — to Postgres.", active:["f2-stk-5"], path:"f2-sp-5"}
+  ]);
+
+  /* FIG 3 — the worked order-outbox lifecycle */
+  makeStepper(_g('fig-worked'), [
+    {text:"The app runs one transaction inserting the order and an outbox row, then COMMITs. Both are durable together.", lit:["f3-tx","f3-commit"], ob:"outbox: unsent", br:"broker: —", c:"", v:"order + event committed atomically"},
+    {text:"The relay claims the unsent outbox row with FOR UPDATE SKIP LOCKED — so two relay workers never grab the same row.", lit:["f3-tx","f3-commit","f3-claim"], ob:"outbox: claimed", br:"broker: —", c:"", v:"relay locks the row"},
+    {text:"The relay publishes the event to the broker.", lit:["f3-tx","f3-commit","f3-claim","f3-pub"], ob:"outbox: claimed", br:"broker: event ✓", c:"", v:"event delivered"},
+    {text:"It stamps sent_at and commits. The happy path is done — the event reached the broker precisely because it rode along with the data.", lit:["f3-tx","f3-commit","f3-claim","f3-pub","f3-mark"], ob:"outbox: sent ✓", br:"broker: event ✓", c:"kok", v:"✓ delivered once"},
+    {text:"But delivery is AT-LEAST-once: if the relay crashes after publishing but before marking sent, it re-publishes on restart — the broker sees the event twice.", lit:["f3-tx","f3-commit","f3-claim","f3-pub"], ob:"outbox: unsent again", br:"broker: event ×2", c:"kbad", v:"⚠ duplicate on redelivery"},
+    {text:"The consumer must be idempotent: an inbox / dedup key turns the duplicate into a no-op. At-least-once + an idempotent consumer = effectively once.", lit:["f3-tx","f3-commit","f3-claim","f3-pub","f3-mark"], ob:"outbox: sent ✓", br:"broker: ×2 → 1 effect", c:"kok", v:"✓ duplicate ignored — effectively once"}
+  ], function(idx,s){
+    ['f3-tx','f3-commit','f3-claim','f3-pub','f3-mark'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f3-outbox').textContent=s.ob;
+    _g('f3-broker').textContent=s.br;
+    _g('f3-box').setAttribute('class','balbox'+(s.c?' '+s.c:''));
+    var vd=_g('f3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.c==='kbad'?'#B0532F':(s.c==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

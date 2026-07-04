@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 42 — Streaming Replication, Slots &amp; Synchronous Commit (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Streaming Replication, Slots &amp; Synchronous Commit</div>
+    <h4>Making a live copy</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>A live copy of your WAL</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The WAL stream &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Slots &amp; the disk-fill trap &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The synchronous_commit dial &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Setup &amp; watching lag</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Choosing by your RPO</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">42</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>Streaming Replication, Slots &amp; Synchronous Commit</h1>
+      <p class="lede">A standby is not a backup and not magic — it is a second PostgreSQL that <em>replays your WAL</em>, continuously, and stays a copy of the primary just a little behind. This lesson opens the pipe: how the WAL byte-stream flows from primary to standby, why a <strong>replication slot</strong> both saves you and can fill your disk, and how the <code>synchronous_commit</code> dial trades commit latency for how much data you can afford to lose.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written for engineers who want replication depth that survives an interview and a 3 a.m. page. Everything here is <strong>PostgreSQL</strong>-accurate for <strong>PG&nbsp;17/18</strong>. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a concept lesson — <strong>no SQL drill</strong>; it builds the mental model you will lean on for replica lag, failover, and CDC in the next three lessons.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>A standby is a live copy of your WAL</h2>
+      <p>Back in the durability lesson you met the <strong>write-ahead log (WAL)</strong>: before PostgreSQL touches a data page, it first writes a record describing the change to a sequential log, and a <code>COMMIT</code> is durable once that log is flushed. Recovery after a crash is just <em>replaying</em> the WAL forward from the last checkpoint. <strong>Physical streaming replication takes that same WAL and, instead of only replaying it locally after a crash, ships it live to another server that replays it continuously.</strong> That other server is a <strong>standby</strong>.</p>
+      <p>Because it is replaying the exact byte-level WAL, a physical standby is a <em>block-for-block</em> copy of the primary — same tables, same indexes, same on-disk layout, always trailing by a small, measurable gap. It cannot diverge, and it cannot be written to directly; its only job is to keep replaying. That single mechanism buys you three very different things:</p>
+      <ul>
+        <li><strong>High availability</strong> — if the primary dies, a standby that is already caught up can be promoted to take over (that is failover, lesson 44).</li>
+        <li><strong>Read scaling</strong> — a <em>hot</em> standby can serve read-only queries, spreading read load off the primary.</li>
+        <li><strong>A near-real-time copy</strong> — for reporting, or to seed other systems.</li>
+      </ul>
+      <p>Three knobs control the whole arrangement, and they are exactly this lesson's three diagrams: <strong>the stream</strong> (how WAL gets there), <strong>slots</strong> (how the primary knows what WAL to keep), and <strong>synchronous_commit</strong> (whether a commit waits for the standby before it returns to the client).</p>
+      <div class="callout">
+        <span class="k">The one reframe to keep</span>
+        <p>Replication isn't a new subsystem bolted on — it is the durability machinery you already trust, <em>pointed at a second machine</em>. The WAL was always the source of truth for "what changed and in what order." Streaming replication just lets a second server subscribe to that stream. If you understand crash recovery, you already understand 80% of physical replication.</p>
+      </div>
+      <div class="callout note">
+        <span class="k">Physical, not logical — and neither is a backup</span>
+        <p>This lesson is <strong>physical</strong> replication: raw WAL bytes, whole-cluster, exact copy. There is also <strong>logical</strong> replication (row-level changes, selective, cross-version), the basis of CDC — that is lesson 45. And note the trap up front: a standby faithfully replays your mistakes. A <code>DELETE</code> without a <code>WHERE</code> reaches the standby in milliseconds. <strong>Replication is not a backup</strong> — you still need PITR.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The pipe</div>
+      <h2>The WAL stream, end to end &#9656;</h2>
+      <p>Follow a single committed change from the primary to the standby. Three named processes do the work: a <strong>walsender</strong> on the primary reads the WAL and streams it; a <strong>walreceiver</strong> on the standby receives it and writes it down; and the standby's <strong>startup process</strong> replays those records onto its data pages — the very same REDO code that runs during crash recovery, except here it never stops.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-stream">
+          <svg viewBox="0 0 660 430" role="img" aria-label="A committed change flowing from the primary's WAL through walsender, across the network, into the standby's walreceiver, replayed onto its pages, and served to readers">
+            <text class="lbl-sm" x="165" y="30" text-anchor="middle" fill="#1F4E79">PRIMARY</text>
+            <g class="st" id="stk-0"><rect class="node-b" x="40" y="56" width="250" height="46" rx="8"/><text class="lbl" x="165" y="84" text-anchor="middle">COMMIT &#8594; append to WAL</text></g>
+            <g class="st" id="stk-1"><rect class="node-r" x="40" y="150" width="250" height="46" rx="8"/><text class="lbl" x="165" y="178" text-anchor="middle" fill="#B0532F">walsender streams WAL</text></g>
+
+            <text class="lbl-sm" x="495" y="30" text-anchor="middle" fill="#A23A5B">STANDBY (hot)</text>
+            <g class="st" id="stk-2"><rect class="node" x="370" y="150" width="250" height="46" rx="8"/><text class="lbl" x="495" y="178" text-anchor="middle">walreceiver writes WAL</text></g>
+            <g class="st" id="stk-3"><rect class="node" x="370" y="224" width="250" height="46" rx="8"/><text class="lbl" x="495" y="252" text-anchor="middle">startup process replays (REDO)</text></g>
+            <g class="st" id="stk-4"><rect class="node" x="370" y="298" width="250" height="46" rx="8"/><text class="lbl" x="495" y="326" text-anchor="middle">byte-identical copy, just behind</text></g>
+            <g class="st" id="stk-5"><rect class="node-t" x="370" y="372" width="250" height="46" rx="8"/><text class="lbl" x="495" y="400" text-anchor="middle" fill="#7a2c43">serves read-only queries</text></g>
+
+            <line x1="330" y1="52" x2="330" y2="420" stroke="#A23A5B" stroke-width="1.2" stroke-dasharray="4 5" opacity="0.5"/>
+            <text class="lbl-sm" x="330" y="140" text-anchor="middle" fill="#A23A5B" font-size="10">network</text>
+
+            <path id="sp-0" class="flow" d="M165 42 V 54" marker-end="url(#arrow)"/>
+            <path id="sp-1" class="flow" d="M165 102 V 148" marker-end="url(#arrow)"/>
+            <path id="sp-2" class="flow" d="M290 173 H 368" marker-end="url(#arrow)"/>
+            <path id="sp-3" class="flow" d="M495 196 V 222" marker-end="url(#arrow)"/>
+            <path id="sp-4" class="flow" d="M495 270 V 296" marker-end="url(#arrow)"/>
+            <path id="sp-5" class="flow" d="M495 344 V 370" marker-end="url(#arrow)"/>
+
+            <text class="lbl-sm" x="165" y="238" text-anchor="middle" fill="#A23A5B" font-size="10">REPLICATION LAG</text>
+            <text id="f1-read" x="165" y="266" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12.5" fill="#5A574E"></text>
+            <text id="f1-read2" x="165" y="290" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12.5" fill="#5A574E"></text>
+            <text id="f1-lag" x="165" y="320" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#3f7a2e"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: one commit's journey down the WAL stream; lag is the LSN distance between primary and standby</figcaption>
+      </figure>
+
+      <p>The number that measures "how far behind" is the <strong>LSN</strong> — the Log Sequence Number, a monotonically increasing byte offset into the WAL, written as <code>0/16C0000</code>. The primary is always at some current LSN; each standby reports where <em>it</em> has gotten to. In fact it reports four positions, and knowing them is how you diagnose a lagging replica:</p>
+      <ul>
+        <li><code>sent_lsn</code> — the last WAL byte the walsender has <em>sent</em>.</li>
+        <li><code>write_lsn</code> — the last byte the standby has <em>written</em> to its OS.</li>
+        <li><code>flush_lsn</code> — the last byte the standby has <em>fsync'd</em> to disk (durable there).</li>
+        <li><code>replay_lsn</code> — the last byte the standby has <em>applied</em>, and therefore what its read queries can see.</li>
+      </ul>
+      <div class="callout note">
+        <span class="k">Two different lags hide in that list</span>
+        <p><strong>Flush lag</strong> (has the standby persisted the WAL?) governs <em>durability</em> and failover data loss. <strong>Replay lag</strong> (has the standby applied it?) governs what a <em>reader</em> on the standby sees — and replay can fall behind flush, e.g. when a long query on the standby holds off conflicting replay. That gap between "received" and "visible" is exactly what makes read-after-write on a replica tricky, which is the whole of lesson 43.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Keeping the WAL</div>
+      <h2>Replication slots &mdash; the safety net that can sink you &#9656;</h2>
+      <p>Here's a problem the stream alone doesn't solve. The primary recycles old WAL segments on its own schedule to reclaim disk. If a standby is offline or slow and falls behind past the point where the WAL it still needs has already been recycled, the stream <em>breaks</em> — the standby asks for bytes that no longer exist and can only be rebuilt from scratch. A <strong>replication slot</strong> fixes that: it is a small piece of server-side state that records the standby's confirmed position (<code>restart_lsn</code>) and tells the primary, <em>"do not recycle any WAL past this point until I've consumed it."</em></p>
+      <p>That guarantee is exactly what makes it dangerous. A slot keeps its promise even when the standby is gone. Watch both faces of it:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-slot">
+          <svg viewBox="0 0 660 340" role="img" aria-label="A replication slot pinning WAL on the primary: healthy while the standby consumes, then filling the disk once the standby goes offline and the slot is forgotten">
+            <text class="lbl-sm" x="54" y="42" text-anchor="start" fill="#1F4E79">PRIMARY</text>
+            <g id="f2-g-slot" style="opacity:.25"><rect class="chip cA" x="54" y="50" width="176" height="42" rx="8"/><text class="chiptext" x="142" y="76" text-anchor="middle">slot tracks LSN</text></g>
+            <g id="f2-g-recycle" style="opacity:.25"><rect class="chip cA" x="430" y="50" width="176" height="42" rx="8"/><text class="chiptext" x="518" y="76" text-anchor="middle">recycle old WAL</text></g>
+
+            <text class="lbl-sm" x="330" y="126" text-anchor="middle">pg_wal (retained WAL)</text>
+            <rect id="f2-box" class="balbox" x="252" y="134" width="156" height="56" rx="9"/>
+            <text id="f2-wal" x="330" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="18" font-weight="700" fill="#20201D">400 MB</text>
+
+            <path d="M40 214 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="209" text-anchor="end">time &#8594;</text>
+
+            <text class="lbl-sm" x="54" y="238" text-anchor="start" fill="#A23A5B">STANDBY</text>
+            <g id="f2-g-ok" style="opacity:.25"><rect class="chip cB" x="54" y="246" width="176" height="42" rx="8"/><text class="chiptext" x="142" y="272" text-anchor="middle">consumes + confirms</text></g>
+            <g id="f2-g-off" style="opacity:.25"><rect class="chip cBad" x="430" y="246" width="176" height="42" rx="8"/><text class="chiptext" x="518" y="272" text-anchor="middle">OFFLINE &mdash; inactive</text></g>
+
+            <text id="f2-verdict" x="330" y="328" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13.5" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: a slot pins WAL until the standby confirms; forget an inactive slot and pg_wal grows without bound</figcaption>
+      </figure>
+
+      <p>You create and inspect physical slots with a handful of functions. The two columns to watch on <code>pg_replication_slots</code> are <code>active</code> (is anyone consuming it?) and <code>wal_status</code> (<code>reserved</code> &rarr; <code>extended</code> &rarr; <code>unreserved</code> &rarr; <code>lost</code>) — a slot drifting toward <code>lost</code> is a live grenade:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- on the primary: create a physical replication slot</span>
+<span class="kw">SELECT</span> <span class="fn">pg_create_physical_replication_slot</span>(<span class="lit">'standby_a'</span>);
+
+<span class="cm">-- which slots exist, and how much WAL is each one pinning?</span>
+<span class="kw">SELECT</span> slot_name, active, wal_status, restart_lsn,
+       <span class="fn">pg_size_pretty</span>(
+         <span class="fn">pg_wal_lsn_diff</span>(<span class="fn">pg_current_wal_lsn</span>(), restart_lsn)) <span class="kw">AS</span> retained
+<span class="kw">FROM</span>   pg_replication_slots;</code></pre>
+      <p>The defense is two settings and one habit. Since PostgreSQL&nbsp;13 you can bound how much WAL any one slot is allowed to pin; past that limit the slot is invalidated (it goes <code>lost</code>) rather than taking the whole server down — you sacrifice the lagging standby to save the primary. And you drop slots the moment a standby is retired:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- cap how much WAL a single slot may pin (PG 13+)</span>
+<span class="kw">ALTER SYSTEM SET</span> max_slot_wal_keep_size = <span class="lit">'10GB'</span>;
+<span class="kw">SELECT</span> <span class="fn">pg_reload_conf</span>();
+
+<span class="cm">-- release a forgotten slot's WAL by dropping it</span>
+<span class="kw">SELECT</span> <span class="fn">pg_drop_replication_slot</span>(<span class="lit">'standby_a'</span>);</code></pre>
+      <div class="callout tip">
+        <span class="k">The classic 3 a.m. outage</span>
+        <p>Someone decommissions a replica, or a replica crashes over a long weekend, and nobody drops its slot. The primary dutifully retains every WAL segment since that slot's frozen LSN. Days later <code>pg_wal</code> fills the disk, the primary can no longer write WAL, and it stops accepting writes — a full outage caused by a <em>replica that no longer exists</em>. Alert on <code>pg_replication_slots</code> where <code>active = false</code> and on <code>retained</code> WAL size. Set <code>max_slot_wal_keep_size</code>. Drop dead slots. This exact incident shows up in postmortems constantly.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> How much to wait</div>
+      <h2>The synchronous_commit dial &#9656;</h2>
+      <p>So far the stream is <strong>asynchronous</strong>: the primary commits, returns to the client immediately, and the WAL flows to the standby whenever it flows. Fast — but if the primary dies one millisecond after telling the client "committed," a transaction that never reached the standby is <em>lost</em> on failover. Whether you accept that is the <code>synchronous_commit</code> setting, and it is not a boolean — it is a five-position dial choosing <em>how far along the durability path a commit waits before it returns to the client.</em></p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-sync">
+          <svg viewBox="0 0 660 350" role="img" aria-label="The synchronous_commit dial from off to remote_apply, showing how far along the durability milestones a commit waits before returning">
+            <text class="lbl-sm" x="330" y="32" text-anchor="middle">how far COMMIT waits before it returns &#8594;</text>
+            <g id="f3-g-m1" style="opacity:.25"><rect class="chip cA" x="30" y="48" width="145" height="48" rx="8"/><text class="chiptext" x="102" y="70" text-anchor="middle">local</text><text class="chiptext" x="102" y="87" text-anchor="middle">flush</text></g>
+            <g id="f3-g-m2" style="opacity:.25"><rect class="chip cB" x="185" y="48" width="145" height="48" rx="8"/><text class="chiptext" x="257" y="70" text-anchor="middle">standby</text><text class="chiptext" x="257" y="87" text-anchor="middle">wrote</text></g>
+            <g id="f3-g-m3" style="opacity:.25"><rect class="chip cB" x="340" y="48" width="145" height="48" rx="8"/><text class="chiptext" x="412" y="70" text-anchor="middle">standby</text><text class="chiptext" x="412" y="87" text-anchor="middle">flushed</text></g>
+            <g id="f3-g-m4" style="opacity:.25"><rect class="chip cB" x="495" y="48" width="145" height="48" rx="8"/><text class="chiptext" x="567" y="70" text-anchor="middle">standby</text><text class="chiptext" x="567" y="87" text-anchor="middle">applied</text></g>
+
+            <path d="M30 116 H 640" class="flow-d"/>
+
+            <g id="f3-marker">
+              <path d="M0 120 L -7 132 L 7 132 Z" fill="#B0532F"/>
+              <text class="chiptext" x="0" y="150" text-anchor="middle" fill="#B0532F">COMMIT returns</text>
+            </g>
+
+            <text class="lbl-sm" x="330" y="188" text-anchor="middle">synchronous_commit =</text>
+            <rect id="f3-box" class="balbox" x="230" y="196" width="200" height="50" rx="9"/>
+            <text id="f3-setting" x="330" y="228" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="19" font-weight="700" fill="#20201D">on</text>
+
+            <text id="f3-verdict" x="330" y="286" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#20201D"></text>
+            <text id="f3-note" x="330" y="312" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: turning the dial from off to remote_apply trades commit latency for how little data you can lose</figcaption>
+      </figure>
+
+      <p>Two things gate whether the standby-facing positions do anything at all. First, the standby only counts as <em>synchronous</em> if it is named in <code>synchronous_standby_names</code>; otherwise even <code>remote_apply</code> behaves like <code>local</code>. Second — and this is the safety valve — you express a <strong>quorum</strong>, so a single standby's death doesn't stall you:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- require ANY 1 of two named standbys to confirm before COMMIT returns</span>
+<span class="kw">ALTER SYSTEM SET</span> synchronous_standby_names = <span class="lit">'ANY 1 (standby_a, standby_b)'</span>;
+<span class="kw">ALTER SYSTEM SET</span> synchronous_commit = <span class="lit">'on'</span>;   <span class="cm">-- wait for remote flush</span>
+<span class="kw">SELECT</span> <span class="fn">pg_reload_conf</span>();
+
+<span class="cm">-- one heavy report can opt out of the wait, just for itself</span>
+<span class="kw">SET</span> synchronous_commit = <span class="lit">'local'</span>;</code></pre>
+      <p>That last line is the underused superpower: <code>synchronous_commit</code> is settable <em>per transaction</em>. You can run the cluster at <code>on</code> for the money-moving transactions and drop a bulk import or an analytics refresh to <code>local</code> (or <code>off</code>) where losing a few seconds of it on a crash is fine — buying throughput exactly where correctness allows it.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Asynchronous (off / local)</h4>
+          <ul>
+            <li>Commit returns without waiting for any standby.</li>
+            <li><strong>Lowest latency</strong>, highest throughput.</li>
+            <li>Eventually consistent; a failover can lose the last few transactions (small, non-zero RPO).</li>
+            <li>The right default for most systems.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Synchronous (on / remote_apply)</h4>
+          <ul>
+            <li>Commit waits for a standby to confirm.</li>
+            <li><strong>Zero data loss</strong> on failover (RPO&nbsp;=&nbsp;0).</li>
+            <li>Every commit pays a network round-trip of latency.</li>
+            <li>Needs a quorum, or a lone standby's death blocks writes.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout note">
+        <span class="k">The default's fine print</span>
+        <p><code>synchronous_commit = on</code> is the shipped default, but with <em>no</em> synchronous standby named it just means "flush locally" — identical to <code>local</code>. It only starts waiting for a standby once you populate <code>synchronous_standby_names</code>. So turning on <em>synchronous replication</em> is really about that second setting; the commit dial then decides how far the wait goes.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> In practice</div>
+      <h2>Standing it up, and watching the lag</h2>
+      <p>The good news for PG&nbsp;17/18 is that the defaults already suit replication — <code>wal_level = replica</code> and <code>hot_standby = on</code> are on out of the box. The primary needs enough sender and slot slots; then you clone the data directory with <code>pg_basebackup</code> and point the standby at the primary. On the primary side:</p>
+      <p class="codetag">postgresql.conf (primary)</p>
+      <pre class="code"><code><span class="cm"># these are already the PG 17/18 defaults — shown for clarity</span>
+wal_level             = replica   <span class="cm"># minimal | replica | logical</span>
+max_wal_senders       = <span class="lit">10</span>       <span class="cm"># one per connected standby (+ base backups)</span>
+max_replication_slots = <span class="lit">10</span></code></pre>
+      <p>On the standby, two lines say <em>where the primary is</em> and <em>which slot to claim</em>, and an empty <code>standby.signal</code> file in the data directory is what tells PostgreSQL to boot in standby mode and start streaming rather than open for writes:</p>
+      <p class="codetag">postgresql.auto.conf (standby)</p>
+      <pre class="code"><code><span class="cm"># how to reach the primary, and which slot to consume</span>
+primary_conninfo  = <span class="lit">'host=10.0.0.1 user=replicator application_name=standby_a'</span>
+primary_slot_name = <span class="lit">'standby_a'</span>
+<span class="cm"># plus: an empty file named standby.signal in the data directory</span></code></pre>
+      <p>Once it is streaming, one view is your dashboard. On the <strong>primary</strong>, <code>pg_stat_replication</code> has a row per connected standby — its <code>state</code> (should be <code>streaming</code>), its <code>sync_state</code> (<code>async</code>, <code>potential</code>, <code>sync</code>, or <code>quorum</code>), the four LSNs, and the three time-based lags PostgreSQL computes for you:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- on the PRIMARY: one row per connected standby</span>
+<span class="kw">SELECT</span> application_name, state, sync_state,
+       sent_lsn, flush_lsn, replay_lsn,
+       flush_lag, replay_lag
+<span class="kw">FROM</span>   pg_stat_replication;</code></pre>
+      <p>And on the <strong>standby</strong> itself, when you want to answer "how stale am I right now?" in human terms, ask how long ago the last replayed transaction was committed. When the standby is fully caught up on an idle primary this can read as a growing number — that is expected; it means "no new transactions," not "falling behind":</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- on a STANDBY: how far behind is it, in time?</span>
+<span class="kw">SELECT</span> <span class="fn">pg_last_wal_replay_lsn</span>()                    <span class="kw">AS</span> replayed_lsn,
+       <span class="fn">now</span>() - <span class="fn">pg_last_xact_replay_timestamp</span>() <span class="kw">AS</span> lag_time;</code></pre>
+      <div class="callout note">
+        <span class="k">A preview: slots that survive failover (PG&nbsp;17)</span>
+        <p>An ordinary replication slot lives only on the primary — promote a standby and the slot is gone, which is a real problem for CDC pipelines built on <em>logical</em> slots. PostgreSQL&nbsp;17 added <strong>failover slots</strong> (<code>failover = true</code>, synchronized to standbys, plus <code>pg_createsubscriber</code>) so a slot can survive a primary failover. We keep that for lesson 45, where logical decoding and CDC take center stage — just know the capability exists.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Reason about it</div>
+      <h2>Choosing the dial by your RPO</h2>
+      <p>Put the three ideas together on a real decision. The lever you actually turn is <code>synchronous_commit</code>, and the right position is a business question, not a technical one: <strong>how much recently-committed data can this system afford to lose if the primary is destroyed?</strong> That tolerance is your <strong>RPO</strong> (Recovery Point Objective). Read it off the workload:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>RPO &asymp; 0</h4>
+          <ul>
+            <li>Payments, ledgers, "money must never vanish."</li>
+            <li><code>synchronous_commit = on</code> (or <code>remote_apply</code>) over a <strong>quorum</strong> of standbys.</li>
+            <li>Pay the round-trip latency on every commit — knowingly.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>RPO = seconds</h4>
+          <ul>
+            <li>Most apps: posts, orders, profiles.</li>
+            <li>Async (<code>local</code>) with a closely-watched replica.</li>
+            <li>Cheap and fast; a crash may lose the last moment of writes.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Mixed, per-txn</h4>
+          <ul>
+            <li>One cluster, two classes of work.</li>
+            <li>Cluster at <code>on</code>; drop bulk/analytics to <code>local</code> or <code>off</code> per transaction.</li>
+            <li>Correctness where it matters, speed where it doesn't.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Now walk the two failure modes this lesson warned about, because both are places engineers get surprised. <strong>The idle-slot disk-fill</strong> is a <em>storage</em> failure wearing a replication costume: a slot for a standby that no longer consumes keeps pinning WAL, and <code>pg_wal</code> grows until the primary can't write. The tell is a slot with <code>active = false</code> and a climbing <code>retained</code> size; the fix is monitoring, <code>max_slot_wal_keep_size</code>, and dropping dead slots. It is entirely preventable and entirely common.</p>
+      <p>The second is <strong>synchronous replication's availability trap</strong>. Set <code>synchronous_standby_names</code> to a single standby with <code>synchronous_commit = on</code>, and you have quietly coupled the primary's <em>write availability</em> to that one standby: if it dies, every commit blocks forever waiting for an acknowledgment that will never come. You went looking for durability and bought yourself an outage. The fix is a quorum over enough standbys (<code>ANY 1 (a, b)</code>) that one can fail without stalling writes — which is really just CAP arriving in a config line: under a partition you are choosing consistency (wait) over availability (proceed), so make sure enough replicas remain that "wait" still resolves.</p>
+      <div class="callout tip">
+        <span class="k">The instinct to carry out of here</span>
+        <p>Before you enable synchronous replication, ask two questions: <em>does the RPO justify a round-trip on every commit?</em> and <em>if my chosen sync standby dies, do I have enough others that writes keep flowing?</em> If the answer to the first is "not really," stay async and spend your effort on monitoring lag instead. Durability you don't need is just latency you're paying for.</p>
+      </div>
+      <p><strong>Where this shows up next.</strong> You now have the pipe, the slot, and the dial. Lesson&nbsp;43 zooms into the <em>reader's</em> problem this creates — <strong>replica lag and read-after-write</strong>, when a query on a lagging standby returns data older than what you just wrote. Lesson&nbsp;44 takes the <em>failure</em> path — <strong>failover and HA</strong>, promoting a standby, quorum, and avoiding split-brain. And lesson&nbsp;45 switches from bytes to rows — <strong>logical replication and CDC</strong>, where those failover slots finally earn their keep.</p>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>a physical standby is your WAL, replayed continuously on a second server; a slot decides which WAL the primary must keep for it; and <code>synchronous_commit</code> decides how long a commit waits for that standby before it returns — trading latency for the data you can afford to lose.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Physical = WAL bytes</b><span>Streaming replication ships the raw WAL stream; the standby replays it into a byte-for-byte copy, always a little behind.</span></div>
+        <div class="tk"><span class="num">02</span><b>Three processes</b><span>walsender (primary) &rarr; walreceiver (standby) &rarr; startup process replays. Lag is the LSN distance between them.</span></div>
+        <div class="tk"><span class="num">03</span><b>Four LSNs</b><span>sent / write / flush / replay. Flush lag governs failover data loss; replay lag governs what a reader on the standby sees.</span></div>
+        <div class="tk"><span class="num">04</span><b>A slot pins WAL</b><span>It makes the primary retain WAL until the standby confirms it, so a lagging standby can't fall irrecoverably behind.</span></div>
+        <div class="tk"><span class="num">05</span><b>The idle-slot trap</b><span>An inactive, forgotten slot pins WAL forever &rarr; pg_wal fills the disk &rarr; the primary can't write. Monitor, cap, drop.</span></div>
+        <div class="tk"><span class="num">06</span><b>A five-position dial</b><span>off &rarr; local &rarr; remote_write &rarr; on &rarr; remote_apply. Durability rises left to right; so does commit latency.</span></div>
+        <div class="tk"><span class="num">07</span><b>Sync needs a quorum</b><span>Naming one sync standby couples write availability to it; a quorum (ANY&nbsp;1&nbsp;of&nbsp;N) lets one fail without stalling commits.</span></div>
+        <div class="tk"><span class="num">08</span><b>Choose by RPO</b><span>RPO&nbsp;0 &rarr; sync over a quorum; seconds &rarr; async is cheaper. And replication is never a backup — it replays mistakes too.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Name the three processes on the WAL path from primary to standby, and say what "replica lag" actually measures.<br>
+        (2) What does a replication slot guarantee? Then narrate exactly how a <em>forgotten</em> slot takes the primary down, and give two mitigations.<br>
+        (3) List the five <code>synchronous_commit</code> values weakest&rarr;strongest, and for each say where the commit returns.<br>
+        (4) With <code>synchronous_standby_names</code> naming a single standby and <code>synchronous_commit = on</code>, that standby dies — what happens to commits, and how do you prevent it?<br>
+        (5) Distinguish <code>remote_write</code>, <code>on</code>, and <code>remote_apply</code>: what extra guarantee does each add, and which one enables read-your-writes on the replica?<br>
+        (6) Why is "replication is not a backup" still true even with a zero-data-loss synchronous standby?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 42 &middot; STREAMING REPLICATION, SLOTS &amp; SYNCHRONOUS COMMIT &middot; interactive edition<br>
+      Original study notes for engineers &middot; replay each diagram, then re-derive the synchronous_commit dial from memory.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the WAL stream */
+  makeStepper(_g('fig-stream'), [
+    {text:"A transaction COMMITs on the primary. As always, its change is first appended to the WAL — the same write-ahead log that makes durability work locally.", active:["stk-0"], path:"sp-0", p:"0/16C0000", s:"0/16B8000", lag:"32 KB behind", warn:true},
+    {text:"A walsender process reads the fresh WAL and streams the raw bytes to the standby over TCP. This is physical, block-level replication — bytes, not rows.", active:["stk-1"], path:"sp-1", p:"0/16C0000", s:"0/16B8000", lag:"32 KB in flight", warn:true},
+    {text:"On the far side, the standby's walreceiver receives the WAL stream and writes it to its own WAL on disk.", active:["stk-2"], path:"sp-2", p:"0/16C0000", s:"0/16BC000", lag:"16 KB behind", warn:true},
+    {text:"The standby's startup process replays (REDOes) those records onto its data pages — the exact crash-recovery machinery, running continuously.", active:["stk-3"], path:"sp-3", p:"0/16C0000", s:"0/16C0000", lag:"0 — caught up", warn:false},
+    {text:"The result is a byte-for-byte copy of the primary, always a little behind. That gap — primary LSN minus standby replay LSN — is replica lag.", active:["stk-4"], path:"sp-4", p:"0/16C4000", s:"0/16C0000", lag:"16 KB behind", warn:true},
+    {text:"Because wal_level is replica and hot_standby is on, the standby isn't idle: it can serve read-only queries from that near-live copy.", active:["stk-5"], path:"sp-5", p:"0/16C4000", s:"0/16C4000", lag:"~0 — reads are fresh", warn:false}
+  ], function(idx,s){
+    _g('f1-read').textContent='primary LSN  '+s.p;
+    _g('f1-read2').textContent='standby LSN  '+s.s;
+    var lag=_g('f1-lag'); lag.textContent='lag: '+s.lag;
+    lag.setAttribute('fill', s.warn?'#B0532F':'#3f7a2e');
+  });
+
+  /* FIG 2 — replication slots and the disk-fill trap */
+  makeStepper(_g('fig-slot'), [
+    {text:"A physical replication slot on the primary remembers the standby's confirmed LSN — the oldest WAL byte the standby still needs.", lit:["slot"], wal:"400 MB", cls:"kok", v:"slot restart_lsn advances with the standby"},
+    {text:"As the standby streams and confirms WAL, the slot's LSN moves forward in lock-step. active = true.", lit:["slot","ok"], wal:"400 MB", cls:"kok", v:"active = true · standby keeping up"},
+    {text:"WAL older than the slot's LSN is now safe to recycle — reused or deleted. Disk stays flat. This is the slot doing its job.", lit:["slot","ok","recycle"], wal:"400 MB", cls:"kok", v:"steady state · pg_wal stable"},
+    {text:"Now the standby drops off — a crash, a network cut, or decommissioned without a DROP. The slot stays, but goes INACTIVE.", lit:["off"], wal:"1.2 GB", cls:"", v:"active = false · slot frozen at its LSN"},
+    {text:"The frozen slot pins that LSN. The primary MUST keep every WAL segment since then — it cannot recycle any of it. WAL piles up.", lit:["off","slot"], wal:"14 GB ↑", cls:"kbad", v:"retained WAL growing without bound"},
+    {text:"pg_wal fills the disk, the primary can no longer write WAL, and it goes down — the classic forgotten-slot outage. Fix: monitor, cap max_slot_wal_keep_size, DROP dead slots.", lit:["off"], wal:"DISK FULL", cls:"kbad", v:"✗ primary down"}
+  ], function(idx,s){
+    ['slot','recycle','ok','off'].forEach(function(k){
+      var g=_g('f2-g-'+k); if(g) g.style.opacity=(s.lit.indexOf(k)>=0?1:0.25);
+    });
+    var w=_g('f2-wal'); w.textContent=s.wal;
+    w.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#20201D'));
+    _g('f2-box').setAttribute('class','balbox'+(s.cls?' '+s.cls:''));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — the synchronous_commit dial */
+  makeStepper(_g('fig-sync'), [
+    {text:"off — the fastest setting. COMMIT returns before the WAL is even flushed to the local disk. A crash can lose the last few transactions (no corruption, just loss).", n:0, set:"off", cls:"kbad", v:"waits for nothing — returns immediately", note:"lowest latency · may lose recent commits on crash", mx:70},
+    {text:"local — COMMIT waits only for the local WAL fsync. It ignores standbys entirely, even if synchronous_standby_names is set.", n:1, set:"local", cls:"", v:"waits for the local WAL flush", note:"primary-crash safe · no standby guarantee", mx:102},
+    {text:"remote_write — waits for the local flush AND for a sync standby to have RECEIVED the WAL into its OS (not yet fsync'd to disk).", n:2, set:"remote_write", cls:"", v:"waits until a sync standby received the WAL", note:"survives a primary crash · a standby OS crash could still lose it", mx:257},
+    {text:"on (the default) — waits for the local flush AND for the sync standby to have FLUSHED the WAL to its own disk. Zero data loss on failover.", n:3, set:"on  (default)", cls:"kok", v:"waits until the sync standby flushed to disk", note:"zero data loss on failover · the safe default", mx:412},
+    {text:"remote_apply — the strongest. Waits until the sync standby has also APPLIED the WAL, so the change is visible to reads there. Highest latency.", n:4, set:"remote_apply", cls:"kok", v:"waits until the standby applied it (visible on the replica)", note:"read-your-writes on the replica · highest latency", mx:567}
+  ], function(idx,s){
+    ['f3-g-m1','f3-g-m2','f3-g-m3','f3-g-m4'].forEach(function(id,k){
+      var g=_g(id); if(g) g.style.opacity=(k < s.n ? 1 : 0.25);
+    });
+    _g('f3-marker').setAttribute('transform','translate('+s.mx+',0)');
+    var st=_g('f3-setting'); st.textContent=s.set;
+    st.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#20201D'));
+    _g('f3-box').setAttribute('class','balbox'+(s.cls?' '+s.cls:''));
+    var vd=_g('f3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#20201D'));
+    _g('f3-note').textContent=s.note;
+  });
+</script>
+</body>
+</html>

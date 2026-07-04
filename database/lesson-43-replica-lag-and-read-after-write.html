@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 43 — Replica Lag &amp; Read-After-Write (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Replica Lag &amp; Read-After-Write</div>
+    <h4>The build</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The replica that lies</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The lag window &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Three fixes &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Patterns &amp; monitoring</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>An LSN-wait endpoint &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">43</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Replica Lag &amp; Read-After-Write</h1>
+      <p class="lede">You add a read replica to take load off the primary, and within a day a support ticket arrives: "I updated my profile, the page reloaded, and it showed the <em>old</em> text — then I refreshed and it was fine." Nothing is broken; you just met <strong>replication lag</strong>. This practice lesson turns that intermittent ghost into something you can reason about and design away: the lag window, the three fixes, and a complete read-your-writes endpoint built on Postgres's own LSN functions.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want database depth that pays off in interviews and in real systems. All SQL is valid <strong>PostgreSQL</strong> and current as of <strong>PG&nbsp;17/18</strong>. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked SQL problem and graded drills</strong> you should attempt before reading the answer.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>43</b> Motivation</div>
+      <h2>The read replica that lies to you</h2>
+      <p>You are running out of read capacity on a single Postgres primary, so you add a <strong>hot standby read replica</strong>: writes still go to the primary, but reads fan out to the replica. Throughput jumps, the primary breathes, everyone is happy — for about a day. Then the ticket comes in: a user edited their profile, the app reloaded the page, and it showed the <em>previous</em> value. A second refresh fixed it. You cannot reproduce it on your laptop, where there is no replica at all.</p>
+      <p>The split is usually a two-pool setup in the app: writes and "must be fresh" reads on one connection string, scaled-out reads on another.</p>
+      <p class="codetag">config</p>
+      <pre class="code"><code><span class="cm"># app config — a read/write split</span>
+DATABASE_URL         = postgres://primary.db:5432/app   <span class="cm"># writes + fresh reads</span>
+DATABASE_REPLICA_URL = postgres://replica.db:5432/app   <span class="cm"># scaled-out reads</span></code></pre>
+      <p>Here is the root cause. The user's <code>UPDATE</code> <strong>committed on the primary</strong>. The reload's <code>SELECT</code> was routed to the <strong>replica</strong>, which had not yet received and applied that commit. So the read returned a snapshot from a moment <em>before</em> the write — the user failed to see their <strong>own</strong> change. Refreshing worked because, by then, the replica had caught up.</p>
+      <p><strong>Replication lag</strong> is the delay between a commit becoming durable on the primary and that change becoming visible to queries on a replica. With the default, fast, <strong>asynchronous</strong> streaming replication, that delay is never zero — usually a few milliseconds, but unbounded under load. This is not a Postgres defect; it is the <strong>CAP/PACELC</strong> trade you accepted when you chose async replication (availability and low latency, paid for in staleness). The engineering job is to make sure that staleness never produces a wrong answer a user actually notices.</p>
+      <p>The sharpest, most user-visible version is <strong>read-your-own-writes</strong> (a.k.a. read-after-write) consistency: after you successfully write X, any read <em>you</em> perform should see X or something newer. Note the scope — seeing <em>someone else's</em> edit a beat late is almost always fine; not seeing <em>your own</em> action is what makes an app feel broken.</p>
+      <div class="callout note">
+        <span class="k">The guarantees, ranked by strictness</span>
+        <p><strong>Strong consistency</strong> (every read sees the latest write, from anyone) is what a single primary gives you and what a replica cannot without waiting. <strong>Read-your-writes</strong> is weaker but usually enough: <em>your</em> session sees <em>your</em> writes. <strong>Bounded staleness</strong> is weaker still: reads may be up to N milliseconds old. <strong>Eventual consistency</strong> is the floor: reads converge <em>someday</em>. This lesson is about buying exactly as much of this ladder as each read needs — and no more, because higher rungs cost primary load or latency.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>43</b> The anomaly</div>
+      <h2>The lag window, step by step &#9656;</h2>
+      <p>To fix the bug you must see it precisely. Streaming replication moves a commit through four positions, each tracked as a <strong>Log Sequence Number (LSN)</strong> — a monotonically increasing address in the write-ahead log:</p>
+      <ul>
+        <li>The commit is written to the primary's WAL and flushed (durable). The primary's write position is <code>pg_current_wal_lsn()</code>.</li>
+        <li>The primary <strong>sends</strong> those WAL bytes to the standby (its <code>sent_lsn</code>).</li>
+        <li>The standby <strong>receives</strong> and flushes them to its own WAL (<code>pg_last_wal_receive_lsn()</code>).</li>
+        <li>The standby <strong>replays</strong> them into the data files (<code>pg_last_wal_replay_lsn()</code>). <em>Only after replay is the change visible to queries on the replica.</em></li>
+      </ul>
+      <p>The <strong>lag window</strong> is the gap between the commit on the primary and its replay on the replica. A read served by the replica <em>inside</em> that window returns a snapshot that predates your write. Watch one profile edit fall into the window:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-lag">
+          <svg viewBox="0 0 640 330" role="img" aria-label="Interactive: a commit on the primary, streamed to a replica after a delay, and a read that lands inside the lag window and returns stale data">
+            <text class="lbl-sm" x="62" y="50" text-anchor="start">PRIMARY</text>
+            <text class="lbl-sm" x="62" y="226" text-anchor="start">REPLICA</text>
+            <g id="f1-pa" style="opacity:.2"><rect class="chip cA" x="60" y="58" width="180" height="42" rx="8"/><text class="chiptext" x="150" y="84" text-anchor="middle">commit &#8594; v2</text></g>
+            <g id="f1-pb" style="opacity:.2"><rect class="chip cA" x="400" y="58" width="190" height="42" rx="8"/><text class="chiptext" x="495" y="84" text-anchor="middle">stream WAL &#8594;</text></g>
+            <g id="f1-ra" style="opacity:.2"><rect class="chip cBad" x="60" y="234" width="180" height="42" rx="8"/><text class="chiptext" x="150" y="260" text-anchor="middle">read &#8594; v1 (stale)</text></g>
+            <g id="f1-rb" style="opacity:.2"><rect class="chip cB" x="400" y="234" width="190" height="42" rx="8"/><text class="chiptext" x="495" y="260" text-anchor="middle">replay &#8594; v2</text></g>
+            <text class="lbl-sm" x="320" y="128" text-anchor="middle">replica serves</text>
+            <rect id="f1-box" class="balbox" x="252" y="135" width="136" height="58" rx="9"/>
+            <text id="f1-val" x="320" y="176" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="24" font-weight="700" fill="#20201D">v1</text>
+            <path d="M40 210 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="205" text-anchor="end">time &#8594;</text>
+            <text id="f1-verdict" x="320" y="316" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: a read that lands inside the lag window sees v1, missing the user's own commit of v2</figcaption>
+      </figure>
+
+      <p>Two things make this dangerous. First, the read simply has to <em>land</em> in the window — and right after a write, it very often does, because the user is looking at exactly the thing they just changed. Second, the window is usually milliseconds but is <strong>not bounded</strong> by default: a replica that is overloaded, stalled behind a long-running query, or cut off from the primary can fall seconds or minutes behind and keep serving very old data. Async replication is <strong>eventual</strong> consistency — the replica <em>will</em> converge, but "eventually" is a promise about the destination, not the wait.</p>
+      <div class="callout">
+        <span class="k">Why replay is the line that matters</span>
+        <p>A replica can have <em>received</em> and even flushed your WAL to its disk while still serving stale reads, because queries only see changes after they are <strong>replayed</strong> into the data files. That is why read-your-writes checks target <code>pg_last_wal_replay_lsn()</code>, not the receive position. Replay can lag receive when a big query on the replica holds up recovery (with <code>hot_standby_feedback</code> and <code>max_standby_streaming_delay</code> governing that tug-of-war).</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>43</b> The options</div>
+      <h2>Three fixes: primary, LSN-wait, bounded &#9656;</h2>
+      <p>Every fix answers one question: <strong>after a write, where should this session's next read go?</strong> There are three good answers, and they trade correctness against cost differently. Step through them:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-fixes">
+          <svg viewBox="0 0 640 340" role="img" aria-label="Interactive: three strategies for routing a read after a write — to the primary, to the replica after an LSN wait, or to the replica within a staleness bound">
+            <g class="st" id="f2-client"><rect class="node-b" x="228" y="34" width="184" height="48" rx="9"/><text class="lbl" x="320" y="63" text-anchor="middle">App &middot; after a write</text></g>
+            <g class="st" id="f2-primary"><rect class="node-r" x="56" y="198" width="224" height="72" rx="10"/><text class="lbl" x="168" y="230" text-anchor="middle" fill="#B0532F">PRIMARY</text><text class="lbl-sm" x="168" y="250" text-anchor="middle" fill="#B0532F">always has v2</text></g>
+            <g class="st" id="f2-replica"><rect class="node-t" x="360" y="198" width="224" height="72" rx="10"/><text class="lbl" x="472" y="230" text-anchor="middle" fill="#7a2c43">REPLICA</text><text class="lbl-sm" x="472" y="250" text-anchor="middle" fill="#7a2c43">may lag behind</text></g>
+            <path id="f2-sp-prim" class="flow" d="M296 82 C 240 128, 196 164, 176 196" marker-end="url(#arrow)"/>
+            <path id="f2-sp-repl" class="flow" d="M344 82 C 400 128, 444 164, 464 196" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="150" y="150" text-anchor="middle">to primary</text>
+            <text class="lbl-sm" x="502" y="150" text-anchor="middle">to replica</text>
+            <text id="f2-read" class="readout" x="320" y="308" text-anchor="middle" font-size="13.5" fill="#20201D"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: route to the primary (strongest), LSN-wait the replica (balanced), or bound the staleness (cheapest)</figcaption>
+      </figure>
+
+      <div class="vs three">
+        <div class="col">
+          <h4>1 &middot; Route to primary</h4>
+          <ul>
+            <li>Send reads-after-writes to the <strong>primary</strong> for a short window.</li>
+            <li>Always correct — the primary has everything.</li>
+            <li>Cost: <strong>primary load</strong>. Too broad a window and the replica is wasted.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>2 &middot; LSN-wait</h4>
+          <ul>
+            <li>Capture the write's LSN; <strong>wait</strong> for the replica to replay past it, then read it.</li>
+            <li>Correct <em>and</em> keeps the read off the primary.</li>
+            <li>Cost: a small wait + a timeout fallback; more plumbing.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>3 &middot; Bounded staleness</h4>
+          <ul>
+            <li>Accept data up to <strong>N&nbsp;ms</strong> old; read the replica only if its lag is under the bound.</li>
+            <li>Cheapest, highest offload.</li>
+            <li>Cost: <strong>not</strong> read-your-writes — only for reads that tolerate a little staleness.</li>
+          </ul>
+        </div>
+      </div>
+      <p>These are not a global switch you flip once. You choose <em>per read</em>: the profile the user just edited earns fix 1 or 2; a public "trending" list is happy with fix 3; an unrelated dashboard chart may not care at all. A common, healthy default is "replica with bounded staleness for most reads, LSN-wait or primary for the handful that just followed a write."</p>
+      <div class="callout tip">
+        <span class="k">The instinct to build</span>
+        <p>Read-your-writes is a <strong>session</strong> guarantee, not a database mode. Postgres will not do it for you across a primary and its replicas — <em>your</em> routing layer decides. So the question at every read site is: "did this session just write something it now expects to see?" If yes, use fix 1 or 2. If no, the replica is free game. Getting that one question right at each endpoint is the whole discipline.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>43</b> Patterns</div>
+      <h2>Patterns, plumbing &amp; watching the lag</h2>
+      <p>Two implementation styles cover almost every real system, and they map onto fixes&nbsp;1 and&nbsp;2 above.</p>
+      <h3>Sticky routing (coarse, simple)</h3>
+      <p>Record a "last wrote at" timestamp (or the last LSN) <strong>per session</strong>. For a window after any write — say 5&nbsp;seconds — route <em>all</em> of that session's reads to the primary; after the window, fall back to the replica. It needs no LSN threading and no client cooperation, so it is the easiest to add. The costs: it is <strong>coarse</strong> (every read in the window hits the primary, even ones that did not need to), and the "session" state must be shared across all your app instances — a signed cookie, or a small shared store — so a user's next request, which may hit a different server, still sees "you just wrote."</p>
+      <h3>LSN token passing (precise, scalable)</h3>
+      <p>On a write, return the write's LSN to the client as a token (a response header or cookie). The client echoes it on subsequent reads; the read layer <strong>waits</strong> for the replica to replay past that LSN before serving, and falls back to the primary on timeout. This is precise — it pins consistency to <em>the specific write</em>, not a blunt time window — and it scales, because most reads carry no token and go straight to a replica. The price is plumbing: you must thread the token through your API and clients.</p>
+      <h3>Watch the lag, and cap it</h3>
+      <p>On the <strong>primary</strong>, <code>pg_stat_replication</code> shows one row per connected standby, including a ready-made <code>replay_lag</code> interval and the LSNs to diff:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- run on the PRIMARY: how far behind is each standby?</span>
+<span class="kw">SELECT</span> application_name, state, sync_state,
+       replay_lag,
+       <span class="fn">pg_wal_lsn_diff</span>(sent_lsn, replay_lsn) <span class="kw">AS</span> bytes_behind
+<span class="kw">FROM</span>   pg_stat_replication;</code></pre>
+      <p class="codetag">text &middot; illustrative</p>
+      <pre class="code"><code> application_name | state     | sync_state | replay_lag      | bytes_behind
+------------------+-----------+------------+-----------------+--------------
+ replica1         | streaming | async      | 00:00:00.012    |         8192
+ replica2         | streaming | async      | 00:00:04.361    |      6553600</code></pre>
+      <p>On a <strong>replica</strong>, ask it directly how current it is — by LSN and by wall-clock:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- run on the REPLICA</span>
+<span class="kw">SELECT</span> <span class="fn">pg_last_wal_replay_lsn</span>()                               <span class="kw">AS</span> replayed,
+       <span class="fn">now</span>() - <span class="fn">pg_last_xact_replay_timestamp</span>()               <span class="kw">AS</span> time_behind;</code></pre>
+      <p>Alert on both a <strong>byte</strong> threshold and a <strong>time</strong> threshold, and remember the classic operational disaster from the replication lesson: an <em>inactive replication slot</em> makes the primary retain WAL forever, filling its disk, while a paused replica keeps happily serving month-old reads. Bounded staleness is not just a routing rule — it is an alert.</p>
+      <div class="callout note">
+        <span class="k">Two more session guarantees worth a name</span>
+        <p><strong>Monotonic reads</strong>: a session should never see time run <em>backwards</em> (value present on one read, gone on the next because two reads hit two replicas at different lag). Pin a session to one replica, or track the max LSN it has already seen and never serve below it. <strong>Causal consistency</strong>: if write B depended on reading A, anyone who sees B must also see A. Both fall out naturally from LSN tracking — the token you pass for read-your-writes is the same tool. The one-line takeaway for the whole lesson: <em>a replica is never guaranteed current; design each read for the staleness it can tolerate.</em></p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>43</b> Worked build</div>
+      <h2>Build a read-your-writes endpoint &#9656;</h2>
+      <p>Time to build the real thing: the "update profile, then show it" flow, done so the user always sees their own edit — without simply firing every read at the primary. First, watch the LSN-wait handshake end to end: the write captures a token, the read carries it back, the replica waits until it has replayed past it, and a timeout falls back to the primary.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-lsnwait">
+          <svg viewBox="0 0 660 392" role="img" aria-label="Interactive: a write captures its LSN on the primary and returns it as a token; the read carries the token and waits on the replica until replay catches up, then reads, falling back to the primary on timeout">
+            <g class="st" id="f3-app"><rect class="node-b" x="40" y="150" width="160" height="66" rx="10"/><text class="lbl" x="120" y="180" text-anchor="middle">App endpoint</text><text class="lbl-sm" x="120" y="199" text-anchor="middle">routing layer</text></g>
+            <g class="st" id="f3-primary"><rect class="node-r" x="450" y="40" width="185" height="60" rx="10"/><text class="lbl" x="542" y="66" text-anchor="middle" fill="#B0532F">PRIMARY</text><text class="lbl-sm" x="542" y="85" text-anchor="middle" fill="#B0532F">source of truth</text></g>
+            <g class="st" id="f3-replica"><rect class="node-t" x="450" y="268" width="185" height="60" rx="10"/><text class="lbl" x="542" y="294" text-anchor="middle" fill="#7a2c43">REPLICA</text><text class="lbl-sm" x="542" y="313" text-anchor="middle" fill="#7a2c43">read-only</text></g>
+            <path id="f3-sp-w" class="flow" d="M200 168 C 300 120, 380 92, 448 78" marker-end="url(#arrow)"/>
+            <path id="f3-sp-back" class="flow-d" d="M450 96 C 380 132, 300 160, 202 176" marker-end="url(#arrow-s)"/>
+            <path id="f3-sp-r" class="flow" d="M200 198 C 300 250, 380 282, 448 292" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="335" y="314" text-anchor="middle">write LSN captured on commit</text>
+            <rect id="f3-tokbox" x="245" y="320" width="180" height="40" rx="8" fill="#fff" stroke="#4A7BA6" stroke-width="1.6"/>
+            <text id="f3-token" x="335" y="345" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#1F4E79">&mdash;</text>
+            <text id="f3-read" x="330" y="384" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the LSN-wait handshake — token out on write, waited-on at the replica, primary as the safety valve</figcaption>
+      </figure>
+
+      <h3>1 &middot; The schema &amp; setup</h3>
+      <p>A minimal profiles table on the primary, plus the app's two connection pools from section&nbsp;00. Nothing about the schema is special — read-your-writes lives entirely in the routing layer.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- on the PRIMARY (replicated physically to the standby)</span>
+<span class="kw">CREATE TABLE</span> profiles (
+  user_id  <span class="kw">bigint</span> <span class="kw">PRIMARY KEY</span>,
+  bio      <span class="kw">text</span>   <span class="kw">NOT NULL</span>,
+  updated_at <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);</code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>Build two handlers: <code>POST /profile</code> writes the new bio; <code>GET /profile</code> renders it. The user must <strong>always</strong> see their own just-saved bio on the reload, but ordinary browsing traffic should still be free to hit the replica. Write (a) the naive version and say why it fails, then (b) the LSN-wait fix.</p>
+
+      <h3>3 &middot; The naive version, and why it is wrong</h3>
+      <p>The obvious split — writes to the primary, all reads to the replica — is exactly the bug:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- POST /profile  (on the PRIMARY connection)</span>
+<span class="kw">UPDATE</span> profiles <span class="kw">SET</span> bio = <span class="lit">$1</span>, updated_at = <span class="fn">now</span>() <span class="kw">WHERE</span> user_id = <span class="lit">$2</span>;
+
+<span class="cm">-- GET /profile  (on the REPLICA connection) — WRONG</span>
+<span class="cm">-- If this runs inside the lag window, it returns the OLD bio:</span>
+<span class="cm">-- the replica has not replayed the UPDATE yet.</span>
+<span class="kw">SELECT</span> bio <span class="kw">FROM</span> profiles <span class="kw">WHERE</span> user_id = <span class="lit">$2</span>;</code></pre>
+      <p>The <code>UPDATE</code> is durable on the primary, but the very next <code>SELECT</code> asks a replica that may still be a few milliseconds behind. The user reads their old bio and files the ticket. Sending <em>all</em> reads to the primary would fix correctness but throw away the replica — we want the read on the replica <em>and</em> correct.</p>
+
+      <h3>4 &middot; The fix: capture the LSN, wait for it, fall back</h3>
+      <p>On the write, capture the primary's current WAL position — a value at or past our commit's LSN — and hand it back as a token. On the read, wait for the replica to replay up to that token, then read the replica; if it does not catch up in time, read the primary instead.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- POST /profile  (on the PRIMARY): write, then capture the LSN token</span>
+<span class="kw">UPDATE</span> profiles <span class="kw">SET</span> bio = <span class="lit">$1</span>, updated_at = <span class="fn">now</span>() <span class="kw">WHERE</span> user_id = <span class="lit">$2</span>;
+<span class="kw">SELECT</span> <span class="fn">pg_current_wal_lsn</span>();   <span class="cm">-- e.g. '0/3A2F108' -&gt; return to client as a token</span></code></pre>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- GET /profile  (on the REPLICA): has it replayed past the token yet?</span>
+<span class="cm">-- pg_lsn compares directly; returns a boolean.</span>
+<span class="kw">SELECT</span> <span class="fn">pg_last_wal_replay_lsn</span>() &gt;= <span class="lit">$1</span>::<span class="kw">pg_lsn</span> <span class="kw">AS</span> caught_up;</code></pre>
+      <p>The read handler polls that boolean with a short sleep until it is true or a deadline passes, then chooses its connection. In app pseudocode:</p>
+      <p class="codetag">text</p>
+      <pre class="code"><code>token = request.cookie("wlsn")            <span class="cm"># the LSN from the last write, if any</span>
+conn  = replica
+<span class="kw">if</span> token:
+    deadline = now() + 200ms
+    <span class="kw">while</span> now() &lt; deadline:
+        <span class="kw">if</span> replica.query("SELECT pg_last_wal_replay_lsn() &gt;= $1::pg_lsn", token):
+            <span class="kw">break</span>                         <span class="cm"># replica is current enough — read it</span>
+        sleep(10ms)
+    <span class="kw">else</span>:
+        conn = primary                    <span class="cm"># timed out: fall back to the primary</span>
+bio = conn.query("SELECT bio FROM profiles WHERE user_id = $1", user_id)</code></pre>
+
+      <h3>5 &middot; Why it is better</h3>
+      <p>Every read-your-writes read is now <strong>correct</strong>: either the replica has provably replayed past your write, or you read the primary. Yet the common case — no token, or a replica that is already current — reads the replica immediately, so the primary offload survives. An illustrative psql session on the replica shows the boolean flipping as recovery advances:</p>
+      <p class="codetag">text &middot; illustrative</p>
+      <pre class="code"><code>-- moments after the commit, replica still catching up:
+replica=# SELECT pg_last_wal_replay_lsn(),
+replica-#        pg_last_wal_replay_lsn() &gt;= '0/3A2F108'::pg_lsn AS caught_up;
+ pg_last_wal_replay_lsn | caught_up
+------------------------+-----------
+ 0/3A2E9C0              | f            <-- not yet: wait / poll
+
+-- a few milliseconds later:
+ pg_last_wal_replay_lsn | caught_up
+------------------------+-----------
+ 0/3A2F1A0              | t            <-- replayed past the token: read the replica</code></pre>
+      <p>Two correctness notes. <code>pg_current_wal_lsn()</code> must be called on the <strong>primary</strong> — it raises <em>"recovery is in progress"</em> on a standby, where you would use <code>pg_last_wal_receive_lsn()</code> instead. And capturing the WAL position right after <code>COMMIT</code> returns a value at or beyond your commit record, so a replica that has replayed to the token has, by construction, replayed your write.</p>
+      <div class="callout tip">
+        <span class="k">Narrate it in an interview</span>
+        <p>"Writes go to the primary; after each write I capture <code>pg_current_wal_lsn()</code> and hand it to the client as a token. On a read, if a token is present I wait — up to a small deadline — for the replica's <code>pg_last_wal_replay_lsn()</code> to reach it, then read the replica; if it does not catch up in time I read the primary. Reads with no token skip all of this and go straight to a replica. That gives per-write read-your-writes consistency while keeping almost all read traffic off the primary." The same LSN-token idea powers monotonic reads and causal consistency — it is the one tool worth mastering here.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>43</b> Drills</div>
+      <h2>Graded drills &amp; traps</h2>
+      <p>Attempt each drill before opening its answer. They climb from a lag readout to full sticky routing.</p>
+
+      <h3>Drill 1 — Measure how far a replica is behind</h3>
+      <p>Running <em>on the replica</em>, report how many bytes of WAL it has received but not yet replayed, and how old its most recent replayed transaction is.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Diff the receive and replay LSNs for the byte gap, and subtract the last replay timestamp from <code>now()</code> for the time gap:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="kw">SELECT</span> <span class="fn">pg_wal_lsn_diff</span>(<span class="fn">pg_last_wal_receive_lsn</span>(),
+                       <span class="fn">pg_last_wal_replay_lsn</span>()) <span class="kw">AS</span> replay_lag_bytes,
+       <span class="fn">now</span>() - <span class="fn">pg_last_xact_replay_timestamp</span>()   <span class="kw">AS</span> replay_lag_time;</code></pre>
+        <p style="margin-top:8px"><em>Why:</em> received-minus-replayed is the work still queued in recovery; the timestamp gap is the user-facing staleness. Track both.</p>
+      </div>
+
+      <h3>Drill 2 — A bounded-staleness router</h3>
+      <p>For a read that tolerates up to <strong>500&nbsp;ms</strong> of staleness, write the replica-side check that decides "fresh enough to serve here."</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Compare the replica's time-behind to the bound; if under it, serve the replica, else fall back to the primary:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="kw">SELECT</span> <span class="fn">now</span>() - <span class="fn">pg_last_xact_replay_timestamp</span>()
+         &lt; <span class="kw">interval</span> <span class="lit">'500 milliseconds'</span> <span class="kw">AS</span> fresh_enough;</code></pre>
+        <p style="margin-top:8px"><em>Why:</em> this is time-bounded staleness, not read-your-writes — fine for a feed, wrong for the user's own edit. Beware idle periods: with no writes, the replay timestamp stops advancing and can read as "stale" though the replica is fully current.</p>
+      </div>
+
+      <h3>Drill 3 — The LSN-wait guard, safely</h3>
+      <p>Write the exact replica-side boolean that guards a read-your-writes read against a token LSN — and name the one call that must <em>not</em> run on a standby.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>The guard compares the replayed LSN to the token; the forbidden call on a standby is <code>pg_current_wal_lsn()</code> (capture the token on the primary at write time):</p>
+        <pre class="code" style="margin-top:10px"><code><span class="cm">-- on the REPLICA: safe read-your-writes guard</span>
+<span class="kw">SELECT</span> <span class="fn">pg_last_wal_replay_lsn</span>() &gt;= <span class="lit">$1</span>::<span class="kw">pg_lsn</span> <span class="kw">AS</span> caught_up;
+<span class="cm">-- pg_current_wal_lsn() here raises "recovery is in progress"</span></code></pre>
+        <p style="margin-top:8px"><em>Why:</em> <code>pg_lsn</code> compares as a real ordering, so no string math — <code>'0/9' &lt; '0/10'</code> is true as <code>pg_lsn</code> but false as text.</p>
+      </div>
+
+      <h3>Drill 4 — Sticky read-your-writes without tokens</h3>
+      <p>Some clients cannot echo a token (a plain browser form). Give that session read-your-writes anyway by pinning its reads to the primary for <strong>5&nbsp;seconds</strong> after its last write. Sketch the routing decision.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Stamp a per-session <code>last_write_at</code> on every write (in a shared store or signed cookie), and route based on the window:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="cm"># on write:  session.last_write_at = now()</span>
+<span class="kw">if</span> session.last_write_at <span class="kw">and</span> now() - session.last_write_at &lt; 5s:
+    conn = primary        <span class="cm"># sticky window: read-your-writes</span>
+<span class="kw">else</span>:
+    conn = replica        <span class="cm"># window elapsed: replica is fine</span></code></pre>
+        <p style="margin-top:8px"><em>Why:</em> coarser than LSN-wait (all reads in the window hit the primary) but needs no client cooperation. The window must be shared across app instances, or a request landing on another server skips the stickiness.</p>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">The traps that turn lag into an outage</span>
+        <p>
+        (1) <strong>Reading your own write from a replica.</strong> The core bug: writes to the primary, the immediate read to a lagging replica. Route reads-after-writes to the primary or LSN-wait them.<br>
+        (2) <strong>Unbounded staleness.</strong> A stalled or slot-pinned replica serves data minutes old with no cap. Alert on both byte-lag and time-lag; never trust a replica to be current.<br>
+        (3) <strong>Mishandling LSNs.</strong> Comparing them as strings, confusing receive vs replay, or calling <code>pg_current_wal_lsn()</code> on a standby. Use the <code>pg_lsn</code> type and the right function for the node.<br>
+        (4) <strong>Sticky windows that leak.</strong> A too-long window (or one not shared across servers) either floods the primary or silently fails to stick — measure and bound it.<br>
+        (5) <strong>Time-only lag on an idle system.</strong> With no writes, <code>pg_last_xact_replay_timestamp()</code> freezes and looks stale though the replica is caught up. Combine with the LSN byte diff.<br>
+        (6) <strong>Sending a write to a replica.</strong> A misrouted <code>UPDATE</code> hits a read-only standby and errors <em>"cannot execute UPDATE in a read-only transaction."</em> Keep writes strictly on the primary pool.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one line: <em>async replication makes a replica <strong>eventually</strong> consistent, so a read inside the lag window can miss your own write — and you fix it per read by routing to the primary, waiting on the replica's replayed LSN, or bounding the staleness you accept.</em> Everything else is plumbing around those three choices.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Lag is physics, not a bug</b><span>Async streaming replication is never zero-delay; the gap is the CAP/PACELC price you chose for availability and low latency.</span></div>
+        <div class="tk"><span class="num">02</span><b>The lag window</b><span>From commit on the primary to replay on the replica. A read served inside it returns a snapshot older than your write.</span></div>
+        <div class="tk"><span class="num">03</span><b>Replay is the line</b><span>A replica can have received your WAL yet still serve stale reads — visibility waits for pg_last_wal_replay_lsn().</span></div>
+        <div class="tk"><span class="num">04</span><b>Read-your-writes</b><span>Your session must see your own writes; other people's late edits are usually fine. It is a session guarantee your router owns.</span></div>
+        <div class="tk"><span class="num">05</span><b>Route to primary</b><span>Simplest, always correct, costs primary load. Keep the window small so the replica still earns its keep.</span></div>
+        <div class="tk"><span class="num">06</span><b>LSN-wait</b><span>Capture the write LSN, wait for the replica to replay past it, then read it — correct and off the primary, with a timeout fallback.</span></div>
+        <div class="tk"><span class="num">07</span><b>Bounded staleness</b><span>Accept N ms old; read the replica only under the bound. Cheapest, but not read-your-writes — only for tolerant reads.</span></div>
+        <div class="tk"><span class="num">08</span><b>Watch the lag</b><span>pg_stat_replication on the primary; replay LSN + timestamp on the replica. Alert on bytes and time; a slot-pinned replica is an outage.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Define the lag window in terms of LSNs, and say why <code>pg_last_wal_replay_lsn()</code> — not the receive LSN — is the one that governs visibility.<br>
+        (2) What is read-your-writes consistency, and why is it usually enough where full strong consistency is not needed?<br>
+        (3) Name the three fixes and rank them by correctness and by cost. Give one read that suits each.<br>
+        (4) Walk the LSN-wait handshake: where is the token captured, what does the replica compare, and what happens on timeout?<br>
+        (5) Which LSN function must never run on a standby, and what error do you get if you write to a replica?<br>
+        (6) Why can time-based lag look "stale" on a perfectly current but idle replica, and what do you combine it with?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw the flow from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 43 &middot; REPLICA LAG &amp; READ-AFTER-WRITE &middot; interactive edition<br>
+      Original study notes for engineers &middot; attempt every drill before its answer.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the lag window (CHIP timeline) */
+  makeStepper(_g('fig-lag'), [
+    {text:"The user's profile is at v1. A read replica streams the primary's changes asynchronously and is currently in sync at v1.", lit:[], val:"v1", cls:"", v:"replica in sync at v1"},
+    {text:"The user saves an edit. The write COMMITS on the primary, which is now at v2 — but the replica has not heard about it yet.", lit:["f1-pa"], val:"v1", cls:"", v:"primary v2 · replica still v1"},
+    {text:"The commit is streamed to the replica as a WAL record. Streaming is asynchronous, so there is a delay — this gap is the LAG WINDOW.", lit:["f1-pa","f1-pb"], val:"v1", cls:"", v:"lag window: replica behind"},
+    {text:"Inside that window the same user reloads, and the read is served by the replica — returning v1. Their own write is missing: a stale read.", lit:["f1-pa","f1-pb","f1-ra"], val:"v1", cls:"kbad", v:"✗ read-your-write violated"},
+    {text:"Milliseconds later the replica replays the WAL and reaches v2. Reads are correct again — the anomaly lived only inside the lag window.", lit:["f1-pa","f1-pb","f1-ra","f1-rb"], val:"v2", cls:"kok", v:"✓ caught up (eventually)"}
+  ], function(idx,s){
+    ['f1-pa','f1-pb','f1-ra','f1-rb'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f1-val').textContent=s.val;
+    _g('f1-val').setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#20201D'));
+    _g('f1-box').setAttribute('class','balbox'+(s.cls?' '+s.cls:''));
+    var vd=_g('f1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — the three fixes (node routing) */
+  makeStepper(_g('fig-fixes'), [
+    {text:"After a write, the app must serve a read. The write is guaranteed on the PRIMARY; the REPLICA may still be inside the lag window. Three strategies decide where the read goes.", active:[], read:"where should the read after a write go?"},
+    {text:"Fix 1 — route reads-after-writes to the PRIMARY. Simplest and always correct, but every such read adds load to the primary, undoing part of why you added a replica.", active:["f2-client","f2-primary"], path:"f2-sp-prim", read:"→ primary: always fresh, costs primary load"},
+    {text:"Fix 2 — LSN-wait. Capture the write's LSN, then before reading the replica, wait until it has replayed past that LSN. Correct AND keeps the read off the primary.", active:["f2-client","f2-replica"], path:"f2-sp-repl", read:"→ replica once replay ≥ write LSN"},
+    {text:"Fix 3 — bounded staleness. Accept data up to N ms old: read the replica only if its lag is under the bound, else fall back to the primary. Cheapest, but NOT read-your-writes.", active:["f2-client","f2-replica"], path:"f2-sp-repl", read:"→ replica if lag < N ms, else primary"},
+    {text:"The spectrum: strongest and priciest (always primary) → correct and balanced (LSN-wait) → loosest and cheapest (bounded). Choose per read, not once globally.", active:[], read:"strong → balanced → loose · choose per read"}
+  ], function(idx,s){
+    _g('f2-read').textContent=s.read||'';
+  });
+
+  /* FIG 3 — the LSN-wait handshake (worked) */
+  makeStepper(_g('fig-lsnwait'), [
+    {text:"① The endpoint receives the write and sends it to the PRIMARY, the single source of truth.", active:["f3-app","f3-primary"], path:"f3-sp-w", tok:"—", read:"① write → PRIMARY"},
+    {text:"② The primary commits. We call pg_current_wal_lsn() to capture the commit's LSN and return it to the client as a token.", active:["f3-primary","f3-app"], path:"f3-sp-back", tok:"0/3A2F108", read:"② capture pg_current_wal_lsn() → token"},
+    {text:"③ On the next read, the client sends that LSN token back. The read layer targets the REPLICA to keep load off the primary.", active:["f3-app","f3-replica"], path:"f3-sp-r", tok:"0/3A2F108", read:"③ read carries the token → REPLICA"},
+    {text:"④ Before reading, compare: is pg_last_wal_replay_lsn() on the replica ≥ the token? Not yet — it is still in the lag window, so poll briefly.", active:["f3-replica"], tok:"0/3A2F108", read:"④ replay 0/3A2E9C0 < token → wait"},
+    {text:"⑤ The replica catches up: replayed LSN ≥ the token. Now read from the replica — it is guaranteed to include the write. Read-your-writes, off the primary.", active:["f3-app","f3-replica"], path:"f3-sp-r", tok:"0/3A2F108", read:"⑤ replay 0/3A2F1A0 ≥ token → read v2 ✓"},
+    {text:"⑥ Safety valve: if the replica does not catch up within the deadline, fall back to the PRIMARY so the user never blocks. Correct either way.", active:["f3-app","f3-primary"], path:"f3-sp-w", tok:"0/3A2F108", read:"⑥ timeout → fall back to PRIMARY ✓"}
+  ], function(idx,s){
+    _g('f3-token').textContent=s.tok;
+    _g('f3-read').textContent=s.read||'';
+  });
+</script>
+</body>
+</html>

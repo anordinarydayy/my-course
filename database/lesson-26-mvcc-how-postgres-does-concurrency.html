@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 26 — MVCC: How Postgres Does Concurrency (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">MVCC: How Postgres Does Concurrency</div>
+    <h4>The engine under isolation</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Don't overwrite &mdash; version</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>xmin / xmax &mdash; row versions &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Snapshots decide what you see &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The bill: dead tuples &amp; bloat</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Readers don't block writers &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Reason about it</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">26</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>MVCC: How Postgres Does Concurrency</h1>
+      <p class="lede">Isolation levels (Lesson 25) told you <em>what</em> Postgres guarantees; MVCC is <em>how</em> it delivers them. Rather than lock a row so only one session may touch it, Postgres keeps many versions of each row and lets every transaction read the version valid for its own snapshot. The payoff is the one line worth memorizing: <strong>readers never block writers, and writers never block readers.</strong> The bill comes due as dead tuples and VACUUM &mdash; which is the next lesson.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Built on <strong>PostgreSQL&nbsp;17/18</strong>. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>) that make the row-version machinery concrete: <code>xmin</code>/<code>xmax</code> stamping, two snapshots diverging on the same row, and a long reader and a writer sailing past each other. This is a <strong>concept lesson &mdash; there is no SQL drill; it builds the mental model</strong> that the locking (L27) and VACUUM (L29) lessons stand on.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The core move</div>
+      <h2>Don't overwrite &mdash; version</h2>
+      <p>Here is the obvious way to keep two sessions from clobbering the same row: <strong>lock it</strong> &mdash; let one session hold the row while it works, and make everyone else wait their turn. It is simple, and it is what older databases leaned on heavily. It also serializes your whole workload behind whoever holds the lock: a long-running report holding rows for a read can stall every writer that wants to touch them, and a slow writer can stall every reader. Concurrency dies at the busiest rows.</p>
+      <p>Postgres makes a different move. It <strong>never overwrites a live row in place.</strong> When you change a row, Postgres writes a <em>new version</em> of it and leaves the old version sitting in the table, and every transaction reads whichever version is valid for the moment it started. This is <strong>Multi-Version Concurrency Control (MVCC)</strong>: many versions of a row coexisting, each transaction seeing exactly one of them.</p>
+      <p>That single design choice is why a half-hour analytics query can scan a table while thousands of writes land on it &mdash; the report keeps reading the versions that existed when it began, and the writers keep minting new versions beside them. Nobody waits. The rest of this lesson is just the mechanics of that idea: how a version is stamped (s1), how a snapshot decides which version you see (s2), what it costs (s3), and the payoff spelled out (s4).</p>
+      <div class="callout">
+        <span class="k">The reframe</span>
+        <p>Stop picturing a row as a <em>cell you overwrite</em> and start picturing it as an <strong>append-only history of versions</strong>. An <code>UPDATE</code> doesn't change a value &mdash; it adds a newer version and marks the older one as superseded. Reads and writes then stop fighting over one cell, because they are looking at different versions. That is the whole trick, and everything else is bookkeeping.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The stamps</div>
+      <h2>xmin / xmax &mdash; row versions &#9656;</h2>
+      <p>Every row you see is really a <strong>tuple</strong> (a physical row version) in the heap, and every tuple carries two hidden system columns that do all the work: <strong><code>xmin</code></strong> &mdash; the transaction id (xid) that <em>created</em> this version &mdash; and <strong><code>xmax</code></strong> &mdash; the xid that <em>deleted or superseded</em> it (empty while the version is still current). A third hidden column, <strong><code>ctid</code></strong>, is the tuple's physical location (page, offset). The rules are short:</p>
+      <ul>
+        <li><strong>INSERT</strong> writes one tuple and stamps its <code>xmin</code> with the inserting xid; <code>xmax</code> is empty.</li>
+        <li><strong>DELETE</strong> doesn't erase the tuple &mdash; it stamps the tuple's <code>xmax</code> with the deleting xid, marking it superseded.</li>
+        <li><strong>UPDATE</strong> is a <em>delete&nbsp;+&nbsp;insert</em>: it inserts a brand-new tuple (new <code>ctid</code>, new <code>xmin</code>) <em>and</em> stamps the old tuple's <code>xmax</code>. The old version stays behind as a dead tuple.</li>
+      </ul>
+      <p>You can watch this happen by asking for the hidden columns directly:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- xmin/xmax are hidden system columns — you must name them explicitly</span>
+<span class="kw">SELECT</span> ctid, xmin, xmax, id, balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">7</span>;
+
+<span class="cm">-- this UPDATE does NOT overwrite the row in place:</span>
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = <span class="lit">150</span> <span class="kw">WHERE</span> id = <span class="lit">7</span>;
+<span class="cm">-- → a NEW tuple (new ctid, xmin = this xid) is inserted, and</span>
+<span class="cm">--   the OLD tuple's xmax is stamped with this same xid</span></code></pre>
+      <p>Step through the life of one logical row &mdash; account&nbsp;#7 &mdash; as an INSERT, an UPDATE, and a DELETE leave their marks in the heap:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-xminmax">
+          <svg viewBox="0 0 660 288" role="img" aria-label="One logical row's versions in the heap, each stamped with xmin and xmax as INSERT, UPDATE and DELETE run">
+            <text class="lbl-sm" x="330" y="26" text-anchor="middle">one logical row &middot; account #7 &middot; physical tuples in the heap</text>
+            <!-- header -->
+            <rect class="thead" x="110" y="44" width="78" height="30"/><text class="tval" x="149" y="63" text-anchor="middle">ctid</text>
+            <rect class="thead" x="188" y="44" width="92" height="30"/><text class="tval" x="234" y="63" text-anchor="middle">xmin</text>
+            <rect class="thead" x="280" y="44" width="92" height="30"/><text class="tval" x="326" y="63" text-anchor="middle">xmax</text>
+            <rect class="thead" x="372" y="44" width="64" height="30"/><text class="tval" x="404" y="63" text-anchor="middle">id</text>
+            <rect class="thead" x="436" y="44" width="118" height="30"/><text class="tval" x="495" y="63" text-anchor="middle">balance</text>
+            <!-- v1 -->
+            <g id="f1-g-v1" class="gdim">
+              <rect class="tcell" id="f1-v1-ctid" x="110" y="74" width="78" height="36"/><text class="tval" x="149" y="97" text-anchor="middle">(0,1)</text>
+              <rect class="tcell" id="f1-v1-xmin" x="188" y="74" width="92" height="36"/><text class="tval" id="f1-v1-xmin-t" x="234" y="97" text-anchor="middle">100</text>
+              <rect class="tcell" id="f1-v1-xmax" x="280" y="74" width="92" height="36"/><text class="tval" id="f1-v1-xmax-t" x="326" y="97" text-anchor="middle">&mdash;</text>
+              <rect class="tcell" id="f1-v1-id" x="372" y="74" width="64" height="36"/><text class="tval" x="404" y="97" text-anchor="middle">7</text>
+              <rect class="tcell" id="f1-v1-bal" x="436" y="74" width="118" height="36"/><text class="tval" x="495" y="97" text-anchor="middle">$100</text>
+            </g>
+            <!-- v2 -->
+            <g id="f1-g-v2" class="gdim">
+              <rect class="tcell" id="f1-v2-ctid" x="110" y="110" width="78" height="36"/><text class="tval" x="149" y="133" text-anchor="middle">(0,2)</text>
+              <rect class="tcell" id="f1-v2-xmin" x="188" y="110" width="92" height="36"/><text class="tval" id="f1-v2-xmin-t" x="234" y="133" text-anchor="middle">140</text>
+              <rect class="tcell" id="f1-v2-xmax" x="280" y="110" width="92" height="36"/><text class="tval" id="f1-v2-xmax-t" x="326" y="133" text-anchor="middle">&mdash;</text>
+              <rect class="tcell" id="f1-v2-id" x="372" y="110" width="64" height="36"/><text class="tval" x="404" y="133" text-anchor="middle">7</text>
+              <rect class="tcell" id="f1-v2-bal" x="436" y="110" width="118" height="36"/><text class="tval" x="495" y="133" text-anchor="middle">$150</text>
+            </g>
+            <text id="f1-read" class="readout" x="330" y="188" text-anchor="middle" font-size="13.5" fill="#20201D"></text>
+            <text class="lbl-sm" x="330" y="238" text-anchor="middle">xmin = xid that CREATED this version</text>
+            <text class="lbl-sm" x="330" y="256" text-anchor="middle">xmax = xid that REMOVED it (empty = still current)</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: an UPDATE is a delete + insert — it spawns v2 and stamps v1's xmax; the old version stays behind</figcaption>
+      </figure>
+
+      <p>The point that trips people up is that the <code>UPDATE</code> in step&nbsp;3&ndash;4 produced <em>two</em> physical rows for one logical row. Postgres did not reach into <code>(0,1)</code> and change its balance; it wrote <code>(0,2)</code> and marked <code>(0,1)</code> as ending at xid&nbsp;140. This is why an update is more expensive than it looks &mdash; it always creates a new tuple &mdash; and why heavy update traffic generates dead tuples that someone (VACUUM) has to clean up later.</p>
+      <div class="callout note">
+        <span class="k">Update = delete + insert</span>
+        <p>There is no such thing as an "in-place" update of a live row in Postgres. Every <code>UPDATE</code> inserts a fresh version and expires the old one by stamping its <code>xmax</code>. That is the price of readers-don't-block-writers, and it is exactly why the two topics that book-end this phase &mdash; <strong>locking</strong> (when you deliberately <em>do</em> block) and <strong>VACUUM</strong> (cleaning the corpses) &mdash; exist at all.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Visibility</div>
+      <h2>Snapshots decide what you see &#9656;</h2>
+      <p>Stamping versions is only half the machine. The other half is the <strong>snapshot</strong>: the record, taken at a well-defined moment, of <em>which transactions had already committed</em> then (plus the list of xids still in flight). A snapshot is what turns a pile of coexisting versions into a single coherent view of the data. The visibility rule is one sentence worth memorizing:</p>
+      <div class="callout">
+        <span class="k">The visibility rule</span>
+        <p>A row version is visible to a snapshot <strong>iff</strong> its <code>xmin</code> is <em>committed and in the snapshot</em> <strong>and</strong> its <code>xmax</code> is <em>not</em> (either empty, or belonging to a transaction the snapshot doesn't count as committed). Born-and-committed before you looked, not-yet-deleted as far as you can tell &mdash; then you see it.</p>
+      </div>
+      <p>Two transactions that started at different moments therefore hold <em>different</em> snapshots, and so they can read <em>different versions of the very same row</em> at the very same instant &mdash; each one correct for when it began. When you set <code>REPEATABLE READ</code> (Lesson 25), you are simply telling Postgres to take <strong>one snapshot at the transaction's first query and keep it</strong> for the whole transaction, so every read is consistent:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">BEGIN</span> <span class="kw">ISOLATION LEVEL REPEATABLE READ</span>;
+<span class="kw">SELECT</span> balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">7</span>;   <span class="cm">-- snapshot fixed here → $100</span>
+<span class="cm">-- ... meanwhile another session commits balance = 150 ...</span>
+<span class="kw">SELECT</span> balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">7</span>;   <span class="cm">-- STILL $100: one snapshot for the whole txn</span>
+<span class="kw">COMMIT</span>;</code></pre>
+      <p>Watch two transactions take their snapshots on opposite sides of a commit, then read the same row and disagree &mdash; each correctly:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-snap">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Two transactions take snapshots before and after a commit, and read different versions of the same row">
+            <text class="lbl-sm" x="40" y="40" text-anchor="start">T1 &middot; snapshot BEFORE xid 140</text>
+            <g id="f2-g-a1"><rect class="chip cA" x="46" y="50" width="184" height="44" rx="8"/><text class="chiptext" x="138" y="77" text-anchor="middle">T1 BEGIN &rarr; snapshot</text></g>
+            <g id="f2-g-a2"><rect class="chip cA" x="438" y="50" width="182" height="44" rx="8"/><text class="chiptext" x="529" y="77" text-anchor="middle">T1 SELECT &rarr; $100</text></g>
+
+            <rect id="f2-statebox" class="balbox" x="234" y="132" width="192" height="66" rx="9"/>
+            <text id="f2-state-t" class="lbl-sm" x="330" y="158" text-anchor="middle">heap</text>
+            <text id="f2-state-v" x="330" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="17" font-weight="700" fill="#20201D">v1 = $100</text>
+
+            <path d="M40 224 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="219" text-anchor="end">time &rarr;</text>
+            <g id="f2-g-mark"><text class="lbl-sm" x="250" y="219" text-anchor="middle" fill="#B0532F">&#9650; xid 140 commits v2</text></g>
+
+            <text class="lbl-sm" x="40" y="252" text-anchor="start">T2 &middot; snapshot AFTER xid 140</text>
+            <g id="f2-g-b1"><rect class="chip cB" x="234" y="258" width="184" height="44" rx="8"/><text class="chiptext" x="326" y="285" text-anchor="middle">T2 BEGIN &rarr; snapshot</text></g>
+            <g id="f2-g-b2"><rect class="chip cB" x="438" y="258" width="182" height="44" rx="8"/><text class="chiptext" x="529" y="285" text-anchor="middle">T2 SELECT &rarr; $150</text></g>
+
+            <text id="f2-verdict" x="330" y="328" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive (T1 in REPEATABLE READ, holding its snapshot): same row, same instant, two snapshots — T1 sees $100, T2 sees $150, and neither blocks</figcaption>
+      </figure>
+
+      <p>Notice what did <em>not</em> happen: T1 never had to wait for the writer, and the writer never had to wait for T1. They coexist because they are literally reading different tuples. This is also the precise mechanism behind Postgres never showing a <strong>dirty read</strong>, even at the default <code>READ COMMITTED</code> &mdash; a version whose <code>xmin</code> belongs to an <em>uncommitted</em> transaction fails the visibility rule, so you simply cannot see another session's in-progress work.</p>
+      <div class="callout note">
+        <span class="k">READ COMMITTED vs REPEATABLE READ, in one line</span>
+        <p>Both use snapshots; they differ in <em>how often</em> a fresh one is taken. <code>READ COMMITTED</code> (the default) takes a <strong>new snapshot at the start of every statement</strong> &mdash; so a later query in the same transaction can see rows a concurrent commit added (a non-repeatable read). <code>REPEATABLE READ</code> takes <strong>one snapshot for the whole transaction</strong>. MVCC is the shared engine; the isolation level is just the snapshot policy on top of it.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The cost</div>
+      <h2>The bill: dead tuples &amp; bloat</h2>
+      <p>Keeping old versions around is not free. A version that is no longer visible to <em>any</em> live snapshot &mdash; its <code>xmax</code> is committed and older than the oldest running transaction &mdash; is a <strong>dead tuple</strong>. It still occupies space in the table's pages, still gets skipped over by scans, and still has index entries pointing at it. Accumulated dead tuples are <strong>bloat</strong>: a table (and its indexes) grow larger and slower than the live data alone would justify.</p>
+      <p>Dead tuples are reclaimed by <strong>VACUUM</strong> (Lesson 29), which marks their space reusable within the table so future inserts and updates can fill it. You can see the pressure building in the catalog:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- how much dead space has accumulated on this table?</span>
+<span class="kw">SELECT</span> relname, n_live_tup, n_dead_tup, last_autovacuum
+<span class="kw">FROM</span> pg_stat_user_tables <span class="kw">WHERE</span> relname = <span class="lit">'accounts'</span>;</code></pre>
+      <p>But VACUUM can only remove a dead tuple if no snapshot could still need it &mdash; and that is where the most important operational lesson of MVCC lives. A <strong>long-running transaction</strong> holds a snapshot, and that snapshot pins the <strong>xmin horizon</strong>: the oldest xid any live transaction might still care about. VACUUM cannot clean up anything newer than that horizon, because <em>somebody could still be looking</em>. So one forgotten transaction left open &mdash; an idle <code>BEGIN</code>, a stuck report, a leaked connection &mdash; freezes the horizon and lets dead tuples pile up table-wide, even on tables that transaction never touched.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- which backend is holding back the xmin horizon (blocking cleanup)?</span>
+<span class="kw">SELECT</span> pid, <span class="fn">age</span>(backend_xmin) <span class="kw">AS</span> xmin_age, state, query
+<span class="kw">FROM</span> pg_stat_activity
+<span class="kw">WHERE</span> backend_xmin <span class="kw">IS NOT NULL</span>
+<span class="kw">ORDER BY</span> <span class="fn">age</span>(backend_xmin) <span class="kw">DESC</span>;</code></pre>
+      <p>One optimization softens the update cost: a <strong>HOT update</strong> (Heap-Only Tuple). When an <code>UPDATE</code> changes <em>no indexed column</em> and the new version fits on the <em>same page</em> as the old one, Postgres chains the new tuple to the old on that page and <strong>skips updating the indexes entirely</strong> &mdash; the index still points at the old tuple, which forwards to the new one. HOT updates dramatically cut index bloat for update-heavy tables, which is one reason not to slap an index on a column you update constantly.</p>
+      <div class="callout tip">
+        <span class="k">The one habit that prevents most MVCC pain</span>
+        <p><strong>Keep transactions short.</strong> Don't <code>BEGIN</code> and then go do slow application work, call an external API, or wait on user input. A transaction that stays open for minutes pins the xmin horizon, starves VACUUM, and turns steady update traffic into runaway bloat. "One giant transaction" and "an idle transaction left open" are the two most common causes of a Postgres table that mysteriously keeps growing.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The payoff</div>
+      <h2>Readers don't block writers &#9656;</h2>
+      <p>Now the reward for all that bookkeeping. Picture a long analytics report scanning the <code>accounts</code> table for many seconds, while ordinary traffic keeps updating individual accounts. In a strict lock-based database this is a standoff: the report holds read locks that the writers must wait behind, or the writers hold locks that stall the report. Under MVCC there is no standoff at all &mdash; the reader reads its snapshot's versions, the writer mints new ones, and neither notices the other:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- Session R (a long report) — takes a snapshot and reads for a while</span>
+<span class="kw">BEGIN</span>;
+<span class="kw">SELECT</span> <span class="fn">sum</span>(balance) <span class="kw">FROM</span> accounts;    <span class="cm">-- scans millions of rows...</span>
+
+<span class="cm">-- Session W (another connection, running at the same time) — does NOT wait</span>
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance + <span class="lit">50</span> <span class="kw">WHERE</span> id = <span class="lit">7</span>;
+<span class="cm">-- W writes a new row version and commits; R keeps reading its own snapshot</span></code></pre>
+      <p>Step through the two sessions and watch the moment where a lock-based engine would block &mdash; and where Postgres simply doesn't:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-noblock">
+          <svg viewBox="0 0 660 340" role="img" aria-label="A long reader and a concurrent writer on one row: under MVCC neither blocks the other">
+            <text class="lbl-sm" x="40" y="40" text-anchor="start">READER &middot; long SELECT (report)</text>
+            <g id="f3-g-r1"><rect class="chip cA" x="46" y="50" width="210" height="44" rx="8"/><text class="chiptext" x="151" y="77" text-anchor="middle">reader: long SELECT (v1)</text></g>
+            <g id="f3-g-r2"><rect class="chip cA" x="438" y="50" width="182" height="44" rx="8"/><text class="chiptext" x="529" y="77" text-anchor="middle">reader still sees $100</text></g>
+
+            <rect id="f3-statebox" class="balbox" x="234" y="132" width="192" height="66" rx="9"/>
+            <text id="f3-state-t" class="lbl-sm" x="330" y="158" text-anchor="middle">row</text>
+            <text id="f3-state-v" x="330" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="700" fill="#20201D">v1 = $100</text>
+
+            <path d="M40 224 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="219" text-anchor="end">time &rarr;</text>
+
+            <text class="lbl-sm" x="40" y="252" text-anchor="start">WRITER &middot; UPDATE same row</text>
+            <g id="f3-g-w1"><rect class="chip cB" x="246" y="258" width="186" height="44" rx="8"/><text class="chiptext" x="339" y="285" text-anchor="middle">writer: UPDATE &rarr; $150</text></g>
+            <g id="f3-g-w2"><rect class="chip cB" x="444" y="258" width="176" height="44" rx="8"/><text class="chiptext" x="532" y="285" text-anchor="middle">writer COMMIT (v2)</text></g>
+
+            <text id="f3-verdict" x="330" y="328" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: a lock-based engine would block the writer; MVCC lets reader and writer proceed together</figcaption>
+      </figure>
+
+      <p>The symmetry is exact and worth stating both ways: <strong>readers never block writers</strong> (the report never delays the update) <strong>and writers never block readers</strong> (the update never delays the report). What MVCC does <em>not</em> free is <em>two writers to the same row</em> &mdash; the second <code>UPDATE</code> of account&nbsp;#7 still waits for the first to commit or roll back, because Postgres cannot let both create a successor to the same version at once. That case &mdash; deliberate, row-level blocking &mdash; is exactly what row locks (Lesson 27) are for.</p>
+      <div class="callout note">
+        <span class="k">The boundary of the guarantee</span>
+        <p>"Never block" applies to <em>reads vs writes</em>, not to <em>write vs write on the same row</em>. Two transactions updating <em>different</em> rows never contend; two updating the <em>same</em> row serialize, one waiting on the other. If you find yourself needing readers to block (to reserve a row before updating it), that is a lock you ask for on purpose &mdash; <code>SELECT ... FOR UPDATE</code> &mdash; which is the whole subject of the next lesson.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Reason about it</div>
+      <h2>Reason about it</h2>
+      <p>Put the trade-off on one line: <strong>MVCC buys enormous read/write concurrency by paying in space and cleanup.</strong> Reads and writes stop fighting, dirty reads become impossible, and long reports run beside busy writers &mdash; but every update leaves a corpse, every version costs a visibility check, and someone (VACUUM) must haul the corpses away. Whether that trade is a bargain or a trap comes down to one variable almost entirely in your control: <strong>how long your transactions live.</strong></p>
+      <p>Trace the chain of consequences from a single long transaction and you have the whole operational story of this phase:</p>
+      <ul>
+        <li>A long transaction holds an old snapshot &rarr; that snapshot <strong>pins the xmin horizon</strong>.</li>
+        <li>A pinned horizon means VACUUM <strong>can't reclaim</strong> dead tuples newer than it &rarr; <strong>bloat grows</strong> table-wide.</li>
+        <li>The same held-back horizon <strong>blocks freezing</strong> of old rows &rarr; it nudges you toward <strong>transaction-ID wraparound</strong> risk (Lesson 30).</li>
+        <li>Meanwhile every scan wades through more dead tuples and more visibility checks &rarr; queries get <strong>slower</strong>.</li>
+      </ul>
+      <p>So the practical wisdom is blunt: <strong>keep transactions short, and treat "one giant transaction" and "an idle open transaction" as anti-patterns.</strong> Open late, commit early, never hold a transaction across slow application work or user think-time. Almost every horror story about a Postgres table that ballooned to ten times its live size, or a database that stopped accepting writes, traces back to a transaction that stayed open far too long.</p>
+      <div class="callout">
+        <span class="k">Where this shows up next</span>
+        <p>MVCC is the hinge of this whole phase. <strong>Isolation (L25)</strong> is snapshots as a <em>policy</em> &mdash; <code>REPEATABLE READ</code> is "one snapshot for the transaction," and serialization failures happen when snapshot-based isolation can't safely commit a write. <strong>Locking (L27)</strong> is the other side of the coin: when readers-don't-block-writers isn't what you want and you deliberately <em>do</em> block, with <code>SELECT ... FOR UPDATE</code>. And <strong>VACUUM (L29)</strong> is the bill arriving &mdash; the background machinery that makes MVCC's dead tuples sustainable. Carry one sentence forward: <em>Postgres versions rows and reads by snapshot; that is why it barely locks, and why it must vacuum.</em></p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>Postgres never overwrites a live row &mdash; it keeps versions stamped with <code>xmin</code>/<code>xmax</code>, and each transaction reads the version its snapshot says is valid. That is why readers never block writers and writers never block readers &mdash; and why the price is dead tuples that VACUUM must reclaim.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Version, don't overwrite</b><span>MVCC keeps many versions of each row coexisting; a change adds a new version instead of mutating a cell.</span></div>
+        <div class="tk"><span class="num">02</span><b>xmin / xmax</b><span>Hidden columns: xmin = the xid that created a version, xmax = the xid that removed it (empty while current).</span></div>
+        <div class="tk"><span class="num">03</span><b>Update = delete + insert</b><span>An UPDATE inserts a new tuple and stamps the old one's xmax. The old version lingers as a dead tuple.</span></div>
+        <div class="tk"><span class="num">04</span><b>Snapshots decide</b><span>Visible iff xmin is committed &amp; in-snapshot and xmax is not. Different snapshots see different versions.</span></div>
+        <div class="tk"><span class="num">05</span><b>No dirty reads, ever</b><span>An uncommitted xmin fails the visibility rule, so you can't see another session's in-progress work &mdash; even at READ COMMITTED.</span></div>
+        <div class="tk"><span class="num">06</span><b>Readers ⟂ writers</b><span>Reads and writes on a row never block each other. Only two writers to the same row serialize.</span></div>
+        <div class="tk"><span class="num">07</span><b>Dead tuples &amp; bloat</b><span>Versions no live snapshot can see are dead tuples; they bloat tables and indexes until VACUUM reclaims them.</span></div>
+        <div class="tk"><span class="num">08</span><b>Keep txns short</b><span>A long transaction pins the xmin horizon, starves VACUUM, grows bloat, and risks wraparound. Open late, commit early.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) What do <code>xmin</code> and <code>xmax</code> hold? Trace exactly what an INSERT, an UPDATE, and a DELETE each do to them.<br>
+        (2) State the visibility rule in one sentence. Why does it make a dirty read impossible even at <code>READ COMMITTED</code>?<br>
+        (3) What is a snapshot? How can two concurrent transactions read different values for the same row and both be correct?<br>
+        (4) Why is an <code>UPDATE</code> "a delete plus an insert," and what does that leave behind? What is a HOT update and when does it apply?<br>
+        (5) Spell out the payoff both ways ("readers never block ___; writers never block ___"). Which case does MVCC <em>not</em> free of blocking?<br>
+        (6) A table keeps bloating and won't shrink even though autovacuum runs. What single common cause should you suspect, and which query finds it?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 26 &middot; MVCC: ROW VERSIONS &amp; SNAPSHOTS &middot; interactive edition<br>
+      Original study notes &middot; PostgreSQL 17/18 &middot; readers never block writers, writers never block readers.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+  function relSet(ids,cls){ids.forEach(function(id){var e=_g(id); if(e) e.setAttribute('class','tcell'+(cls?' '+cls:''));});}
+  function f1txt(id,val){var e=_g(id); if(e) e.textContent=val;}
+
+  /* FIG 1 — xmin / xmax row versions over time */
+  var f1cells=['f1-v1-xmin','f1-v1-xmax','f1-v2-xmin','f1-v2-xmax'];
+  makeStepper(_g('fig-xminmax'), [
+    {text:"The heap is empty. An INSERT for account #7 is about to run."},
+    {text:"INSERT writes version v1 and stamps xmin = 100 (the creating xid). xmax is empty — nothing has removed it, so v1 is the live version."},
+    {text:"An UPDATE to $150 does NOT overwrite v1. Postgres inserts a brand-new tuple v2, at ctid (0,2), with xmin = 140."},
+    {text:"The SAME UPDATE then stamps the OLD tuple: v1.xmax = 140. An UPDATE is a delete + insert — v1 is now superseded."},
+    {text:"Two physical tuples, one logical row. A snapshot older than xid 140 still sees v1 ($100); newer snapshots see v2 ($150)."},
+    {text:"Later, a DELETE by xid 160 stamps v2.xmax = 160. INSERT sets xmin, DELETE sets xmax — both versions are now dead, awaiting VACUUM."}
+  ], function(idx){
+    relSet(f1cells,'');
+    var v1=_g('f1-g-v1'), v2=_g('f1-g-v2');
+    f1txt('f1-v1-xmin-t','100'); f1txt('f1-v1-xmax-t','—');
+    f1txt('f1-v2-xmin-t','140'); f1txt('f1-v2-xmax-t','—');
+    v1.style.opacity=.14; v2.style.opacity=.14;
+    var read='';
+    if(idx===0){
+      read="empty heap · INSERT account #7 pending";
+    }else if(idx===1){
+      v1.style.opacity=1; relSet(['f1-v1-xmin'],'kg');
+      read="v1 born: xmin = 100 · xmax = — · live";
+    }else if(idx===2){
+      v1.style.opacity=1; v2.style.opacity=1; relSet(['f1-v2-xmin'],'kg');
+      read="new version v2 inserted: xmin = 140 (not an overwrite)";
+    }else if(idx===3){
+      v1.style.opacity=1; v2.style.opacity=1; f1txt('f1-v1-xmax-t','140'); relSet(['f1-v1-xmax'],'kt');
+      read="old version expired: v1.xmax = 140 · update = delete + insert";
+    }else if(idx===4){
+      v1.style.opacity=1; v2.style.opacity=1; f1txt('f1-v1-xmax-t','140');
+      relSet(['f1-v1-xmin','f1-v1-xmax'],'kt'); relSet(['f1-v2-xmin'],'kg');
+      read="old snapshots → v1 ($100) · newer snapshots → v2 ($150)";
+    }else if(idx===5){
+      v1.style.opacity=1; v2.style.opacity=1; f1txt('f1-v1-xmax-t','140'); f1txt('f1-v2-xmax-t','160');
+      relSet(['f1-v1-xmin','f1-v1-xmax'],'kt'); relSet(['f1-v2-xmax'],'kt');
+      read="both versions dead → reclaimable by VACUUM";
+    }
+    _g('f1-read').textContent=read;
+  });
+
+  /* FIG 2 — two snapshots see different versions */
+  makeStepper(_g('fig-snap'), [
+    {text:"Account #7 is $100 — version v1, created by xid 100. Two transactions will each take a snapshot, but at different moments."},
+    {text:"T1 runs BEGIN and records its snapshot. The UPDATE by xid 140 has not committed yet, so 140 is NOT in T1's snapshot."},
+    {text:"A writer commits UPDATE $100 → $150 as xid 140. Now v1 gets xmax = 140 and a freshly committed v2 = $150 exists in the heap."},
+    {text:"T2 runs BEGIN now — after xid 140 committed — so 140 IS in T2's snapshot."},
+    {text:"T1 reads: a version is visible iff its xmin is committed & in-snapshot and its xmax is not. v2.xmin = 140 is not in T1's snapshot → v2 invisible; v1 visible → T1 sees $100."},
+    {text:"T2 reads the SAME row at the same instant: 140 is in-snapshot → v2 visible; v1's xmax = 140 is in-snapshot → v1 invisible → T2 sees $150. Two snapshots, two versions, zero blocking."}
+  ], function(idx){
+    var a1=_g('f2-g-a1'),a2=_g('f2-g-a2'),b1=_g('f2-g-b1'),b2=_g('f2-g-b2'),mk=_g('f2-g-mark');
+    [a1,a2,b1,b2,mk].forEach(function(g){g.style.opacity=.18;});
+    var box=_g('f2-statebox'); box.setAttribute('class','balbox');
+    var st='', sv='', vd='', vc='#5A574E';
+    if(idx===0){ st="heap"; sv="v1 = $100"; }
+    else if(idx===1){ a1.style.opacity=1; st="T1 snapshot"; sv="140 not committed"; }
+    else if(idx===2){ a1.style.opacity=1; mk.style.opacity=1; st="commit xid 140"; sv="v1.xmax=140 · v2=$150"; }
+    else if(idx===3){ a1.style.opacity=1; mk.style.opacity=1; b1.style.opacity=1; st="T2 snapshot"; sv="140 in-snapshot"; }
+    else if(idx===4){ a1.style.opacity=1; a2.style.opacity=1; mk.style.opacity=1; b1.style.opacity=1;
+      box.setAttribute('class','balbox kok'); st="T1 sees"; sv="$100";
+      vd="T1's snapshot predates xid 140 → old version"; vc="#3f7a2e"; }
+    else if(idx===5){ a1.style.opacity=1; a2.style.opacity=1; mk.style.opacity=1; b1.style.opacity=1; b2.style.opacity=1;
+      box.setAttribute('class','balbox kok'); st="same row"; sv="T1 $100 · T2 $150";
+      vd="✓ different snapshots, different versions — neither blocked"; vc="#3f7a2e"; }
+    _g('f2-state-t').textContent=st; _g('f2-state-v').textContent=sv;
+    var v=_g('f2-verdict'); v.textContent=vd; v.setAttribute('fill',vc);
+  });
+
+  /* FIG 3 — readers don't block writers */
+  makeStepper(_g('fig-noblock'), [
+    {text:"Account #7 = $100 (version v1). A long analytics report is about to read it while a writer updates the very same row."},
+    {text:"The report runs BEGIN and a long SELECT, pinning a snapshot to v1 = $100. It will run for many seconds."},
+    {text:"Mid-report, a writer wants to UPDATE the same row. In a strict lock-based database the writer would BLOCK here, waiting for the reader — throughput collapses."},
+    {text:"Under Postgres MVCC the writer does NOT wait: it creates a brand-new version v2 = $150 alongside v1. Writers never block readers."},
+    {text:"The writer COMMITs v2. The reader, still on its original snapshot, keeps seeing $100 — readers never block writers, and neither waited on the other."},
+    {text:"When the report finishes, a fresh SELECT sees v2 = $150. The price of this concurrency: v1 now lingers as a dead tuple until VACUUM reclaims it (Lesson 29)."}
+  ], function(idx){
+    var r1=_g('f3-g-r1'),r2=_g('f3-g-r2'),w1=_g('f3-g-w1'),w2=_g('f3-g-w2');
+    [r1,r2,w1,w2].forEach(function(g){g.style.opacity=.18;});
+    var box=_g('f3-statebox'); box.setAttribute('class','balbox');
+    var st='',sv='',vd='',vc='#5A574E';
+    if(idx===0){ st="row"; sv="v1 = $100"; }
+    else if(idx===1){ r1.style.opacity=1; st="reader"; sv="snapshot @ $100"; }
+    else if(idx===2){ r1.style.opacity=1; w1.style.opacity=1; box.setAttribute('class','balbox kbad');
+      st="lock-based DB"; sv="writer WAITS ✗"; vd="a pure locking engine would block the writer behind the reader"; vc="#B0532F"; }
+    else if(idx===3){ r1.style.opacity=1; w1.style.opacity=1; box.setAttribute('class','balbox kok');
+      st="Postgres MVCC"; sv="writer writes v2"; vd="no wait — a new version is created instead of overwriting"; vc="#3f7a2e"; }
+    else if(idx===4){ r1.style.opacity=1; w1.style.opacity=1; w2.style.opacity=1; r2.style.opacity=1;
+      box.setAttribute('class','balbox kok'); st="both proceed"; sv="reader $100 · writer v2";
+      vd="✓ readers never block writers, writers never block readers"; vc="#3f7a2e"; }
+    else if(idx===5){ r1.style.opacity=1; w1.style.opacity=1; w2.style.opacity=1; r2.style.opacity=1;
+      box.setAttribute('class','balbox kok'); st="after report"; sv="next read → $150";
+      vd="cost: v1 is now a dead tuple → VACUUM (L29)"; vc="#5A574E"; }
+    _g('f3-state-t').textContent=st; _g('f3-state-v').textContent=sv;
+    var v=_g('f3-verdict'); v.textContent=vd; v.setAttribute('fill',vc);
+  });
+</script>
+</body>
+</html>

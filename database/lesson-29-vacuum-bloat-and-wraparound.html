@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 29 — VACUUM, Bloat &amp; Wraparound (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">VACUUM, Bloat &amp; Wraparound</div>
+    <h4>The price of MVCC</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>MVCC leaves garbage</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>What VACUUM actually does &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Autovacuum &amp; the modern engine</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Bloat: the slow leak &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Wraparound — never hit it &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Reason about it</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">29</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>VACUUM, Bloat &amp; Wraparound</h1>
+      <p class="lede">MVCC (Lesson 26) buys you a beautiful property — readers never block writers — but it charges rent. Every <code>UPDATE</code> and <code>DELETE</code> leaves an old row version behind as a <em>dead tuple</em>, and someone has to clean up. That someone is <strong>VACUUM</strong>. This lesson is the maintenance side of the concurrency you already learned: what dead tuples cost, how autovacuum reclaims them, how a single long transaction turns that garbage into runaway <em>bloat</em>, and the one failure you must never reach — transaction-ID <em>wraparound</em>.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written for engineers who want database depth that pays off in interviews and on call. Examples use <strong>PostgreSQL</strong> (facts current to <strong>PG&nbsp;17/18</strong>). Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a concept lesson — <strong>no SQL drill</strong>; it builds the mental model of the maintenance MVCC demands, and closes Phase&nbsp;5.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The trade you signed</div>
+      <h2>MVCC leaves garbage — on purpose</h2>
+      <p>Back in Lesson 26 you learned Postgres's trick for concurrency: it never overwrites a row in place. Instead, every row version carries two hidden system columns — <code>xmin</code> (the transaction that <em>created</em> this version) and <code>xmax</code> (the transaction that <em>deleted or superseded</em> it). An <code>INSERT</code> sets <code>xmin</code>. A <code>DELETE</code> sets <code>xmax</code>. And an <code>UPDATE</code> is really a <strong>delete-plus-insert</strong>: it stamps <code>xmax</code> on the old version and writes a brand-new version beside it. The old version is left lying there.</p>
+      <p>That leftover is a <strong>dead tuple</strong>: a row version that no current or future snapshot can ever see again. It is invisible to queries — but it is not gone. It still occupies its slot on the page, and every sequential scan still has to read past it. This is the deal MVCC struck on your behalf:</p>
+      <div class="callout">
+        <span class="k">The bargain</span>
+        <p>Because writers create new versions instead of overwriting old ones, a reader can keep reading its own consistent snapshot while a writer changes the same row — <strong>readers never block writers, writers never block readers</strong>. The price is that the old versions pile up as dead tuples. MVCC doesn't make the garbage disappear; it just defers cleanup to a background janitor so your foreground queries stay fast and non-blocking.</p>
+      </div>
+      <p>So a healthy Postgres table is <em>always</em> generating dead tuples as it runs — that is normal and expected. The question is never "how do I avoid dead tuples?" (you can't, short of never updating anything) but "is the janitor keeping up with them?" When it keeps up, you never think about this. When it falls behind, dead tuples accumulate faster than they are reclaimed, and you get the two failure modes this lesson is about: <strong>bloat</strong> (wasted space and slow scans) and, in the worst case, <strong>transaction-ID wraparound</strong> (a shutdown-your-writes emergency). The janitor is <code>VACUUM</code>, and everything else follows from understanding exactly what it does.</p>
+      <div class="callout note">
+        <span class="k">Where the dead ones come from</span>
+        <p>An <code>UPDATE</code> that changes even one column writes a whole new tuple and marks the old one dead — this is why a table you only ever <code>UPDATE</code> (never <code>INSERT</code>/<code>DELETE</code>) still bloats. A <code>DELETE</code> marks its row dead but leaves it on the page until vacuum comes. Even a rolled-back <code>INSERT</code> leaves a dead tuple. <em>HOT updates</em> (Lesson 26) soften the blow when no indexed column changed, but they don't eliminate dead tuples — they just avoid churning the indexes.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The janitor's job</div>
+      <h2>What VACUUM actually does &#9656;</h2>
+      <p>The single most common misconception about <code>VACUUM</code> is that it "shrinks the table" or "gives space back to the disk." It does <strong>not</strong> — and understanding what it does instead is the key to this whole lesson. A plain <code>VACUUM</code> works page by page: it finds the dead tuples, removes their index entries, and marks their line pointers as <strong>reusable</strong>. The space stays inside the table file; new rows will simply be written into those freed slots. Watch one heap page get vacuumed:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-vac">
+          <svg viewBox="0 0 660 360" role="img" aria-label="Interactive: a heap page with live and dead tuples; VACUUM marks the dead slots reusable and flips the page all-visible">
+            <text class="lbl-sm" x="240" y="52" text-anchor="middle">heap page &mdash; one 8 KB block</text>
+            <rect x="50" y="64" width="380" height="262" rx="6" fill="none" stroke="#D2C7B0" stroke-width="1.4"/>
+            <rect class="tcell" id="f1-t1" x="68" y="84" width="344" height="28"/><text class="tval" x="80" y="103">Ana v2      (xmin 240)</text>
+            <rect class="tcell" id="f1-t2" x="68" y="120" width="344" height="28"/><text class="tval" x="80" y="139">Ana v1      (xmax 240)</text>
+            <rect class="tcell" id="f1-t3" x="68" y="156" width="344" height="28"/><text class="tval" x="80" y="175">Ravi        (xmin 118)</text>
+            <rect class="tcell" id="f1-t4" x="68" y="192" width="344" height="28"/><text class="tval" x="80" y="211">Leo         (xmax 205 del)</text>
+            <rect class="tcell" id="f1-t5" x="68" y="228" width="344" height="28"/><text class="tval" x="80" y="247">Mia         (xmin 250)</text>
+            <rect class="tcell" id="f1-t6" x="68" y="264" width="344" height="28"/><text class="tval" x="80" y="283">Sam v1      (xmax 251)</text>
+            <text class="lbl-sm" x="545" y="138" text-anchor="middle">visibility map</text>
+            <rect class="balbox" id="f1-vm" x="470" y="150" width="150" height="64" rx="9"/>
+            <text class="chiptext" id="f1-vmt" x="545" y="187" text-anchor="middle" font-size="12">not all-visible</text>
+            <text class="lbl-sm" x="545" y="234" text-anchor="middle">one bit per page</text>
+            <text class="readout" id="f1-read" x="240" y="350" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: VACUUM marks dead-tuple space reusable <em>in place</em> and flips the page all-visible; it does not return space to the OS</figcaption>
+      </figure>
+
+      <p>Notice what changed and what didn't. The dead tuples' space became <em>reusable</em>, but the file is exactly as big as before — Postgres reclaims space <strong>for the table's own future rows</strong>, not for the operating system. In steady state that is fine: a table that churns rows reaches an equilibrium size and reuses its own freed space forever. Vacuum also did two more valuable things on that page: it updated the <strong>visibility map</strong> (the per-page all-visible bit that powers index-only scans, Lesson 19) and the free space map, and it <strong>froze</strong> old rows — a mechanism we return to in s4. Run a vacuum by hand like this:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">VACUUM</span> (<span class="kw">VERBOSE</span>, <span class="kw">ANALYZE</span>) orders;   <span class="cm">-- reclaim dead tuples + refresh planner stats</span>
+<span class="cm">-- Different, heavy tool — rarely what you want:</span>
+<span class="kw">VACUUM</span> <span class="kw">FULL</span> orders;                 <span class="cm">-- rewrites the whole table, ACCESS EXCLUSIVE lock</span></code></pre>
+      <p>That second command is a different beast. <code>VACUUM FULL</code> is the built-in that returns bloated space to the OS in bulk (plain VACUUM only hands back completely-empty pages at the very <em>end</em> of the table, never the dead space scattered through its interior) — and it does so by <strong>rewriting the entire table into a fresh file</strong> under an <code>ACCESS EXCLUSIVE</code> lock, which blocks every read and write on the table for the whole rewrite. On a live, hot table that is an outage. Reach for it only in a maintenance window on a table that bloated badly once and won't again; for ongoing health, plain (auto)vacuum is the tool.</p>
+      <div class="callout tip">
+        <span class="k">The one-line summary of VACUUM</span>
+        <p>Plain <code>VACUUM</code> = "make dead space reusable <em>within</em> the table, update the visibility/free-space maps, freeze old rows" — cheap, concurrent, runs constantly. <code>VACUUM FULL</code> = "rewrite the table to give space back to the OS" — expensive, takes an exclusive lock, never on a live table. Confusing the two is the classic junior mistake: someone sees bloat, runs <code>VACUUM FULL</code> on production at noon, and takes the app down.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The automatic janitor</div>
+      <h2>Autovacuum, and the modern engine</h2>
+      <p>You almost never run <code>VACUUM</code> by hand. A background process called <strong>autovacuum</strong> watches every table and runs <code>VACUUM</code> + <code>ANALYZE</code> for you when a table has changed enough to be worth it. "Enough" is a simple, tunable formula: autovacuum fires a table when its dead-tuple count crosses</p>
+      <p class="codetag">threshold</p>
+      <pre class="code"><code><span class="cm">-- autovacuum triggers a table when:</span>
+n_dead_tup &gt; autovacuum_vacuum_threshold
+           + autovacuum_vacuum_scale_factor * reltuples</code></pre>
+      <p>The <strong>scale factor</strong> is the important knob. It defaults to <code>0.2</code> — 20% of the table must be dead before autovacuum bothers. That's a sensible default for a small table, but on a 500-million-row table, 20% is 100 million dead tuples: an ocean of bloat before cleanup even starts. So the number-one autovacuum tuning move is to make big or hot tables far more eager:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- make autovacuum aggressive on a large, write-heavy table</span>
+<span class="kw">ALTER</span> <span class="kw">TABLE</span> events <span class="kw">SET</span> (
+  autovacuum_vacuum_scale_factor = <span class="lit">0.02</span>,   <span class="cm">-- 2% dead, not 20%</span>
+  autovacuum_vacuum_threshold    = <span class="lit">1000</span>
+);</code></pre>
+      <p>The other thing worth knowing is that autovacuum got dramatically better in the exact versions this course targets — this is a favorite "do you keep up?" interview angle:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>PG 17 — TIDStore</h4>
+          <ul>
+            <li>Replaced the old fixed dead-tuple <strong>array</strong> with <strong>TIDStore</strong>, an adaptive radix tree.</li>
+            <li>Removed the old <strong>1&nbsp;GB</strong> <code>maintenance_work_mem</code> cap on how many dead tuples one pass could track.</li>
+            <li>So vacuum no longer makes <strong>repeated index passes</strong> on huge tables — one pass, far less I/O.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>PG 18 — faster &amp; smarter</h4>
+          <ul>
+            <li><strong>Async-I/O</strong> heap scans during vacuum — reads overlap instead of stalling.</li>
+            <li><strong>On-the-fly</strong> autovacuum worker tuning without a restart.</li>
+            <li><code>autovacuum_vacuum_max_threshold</code> — a hard dead-tuple cap so <strong>huge</strong> tables vacuum sooner, regardless of scale factor.</li>
+            <li><strong>Eager freezing</strong> of all-visible pages — heads off wraparound (s4).</li>
+          </ul>
+        </div>
+      </div>
+      <p>The operational rule that falls out of all this is blunt: <strong>never turn autovacuum off.</strong> Every so often an engineer disables it to "stop the load spikes," the dead tuples stop being reclaimed, and a week later the table is triple its size and creeping toward wraparound. If autovacuum is causing pain, the fix is to make it run <em>more</em> often in smaller bites (raise <code>autovacuum_max_workers</code>, lower the per-table scale factor, tune the cost-delay), never to switch off the one process keeping the table alive. You can always watch what it's doing:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> relname, n_live_tup, n_dead_tup, last_autovacuum
+<span class="kw">FROM</span> pg_stat_user_tables
+<span class="kw">ORDER</span> <span class="kw">BY</span> n_dead_tup <span class="kw">DESC</span>;</code></pre>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> When the janitor can't win</div>
+      <h2>Bloat: the slow leak &#9656;</h2>
+      <p>Bloat is what happens when dead tuples accumulate faster than vacuum removes them. There are two ways to get there. The first is brute force: a write rate so high that autovacuum simply can't keep pace (the s2 tuning is the answer). The second is subtler, more common, and the one that catches people — a single <strong>long-running transaction</strong>. Here is the crucial rule that ties it to MVCC: vacuum may only remove a dead tuple if it is dead to <em>every</em> possible snapshot — that is, older than the <strong>xmin horizon</strong>, the oldest snapshot any active transaction still holds. One old transaction that stays open pins that horizon in the past, and <em>nothing</em> newer than it can be cleaned — even in tables that transaction never touched. Watch it happen:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-bloat">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Interactive: a long-running transaction pins the xmin horizon while the app writes, so dead tuples pile into bloat until the transaction ends">
+            <text class="lbl-sm" x="48" y="44" text-anchor="start">SESSION A &middot; long-running txn</text>
+            <g id="f2-a1" style="opacity:.18"><rect class="chip cA" x="48" y="52" width="168" height="40" rx="8"/><text class="chiptext" x="132" y="77" text-anchor="middle">BEGIN (report)</text></g>
+            <g id="f2-a2" style="opacity:.18"><rect class="chip cA" x="246" y="52" width="168" height="40" rx="8"/><text class="chiptext" x="330" y="77" text-anchor="middle">&hellip;still open (idle)</text></g>
+            <g id="f2-a3" style="opacity:.18"><rect class="chip cA" x="452" y="52" width="160" height="40" rx="8"/><text class="chiptext" x="532" y="77" text-anchor="middle">COMMIT / kill</text></g>
+            <text class="lbl-sm" x="330" y="126" text-anchor="middle">dead tuples on the table</text>
+            <rect class="balbox" id="f2-box" x="244" y="134" width="172" height="54" rx="9"/>
+            <text id="f2-bal" x="330" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#20201D">0</text>
+            <path d="M40 208 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="203" text-anchor="end">time &#8594;</text>
+            <text class="lbl-sm" x="48" y="224" text-anchor="start">SESSION B &middot; app writes + autovacuum</text>
+            <g id="f2-b1" style="opacity:.18"><rect class="chip cB" x="48" y="232" width="168" height="40" rx="8"/><text class="chiptext" x="132" y="257" text-anchor="middle">UPDATE &times;N &#8594; dead</text></g>
+            <g id="f2-b2" style="opacity:.18"><rect class="chip cB" x="246" y="232" width="168" height="40" rx="8"/><text class="chiptext" x="330" y="257" text-anchor="middle">autovacuum runs</text></g>
+            <g id="f2-b3" style="opacity:.18"><rect class="chip cB" x="442" y="232" width="176" height="40" rx="8"/><text class="chiptext" x="530" y="257" text-anchor="middle">autovacuum reclaims</text></g>
+            <text id="f2-verdict" x="330" y="312" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: one open transaction holds the xmin horizon, so dead tuples can't be removed — bloat climbs until it commits</figcaption>
+      </figure>
+
+      <p>Read the shape of that story: dead tuples climb the whole time A is open, autovacuum runs but is powerless to remove anything younger than A's pinned horizon, and the pile only drains after A finally commits (or is killed) and the horizon lurches forward. This is why <strong>"idle in transaction"</strong> is a phrase that makes DBAs wince — an app that opens a transaction, does one query, then sits waiting on a slow external API call while never committing, can bloat an entire database. And notice the sting in the tail: even after the cleanup, the <em>file</em> stayed its bloated size (only <code>VACUUM FULL</code> would shrink it). Diagnose it by finding the oldest transaction and the most-bloated tables together:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- who is holding the horizon open?</span>
+<span class="kw">SELECT</span> pid, state, <span class="fn">now</span>() - xact_start <span class="kw">AS</span> txn_age, query
+<span class="kw">FROM</span> pg_stat_activity
+<span class="kw">WHERE</span> state <span class="kw">IS</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">AND</span> state &lt;&gt; <span class="lit">'idle'</span>
+<span class="kw">ORDER</span> <span class="kw">BY</span> xact_start;      <span class="cm">-- oldest transaction first</span>
+
+<span class="cm">-- and how bloated is each table? (dead as a share of live)</span>
+<span class="kw">SELECT</span> relname, n_live_tup, n_dead_tup,
+       <span class="fn">round</span>(n_dead_tup * <span class="lit">100.0</span>
+         / <span class="fn">nullif</span>(n_live_tup + n_dead_tup, <span class="lit">0</span>), <span class="lit">1</span>) <span class="kw">AS</span> dead_pct
+<span class="kw">FROM</span> pg_stat_user_tables
+<span class="kw">ORDER</span> <span class="kw">BY</span> n_dead_tup <span class="kw">DESC</span>;</code></pre>
+      <div class="callout note">
+        <span class="k">Bloat is a symptom, the horizon is the cause</span>
+        <p>When you see rising bloat, resist the urge to <code>VACUUM FULL</code> the symptom away. Look first for the cause: a transaction that's been open for hours (kill it, and fix the app so it commits promptly), or a write rate the scale factor is too lazy for (tune s2). Set <code>idle_in_transaction_session_timeout</code> so a forgotten transaction can't hold the horizon forever. Fix the source and the bloat stops growing; only then, if a table is already huge, consider a one-time rewrite in a maintenance window.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The emergency</div>
+      <h2>Transaction-ID wraparound — the one you must never hit &#9656;</h2>
+      <p>This is the failure that takes databases offline, and it comes straight out of the same <code>xmin</code>/<code>xmax</code> machinery. Transaction IDs are only <strong>32-bit</strong>, so they run out after about <strong>4 billion</strong> and <em>wrap around</em> back to the start. Visibility is decided by comparing xids — "is this row's <code>xmin</code> in the past relative to my snapshot?" — and in a wrapping counter, "past" is only the most recent ~2 billion values. So a row that stays untouched while 2 billion newer transactions go by would suddenly have an <code>xmin</code> that looks like it's in the <em>future</em>, and the row would silently vanish from every query. The defense is <strong>freezing</strong>: marking an old row as permanently visible so its original <code>xmin</code> no longer matters. Watch the counter climb — and what stops it:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-wrap">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Interactive: the age of the oldest unfrozen xid climbing toward the wraparound limit, reset by freezing, ending in a read-only stop if ignored">
+            <text class="lbl-sm" x="330" y="28" text-anchor="middle">age of the oldest unfrozen xid &#8594; toward the ~2.1B wraparound limit</text>
+            <g id="f3-c1" style="opacity:.18"><rect class="chip cB" x="40" y="46" width="176" height="34" rx="8"/><text class="chiptext" x="128" y="68" text-anchor="middle">writes advance the xid</text></g>
+            <g id="f3-c2" style="opacity:.18"><rect class="chip cA" x="232" y="46" width="196" height="34" rx="8"/><text class="chiptext" x="330" y="68" text-anchor="middle">anti-wraparound vacuum</text></g>
+            <g id="f3-c3" style="opacity:.18"><rect class="chip cBad" x="444" y="46" width="176" height="34" rx="8"/><text class="chiptext" x="532" y="68" text-anchor="middle">ignored &#8594; READ-ONLY</text></g>
+            <rect x="60" y="150" width="300" height="26" fill="#E6F1DF"/>
+            <rect x="360" y="150" width="140" height="26" fill="#F5E7C7"/>
+            <rect x="500" y="150" width="100" height="26" fill="#EFC9BB"/>
+            <rect x="60" y="150" width="540" height="26" rx="6" fill="none" stroke="#D2C7B0" stroke-width="1.4"/>
+            <text class="lbl-sm" x="60" y="194" text-anchor="start">0</text>
+            <text class="lbl-sm" x="360" y="194" text-anchor="middle">freeze_max_age (~200M)</text>
+            <text class="lbl-sm" x="600" y="194" text-anchor="end">~2.1B &#8594; stop</text>
+            <g id="f3-ptr" transform="translate(0,0)"><path d="M60 148 l-7 -15 l14 0 z" fill="#B0532F"/><line x1="60" y1="148" x2="60" y2="176" stroke="#B0532F" stroke-width="2"/></g>
+            <text class="lbl-sm" x="330" y="222" text-anchor="middle">age of oldest unfrozen xid</text>
+            <rect class="balbox" id="f3-box" x="244" y="230" width="172" height="52" rx="9"/>
+            <text id="f3-age" x="330" y="264" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#20201D">50M</text>
+            <text id="f3-verdict" x="330" y="312" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: freezing resets the oldest-xid age; if freezing can't keep up, Postgres stops accepting writes to protect your data</figcaption>
+      </figure>
+
+      <p>The good news is that this is almost entirely automatic and almost never hit — Postgres runs an <strong>anti-wraparound autovacuum</strong> that is deliberately aggressive and, unlike a normal vacuum, <strong>non-cancelable</strong> (it will not politely step aside for your DDL). It freezes old rows long before the counter is anywhere near dangerous. You only reach the cliff if something has been actively sabotaging freezing for a long time — and it's the same two culprits as bloat: <strong>autovacuum disabled</strong>, or a <strong>long-running transaction</strong> holding the horizon so old rows can't be frozen. If freezing still can't catch up, Postgres does the only safe thing: it <strong>stops accepting writes and goes read-only</strong>, rather than let a wrapped xid corrupt your data. Recovery means letting vacuum finish. Monitor the age so you never get close:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- how close is each database to wraparound? higher age = more urgent</span>
+<span class="kw">SELECT</span> datname, <span class="fn">age</span>(datfrozenxid) <span class="kw">AS</span> xid_age
+<span class="kw">FROM</span> pg_database
+<span class="kw">ORDER</span> <span class="kw">BY</span> xid_age <span class="kw">DESC</span>;   <span class="cm">-- alert well before 2 billion</span></code></pre>
+      <div class="callout tip">
+        <span class="k">The whole risk in one sentence</span>
+        <p>Wraparound is not really a separate problem — it is <em>bloat's evil twin</em>, caused by the same two things (autovacuum off, or a long transaction pinning the horizon) but with a far worse ending: not a slow table, but a database that refuses writes. Keep autovacuum on and keep transactions short, and you will never meet it. PG18's eager freezing of all-visible pages pushes the danger even further away.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Make it stick</div>
+      <h2>Reason about it: the operational discipline</h2>
+      <p>Step back and notice how tightly this whole lesson coils around <em>two</em> root causes. Bloat and wraparound look like different problems — one is wasted space, the other is a database-halting emergency — but trace each to its source and you find the same two hands on the wheel: <strong>autovacuum not running enough</strong>, and <strong>transactions staying open too long</strong>. Fix those two things and you have solved 90% of Postgres maintenance before it happens. Let's reason through the discipline.</p>
+      <p><strong>First, never disable autovacuum, and tune it to your write rate.</strong> The default 20% scale factor is fine for a small table and negligent for a large hot one. If a table is churning millions of rows, tell autovacuum to wake at 2% dead, not 20% — smaller, more frequent passes that never let dead tuples ocean up. If autovacuum is causing load spikes, the answer is more workers and gentler cost-delay, never the off switch. On PG 17/18 the engine does far more of this well on its own (TIDStore's single index pass, PG18's max-threshold and eager freezing), but the scale-factor tuning is still yours to own.</p>
+      <p><strong>Second — and this is the one that pays off everywhere — keep transactions short.</strong> A long transaction is the single most destructive thing you can do to a Postgres instance, because it pins the xmin horizon and thereby blocks <em>both</em> dead-tuple cleanup (bloat) <em>and</em> freezing (wraparound) across the whole database, even in tables it never reads. The classic villain is "idle in transaction": code that runs <code>BEGIN</code>, does a little work, then holds the transaction open across a slow HTTP call or a user's think-time. Set <code>idle_in_transaction_session_timeout</code> as a guardrail, and design so transactions do their work and commit.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- the guardrail: don't let a forgotten transaction pin the horizon</span>
+<span class="kw">SET</span> idle_in_transaction_session_timeout = <span class="lit">'30s'</span>;
+
+<span class="cm">-- NEVER do this on a real system:</span>
+<span class="kw">ALTER</span> <span class="kw">TABLE</span> orders <span class="kw">SET</span> (autovacuum_enabled = <span class="lit">false</span>);  <span class="cm">-- bloat + wraparound await</span></code></pre>
+      <p><strong>Third, monitor two numbers and you'll sleep well:</strong> the <em>dead-tuple percentage</em> per table (the <code>pg_stat_user_tables</code> query from s3 — a table trending past ~20% dead that isn't shrinking means autovacuum is losing) and the <em>datfrozenxid age</em> per database (the <code>pg_database</code> query from s4 — alert long before 2 billion). Two dashboards, and the two failure modes of this lesson announce themselves weeks before they bite.</p>
+      <div class="callout">
+        <span class="k">Where this shows up next</span>
+        <p>You've now closed the loop on MVCC: <strong>Lesson 26</strong> explained <em>why</em> the dead tuples exist (versioning is what lets readers and writers not block each other), and this lesson explained <em>how</em> they're cleaned up and what happens when cleanup falls behind. The visibility map that vacuum maintains is exactly what makes <strong>index-only scans</strong> (Lesson 19) fast — vacuum is a performance feature, not just hygiene. And the monitoring instinct here — watch dead-tuple % and xid age, alert early — is the opening move of <strong>Phase 7, Operations &amp; Reliability</strong>, where autovacuum tuning, the WAL, and health metrics become a first-class discipline. That's the road out of Phase 5.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>MVCC keeps concurrency non-blocking by leaving old row versions behind as dead tuples, and VACUUM is the janitor that reclaims them — a janitor that only two things can defeat, a lazy autovacuum and a long-running transaction, which is why bloat and wraparound share the exact same cure.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Dead tuples are normal</b><span>Every UPDATE (delete+insert) and DELETE leaves an old row version. A healthy table always makes them; the question is whether cleanup keeps up.</span></div>
+        <div class="tk"><span class="num">02</span><b>VACUUM reclaims in place</b><span>It marks dead space reusable <em>within</em> the table, updates the visibility &amp; free-space maps, and freezes old rows. It does not shrink the file.</span></div>
+        <div class="tk"><span class="num">03</span><b>VACUUM FULL is the heavy one</b><span>The one that returns bulk bloat to the OS — by rewriting the whole table under an ACCESS EXCLUSIVE lock. Never on a live table.</span></div>
+        <div class="tk"><span class="num">04</span><b>Autovacuum, tuned</b><span>Fires at threshold + scale_factor &times; rows. The 20% default is too lazy for big tables — drop the scale factor to ~2%. Never disable it.</span></div>
+        <div class="tk"><span class="num">05</span><b>PG 17/18 engine</b><span>TIDStore killed the 1&nbsp;GB cap and repeated index passes; PG18 adds async-I/O vacuum, a hard max-threshold, and eager freezing.</span></div>
+        <div class="tk"><span class="num">06</span><b>Bloat = cleanup losing</b><span>Dead tuples outrun vacuum — from a high write rate, or a long transaction pinning the xmin horizon so nothing newer can be removed.</span></div>
+        <div class="tk"><span class="num">07</span><b>Wraparound = must-never</b><span>32-bit xids wrap at ~4B; old rows must be FROZEN or vanish. Anti-wraparound vacuum is aggressive; ignored, Postgres goes read-only.</span></div>
+        <div class="tk"><span class="num">08</span><b>One cure, two failures</b><span>Keep autovacuum on and tuned; keep transactions short. Monitor dead-tuple % and datfrozenxid age. That's the whole discipline.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Why does an <code>UPDATE</code> that changes one column create a dead tuple? What are <code>xmin</code> and <code>xmax</code>?<br>
+        (2) What three things does a plain <code>VACUUM</code> do to a page — and what does it explicitly <em>not</em> do? How is <code>VACUUM FULL</code> different, and why is it dangerous on a live table?<br>
+        (3) Write the autovacuum trigger formula. Why is the default 20% scale factor a problem on a 500-million-row table, and what do you change?<br>
+        (4) Explain how a single long-running transaction causes bloat in tables it never touches. What is the xmin horizon?<br>
+        (5) Why are transaction IDs a wraparound risk, and what is "freezing"? What does Postgres do if anti-wraparound vacuum still can't keep up?<br>
+        (6) Bloat and wraparound share two root causes — name both, and name the two numbers you'd monitor to catch each early.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 29 &middot; VACUUM, BLOAT &amp; WRAPAROUND &middot; interactive edition<br>
+      Closes Phase 5 &middot; the maintenance MVCC demands — vacuum, or drown in dead tuples.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — what VACUUM does to a page */
+  function relSet(ids,cls){ids.forEach(function(id){var e=_g(id); if(e) e.setAttribute('class','tcell'+(cls?' '+cls:''));});}
+  makeStepper(_g('fig-vac'), [
+    {text:"A heap page packs tuples into 8 KB. Six slots here — but past UPDATEs and DELETEs have left old row versions behind.",
+      kg:[], kt:[], kb:[], vm:'', vmt:'not all-visible', read:'6 tuples on the page — several are stale versions'},
+    {text:"Three are DEAD: an UPDATE writes a NEW version and marks the old one dead (xmax set); a DELETE marks its row dead. No snapshot can see them.",
+      kg:['f1-t1','f1-t3','f1-t5'], kt:['f1-t2','f1-t4','f1-t6'], kb:[], vm:'', vmt:'not all-visible', read:'green = live · rust = dead (no snapshot can see it)'},
+    {text:"Dead tuples still occupy space, and every sequential scan must read past them. Multiply across a hot table and you get bloat.",
+      kg:['f1-t1','f1-t3','f1-t5'], kt:['f1-t2','f1-t4','f1-t6'], kb:[], vm:'', vmt:'not all-visible', read:'dead tuples = wasted space + slower scans (bloat)'},
+    {text:"VACUUM scans the page, removes the dead tuples' index entries, and marks their line pointers REUSABLE.",
+      kg:['f1-t1','f1-t3','f1-t5'], kt:[], kb:['f1-t2','f1-t4','f1-t6'], vm:'', vmt:'not all-visible', read:'VACUUM: dead slots → reusable (index entries removed)'},
+    {text:"Crucially, that space stays inside the file — new rows will reuse those slots. VACUUM does NOT shrink the file or return space to the OS.",
+      kg:['f1-t1','f1-t3','f1-t5'], kt:[], kb:['f1-t2','f1-t4','f1-t6'], vm:'', vmt:'not all-visible', read:'space is reusable, NOT returned to the OS'},
+    {text:"With no live dead tuples and all remaining rows visible to everyone, VACUUM flips the page's visibility-map bit to all-visible and freezes old rows.",
+      kg:['f1-t1','f1-t3','f1-t5'], kt:[], kb:['f1-t2','f1-t4','f1-t6'], vm:'kok', vmt:'ALL-VISIBLE', read:'VM all-visible → index-only scans · old rows frozen'}
+  ], function(idx,s){
+    relSet(['f1-t1','f1-t2','f1-t3','f1-t4','f1-t5','f1-t6'],'');
+    relSet(s.kg||[],'kg');
+    relSet(s.kt||[],'kt');
+    relSet(s.kb||[],'kb');
+    var vm=_g('f1-vm'); vm.setAttribute('class','balbox'+(s.vm?' '+s.vm:''));
+    _g('f1-vmt').textContent=s.vmt;
+    _g('f1-vmt').setAttribute('fill', s.vm==='kok'?'#3f7a2e':'#20201D');
+    _g('f1-read').textContent=s.read;
+  });
+
+  /* FIG 2 — bloat under a long-running transaction */
+  makeStepper(_g('fig-bloat'), [
+    {text:"A reporting transaction opens with BEGIN — and pins the xmin horizon at the moment it started. As long as it stays open, that horizon can't move.",
+      lit:['f2-a1'], bal:'0', balc:'', v:'A begins — pins the xmin horizon'},
+    {text:"Meanwhile the app runs heavy UPDATEs. Each one leaves a dead tuple. The dead-tuple count on the table climbs.",
+      lit:['f2-a1','f2-a2','f2-b1'], bal:'90k', balc:'', v:'app UPDATEs → dead tuples pile up ↑'},
+    {text:"Autovacuum wakes and runs — but it may only remove tuples dead to EVERY snapshot. A's pinned horizon blocks almost all of them.",
+      lit:['f2-a2','f2-b1','f2-b2'], bal:'180k', balc:'kbad', v:'autovacuum runs but the horizon blocks removal'},
+    {text:"So dead tuples keep accumulating. The table and its indexes grow on disk, and every scan reads more pages. This is bloat.",
+      lit:['f2-a2','f2-b1'], bal:'270k', balc:'kbad', v:'✗ bloat: files grow, scans slow ↑↑'},
+    {text:"A finally commits (or gets killed). The xmin horizon lurches forward to the newest snapshot.",
+      lit:['f2-a3','f2-b2'], bal:'270k', balc:'', v:'A commits — horizon advances at last'},
+    {text:"NOW autovacuum can reclaim the backlog: dead space becomes reusable and scans speed up. But the FILE never shrank — only VACUUM FULL would do that.",
+      lit:['f2-b3'], bal:'reclaimed', balc:'kok', v:'✓ vacuum frees dead tuples → space reusable'}
+  ], function(idx,s){
+    ['f2-a1','f2-a2','f2-a3','f2-b1','f2-b2','f2-b3'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.18);});
+    _g('f2-bal').textContent=s.bal;
+    _g('f2-bal').setAttribute('fill', s.balc==='kbad'?'#B0532F':(s.balc==='kok'?'#3f7a2e':'#20201D'));
+    _g('f2-box').setAttribute('class','balbox'+(s.balc?' '+s.balc:''));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.balc==='kbad'?'#B0532F':(s.balc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — transaction-ID wraparound + freezing */
+  makeStepper(_g('fig-wrap'), [
+    {text:"xids are 32-bit and wrap around at ~4 billion. Every write consumes a new xid; the age of the oldest unfrozen row only climbs.",
+      lit:['f3-c1'], ptr:60, age:'50M', balc:'', v:'each write burns an xid — the counter only climbs'},
+    {text:"A row must stay visible even after 2 billion newer xids. If its xid ever looks like it's in the FUTURE, the row would silently vanish — so old rows must be FROZEN.",
+      lit:['f3-c1'], ptr:60, age:'50M', balc:'', v:'old rows must be FROZEN or they read as “in the future”'},
+    {text:"Under heavy writes the oldest unfrozen age reaches autovacuum_freeze_max_age (~200M). Anti-wraparound autovacuum kicks in — aggressive and NON-cancelable.",
+      lit:['f3-c1','f3-c2'], ptr:340, age:'200M', balc:'kbad', v:'freeze_max_age hit → anti-wraparound vacuum (non-cancelable)'},
+    {text:"It FREEZES old rows: their tuples are stamped permanently visible, so their original xid no longer matters. The oldest-unfrozen age drops back down.",
+      lit:['f3-c2'], ptr:70, age:'reset ↓', balc:'kok', v:'✓ freezing stamps old rows visible → age resets'},
+    {text:"But if freezing can't keep up — autovacuum disabled, or a long transaction pinning the horizon — the age keeps climbing toward ~2.1 billion.",
+      lit:['f3-c1'], ptr:410, age:'1.6B', balc:'kbad', v:'✗ freezing can’t keep up (autovacuum off / long txn)'},
+    {text:"At the limit Postgres refuses new writes — the database goes READ-ONLY — to protect your data from wraparound corruption. Recovery = let vacuum finish.",
+      lit:['f3-c1','f3-c3'], ptr:525, age:'~2.1B', balc:'kbad', v:'✗ ~2.1B: Postgres refuses writes — DATABASE READ-ONLY'}
+  ], function(idx,s){
+    ['f3-c1','f3-c2','f3-c3'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.18);});
+    _g('f3-ptr').setAttribute('transform','translate('+s.ptr+',0)');
+    _g('f3-age').textContent=s.age;
+    _g('f3-age').setAttribute('fill', s.balc==='kbad'?'#B0532F':(s.balc==='kok'?'#3f7a2e':'#20201D'));
+    _g('f3-box').setAttribute('class','balbox'+(s.balc?' '+s.balc:''));
+    var vd=_g('f3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.balc==='kbad'?'#B0532F':(s.balc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

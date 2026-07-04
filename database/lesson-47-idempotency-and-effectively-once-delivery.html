@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 47 — Idempotency &amp; Effectively-Once Delivery (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Idempotency &amp; Effectively-Once Delivery</div>
+    <h4>The pattern</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The myth of exactly-once</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Why duplicates happen &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Idempotency keys &amp; the inbox &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Levels of idempotency</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: an idempotent consumer &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">47</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Idempotency &amp; Effectively-Once Delivery</h1>
+      <p class="lede">Every serious message system delivers <em>at least</em> once, which means it sometimes delivers twice. You cannot stop the duplicate from arriving — but you can make the second arrival do nothing. That trick is <strong>idempotency</strong>, and paired with a small <code>inbox</code> table and one atomic <code>INSERT&nbsp;&hellip;&nbsp;ON&nbsp;CONFLICT</code> it turns unreliable at-least-once delivery into the strongest guarantee you can actually build: <strong>effectively-once</strong>.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers preparing for systems interviews and real distributed work. Examples use <strong>PostgreSQL (PG 17/18)</strong>, but the idea — at-least-once delivery plus an idempotent consumer — is universal across queues, streams, and webhooks. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked SQL problem and graded drills</strong> you should try before reading the solution.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The honest guarantee</div>
+      <h2>Exactly-once delivery is a myth</h2>
+      <p>Start with the claim that trips up most people: <strong>exactly-once <em>delivery</em> — every message reaching the consumer once and only once — is impossible across a network.</strong> Not hard, not expensive: impossible. The reason is the <strong>Two Generals problem</strong>. A producer sends a message; the consumer must send back an acknowledgement (ACK); but that ACK can be lost just as easily as the message. Neither side can ever be <em>certain</em> the other received the last packet, so any protocol must pick which risk to take.</p>
+      <p>That fork gives you exactly two honest delivery guarantees, and you choose one:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>At-most-once</h4>
+          <ul>
+            <li>Send it, don't retry. If it's lost, it's <strong>gone</strong>.</li>
+            <li>No duplicates, ever &mdash; but you <strong>drop work</strong>.</li>
+            <li>Fine for a throwaway metric ping; wrong for a payment.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>At-least-once</h4>
+          <ul>
+            <li>Retry until you get an ACK. Nothing is lost.</li>
+            <li>The price: a message may arrive <strong>2+ times</strong>.</li>
+            <li>What almost every durable broker uses by default.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Anything that must not lose work chooses <strong>at-least-once</strong> and pays for it in duplicates. So the real engineering question is never "how do I stop duplicates arriving?" It is "how do I make processing a duplicate harmless?" The answer is to make the <strong>consumer idempotent</strong>: an operation is <strong>idempotent</strong> when applying it twice has the same effect as applying it once. Combine the two ideas and you get the guarantee you can actually deliver:</p>
+      <div class="callout">
+        <span class="k">The equation to memorize</span>
+        <p><strong>at-least-once delivery&nbsp;+&nbsp;an idempotent consumer&nbsp;=&nbsp;effectively-once.</strong> Also called <em>exactly-once processing</em>. Notice the distinction that resolves the whole confusion: <strong>delivery</strong> (how many times the message shows up) is unfixable, but <strong>processing</strong> (how many times the <em>effect</em> lands) is entirely under your control. A broker that markets "exactly-once" is either restricting itself to a closed transactional world, or it is doing idempotent processing under the hood and hoping you don't ask.</p>
+      </div>
+      <p>The rest of this lesson makes that concrete. First we watch a duplicate get born (s1). Then we build the dedup mechanism &mdash; an idempotency key plus an <code>inbox</code> table (s2), grade the kinds of effects by how easy they are to make idempotent (s3), and finish with a worked, runnable idempotent consumer and a set of drills (s4&ndash;s5).</p>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> How a duplicate is born</div>
+      <h2>Why duplicates happen &#9656;</h2>
+      <p>A duplicate is not a broker bug you can file a ticket against &mdash; it is a direct consequence of at-least-once. Here is the canonical window. A consumer pulls a message, does the real work (writes rows, charges a card), and then must <strong>ACK</strong> the broker so it stops tracking that message. If the consumer crashes <em>after</em> the work but <em>before</em> the ACK &mdash; or the ACK is lost, or processing ran past the broker's visibility timeout &mdash; the broker never hears "done." Faithful to its at-least-once promise, it <strong>redelivers</strong>. The work now runs a second time. Step through it:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-dup">
+          <svg viewBox="0 0 640 330" role="img" aria-label="A broker delivers a message, the consumer processes it then crashes before acking, the broker redelivers, and the effect runs twice">
+            <text class="lbl-sm" x="40" y="50" text-anchor="start">BROKER</text>
+            <text class="lbl-sm" x="40" y="228" text-anchor="start">CONSUMER</text>
+            <g id="f1-deliver" style="opacity:.2"><rect class="chip cA" x="54" y="58" width="150" height="42" rx="8"/><text class="chiptext" x="129" y="84" text-anchor="middle">deliver M</text></g>
+            <g id="f1-redeliver" style="opacity:.2"><rect class="chip cA" x="430" y="58" width="160" height="42" rx="8"/><text class="chiptext" x="510" y="84" text-anchor="middle">redeliver M</text></g>
+            <g id="f1-proc1" style="opacity:.2"><rect class="chip cB" x="54" y="234" width="150" height="42" rx="8"/><text class="chiptext" x="129" y="260" text-anchor="middle">process &#8594; +$10</text></g>
+            <g id="f1-crash" style="opacity:.2"><rect class="chip cBad" x="228" y="234" width="150" height="42" rx="8"/><text class="chiptext" x="303" y="260" text-anchor="middle">crash &middot; no ACK</text></g>
+            <g id="f1-proc2" style="opacity:.2"><rect class="chip cBad" x="430" y="234" width="160" height="42" rx="8"/><text class="chiptext" x="510" y="260" text-anchor="middle">process &#8594; +$10</text></g>
+            <text class="lbl-sm" x="320" y="126" text-anchor="middle">card charged (total)</text>
+            <rect id="f1-box" class="balbox" x="260" y="134" width="120" height="52" rx="9"/>
+            <text id="f1-total" x="320" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="24" font-weight="700" fill="#20201D">$0</text>
+            <path d="M40 210 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="205" text-anchor="end">time &#8594;</text>
+            <text id="f1-verdict" x="320" y="318" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: a crash between the effect and the ACK forces a redelivery, and the charge lands twice</figcaption>
+      </figure>
+
+      <p>The critical frame is step&nbsp;4: the effect had already committed when the process died. From the broker's side, an un-ACKed message is indistinguishable from a message that never got processed at all &mdash; so it must assume the worst and resend. That single ambiguity is the whole story. It shows up in more places than a hard crash:</p>
+      <ul>
+        <li><strong>Crash after effect, before ACK</strong> &mdash; the case above; the effect is durable but the ACK never left.</li>
+        <li><strong>Lost or delayed ACK</strong> &mdash; the work and the ACK both happened, but the ACK packet died on the wire; the broker resends anyway.</li>
+        <li><strong>Visibility-timeout expiry</strong> &mdash; processing took longer than the broker's timeout, so it handed the same message to another worker while the first was still running.</li>
+        <li><strong>Consumer-group rebalance / redeploy</strong> &mdash; a partition reassigns mid-batch and uncommitted offsets replay from the last checkpoint.</li>
+        <li><strong>At-least-once <em>publish</em>, too</strong> &mdash; the producer side has the same window. An outbox relay (Lesson&nbsp;46) that publishes and then crashes before marking the row sent will re-publish on restart.</li>
+      </ul>
+      <div class="callout note">
+        <span class="k">Duplicates are a property, not a defect</span>
+        <p>You will not "fix" this in configuration. Every knob that reduces duplicates (longer timeouts, synchronous ACKs) trades throughput or edges you toward <em>losing</em> messages instead. The durable, correct move is to accept that the message can arrive more than once and to build the consumer so the extra arrivals are harmless. That is what the next three sections construct.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The dedup mechanism</div>
+      <h2>Idempotency keys and the inbox &#9656;</h2>
+      <p>To make a duplicate harmless, you first need to <em>recognize</em> it. Give every message a stable, unique <strong>idempotency key</strong> &mdash; an id that is the same on the original and on every redelivery of that same logical event. Then keep an <strong>inbox</strong> (also called a dedup table or processed-messages ledger): a table whose <code>PRIMARY KEY</code> is that idempotency key. The rule is simple &mdash; a message is a duplicate exactly when its key is already in the inbox.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> inbox (
+  event_id      uuid <span class="kw">PRIMARY KEY</span>,        <span class="cm">-- the idempotency key</span>
+  processed_at  timestamptz <span class="kw">NOT NULL DEFAULT</span> <span class="fn">now</span>()
+);</code></pre>
+      <p>The elegant part is that you never write a "does this key exist?" check yourself &mdash; you let the <code>PRIMARY KEY</code> do it, atomically, with <code>INSERT&nbsp;&hellip;&nbsp;ON&nbsp;CONFLICT&nbsp;DO&nbsp;NOTHING&nbsp;RETURNING</code>. If the insert creates a row, <code>RETURNING</code> hands it back and you know this is the <strong>first</strong> time &mdash; so you apply the effect. If the key was already there, the conflict makes the insert a no-op, <code>RETURNING</code> is empty, and you <strong>skip</strong>. Watch the dedup decide new vs duplicate:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-inbox">
+          <svg viewBox="0 0 640 360" role="img" aria-label="An incoming message with an event id is inserted into an inbox table with ON CONFLICT DO NOTHING; a new key inserts and applies, a redelivered key conflicts and is skipped">
+            <text class="lbl-sm" x="130" y="96" text-anchor="middle">incoming message</text>
+            <g id="f2-msg" style="opacity:.2"><rect id="f2-msgrect" class="chip cA" x="40" y="108" width="180" height="46" rx="8"/><text id="f2-msgtext" class="chiptext" x="130" y="136" text-anchor="middle">event_id = e5</text></g>
+            <text id="f2-read" class="readout" x="130" y="196" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <path id="f2-arc" d="M224 132 C 270 150, 280 175, 300 197" class="flow-d" style="opacity:0" marker-end="url(#arrow-s)"/>
+            <!-- inbox table -->
+            <rect class="thead" x="300" y="40" width="300" height="28" rx="4"/><text class="tcap" x="450" y="59" text-anchor="middle">inbox &nbsp;(event_id = PRIMARY KEY)</text>
+            <rect class="thead" x="300" y="68" width="120" height="26"/><text class="tval" x="360" y="85" text-anchor="middle">event_id</text>
+            <rect class="thead" x="420" y="68" width="180" height="26"/><text class="tval" x="510" y="85" text-anchor="middle">processed_at</text>
+            <rect class="tcell" x="300" y="94" width="120" height="30"/><text class="tval" x="360" y="114" text-anchor="middle">e1</text>
+            <rect class="tcell" x="420" y="94" width="180" height="30"/><text class="tval" x="510" y="114" text-anchor="middle">10:01:04</text>
+            <rect class="tcell" x="300" y="124" width="120" height="30"/><text class="tval" x="360" y="144" text-anchor="middle">e2</text>
+            <rect class="tcell" x="420" y="124" width="180" height="30"/><text class="tval" x="510" y="144" text-anchor="middle">10:02:39</text>
+            <rect class="tcell" x="300" y="154" width="120" height="30"/><text class="tval" x="360" y="174" text-anchor="middle">e3</text>
+            <rect class="tcell" x="420" y="154" width="180" height="30"/><text class="tval" x="510" y="174" text-anchor="middle">10:05:11</text>
+            <rect class="tcell" id="f2-r4-id" x="300" y="184" width="120" height="30"/>
+            <rect class="tcell" id="f2-r4-ts" x="420" y="184" width="180" height="30"/>
+            <g id="f2-e5" style="opacity:0"><text class="tval" x="360" y="204" text-anchor="middle">e5</text><text class="tval" x="510" y="204" text-anchor="middle">10:07:12</text></g>
+            <text id="f2-verdict" x="320" y="332" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: the PRIMARY KEY on <code>event_id</code> turns a redelivery into a zero-row no-op</figcaption>
+      </figure>
+
+      <p>Two design points decide whether this actually works. First, the key must be <strong>stable across retries</strong>: the same logical event must carry the same <code>event_id</code> on delivery&nbsp;#1 and delivery&nbsp;#7. Good sources are a UUID the producer stamps once when the event is created (the outbox row's own id from Lesson&nbsp;46 is ideal), or a natural business key like <code>(order_id, 'order.created')</code>. A UUID freshly generated on each <em>publish attempt</em> is fatal &mdash; every duplicate looks brand-new and dedup never fires. Second, and the subject of s4: recording the key and applying the effect must be <strong>one atomic transaction</strong>. Split them and you reopen the very crash window we're trying to close.</p>
+      <div class="callout">
+        <span class="k">Why RETURNING is the whole trick</span>
+        <p><code>ON CONFLICT DO NOTHING</code> alone silently swallows the duplicate but tells you nothing. Adding <code>RETURNING</code> converts the conflict into a signal you can branch on: <strong>a row came back &rarr; new &rarr; run the effect; no row &rarr; duplicate &rarr; skip.</strong> One statement does the check, the record, and the verdict &mdash; with no read-then-write race, because the <code>PRIMARY KEY</code> arbiter resolves concurrency inside the insert itself.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> A ladder of difficulty</div>
+      <h2>Levels of idempotency</h2>
+      <p>Not every effect needs an inbox. Before you reach for the dedup table, ask whether the effect is <em>already</em> idempotent &mdash; because the cheapest idempotency is the kind you get for free from how you wrote the write.</p>
+
+      <h3>Level 0 &mdash; naturally idempotent effects</h3>
+      <p>Some operations converge to a <em>state</em> rather than accumulate a <em>change</em>, so re-running them lands exactly where they were. These need no dedup at all:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Idempotent (converge to a state)</h4>
+          <ul>
+            <li><code>SET status = 'shipped'</code> &mdash; assign, don't add.</li>
+            <li><code>UPSERT</code> to a target row (Lesson&nbsp;17): <code>INSERT &hellip; ON CONFLICT DO UPDATE</code>.</li>
+            <li><code>DELETE WHERE id = &hellip;</code> &mdash; second run deletes nothing.</li>
+            <li>Setting a flag, storing a computed value, writing a known key.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Not idempotent (accumulate a change)</h4>
+          <ul>
+            <li><code>balance = balance + 10</code> &mdash; each run adds again.</li>
+            <li><code>INSERT</code> a new row with no unique key &mdash; makes a copy.</li>
+            <li>Append to a list / push to an array.</li>
+            <li>Send an email, fire a webhook, ship a package.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The design lever is real: whenever you can, model the effect as "make the world look like <em>this</em>" instead of "change the world <em>by this much</em>." An UPSERT that sets a row to a computed target is idempotent by construction; the same information expressed as an increment is not. Reach for this reframing first &mdash; it can delete the dedup table from your design entirely.</p>
+
+      <h3>Level 1 &mdash; the inbox / dedup table</h3>
+      <p>When the effect is inherently non-idempotent (an increment you can't rewrite, or an external side effect), wrap it with the inbox keyed by the idempotency key. The <code>ON CONFLICT&nbsp;&hellip;&nbsp;RETURNING</code> gate from s2 makes the <em>whole handler</em> idempotent even though the inner effect isn't. This is the general-purpose tool; s4 builds it end to end.</p>
+
+      <h3>Housekeeping &mdash; the inbox grows forever</h3>
+      <p>Every processed message leaves a row, so the inbox grows without bound unless you prune it. But there is a hard rule: <strong>only delete rows older than the broker's maximum redelivery horizon</strong> &mdash; its retention window, or the longest a message can sit before a final redelivery. Prune with a scheduled job, or (better at scale) partition the inbox by day and <code>DROP</code> whole old partitions (Lesson&nbsp;34):</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- safe ONLY if the broker cannot redeliver anything older than 7 days</span>
+<span class="kw">DELETE FROM</span> inbox
+<span class="kw">WHERE</span> processed_at &lt; <span class="fn">now</span>() - <span class="kw">INTERVAL</span> <span class="lit">'7 days'</span>;</code></pre>
+      <p>Prune faster than that window and a genuinely late duplicate finds an empty inbox and gets applied twice &mdash; you'd trade unbounded growth for silent double-processing, a bad trade.</p>
+
+      <h3>Why this beats a distributed transaction</h3>
+      <p>A tempting alternative is "just wrap the broker and the database in one distributed transaction" &mdash; two-phase commit (2PC) across the queue and Postgres. Resist it. 2PC couples the availability of both systems, blocks holding locks if the coordinator dies between prepare and commit, and most brokers don't speak it well. The inbox needs <em>no</em> distributed coordinator: it is one <strong>local</strong> transaction inside the database you already trust, and it fails gracefully &mdash; a duplicate is a cheap zero-row no-op, never a resource pinned by an orphaned prepared transaction. This is the same lesson as the transactional outbox (Lesson&nbsp;46): prefer one local transaction plus idempotency over cross-system atomicity.</p>
+      <div class="callout tip">
+        <span class="k">The outbox and the inbox are two ends of one rope</span>
+        <p>The <strong>outbox</strong> (producer side, Lesson&nbsp;46) guarantees the event is published <em>at least once</em>. The <strong>inbox</strong> (consumer side, this lesson) guarantees the event is applied <em>at most once</em>. At-least-once <em>and</em> at-most-once, composed, give you <strong>exactly-once</strong> end to end &mdash; without a single distributed transaction anywhere in the path.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Building an idempotent consumer &#9656;</h2>
+      <p>Now assemble the pieces into a runnable consumer and see exactly where the naive versions leak.</p>
+
+      <h3>1 &mdash; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- the effect we must apply exactly once</span>
+<span class="kw">CREATE TABLE</span> wallet (
+  user_id  bigint <span class="kw">PRIMARY KEY</span>,
+  balance  numeric <span class="kw">NOT NULL DEFAULT</span> <span class="lit">0</span>
+);
+
+<span class="cm">-- the dedup ledger; event_id is the stable idempotency key</span>
+<span class="kw">CREATE TABLE</span> inbox (
+  event_id      uuid <span class="kw">PRIMARY KEY</span>,
+  processed_at  timestamptz <span class="kw">NOT NULL DEFAULT</span> <span class="fn">now</span>()
+);</code></pre>
+
+      <h3>2 &mdash; The task</h3>
+      <p>You consume <code>wallet.credit</code> events from a queue delivered <strong>at-least-once</strong>. Each event carries a stable <code>event_id</code> (uuid) and an <code>amount</code>. Apply each credit to the user's wallet <strong>exactly once</strong>, even when the broker delivers the same event several times.</p>
+
+      <h3>3 &mdash; The naive attempts, and why they leak</h3>
+      <p><strong>Naive A &mdash; just apply it.</strong> Trust the queue and increment:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- WRONG: increment is not idempotent</span>
+<span class="kw">UPDATE</span> wallet <span class="kw">SET</span> balance = balance + :amount <span class="kw">WHERE</span> user_id = :uid;</code></pre>
+      <p>A redelivery credits the account again &mdash; the exact <code>$10 &rarr; $20</code> bug from FIG&nbsp;1. An increment is inherently non-idempotent, so a bare <code>UPDATE</code> can never be safe under at-least-once delivery.</p>
+      <p><strong>Naive B &mdash; check, then act.</strong> Look up the id, and if it's new, apply and record:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- WRONG: a race and a crash window hide in the gaps</span>
+<span class="kw">SELECT</span> <span class="lit">1</span> <span class="kw">FROM</span> inbox <span class="kw">WHERE</span> event_id = :eid;          <span class="cm">-- app sees "not found"</span>
+<span class="kw">UPDATE</span> wallet <span class="kw">SET</span> balance = balance + :amount
+  <span class="kw">WHERE</span> user_id = :uid;                             <span class="cm">-- apply the effect</span>
+<span class="kw">INSERT INTO</span> inbox (event_id) <span class="kw">VALUES</span> (:eid);         <span class="cm">-- record it (maybe a 2nd txn)</span></code></pre>
+      <p>Two independent failures live here. <strong>(a) A time-of-check/time-of-use race:</strong> two concurrent redeliveries of <code>:eid</code> both run the <code>SELECT</code>, both see "not found," and both credit the wallet before either inserts. The <code>PRIMARY KEY</code> will reject the second <code>INSERT</code> &mdash; but only <em>after</em> the money was credited twice. <strong>(b) A crash window:</strong> if the <code>UPDATE</code> commits and the process dies before the <code>INSERT</code> (worse if they're separate transactions), the redelivery finds no inbox row and credits again. Check-then-act cannot be made safe by ordering; the check and the act must be one indivisible step.</p>
+
+      <h3>4 &mdash; The fix: one atomic, race-safe statement</h3>
+      <p>Fuse the dedup and the effect into a single data-modifying CTE. The <code>INSERT&nbsp;&hellip;&nbsp;ON&nbsp;CONFLICT&nbsp;DO&nbsp;NOTHING&nbsp;RETURNING</code> both records the key and reports whether it was new; the <code>UPDATE</code> reads that result via <code>FROM claimed</code>, so it fires only when a row was actually inserted:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">BEGIN</span>;
+
+<span class="kw">WITH</span> claimed <span class="kw">AS</span> (
+  <span class="kw">INSERT INTO</span> inbox (event_id)
+  <span class="kw">VALUES</span> (:eid)
+  <span class="kw">ON CONFLICT</span> (event_id) <span class="kw">DO NOTHING</span>
+  <span class="kw">RETURNING</span> event_id
+)
+<span class="kw">UPDATE</span> wallet w
+<span class="kw">SET</span> balance = w.balance + :amount
+<span class="kw">FROM</span> claimed
+<span class="kw">WHERE</span> w.user_id = :uid;
+
+<span class="kw">COMMIT</span>;</code></pre>
+      <p>Trace both cases. <strong>First delivery:</strong> <code>claimed</code> yields one row, the <code>UPDATE</code> joins that one row to the wallet, and the balance rises once &mdash; the inbox record and the credit commit together, atomically. <strong>Redelivery:</strong> the insert conflicts on the <code>PRIMARY KEY</code>, <code>claimed</code> is empty, so <code>UPDATE&nbsp;&hellip;&nbsp;FROM&nbsp;claimed</code> joins the wallet against zero rows and touches nothing &mdash; a clean no-op. Play the two runs through the same transaction:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-consumer">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Two runs of the same idempotent-consumer transaction: the first inserts the event id and credits the wallet, the redelivery inserts nothing and skips">
+            <text class="lbl-sm" x="44" y="44" text-anchor="start">RUN 1 &middot; first delivery</text>
+            <text class="lbl-sm" x="44" y="228" text-anchor="start">RUN 2 &middot; redelivery (duplicate)</text>
+            <g id="f3-r1a" style="opacity:.2"><rect class="chip cA" x="44" y="54" width="176" height="44" rx="8"/><text class="chiptext" x="132" y="81" text-anchor="middle">INSERT e9 &#8594; 1 row</text></g>
+            <g id="f3-r1b" style="opacity:.2"><rect class="chip cA" x="244" y="54" width="150" height="44" rx="8"/><text class="chiptext" x="319" y="81" text-anchor="middle">apply +$10</text></g>
+            <g id="f3-r1c" style="opacity:.2"><rect class="chip cA" x="418" y="54" width="190" height="44" rx="8"/><text class="chiptext" x="513" y="81" text-anchor="middle">COMMIT (atomic)</text></g>
+            <g id="f3-r2a" style="opacity:.2"><rect class="chip cB" x="44" y="238" width="190" height="44" rx="8"/><text class="chiptext" x="139" y="265" text-anchor="middle">INSERT e9 &#8594; 0 rows</text></g>
+            <g id="f3-r2b" style="opacity:.2"><rect class="chip cB" x="258" y="238" width="140" height="44" rx="8"/><text class="chiptext" x="328" y="265" text-anchor="middle">skip effect</text></g>
+            <g id="f3-r2c" style="opacity:.2"><rect class="chip cB" x="422" y="238" width="190" height="44" rx="8"/><text class="chiptext" x="517" y="265" text-anchor="middle">COMMIT (no-op)</text></g>
+            <text class="lbl-sm" x="210" y="140" text-anchor="middle">wallet balance</text>
+            <rect id="f3-box" class="balbox" x="150" y="148" width="120" height="52" rx="9"/>
+            <text id="f3-bal" x="210" y="182" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="22" font-weight="700" fill="#20201D">$0</text>
+            <text id="f3-inbox" x="440" y="178" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#20201D">inbox: { }</text>
+            <path d="M40 210 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="205" text-anchor="end">time &#8594;</text>
+            <text id="f3-verdict" x="330" y="328" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: the same message delivered twice, the credit applied exactly once</figcaption>
+      </figure>
+
+      <h3>5 &mdash; Why it's better (read the plan)</h3>
+      <p>Correctness first: the effect is gated on the insert <em>within the same statement's snapshot</em>, so there is no read-then-write gap for a concurrent redelivery to slip through, and no crash window between recording and applying &mdash; they are the same transaction. Performance is a bonus: both cases are two index touches, no scans.</p>
+      <p class="codetag">explain (analyze) &mdash; first delivery, illustrative</p>
+      <pre class="code"><code>Update on wallet w  (cost=0.30..8.35 rows=0 width=0) (actual rows=0 loops=1)
+  CTE claimed
+    ->  Insert on inbox  (cost=0.00..0.01 rows=1 width=24) (actual rows=1 loops=1)
+          Conflict Resolution: NOTHING
+          Conflict Arbiter Indexes: inbox_pkey
+          ->  Result  (cost=0.00..0.01 rows=1 width=24) (actual rows=1 loops=1)
+  ->  Nested Loop  (cost=0.29..8.33 rows=1 width=42) (actual rows=1 loops=1)
+        ->  CTE Scan on claimed  (cost=0.00..0.02 rows=1 width=32) (actual rows=1 loops=1)
+        ->  Index Scan using wallet_pkey on wallet w  (actual rows=1 loops=1)
+              Index Cond: (user_id = 42)
+Planning Time: 0.11 ms
+Execution Time: 0.09 ms</code></pre>
+      <p>Read it top-down: the <code>Insert on inbox</code> uses <code>inbox_pkey</code> as its <strong>Conflict Arbiter</strong> &mdash; that PK is what catches a duplicate. On the first delivery its <code>CTE Scan</code> yields one row, the <code>Nested Loop</code> pairs it with the wallet found by <code>Index Scan using wallet_pkey</code>, and the <code>Update</code> credits one row. On a <strong>redelivery</strong> the same plan runs, but the insert's <code>actual rows=0</code>, so <code>CTE Scan on claimed</code> returns 0 rows, the <code>Nested Loop</code> produces 0, and <code>Update on wallet</code> reports <code>actual rows=0</code> &mdash; the identical two index structures are probed, no heap is scanned, and nothing changes. Idempotency here costs one extra index probe, not a table scan.</p>
+
+      <h3>6 &mdash; Narrate it</h3>
+      <p>Say it out loud as a chain of guarantees: "The producer wrote the domain row and its outbox event in one transaction, so the event is published <em>at least once</em> (Lesson&nbsp;46). A relay &mdash; or a worker that <em>claimed</em> the job with <code>SELECT&nbsp;&hellip;&nbsp;FOR&nbsp;UPDATE&nbsp;SKIP&nbsp;LOCKED</code> (Lesson&nbsp;28) &mdash; delivers it, possibly twice. My consumer closes the loop: one transaction inserts the <code>event_id</code> into the inbox with <code>ON&nbsp;CONFLICT&nbsp;DO&nbsp;NOTHING</code> and applies the credit only if the insert was new. The inbox makes the effect land <em>at most once</em>. At-least-once publish plus at-most-once apply equals exactly-once, with no distributed transaction &mdash; just two local ones and a primary key doing the arbitration."</p>
+    </section>
+
+    <!-- 05 DRILLS -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Practice</div>
+      <h2>Drills &amp; traps</h2>
+      <p>Work each drill before opening its solution. Assume the <code>wallet</code> and <code>inbox</code> schema from s4, and at-least-once delivery throughout.</p>
+
+      <h3>Drill 1 &mdash; spot the non-idempotent effect</h3>
+      <p>Two events arrive: <code>profile.activate</code> (set the user's status to <code>active</code>) and <code>loyalty.award</code> (add 5 points to their balance). Which is naturally idempotent, which is not, and rewrite the unsafe one so a redelivery is harmless <em>without</em> an inbox if you can &mdash; otherwise say why the inbox is required.</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p><code>profile.activate</code> is idempotent: <code>UPDATE users SET status = 'active' WHERE id = :uid</code> converges to a state &mdash; run it ten times, the status is still <code>active</code>. <code>loyalty.award</code> (<code>points = points + 5</code>) is <em>not</em>: each replay adds 5 again. You cannot rewrite a pure increment into an idempotent single row-set, because the target value depends on how much was already there &mdash; so this one <strong>needs the inbox</strong> (gate the <code>+5</code> on a new <code>event_id</code>). <em>Why:</em> "converge to a state" is idempotent for free; "accumulate a delta" needs a dedup key.</p>
+      </div>
+
+      <h3>Drill 2 &mdash; the inbox in a separate transaction</h3>
+      <p>A teammate applies the credit in one transaction and records the <code>event_id</code> in a second, "to keep the inbox write out of the hot path." Name the two distinct ways this loses correctness under at-least-once delivery.</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p><strong>(1) Crash window:</strong> if the credit's transaction commits and the process dies before the inbox transaction commits, the redelivery sees no inbox row and credits again &mdash; a double-apply. <strong>(2) Concurrency race:</strong> two redeliveries can both apply the credit before either records the id, because the dedup isn't visible until its own later commit. Both vanish only when the inbox insert and the effect are in the <em>same</em> transaction, so they commit or roll back as one. <em>Why:</em> atomicity is the whole point &mdash; splitting the record from the effect re-opens the exact gap idempotency exists to close.</p>
+      </div>
+
+      <h3>Drill 3 &mdash; the key you can't dedup on</h3>
+      <p>Deliveries are still doubling even though you added the inbox. You discover the producer calls <code>gen_random_uuid()</code> to build the <code>event_id</code> on <em>every publish attempt</em>, including retries. Explain why dedup silently fails, name the fix, and then bound the inbox's growth safely.</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p>A per-attempt UUID means the original and its redelivery carry <em>different</em> keys, so the <code>ON CONFLICT</code> never triggers &mdash; every copy looks brand-new and gets applied. The fix is a <strong>stable</strong> idempotency key generated <em>once</em> at the source and reused on every retry: the outbox row's own id, or a natural key like <code>(order_id, 'order.created')</code>. For growth, prune the inbox but never inside the redelivery window: <code>DELETE FROM inbox WHERE processed_at &lt; now() - INTERVAL '30 days'</code> on a schedule, or partition by day and <code>DROP</code> old partitions. <em>Why:</em> dedup can only work if duplicates <em>share</em> a key, and pruning faster than the broker can redeliver re-exposes late duplicates.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; "the vendor promises exactly-once"</h3>
+      <p>An architect wants to delete all inbox logic because the new broker advertises "exactly-once delivery." What do you tell them, and under what narrow condition is a system's "exactly-once" claim actually meaningful?</p>
+      <div class="callout note">
+        <span class="k">Try it first, then read</span>
+        <p>Exactly-once <em>delivery</em> across a network to a consumer with an external side effect is impossible (Two Generals: the consumer can always crash after the effect and before the ACK). What vendors call "exactly-once" is either (a) exactly-once <em>processing</em> confined to a closed transactional world &mdash; e.g. read-process-write entirely inside the broker's own store with transactional offsets &mdash; which still relies on idempotent/transactional writes under the hood, or (b) marketing. The moment your effect touches an outside system (charge a card, send mail, write another database), you are back to at-least-once and you keep the inbox. <em>Why:</em> you can move where the idempotency lives, never remove the need for it.</p>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">Traps to carry into the interview</span>
+        <p>
+        &bull; <strong>Non-idempotent effect, no dedup</strong> (increment, append, blind insert, external call) &rarr; a redelivery corrupts state.<br>
+        &bull; <strong>Inbox recorded in a separate transaction</strong> from the effect &rarr; crash window plus race re-apply.<br>
+        &bull; <strong>Check-then-act</strong> (<code>SELECT</code> then <code>INSERT</code>) instead of atomic <code>ON CONFLICT</code> &rarr; TOCTOU race under concurrency.<br>
+        &bull; <strong>Unstable / missing idempotency key</strong> (fresh UUID per attempt) &rarr; duplicates don't share a key, so dedup can't fire.<br>
+        &bull; <strong>Idempotency key not the <code>PRIMARY KEY</code>/<code>UNIQUE</code></strong> &rarr; the <code>ON CONFLICT</code> arbiter has nothing to catch on.<br>
+        &bull; <strong>Never pruning the inbox</strong> &rarr; unbounded growth; but <strong>pruning inside the redelivery window</strong> &rarr; late duplicates leak through.<br>
+        &bull; <strong>Believing "exactly-once delivery" exists</strong> &rarr; dropping idempotency and getting double-charged in production.
+        </p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea holds the lesson together: <em>you cannot stop a message arriving twice, so you make the second arrival do nothing.</em> Give each event a stable idempotency key, record processed keys in an <code>inbox</code> with a <code>PRIMARY KEY</code>, and apply the effect in the <strong>same transaction</strong> gated by <code>INSERT&nbsp;&hellip;&nbsp;ON&nbsp;CONFLICT&nbsp;DO&nbsp;NOTHING&nbsp;RETURNING</code>. At-least-once delivery plus that idempotent consumer is effectively-once.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Exactly-once is a myth</b><span>Across a network you get at-most-once or at-least-once. Durable systems pick at-least-once and pay in duplicates.</span></div>
+        <div class="tk"><span class="num">02</span><b>Delivery vs processing</b><span>You can't control how many times a message is delivered, but you fully control how many times its effect lands.</span></div>
+        <div class="tk"><span class="num">03</span><b>The equation</b><span>at-least-once delivery + idempotent consumer = effectively-once. That's the honest, buildable guarantee.</span></div>
+        <div class="tk"><span class="num">04</span><b>Duplicates are structural</b><span>Crash-before-ACK, lost ACK, visibility timeout, rebalance: an un-ACKed message must be resent. Not a config bug.</span></div>
+        <div class="tk"><span class="num">05</span><b>Idempotency key + inbox</b><span>A stable per-event id as the PRIMARY KEY of a dedup table turns a redelivery into a zero-row no-op.</span></div>
+        <div class="tk"><span class="num">06</span><b>ON CONFLICT &hellip; RETURNING</b><span>Row back &rarr; new &rarr; apply; no row &rarr; duplicate &rarr; skip. One atomic statement, no read-then-write race.</span></div>
+        <div class="tk"><span class="num">07</span><b>Same transaction, always</b><span>Record the key and apply the effect together, or the crash window and the race come straight back.</span></div>
+        <div class="tk"><span class="num">08</span><b>Converge, don't accumulate</b><span>SET/UPSERT are idempotent for free; increments and external calls need the inbox. Prune it, but only past the redelivery window.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Why is exactly-once <em>delivery</em> impossible across a network? Name the problem and the two guarantees you're left choosing between.<br>
+        (2) Give three concrete ways a duplicate is born even when nothing "crashes."<br>
+        (3) What does <code>RETURNING</code> add to <code>INSERT &hellip; ON CONFLICT DO NOTHING</code>, and why does that let you skip a separate existence check?<br>
+        (4) Reproduce Naive&nbsp;B (check-then-act) and name its two independent failure modes. What single change fixes both?<br>
+        (5) Which effects are idempotent for free, and which force you to add an inbox? Rewrite one increment as a safe operation or explain why you can't.<br>
+        (6) How do the outbox (Lesson&nbsp;46) and the inbox (this lesson) compose into end-to-end exactly-once without a distributed transaction?<br>
+        Any fuzzy answer &#8594; re-read that section, replay its diagram, and re-derive the fix on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 47 &middot; IDEMPOTENCY &amp; EFFECTIVELY-ONCE DELIVERY &middot; interactive edition<br>
+      Original study notes for engineers &middot; try the drills before the solutions, then replay every diagram.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — how a duplicate is born */
+  makeStepper(_g('fig-dup'), [
+    {text:"A broker holds one message M — “charge the card $10.” The consumer hasn’t run yet; nothing is charged.", lit:[], bal:"0", c:"", v:""},
+    {text:"The broker delivers M to the consumer.", lit:["f1-deliver"], bal:"0", c:"", v:"M in flight — not yet handled"},
+    {text:"The consumer processes M and applies the effect: the card is charged $10.", lit:["f1-deliver","f1-proc1"], bal:"10", c:"", v:"charged once — correct so far"},
+    {text:"Before it can send the ACK, the consumer crashes. The broker never hears that M was handled.", lit:["f1-deliver","f1-proc1","f1-crash"], bal:"10", c:"", v:"crash before ACK — broker unsure"},
+    {text:"At-least-once: after its timeout the broker assumes M was lost and redelivers it.", lit:["f1-deliver","f1-proc1","f1-crash","f1-redeliver"], bal:"10", c:"", v:"at-least-once → broker redelivers M"},
+    {text:"The consumer processes M a second time and charges again — now $20. That is the duplicate, and it is inevitable under at-least-once.", lit:["f1-deliver","f1-proc1","f1-crash","f1-redeliver","f1-proc2"], bal:"20", c:"kbad", v:"✗ charged twice — the duplicate"}
+  ], function(idx,s){
+    ['f1-deliver','f1-proc1','f1-crash','f1-redeliver','f1-proc2'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f1-total').textContent='$'+s.bal;
+    _g('f1-total').setAttribute('fill', s.c==='kbad'?'#B0532F':(s.c==='kok'?'#3f7a2e':'#20201D'));
+    _g('f1-box').setAttribute('class','balbox'+(s.c?' '+s.c:''));
+    var v=_g('f1-verdict'); v.textContent=s.v;
+    v.setAttribute('fill', s.c==='kbad'?'#B0532F':(s.c==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — idempotency key + inbox dedup */
+  makeStepper(_g('fig-inbox'), [
+    {text:"The inbox records every event_id already processed — and event_id is its PRIMARY KEY. Today it holds e1, e2, e3.", showMsg:false, showE5:false, row:"", read:"inbox = the set of processed event ids", v:"", vc:"", arc:false},
+    {text:"A message arrives carrying a unique event_id = e5. New, or a duplicate? The PRIMARY KEY will decide.", showMsg:true, msgc:"cA", msg:"event_id = e5", showE5:false, row:"", read:"incoming: event_id = e5", v:"", vc:"", arc:true},
+    {text:"The consumer runs INSERT INTO inbox(event_id) VALUES('e5') ON CONFLICT DO NOTHING RETURNING. e5 is absent, so a row is inserted.", showMsg:true, msgc:"cA", showE5:true, row:"kg", read:"INSERT … RETURNING → 1 row (new)", v:"✓ new event → apply the effect", vc:"ok", arc:true},
+    {text:"Because a row came back, this is the first time we’ve seen e5 — so the effect runs, exactly once.", showMsg:true, msgc:"cA", showE5:true, row:"kg", read:"RETURNING gave e5 → effect executed", v:"✓ handled once", vc:"ok", arc:false},
+    {text:"Now the broker redelivers the same message — event_id = e5 again.", showMsg:true, msgc:"cBad", msg:"event_id = e5  (again)", showE5:true, row:"", read:"redelivered: event_id = e5", v:"", vc:"", arc:true},
+    {text:"The same INSERT hits the PRIMARY KEY: ON CONFLICT DO NOTHING → 0 rows. RETURNING is empty, so the effect is SKIPPED. The duplicate is a no-op.", showMsg:true, msgc:"cBad", showE5:true, row:"kt", read:"ON CONFLICT → 0 rows → skip", v:"✓ duplicate → no-op (effectively-once)", vc:"ok", arc:true}
+  ], function(idx,s){
+    ['f2-r4-id','f2-r4-ts'].forEach(function(id){var e=_g(id); if(e) e.setAttribute('class','tcell'+(s.row?' '+s.row:''));});
+    _g('f2-e5').style.opacity = s.showE5?1:0;
+    var mr=_g('f2-msgrect'); if(mr) mr.setAttribute('class','chip '+(s.msgc||'cA'));
+    _g('f2-msg').style.opacity = s.showMsg?1:0.2;
+    _g('f2-msgtext').textContent = s.msg||'event_id = e5';
+    _g('f2-arc').style.opacity = s.arc?1:0;
+    _g('f2-read').textContent = s.read||'';
+    var v=_g('f2-verdict'); v.textContent=s.v||'';
+    v.setAttribute('fill', s.vc==='ok'?'#3f7a2e':(s.vc==='bad'?'#B0532F':'#5A574E'));
+  });
+
+  /* FIG 3 — worked idempotent consumer, two runs */
+  makeStepper(_g('fig-consumer'), [
+    {text:"Setup: an empty wallet ($0) and an empty inbox. The consumer’s whole job — dedup AND effect — runs inside ONE transaction.", lit:[], bal:"0", c:"", inbox:"inbox: { }", v:""},
+    {text:"RUN 1, first delivery. INSERT event_id e9 into inbox with ON CONFLICT DO NOTHING … RETURNING. e9 is new, so RETURNING returns it.", lit:["f3-r1a"], bal:"0", c:"", inbox:"inbox: { e9 }", v:"e9 is new → RETURNING has a row"},
+    {text:"Because a row came back, apply the effect in the SAME transaction (+$10), then COMMIT. Inbox row and credit commit together — atomic.", lit:["f3-r1a","f3-r1b","f3-r1c"], bal:"10", c:"kok", inbox:"inbox: { e9 }", v:"✓ credited once — inbox + effect atomic"},
+    {text:"RUN 2: the broker redelivers the same message, event_id e9 again. A new transaction runs the same INSERT … ON CONFLICT.", lit:["f3-r1a","f3-r1b","f3-r1c","f3-r2a"], bal:"10", c:"kok", inbox:"inbox: { e9 }", v:"INSERT e9 → 0 rows (already present)"},
+    {text:"RETURNING is empty, so the effect is skipped. COMMIT commits nothing meaningful — a no-op. The balance stays $10.", lit:["f3-r1a","f3-r1b","f3-r1c","f3-r2a","f3-r2b","f3-r2c"], bal:"10", c:"kok", inbox:"inbox: { e9 }", v:"✓ duplicate → no-op"},
+    {text:"Same message, delivered at least twice, but the effect happened exactly once. That is effectively-once: at-least-once delivery + an idempotent consumer.", lit:["f3-r1a","f3-r1b","f3-r1c","f3-r2a","f3-r2b","f3-r2c"], bal:"10", c:"kok", inbox:"inbox: { e9 }", v:"delivered ≥2× · applied 1× = effectively-once"}
+  ], function(idx,s){
+    ['f3-r1a','f3-r1b','f3-r1c','f3-r2a','f3-r2b','f3-r2c'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f3-bal').textContent='$'+s.bal;
+    _g('f3-bal').setAttribute('fill', s.c==='kok'?'#3f7a2e':'#20201D');
+    _g('f3-box').setAttribute('class','balbox'+(s.c?' '+s.c:''));
+    _g('f3-inbox').textContent=s.inbox||'inbox: { }';
+    var v=_g('f3-verdict'); v.textContent=s.v||'';
+    v.setAttribute('fill', s.c==='kok'?'#3f7a2e':'#5A574E');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 07 — Denormalization &amp; Trade-offs (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Denormalization &amp; Trade-offs</div>
+    <h4>Trading writes for reads</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Breaking the rule on purpose</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The forms of denormalization</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The drift problem &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Keeping copies in sync &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>A worked counter cache &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The decision rule</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">07</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>Denormalization &amp; Trade-offs</h1>
+      <p class="lede">Lesson 06 taught you to remove redundancy so every fact lives in exactly one place. This lesson does the opposite &mdash; <em>on purpose</em>. <strong>Denormalization</strong> is deliberately storing a fact more than once, or precomputing a value you could have derived, to make a read faster or simpler. It is a real tool. It is also a debt: the moment a fact lives twice, the two copies can drift apart and start returning different answers. The whole skill is knowing when the read is worth the risk &mdash; and only after you have normalized and measured.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch, grounded in <strong>PostgreSQL</strong> (targeting PG&nbsp;17/18) but the trade-offs are universal. Contains <strong>three interactive diagrams</strong> (press <em>Play</em>, or step through with <em>Next</em>). This is a concept lesson &mdash; there is <strong>no SQL drill</strong>; instead it builds the mental model of redundancy as a managed cost, so that when you reach for denormalization later you do it with your eyes open.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The trade</div>
+      <h2>Breaking the rule on purpose</h2>
+      <p>Normalization gave you a discipline: <strong>one fact, one place.</strong> A customer's city lives in the customer row and nowhere else, so an <code>UPDATE</code> changes it once and everyone who joins to it sees the new value instantly. That design is <em>correct by construction</em> &mdash; there is no second copy to fall out of date. Denormalization walks back exactly that guarantee, and it does so for one reason: <strong>reads.</strong></p>
+      <p>Here is the one-sentence definition to anchor the lesson: <strong>denormalization is the deliberate introduction of redundancy &mdash; a duplicated value, a precomputed aggregate, an embedded child &mdash; into an otherwise-normalized schema, to make a specific read faster or simpler, in exchange for more expensive writes and the risk that the copies disagree.</strong> Notice every word is a trade. You get something now (a cheaper read); you pay for it later, forever, on every write.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>What you buy</h4>
+          <ul>
+            <li>A hot read gets <strong>faster</strong> &mdash; fewer joins, no re-aggregation at query time.</li>
+            <li>A query gets <strong>simpler</strong> &mdash; the value is just sitting in a column.</li>
+            <li>Sometimes the <em>only</em> way to hit a latency target at scale.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>What you pay</h4>
+          <ul>
+            <li><strong>Write cost</strong> &mdash; every write must now update the copy too.</li>
+            <li><strong>Drift risk</strong> &mdash; miss one write path and the copies disagree.</li>
+            <li><strong>More moving parts</strong> &mdash; a trigger, a job, or a queue to maintain and monitor.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Because the cost is permanent and the benefit is specific, the order of operations matters more than the technique itself. There is a rule, and it is not optional:</p>
+      <div class="callout">
+        <span class="k">The rule of order</span>
+        <p><strong>Normalize first. Measure. Denormalize only a read you have <em>proven</em> is hot.</strong> A clean, fully-normalized schema is your default and your source of truth. You reach for denormalization when a real, measured read is too slow <em>and</em> the usual fixes &mdash; an index, a better query &mdash; are not enough. Denormalizing a read you have not measured is just adding a bug (drift) to buy a speedup you cannot demonstrate.</p>
+      </div>
+      <p>Keep the framing sharp: this is a <strong>correctness-for-latency trade</strong>. Normalization is on the correctness side of the dial; denormalization spends correctness to buy latency. That is a legitimate thing to spend &mdash; databases do it internally all the time &mdash; but you should always know the exchange rate, and you should always be able to say out loud what you gave up.</p>
+    </section>
+
+    <!-- 01 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The catalogue</div>
+      <h2>The forms of denormalization</h2>
+      <p>&ldquo;Storing a fact twice&rdquo; shows up in a handful of recognizable shapes. Learn to name them, because each buys a different kind of read and each is paid for differently. Three of them put a literal <em>copy</em> into your tables; the fourth keeps a whole query result warmed up off to the side.</p>
+
+      <div class="vs three">
+        <div class="col">
+          <h4>Duplicated column</h4>
+          <ul>
+            <li>Copy a column from a parent onto the child, e.g. <code>customer_name</code> onto <code>orders</code>.</li>
+            <li><strong>Speeds up:</strong> reads that no longer need the join.</li>
+            <li><strong>Costs:</strong> a rename of the customer must reach every order row, or they drift.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Precomputed aggregate</h4>
+          <ul>
+            <li>Store a rollup you could compute, e.g. <code>orders.total</code> or <code>users.post_count</code>.</li>
+            <li><strong>Speeds up:</strong> reads that skip a <code>SUM</code>/<code>COUNT</code> over many rows.</li>
+            <li><strong>Costs:</strong> every insert/delete of a line item must adjust the stored number, exactly.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Collapsing / embedding</h4>
+          <ul>
+            <li>Fold a child table into the parent as a <code>jsonb</code> blob or an array.</li>
+            <li><strong>Speeds up:</strong> reads that fetch the whole object in one row, no join.</li>
+            <li><strong>Costs:</strong> you lose per-child constraints, and partial updates get awkward.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>The first two are the everyday ones. A <strong>duplicated column</strong> is the purest form of redundancy: the same string now sits in two tables, and truth depends on both being kept identical. A <strong>precomputed aggregate</strong> (or <em>counter</em>) is subtler and more dangerous, because the copy is <em>derived</em> &mdash; it must equal the count of something else, so a single missed increment silently makes it wrong forever. We give the counter its own worked example in section&nbsp;04, because it hides a classic concurrency bug.</p>
+
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- a precomputed counter, denormalized onto users</span>
+<span class="kw">ALTER TABLE</span> users
+  <span class="kw">ADD COLUMN</span> post_count integer <span class="kw">NOT NULL DEFAULT</span> <span class="lit">0</span>;
+<span class="cm">-- the true value is count(*) of that user's posts; now it lives in two places</span></code></pre>
+
+      <p><strong>Collapsing</strong> is a modeling decision as much as a performance one: instead of a separate <code>order_items</code> table you might store the items as a <code>jsonb</code> array on the order. That is genuinely faster to read as a unit, but you have traded away the relational guarantees Lesson 06 fought for &mdash; there is no foreign key on an item inside a blob, no easy <code>UNIQUE</code>, no cheap &ldquo;all items priced above X across all orders.&rdquo; Phase&nbsp;6 covers <code>jsonb</code> in depth; for now, treat embedding as denormalization with an even bigger correctness price.</p>
+
+      <div class="callout note">
+        <span class="k">The fourth form: materialized views</span>
+        <p>A <strong>materialized view</strong> is a maintained copy of a whole query's <em>result</em>, stored like a table. You write the query once as a view, then <code>REFRESH MATERIALIZED VIEW</code> recomputes and stores its rows. It is denormalization at the query level: blazing-fast reads of a complex aggregate, paid for by staleness &mdash; the result reflects the world <em>as of the last refresh</em>, not right now. It is the natural tool for dashboards and reports, and it gets a full deep-dive in <strong>Phase&nbsp;6</strong>. Mentally file it here: same trade, larger unit.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The core hazard</div>
+      <h2>The drift problem &#9656;</h2>
+      <p>Every form above shares one failure mode, and it is worth staring at until it feels inevitable. The instant a fact lives in two places, <strong>the two places can disagree</strong> &mdash; and once they disagree, a reader who hits the stale copy gets a wrong answer while everything looks fine. Nothing crashes. No error is raised. The data is simply, quietly incorrect.</p>
+      <p>Picture a normalized world first: the customer's city lives in the <code>orders</code> row, the single source of truth. Now suppose that, to print invoices faster, someone copied the city onto each <code>invoice</code> row at invoice time. Watch what one ordinary <code>UPDATE</code> does to that copy:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-drift">
+          <svg viewBox="0 0 660 360" role="img" aria-label="Interactive: a source row is updated but its copy is not, so a reader of the copy gets a stale answer">
+            <text class="lbl-sm" x="330" y="30" text-anchor="middle">orders.customer_city &middot; source of truth</text>
+            <rect id="d1-src-box" class="balbox" x="250" y="44" width="160" height="52" rx="9"/>
+            <text id="d1-src-val" x="330" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#20201D">Rome</text>
+            <g id="g-d1-update" style="opacity:.18">
+              <rect class="chip cA" x="40" y="48" width="168" height="44" rx="8"/>
+              <text class="chiptext" x="124" y="75" text-anchor="middle">UPDATE &#8594; Milan</text>
+            </g>
+            <path d="M212 70 H 246" class="flow-d" marker-end="url(#arrow-s)"/>
+            <path d="M330 98 V 186" class="flow-d"/>
+            <text class="lbl-sm" x="442" y="146" text-anchor="start">one fact,</text>
+            <text class="lbl-sm" x="442" y="162" text-anchor="start">stored in two rows</text>
+            <text class="lbl-sm" x="330" y="200" text-anchor="middle">invoice.customer_city &middot; a stored copy</text>
+            <rect id="d1-copy-box" class="balbox" x="250" y="210" width="160" height="52" rx="9"/>
+            <text id="d1-copy-val" x="330" y="244" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#20201D">Rome</text>
+            <g id="g-d1-reader" style="opacity:.18">
+              <rect id="r-d1-reader" class="chip" x="452" y="214" width="168" height="44" rx="8"/>
+              <text class="chiptext" x="536" y="241" text-anchor="middle">SELECT &#8594; report</text>
+            </g>
+            <path d="M412 236 H 448" class="flow-d" marker-end="url(#arrow-s)"/>
+            <path d="M40 300 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="294" text-anchor="end">time &#8594;</text>
+            <text id="d1-verdict" x="330" y="336" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the update reaches the source but not the copy, so a read of the copy serves a stale answer</figcaption>
+      </figure>
+
+      <p>The dangerous step is the third one. Nothing is broken &mdash; the source is perfectly up to date, the copy is perfectly readable, and the two just happen to hold different strings. The bug only becomes visible when a reader picks the wrong one, and by then it looks like a random data glitch rather than what it is: a fact that was never allowed to live in two places without a mechanism to keep them equal. That mechanism is the entire subject of the next section.</p>
+      <div class="callout note">
+        <span class="k">Redundancy is a promise you now have to keep</span>
+        <p>A normalized schema keeps consistency for free &mdash; there is only one copy, so it cannot disagree with itself. Denormalization converts that free guarantee into a <em>chore</em>: you now owe an update to the copy on every write path that touches the source. Drift is simply what happens when you miss one of those paths. The question is never &ldquo;will it drift?&rdquo; &mdash; it is &ldquo;what keeps it from drifting, and how stale can it get?&rdquo;</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The mechanisms</div>
+      <h2>Keeping copies in sync &#9656;</h2>
+      <p>If you are going to store a fact twice, you must choose <em>how</em> the copy is kept equal to the source &mdash; and that choice is really a choice about <strong>consistency vs. coupling</strong>. There are four common answers, and they land at different points on the spectrum from &ldquo;always exactly right&rdquo; to &ldquo;right eventually.&rdquo;</p>
+      <ul>
+        <li><strong>Application dual-write</strong> &mdash; your app code writes the source, then writes the copy. Simple to picture, but <em>racy and fragile</em>: the two writes are separate steps, so a crash or a concurrent path can leave the copy behind. The honest version of this pattern is the <strong>transactional outbox</strong> (Phase&nbsp;8) &mdash; don't hand-roll two independent writes.</li>
+        <li><strong>Database trigger</strong> &mdash; a trigger updates the copy <em>inside the same transaction</em> as the source change. Because they commit together, the copy is <strong>always consistent</strong>: a reader can never see the source move without the copy moving too. The cost is coupling and write overhead on every change.</li>
+        <li><strong>Materialized view</strong> &mdash; recompute the copy in a batch with <code>REFRESH</code>. Dead simple and decoupled, but <strong>stale between refreshes</strong>: the copy is correct only as of the last refresh.</li>
+        <li><strong>Change data capture (CDC)</strong> &mdash; an async consumer reads the WAL and updates the copy after commit. Scales well and keeps systems decoupled, but is <strong>eventually consistent</strong>: there is always a window where the copy lags.</li>
+      </ul>
+      <p>The cleanest contrast is between the two extremes &mdash; the synchronous trigger and the asynchronous queue. One commits the copy atomically with the source; the other lets the source commit now and repairs the copy later. Follow a single write down both paths:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-sync">
+          <svg viewBox="0 0 660 400" role="img" aria-label="A write fanning out to a synchronous trigger path that commits atomically and an asynchronous path that leaves a staleness window">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">one write &middot; the denormalized copy must change too</text>
+            <g class="st" id="stk-w"><rect class="node-b" x="228" y="34" width="204" height="48" rx="8"/><text class="lbl" x="330" y="63" text-anchor="middle">INSERT INTO posts</text></g>
+            <text class="lbl-sm" x="160" y="116" text-anchor="middle" fill="#A23A5B">SYNCHRONOUS &middot; trigger</text>
+            <text class="lbl-sm" x="500" y="116" text-anchor="middle" fill="#B0532F">ASYNCHRONOUS &middot; queue / CDC</text>
+            <g class="st" id="stk-t1"><rect class="node-t" x="52" y="128" width="216" height="48" rx="8"/><text class="lbl" x="160" y="157" text-anchor="middle" fill="#7a2c43">TRIGGER (same txn)</text></g>
+            <g class="st" id="stk-t2"><rect class="node-b" x="52" y="212" width="216" height="48" rx="8"/><text class="lbl" x="160" y="241" text-anchor="middle">UPDATE post_count</text></g>
+            <g class="st" id="stk-t3"><rect class="node-b" x="52" y="296" width="216" height="56" rx="8"/><text class="lbl" x="160" y="320" text-anchor="middle">COMMIT &mdash; atomic</text><text class="lbl-sm" x="160" y="338" text-anchor="middle">copy + count together</text></g>
+            <g class="st" id="stk-a1"><rect class="node-b" x="392" y="128" width="216" height="48" rx="8"/><text class="lbl" x="500" y="151" text-anchor="middle">enqueue / CDC</text><text class="lbl-sm" x="500" y="167" text-anchor="middle">async, reads the WAL</text></g>
+            <g class="st" id="stk-a2"><rect class="node-r" x="392" y="212" width="216" height="64" rx="8"/><text class="lbl" x="500" y="238" text-anchor="middle" fill="#8a3f22">apply copy LATER</text><text class="lbl-sm" x="500" y="256" text-anchor="middle" fill="#8a3f22">staleness window</text></g>
+            <path id="sp-w-t" class="flow" d="M290 82 C 220 104, 172 108, 160 126" marker-end="url(#arrow)"/>
+            <path id="sp-t1-t2" class="flow" d="M160 176 V 210" marker-end="url(#arrow)"/>
+            <path id="sp-t2-t3" class="flow" d="M160 260 V 294" marker-end="url(#arrow)"/>
+            <path id="sp-w-a" class="flow" d="M370 82 C 440 104, 488 108, 500 126" marker-end="url(#arrow)"/>
+            <path id="sp-a1-a2" class="flow" d="M500 176 V 210" marker-end="url(#arrow)"/>
+            <text id="d2-read" x="330" y="386" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: the trigger path commits the copy atomically; the async path repairs it later, leaving a window of inconsistency</figcaption>
+      </figure>
+
+      <p>The trigger's superpower is the shared transaction: the source change and the copy change either both commit or both roll back, so <em>no reader ever observes them out of step</em>. You pay for that with write amplification and lock coupling &mdash; every insert now also touches (and locks) the counter row. The async path pays a different bill: the source write stays cheap and independent, but you accept a staleness window and the operational weight of a consumer that can lag, fail, or fall behind. Neither is free; they just charge you in different currencies.</p>
+      <div class="callout tip">
+        <span class="k">Which mechanism, in one line each</span>
+        <p><strong>Need the copy exactly right, always?</strong> Trigger (synchronous, in-transaction). <strong>Can tolerate minutes of staleness on a heavy aggregate?</strong> Materialized view (batch refresh). <strong>Crossing a system boundary at scale?</strong> CDC (async, eventually consistent). <strong>Tempted to just write both from app code?</strong> Don't &mdash; reach for the outbox pattern in Phase&nbsp;8 instead of two naked writes.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked example</div>
+      <h2>A worked counter cache &#9656;</h2>
+      <p>Let's make the trade concrete with the most common denormalized value of all: a counter. Say <code>users.post_count</code> should always equal the number of that user's posts. It is a precomputed aggregate &mdash; a copy of <code>count(*)</code> &mdash; and keeping it correct turns out to be a perfect illustration of <em>why the sync mechanism matters</em>. The safe way is a trigger that bumps the counter <strong>in the same transaction</strong> as the post insert:</p>
+
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE FUNCTION</span> <span class="fn">bump_post_count</span>() <span class="kw">RETURNS</span> trigger
+<span class="kw">LANGUAGE</span> plpgsql <span class="kw">AS</span> $$
+<span class="kw">BEGIN</span>
+  <span class="kw">UPDATE</span> users
+     <span class="kw">SET</span> post_count = post_count + <span class="lit">1</span>   <span class="cm">-- read-modify-write, atomic, inside the DB</span>
+   <span class="kw">WHERE</span> id = NEW.author_id;
+  <span class="kw">RETURN</span> NEW;
+<span class="kw">END;</span>
+$$;
+
+<span class="kw">CREATE TRIGGER</span> posts_count_ins
+  <span class="kw">AFTER INSERT ON</span> posts
+  <span class="kw">FOR EACH ROW EXECUTE FUNCTION</span> <span class="fn">bump_post_count</span>();
+<span class="cm">-- a matching AFTER DELETE trigger does post_count = post_count - 1</span></code></pre>
+
+      <p>The reason this is correct is subtle and important: <code>SET post_count = post_count + 1</code> is a <strong>single statement</strong> that reads and writes the row atomically, under a row lock, entirely inside the database. Two concurrent inserts take turns on that row &mdash; the second waits for the first to commit, then adds to the <em>already-updated</em> value. The counter cannot lose an increment.</p>
+      <p>Now contrast the tempting shortcut: maintain the counter in <em>application</em> code by reading it, adding one, and writing it back. This splits the atomic read-modify-write into two round-trips with a gap in the middle &mdash; and that gap is exactly the <strong>lost update</strong> you met in Lesson&nbsp;00's balance race and Lesson&nbsp;03's concurrency notes:</p>
+
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- BROKEN: read then write, split across a network round-trip</span>
+n := <span class="kw">SELECT</span> post_count <span class="kw">FROM</span> users <span class="kw">WHERE</span> id = <span class="lit">7</span>;   <span class="cm">-- both sessions read 5</span>
+<span class="kw">UPDATE</span> users <span class="kw">SET</span> post_count = <span class="lit">6</span> <span class="kw">WHERE</span> id = <span class="lit">7</span>;      <span class="cm">-- both write 6 &rarr; one +1 is lost</span>
+
+<span class="cm">-- SAFE: one atomic statement; no read-modify-write in app code</span>
+<span class="kw">UPDATE</span> users <span class="kw">SET</span> post_count = post_count + <span class="lit">1</span> <span class="kw">WHERE</span> id = <span class="lit">7</span>;</code></pre>
+
+      <p>Step through both paths side by side &mdash; the trigger stays exact, the naive app path silently loses an increment:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-counter">
+          <svg viewBox="0 0 660 400" role="img" aria-label="Two ways to maintain a counter: a trigger keeps it exact, a naive app read-modify-write loses an increment">
+            <text class="lbl-sm" x="40" y="34" text-anchor="start">PATH A &middot; trigger &mdash; atomic +1 in the transaction</text>
+            <g id="g-d3-a1" style="opacity:.18"><rect class="chip cA" x="40" y="46" width="252" height="44" rx="8"/><text class="chiptext" x="166" y="73" text-anchor="middle">INSERT post &#9312; &middot; +1</text></g>
+            <g id="g-d3-a2" style="opacity:.18"><rect class="chip cA" x="368" y="46" width="252" height="44" rx="8"/><text class="chiptext" x="494" y="73" text-anchor="middle">INSERT post &#9313; &middot; +1</text></g>
+            <text class="lbl-sm" x="330" y="126" text-anchor="middle">users.post_count</text>
+            <rect id="d3-box" class="balbox" x="268" y="134" width="124" height="58" rx="9"/>
+            <text id="d3-val" x="330" y="174" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="26" font-weight="700" fill="#20201D">5</text>
+            <path d="M40 222 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="216" text-anchor="end">time &#8594;</text>
+            <text class="lbl-sm" x="40" y="250" text-anchor="start">PATH B &middot; app read-modify-write &mdash; split read, then write</text>
+            <g id="g-d3-b1" style="opacity:.18"><rect class="chip cB" x="40" y="262" width="180" height="42" rx="8"/><text class="chiptext" x="130" y="288" text-anchor="middle">S1: read &#8594; 5</text></g>
+            <g id="g-d3-b2" style="opacity:.18"><rect class="chip cB" x="40" y="312" width="180" height="42" rx="8"/><text class="chiptext" x="130" y="338" text-anchor="middle">S2: read &#8594; 5</text></g>
+            <g id="g-d3-b3" style="opacity:.18"><rect id="r-d3-b3" class="chip cB" x="440" y="262" width="180" height="42" rx="8"/><text class="chiptext" x="530" y="288" text-anchor="middle">S1: write 6</text></g>
+            <g id="g-d3-b4" style="opacity:.18"><rect id="r-d3-b4" class="chip cB" x="440" y="312" width="180" height="42" rx="8"/><text class="chiptext" x="530" y="338" text-anchor="middle">S2: write 6</text></g>
+            <text id="d3-verdict" x="330" y="388" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the in-transaction trigger increments exactly; two concurrent app-side read-modify-writes lose one</figcaption>
+      </figure>
+
+      <p>The lesson generalizes past counters. Any denormalized value that is maintained by <em>reading the old copy and writing a new one</em> is exposed to the lost-update race unless that read-and-write is a single atomic operation &mdash; a trigger in the same transaction, an in-database <code>SET x = x + 1</code>, or an explicit lock. Push that arithmetic into application code and you have reintroduced the very bug transactions exist to prevent. And remember the counter's <em>other</em> cost: a single hot row that every insert must lock can become a contention point, which is sometimes reason enough not to keep the counter at all.</p>
+      <div class="callout note">
+        <span class="k">Callback: the lost update never left</span>
+        <p>This is the same failure as the bank-balance race in Lesson&nbsp;00 &mdash; two readers of a shared value, both writing back a result computed from a now-stale read. Denormalized counters are simply where it ambushes people who thought they were done thinking about concurrency. Keep the increment <em>inside</em> the database, in one statement, and the race disappears. Phase&nbsp;5 gives you the full vocabulary (row locks, isolation levels) for why.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Reason about it</div>
+      <h2>The decision rule</h2>
+      <p>Let's turn all of this into a checklist you can run in your head &mdash; or better, in a design review &mdash; before you denormalize anything. Imagine the classic trigger: a product page is slow because rendering it re-counts every user's posts and re-sums every order. The instinct is to cache those numbers in columns. Before you do, walk the four gates. If any one fails, you are not ready.</p>
+      <ul>
+        <li><strong>(1) A measured read problem.</strong> Not &ldquo;this feels slow&rdquo; &mdash; an actual number: p95 latency, a query plan, a profile. You cannot justify a permanent write cost with a hypothetical read.</li>
+        <li><strong>(2) A chosen sync mechanism.</strong> Decide <em>now</em>, explicitly, how the copy stays equal to the source &mdash; trigger, materialized view, CDC &mdash; and what staleness that implies. &ldquo;We'll keep it updated&rdquo; is not a mechanism.</li>
+        <li><strong>(3) Monitoring for drift.</strong> Have a way to detect when the copy diverges &mdash; a periodic reconciliation query comparing the copy to <code>count(*)</code>, an alert, a nightly check. Redundancy you don't audit <em>will</em> silently rot.</li>
+        <li><strong>(4) It's written down.</strong> The redundancy, its source of truth, its sync path, and its staleness bound belong in a comment and a doc. The next engineer must not discover the copy by breaking it.</li>
+      </ul>
+      <p>Here is the move most people skip: <strong>before any of that, try an index.</strong> A huge fraction of &ldquo;we need to denormalize&rdquo; problems are really &ldquo;the planner is scanning a table it could be seeking.&rdquo; An index (Phase&nbsp;4) makes the read fast <em>without introducing a second copy at all</em> &mdash; no drift, no sync mechanism, no monitoring. It is strictly cheaper on the correctness axis. Denormalization is what you reach for when the read is still too slow <em>after</em> the schema is clean and the indexes are in place. In interview terms: &ldquo;I'd first check the plan and add the right index; only if that's still not enough would I consider a maintained counter, with a trigger to keep it in the same transaction and a reconciliation job to catch drift&rdquo; is the answer that shows judgment.</p>
+      <div class="callout">
+        <span class="k">Where this shows up next</span>
+        <p>You've now seen the general shape of a problem you'll meet again at every scale. <strong>Phase&nbsp;4 (indexing)</strong> is the fix to try <em>before</em> denormalizing. <strong>Phase&nbsp;6 (materialized views &amp; jsonb)</strong> is denormalization at the query and document level, with Postgres tooling to maintain it. And <strong>Phase&nbsp;8 (scale &amp; applied design)</strong> is the exact same &ldquo;two copies, one truth&rdquo; problem grown up &mdash; keeping a cache, a search index, or a read replica in sync with the database. Every one of them is a bet: read speed <em>now</em> against the correctness risk of a copy that can drift. Learn to price that bet, and you can make it deliberately instead of by accident.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>denormalization deliberately stores a fact twice to make a read faster, and the price is that the copies can drift &mdash; so you only do it for a measured hot read, with a chosen mechanism to keep the copies in sync, monitoring to catch drift, and it written down.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>The reverse of normalizing</b><span>Denormalization intentionally adds redundancy &mdash; a copy or a precomputed value &mdash; to speed up a specific read.</span></div>
+        <div class="tk"><span class="num">02</span><b>Correctness for latency</b><span>You buy a faster/simpler read; you pay with write cost, drift risk, and more moving parts. Know the exchange rate.</span></div>
+        <div class="tk"><span class="num">03</span><b>Order is not optional</b><span>Normalize first, measure, then denormalize only a read you've proven is hot. Never the other way around.</span></div>
+        <div class="tk"><span class="num">04</span><b>Four forms</b><span>Duplicated column, precomputed aggregate/counter, collapsing into jsonb/arrays, and materialized views.</span></div>
+        <div class="tk"><span class="num">05</span><b>Drift is the hazard</b><span>Two copies, one truth. Miss a write path and a reader silently gets a stale, wrong answer &mdash; no error raised.</span></div>
+        <div class="tk"><span class="num">06</span><b>Pick a sync mechanism</b><span>Trigger = always consistent (same txn); materialized view = stale between refreshes; CDC/dual-write = eventually consistent.</span></div>
+        <div class="tk"><span class="num">07</span><b>Counters hide a race</b><span>Keep the +1 atomic inside the DB. An app-side read-modify-write loses updates &mdash; the classic lost-update bug.</span></div>
+        <div class="tk"><span class="num">08</span><b>Try an index first</b><span>An index often fixes the slow read with no copy, no drift, no sync. Denormalize only when that isn't enough.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Define denormalization in one sentence, and name the three things you pay for it.<br>
+        (2) State the rule of order and explain <em>why</em> denormalizing an un-measured read is just adding a bug.<br>
+        (3) List the four forms of denormalization; for each, say what read it speeds up and what it costs.<br>
+        (4) Explain drift: why does a stale copy produce a wrong answer with no error, and at which step in FIG.&nbsp;1 does it become a bug?<br>
+        (5) Compare a trigger vs. an async queue for keeping a copy in sync &mdash; which is always consistent, which leaves a staleness window, and why?<br>
+        (6) Why does an in-database <code>SET x = x + 1</code> stay correct under concurrency while an app-side read-then-write loses increments? Name the bug.<br>
+        Any fuzzy answer &#8594; re-read that section, replay its diagram, and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 07 &middot; DENORMALIZATION &amp; TRADE-OFFS &middot; interactive edition<br>
+      Original study notes for engineers &middot; normalize first, measure, then denormalize on purpose &mdash; and write it down.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the drift problem */
+  makeStepper(_g('fig-drift'), [
+    {text:"In sync: the customer's city is Rome in the orders row (the source of truth) and in the invoice copy. A read of either returns the same value.", src:"Rome", srcc:"", copy:"Rome", copyc:"", upd:false, rdr:"", v:"in sync — both rows say Rome"},
+    {text:"The customer moves to Milan. One UPDATE changes the source row: orders.customer_city becomes Milan.", src:"Milan", srcc:"kok", copy:"Rome", copyc:"", upd:true, rdr:"", v:"source updated → Milan"},
+    {text:"But nothing touched the copy. invoice.customer_city still says Rome — the two rows now disagree. Nothing errored; the data is just quietly inconsistent.", src:"Milan", srcc:"kok", copy:"Rome", copyc:"kbad", upd:true, rdr:"", v:"copy untouched → still Rome (drift)"},
+    {text:"A report reads the fast copy on the invoice and serves 'Rome' — a stale read. The truth is Milan; the answer is simply wrong.", src:"Milan", srcc:"kok", copy:"Rome", copyc:"kbad", upd:true, rdr:"cBad", v:"✗ stale read — served Rome, truth is Milan"},
+    {text:"The takeaway: two copies, one truth — they will drift unless every write that changes the source also updates the copy. Choosing that mechanism is the next section.", src:"Milan", srcc:"kok", copy:"Rome", copyc:"kbad", upd:true, rdr:"cBad", v:"two copies, one truth → they drift"}
+  ], function(idx,s){
+    _g('g-d1-update').style.opacity = s.upd?1:0.18;
+    _g('g-d1-reader').style.opacity = s.rdr?1:0.18;
+    _g('r-d1-reader').setAttribute('class','chip'+(s.rdr?' '+s.rdr:''));
+    _g('d1-src-val').textContent=s.src;
+    _g('d1-src-val').setAttribute('fill', s.srcc==='kok'?'#3f7a2e':(s.srcc==='kbad'?'#B0532F':'#20201D'));
+    _g('d1-src-box').setAttribute('class','balbox'+(s.srcc?' '+s.srcc:''));
+    _g('d1-copy-val').textContent=s.copy;
+    _g('d1-copy-val').setAttribute('fill', s.copyc==='kbad'?'#B0532F':(s.copyc==='kok'?'#3f7a2e':'#20201D'));
+    _g('d1-copy-box').setAttribute('class','balbox'+(s.copyc?' '+s.copyc:''));
+    var vd=_g('d1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.rdr?'#B0532F':'#5A574E');
+  });
+
+  /* FIG 2 — keeping copies in sync (fan-out) */
+  makeStepper(_g('fig-sync'), [
+    {text:"One write happens: INSERT a new posts row. A denormalized users.post_count must change too — there are two ways to keep it in sync.", active:["stk-w"], read:""},
+    {text:"SYNCHRONOUS — a database TRIGGER fires inside the very same transaction as the INSERT.", active:["stk-w","stk-t1"], path:"sp-w-t", read:"trigger fires inside the same transaction"},
+    {text:"The trigger updates users.post_count as part of that transaction. Nothing else can slip in between the two changes.", active:["stk-t1","stk-t2"], path:"sp-t1-t2", read:"counter updated inside the txn"},
+    {text:"COMMIT writes the row and the counter together — atomic. A reader can never see one without the other: always consistent.", active:["stk-t2","stk-t3"], path:"sp-t2-t3", read:"✓ trigger: row + copy commit together → consistent"},
+    {text:"ASYNCHRONOUS — instead, publish an event (a queue, or CDC reading the WAL). The INSERT commits now; the copy is dealt with later.", active:["stk-w","stk-a1"], path:"sp-w-a", read:"INSERT commits now; event published"},
+    {text:"A worker applies the change after a delay. Between commit and apply the copy is stale — a window of inconsistency: eventual consistency.", active:["stk-a1","stk-a2"], path:"sp-a1-a2", reject:true, read:"✗ async: copy applied later → staleness window"}
+  ], function(idx,s){
+    var el=_g('d2-read'); if(el){ el.textContent=s.read||'';
+      el.setAttribute('fill', s.reject?'#B0532F':(s.read?'#3f7a2e':'#5A574E')); }
+  });
+
+  /* FIG 3 — the worked counter cache */
+  makeStepper(_g('fig-counter'), [
+    {text:"The denormalized counter starts correct: users.post_count = 5. Two new posts are about to be inserted at almost the same moment.", val:"5", boxc:"", lit:[], bad:false, v:"start: post_count = 5 · two posts incoming"},
+    {text:"PATH A — a trigger. The first INSERT fires a trigger that runs post_count = post_count + 1 inside the transaction: 5 → 6.", val:"6", boxc:"", lit:["a1"], bad:false, v:"trigger ①: 5 → 6, in-transaction"},
+    {text:"The second INSERT's trigger does the same atomic +1: 6 → 7. Two posts, plus two — exact. No increment can be lost.", val:"7", boxc:"kok", lit:["a1","a2"], bad:false, v:"✓ trigger: 5 → 7 — exact"},
+    {text:"PATH B — maintain the counter in app code instead. Reset to 5. Session 1 reads it (5); Session 2 reads at the same instant (also 5).", val:"5", boxc:"", lit:["b1","b2"], bad:false, v:"app path: S1 and S2 both read 5"},
+    {text:"Each adds one in memory and writes the result back. Session 1 writes 6.", val:"6", boxc:"", lit:["b1","b2","b3"], bad:false, v:"S1 writes 6"},
+    {text:"Session 2 also writes 6, overwriting Session 1. One +1 has vanished — a LOST UPDATE. The count is 6 but should be 7, exactly like L00's balance race.", val:"6", boxc:"kbad", lit:["b1","b2","b3","b4"], bad:true, v:"✗ lost update: 6, should be 7"}
+  ], function(idx,s){
+    ['a1','a2','b1','b2','b3','b4'].forEach(function(k){
+      var g=_g('g-d3-'+k); if(g) g.style.opacity=(s.lit.indexOf(k)>=0?1:0.18);});
+    _g('d3-val').textContent=s.val;
+    _g('d3-val').setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#20201D'));
+    _g('d3-box').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    _g('r-d3-b3').setAttribute('class','chip'+(s.bad?' cBad':' cB'));
+    _g('r-d3-b4').setAttribute('class','chip'+(s.bad?' cBad':' cB'));
+    var vd=_g('d3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

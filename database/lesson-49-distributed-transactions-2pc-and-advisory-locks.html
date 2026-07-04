@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 49 — Distributed Transactions, 2PC &amp; Advisory Locks (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Distributed Transactions, 2PC &amp; Advisory Locks</div>
+    <h4>The stretch chapter</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>When you need cross-system atomicity</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Two-phase commit, step by step &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Why 2PC is a trap &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Sagas &amp; advisory locks &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>When each one fits</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The decision hierarchy</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">49</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>Distributed Transactions, 2PC &amp; Advisory Locks</h1>
+      <p class="lede">Sometimes one local transaction isn't enough — you truly need a change to land <em>atomically</em> across two databases or two systems. PostgreSQL offers a real distributed-commit primitive, <code>PREPARE TRANSACTION</code> (two-phase commit), and it is almost always a trap: it turns the coordinator into a single point of failure and can leave participants blocked, holding locks, forever. This lesson explains 2PC honestly, shows the failure mode, and hands you the two pragmatic tools that win in practice — <strong>sagas</strong> and <strong>advisory locks</strong>.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers preparing for systems-design interviews and real on-call. Examples target <strong>PostgreSQL (PG 17/18)</strong>, but the trade-offs — atomicity across systems, blocking commit protocols, compensation-based consistency — are universal. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a concept lesson — <strong>no SQL drill</strong>; it builds the mental model for when (and when not) to reach for a distributed transaction.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The temptation</div>
+      <h2>When you genuinely need atomicity across systems</h2>
+      <p>Almost everything you write should fit inside <strong>one local transaction</strong> in one database — that's the happy path, and PostgreSQL's ACID guarantees make it airtight. But real systems eventually reach for something a single transaction can't span. You want to <em>debit an account in database A and credit an account in database B</em>, both or neither. You want to <em>write a row and publish an event to a queue</em> as one atomic act. You want to <em>update Postgres and invalidate a Redis key</em> together. The instinct is: "I need a transaction that covers both."</p>
+      <p>That instinct runs straight into the <strong>dual-write problem</strong> we met earlier (Lessons 46&ndash;47): you cannot atomically commit to two independent systems, because there is always a window — after you commit the first and before you commit the second — where a crash leaves them inconsistent. There is no free lunch here; the question is only <em>which</em> compromise you choose.</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Two-phase commit</h4>
+          <ul>
+            <li>A <strong>coordinator</strong> forces all participants to agree.</li>
+            <li>Real atomicity &mdash; on paper.</li>
+            <li>Blocking; coordinator is a <strong>SPOF</strong>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Sagas</h4>
+          <ul>
+            <li>A chain of <strong>local</strong> transactions.</li>
+            <li>Failures trigger <strong>compensating</strong> actions.</li>
+            <li>Eventual consistency, no distributed lock.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Advisory locks</h4>
+          <ul>
+            <li>An app-level, <strong>cross-session</strong> mutex.</li>
+            <li>Leader election, single-runner jobs.</li>
+            <li>Coordination, not atomic commit.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The honest summary up front: <strong>2PC exists and is usually the wrong answer</strong>; sagas and advisory locks are the tools you actually reach for. The rest of this lesson earns that claim — first by showing exactly how 2PC works, then exactly how it fails, then what to use instead.</p>
+      <div class="callout">
+        <span class="k">The one-sentence frame</span>
+        <p>A distributed transaction trades a small window of inconsistency for a <em>blocking dependency between machines</em>. Whenever you can absorb the inconsistency with idempotency and compensation instead, you should &mdash; because a blocked, in-doubt transaction is far harder to recover from than a duplicate event.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The protocol</div>
+      <h2>Two-phase commit, step by step &#9656;</h2>
+      <p>Two-phase commit (2PC) is the classic protocol for making several participants commit atomically. A <strong>coordinator</strong> (transaction manager) drives it in exactly two phases, as the name says. In PostgreSQL, phase one is <code>PREPARE TRANSACTION</code> and phase two is <code>COMMIT PREPARED</code> (or <code>ROLLBACK PREPARED</code>). The prepared transaction is written durably to disk and survives a server restart &mdash; that durability is the whole point, and also the whole danger.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- run against EACH participant database, driven by the coordinator</span>
+<span class="cm">-- phase 1: do the work, then promise you can commit</span>
+<span class="kw">BEGIN</span>;
+<span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance - <span class="lit">100</span> <span class="kw">WHERE</span> id = <span class="lit">1</span>;
+<span class="kw">PREPARE TRANSACTION</span> <span class="lit">'txn-42'</span>;   <span class="cm">-- votes YES; locks are STILL held</span>
+
+<span class="cm">-- phase 2: only after ALL participants prepared successfully</span>
+<span class="kw">COMMIT PREPARED</span> <span class="lit">'txn-42'</span>;        <span class="cm">-- or ROLLBACK PREPARED 'txn-42'</span></code></pre>
+      <p>The rule is simple and strict: the coordinator sends <code>PREPARE</code> to everyone; if <em>every</em> participant votes YES (i.e. successfully prepared), the coordinator sends <code>COMMIT PREPARED</code> to everyone; if <em>any</em> participant cannot prepare, the coordinator sends <code>ROLLBACK PREPARED</code> to all. Atomicity across systems, achieved. Step through the well-behaved run:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-2pc">
+          <svg viewBox="0 0 640 360" role="img" aria-label="Two-phase commit: a coordinator sends PREPARE to two participant databases, collects YES votes, then sends COMMIT PREPARED to both">
+            <text class="lbl-sm" x="40" y="26" text-anchor="start">PHASE 1 &middot; PREPARE (vote)</text>
+            <text class="lbl-sm" x="600" y="26" text-anchor="end">PHASE 2 &middot; COMMIT PREPARED</text>
+            <!-- coordinator -->
+            <g id="f1-co"><rect class="node-b" x="230" y="40" width="180" height="52" rx="8"/><text class="lbl" x="320" y="63" text-anchor="middle">Coordinator</text><text class="lbl-sm" x="320" y="80" text-anchor="middle">transaction manager</text></g>
+            <text id="f1-dec" class="readout" x="320" y="122" text-anchor="middle" font-size="13" fill="#B0532F"></text>
+            <!-- participants -->
+            <g id="f1-a"><rect class="node" x="48" y="250" width="184" height="58" rx="8"/><text class="lbl" x="140" y="272" text-anchor="middle">Participant &middot; DB-A</text><text id="f1-va" class="lbl-sm" x="140" y="292" text-anchor="middle">idle</text></g>
+            <g id="f1-b"><rect class="node" x="408" y="250" width="184" height="58" rx="8"/><text class="lbl" x="500" y="272" text-anchor="middle">Participant &middot; DB-B</text><text id="f1-vb" class="lbl-sm" x="500" y="292" text-anchor="middle">idle</text></g>
+            <!-- arrows -->
+            <path id="f1-pa" class="flow" d="M282 92 C 240 150, 185 205, 148 248" marker-end="url(#arrow)"/>
+            <path id="f1-pb" class="flow" d="M358 92 C 400 150, 455 205, 492 248" marker-end="url(#arrow)"/>
+            <path id="f1-ca" d="M282 92 C 240 150, 185 205, 148 248" style="opacity:0" fill="none"/>
+            <path id="f1-cb" d="M358 92 C 400 150, 455 205, 492 248" style="opacity:0" fill="none"/>
+            <text id="f1-read" class="lbl-sm" x="320" y="344" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: the happy path of 2PC &mdash; prepare everyone, collect YES votes, then commit everyone</figcaption>
+      </figure>
+
+      <p>Notice the crucial detail hiding in step 2: once a participant has <em>prepared</em>, it has made an irrevocable promise. It has written its changes durably and it <strong>keeps its locks held</strong> until the coordinator tells it commit or rollback. A prepared transaction is a loaded gun with the safety off &mdash; perfectly fine as long as the coordinator returns promptly with a decision. The next section is what happens when it doesn't.</p>
+      <div class="callout note">
+        <span class="k">PREPARE is a promise, not a commit</span>
+        <p>After <code>PREPARE TRANSACTION</code> the work is durable but <em>not yet visible</em>, and the participant has surrendered its autonomy: it can no longer decide to abort on its own. It must wait for the coordinator. That surrender of local control is what makes the whole protocol correct &mdash; and what makes it dangerous.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The failure mode</div>
+      <h2>Why 2PC is a trap &#9656;</h2>
+      <p>The happy path is seductive. The trouble is the window between the two phases. A participant has prepared &mdash; it is holding locks and waiting &mdash; and then the <strong>coordinator crashes</strong> before it can send the decision. The participant is now stuck in a state Postgres calls an <strong>in-doubt (orphaned) prepared transaction</strong>: it promised to obey, so it may not unilaterally commit or roll back, but there is no coordinator left to tell it what to do. Watch it happen:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-crash">
+          <svg viewBox="0 0 640 340" role="img" aria-label="A coordinator crashes after a participant prepares, leaving the participant in-doubt with locks pinned">
+            <text class="lbl-sm" x="34" y="46" text-anchor="start">COORDINATOR</text>
+            <text class="lbl-sm" x="34" y="226" text-anchor="start">PARTICIPANT</text>
+            <!-- coordinator chips -->
+            <g id="f2-c-prep" style="opacity:.15"><rect class="chip cA" x="70" y="54" width="160" height="42" rx="8"/><text class="chiptext" x="150" y="80" text-anchor="middle">sends PREPARE</text></g>
+            <g id="f2-c-crash" style="opacity:.15"><rect class="chip cBad" x="330" y="54" width="180" height="42" rx="8"/><text class="chiptext" x="420" y="80" text-anchor="middle">&#10007; CRASHES</text></g>
+            <!-- participant chips -->
+            <g id="f2-p-prep" style="opacity:.15"><rect class="chip cB" x="52" y="234" width="182" height="42" rx="8"/><text class="chiptext" x="143" y="260" text-anchor="middle">prepared &middot; locks held</text></g>
+            <g id="f2-p-wait" style="opacity:.15"><rect class="chip cB" x="256" y="234" width="150" height="42" rx="8"/><text class="chiptext" x="331" y="260" text-anchor="middle">awaits decision</text></g>
+            <g id="f2-p-doubt" style="opacity:.15"><rect class="chip cBad" x="428" y="234" width="182" height="42" rx="8"/><text class="chiptext" x="519" y="260" text-anchor="middle">IN-DOUBT &middot; blocked</text></g>
+            <!-- central state -->
+            <rect id="f2-box" class="balbox" x="250" y="128" width="160" height="58" rx="9"/>
+            <text id="f2-state" x="330" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="600" fill="#20201D">PREPARED</text>
+            <path d="M34 200 H 606" class="flow-d"/>
+            <text class="lbl-sm" x="606" y="194" text-anchor="end">time &#8594;</text>
+            <text id="f2-verdict" x="320" y="324" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13.5" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: coordinator crashes between phases &mdash; the participant is left in-doubt, holding locks, blocked</figcaption>
+      </figure>
+
+      <p>The consequences compound. A prepared transaction holds its row locks <em>and</em> pins resources the way any open transaction does: <strong>it holds back <code>VACUUM</code></strong>, so dead tuples can't be cleaned up and the table (and the transaction-id horizon) bloats. Its locks block any other transaction that needs the same rows. And it will sit there &mdash; through restarts, because it's durable &mdash; until a human notices and resolves it. You find these orphans in a catalog view:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- orphaned prepared transactions: the outage you didn't know you had</span>
+<span class="kw">SELECT</span> gid, prepared, owner, database
+<span class="kw">FROM</span>   pg_prepared_xacts
+<span class="kw">ORDER BY</span> prepared;                 <span class="cm">-- old ones = trouble</span>
+
+<span class="cm">-- the only cure is a manual decision:</span>
+<span class="kw">ROLLBACK PREPARED</span> <span class="lit">'txn-42'</span>;        <span class="cm">-- or COMMIT PREPARED, if you can prove that's correct</span></code></pre>
+      <p>And there is a guard rail that bites the unwary: prepared transactions are <strong>disabled by default</strong>. The parameter <code>max_prepared_transactions</code> is <code>0</code> out of the box, so <code>PREPARE TRANSACTION</code> errors until an administrator raises it &mdash; a deliberate signal from the Postgres developers that you should not turn this on without knowing exactly what you're doing. If you do enable it, you now own the job of monitoring <code>pg_prepared_xacts</code> forever.</p>
+      <div class="callout tip">
+        <span class="k">The three-word summary of 2PC's flaw</span>
+        <p><strong>Blocking on failure.</strong> A protocol is only as available as its least-available required participant plus its coordinator. 2PC multiplies single points of failure and, on a coordinator crash, converts a transient outage into pinned locks and a blocked <code>VACUUM</code> that a human must clear. It is technically atomic and operationally hazardous &mdash; a last resort, only with a real, battle-tested transaction manager (e.g. an XA-aware one) behind it.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The alternatives</div>
+      <h2>Sagas &amp; advisory locks &#9656;</h2>
+      <p>If 2PC is the wrong answer to "atomicity across systems," what's the right one? Two tools, for two different jobs. For a multi-step <em>business</em> flow that spans services, use a <strong>saga</strong>. For <em>coordination</em> &mdash; making sure only one process does a thing &mdash; use an <strong>advisory lock</strong>.</p>
+
+      <h3>Sagas: local transactions plus compensation</h3>
+      <p>A saga replaces one big distributed transaction with a <strong>sequence of local transactions</strong>, each of which commits on its own. If a later step fails, you don't roll back the earlier ones &mdash; you can't, they've already committed &mdash; instead you run <strong>compensating actions</strong> that semantically undo them, in reverse order. Charged the card but couldn't reserve stock? Issue a refund. It's eventual consistency, achieved with no distributed lock and no coordinator holding everyone hostage:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-saga">
+          <svg viewBox="0 0 640 360" role="img" aria-label="A saga runs forward through local transactions T1, T2, T3; T3 fails, so compensations C2 and C1 run in reverse">
+            <text class="lbl-sm" x="40" y="42" text-anchor="start">FORWARD &middot; local transactions</text>
+            <text class="lbl-sm" x="40" y="236" text-anchor="start">COMPENSATE &middot; reverse order</text>
+            <!-- forward txns -->
+            <g class="st" id="f3-t1"><rect class="node" x="40" y="56" width="170" height="52" rx="8"/><text class="lbl" x="125" y="87" text-anchor="middle">T1 &middot; create order</text></g>
+            <g class="st" id="f3-t2"><rect class="node" x="235" y="56" width="170" height="52" rx="8"/><text class="lbl" x="320" y="87" text-anchor="middle">T2 &middot; charge card</text></g>
+            <g class="st" id="f3-t3"><rect class="node-r" x="430" y="56" width="170" height="52" rx="8"/><text class="lbl" x="515" y="81" text-anchor="middle" fill="#B0532F">T3 &middot; reserve stock</text><text class="lbl-sm" x="515" y="98" text-anchor="middle" fill="#B0532F">&#10007; out of stock</text></g>
+            <!-- compensations -->
+            <g class="st" id="f3-c1"><rect class="node-r" x="40" y="250" width="170" height="52" rx="8"/><text class="lbl" x="125" y="281" text-anchor="middle" fill="#B0532F">C1 &middot; cancel order</text></g>
+            <g class="st" id="f3-c2"><rect class="node-r" x="235" y="250" width="170" height="52" rx="8"/><text class="lbl" x="320" y="281" text-anchor="middle" fill="#B0532F">C2 &middot; refund card</text></g>
+            <!-- forward arrows -->
+            <path id="f3-f1" class="flow" d="M210 82 H 233" marker-end="url(#arrow)"/>
+            <path id="f3-f2" class="flow" d="M405 82 H 428" marker-end="url(#arrow)"/>
+            <!-- backward arrows -->
+            <path id="f3-b2" class="flow-r" d="M500 108 C 500 185, 320 175, 320 248" marker-end="url(#arrow-r)"/>
+            <path id="f3-b1" class="flow-r" d="M235 276 H 212" marker-end="url(#arrow-r)"/>
+            <text id="f3-read" class="lbl-sm" x="320" y="344" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: a saga fails at T3 and heals by running compensations C2 then C1 &mdash; no distributed lock</figcaption>
+      </figure>
+
+      <p>Two design rules make sagas safe. First, every step and every compensation should be <strong>idempotent</strong> (Lesson 47): a retried refund must not refund twice, so key it and use <code>ON CONFLICT DO NOTHING</code> or an inbox table. Second, some actions <em>can't</em> be compensated (you can't un-send an email) &mdash; put those <em>last</em>, so everything reversible has already succeeded before you cross the point of no return.</p>
+
+      <h3>Advisory locks: a distributed mutex in the database</h3>
+      <p>The other tool solves a different problem: not "commit atomically" but "make sure only one worker does this." A PostgreSQL <strong>advisory lock</strong> is an application-defined, cross-session lock keyed by an integer you choose. Postgres doesn't attach any meaning to it &mdash; it just guarantees that at most one session holds a given key at a time. That's exactly a distributed mutex, and it's the simplest way to do leader election or a single-runner cron:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- SESSION-level: held until unlock or the session ends. Great for leader election.</span>
+<span class="kw">SELECT</span> <span class="fn">pg_try_advisory_lock</span>(<span class="lit">42</span>);   <span class="cm">-- true = I'm the leader; false = someone else is</span>
+<span class="cm">-- ... do the singleton work ...</span>
+<span class="kw">SELECT</span> <span class="fn">pg_advisory_unlock</span>(<span class="lit">42</span>);
+
+<span class="cm">-- TRANSACTION-level: auto-released at COMMIT/ROLLBACK. No leak if you crash mid-work.</span>
+<span class="kw">BEGIN</span>;
+<span class="kw">SELECT</span> <span class="fn">pg_advisory_xact_lock</span>(<span class="lit">42</span>);  <span class="cm">-- blocks until acquired; freed automatically</span>
+<span class="cm">-- ... exactly-one-runner section ...</span>
+<span class="kw">COMMIT</span>;                            <span class="cm">-- lock released here, guaranteed</span></code></pre>
+      <p>Prefer <code>pg_try_advisory_lock</code> (non-blocking &mdash; returns immediately) so a would-be second leader steps aside instead of piling up. And prefer the <strong>transaction-scoped</strong> variant when you can: a session-level lock is held until you explicitly unlock or the session ends, so an app that forgets to unlock &mdash; or that returns the connection to a pool still holding it &mdash; leaks it, whereas an <code>xact</code> lock is always released by <code>COMMIT</code> or <code>ROLLBACK</code>. (A true process death still frees either kind, since Postgres tears the backend down.) Advisory locks are advisory &mdash; they enforce nothing about the data itself, only cooperation between sessions that agree to check the same key.</p>
+      <div class="callout note">
+        <span class="k">Two tools, two jobs &mdash; don't confuse them</span>
+        <p>A <strong>saga</strong> answers "how do I keep several systems consistent across a multi-step flow?" &mdash; the answer is compensation, not locking. An <strong>advisory lock</strong> answers "how do I make sure only one of my instances runs this?" &mdash; the answer is a shared mutex, not a transaction across systems. Neither is a distributed <em>commit</em>; both avoid the blocking trap that 2PC walks into.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Fit</div>
+      <h2>When each one actually fits</h2>
+      <p>Now the practical calibration &mdash; where each tool earns its place, and where it doesn't.</p>
+      <h3>Two-phase commit &mdash; rarely, and only with a manager</h3>
+      <p>Reach for 2PC only when you have a genuine, short, hard requirement for cross-system atomicity <em>and</em> a real, dedicated transaction manager (an XA coordinator, or a framework that owns recovery) sitting behind it &mdash; never a hand-rolled coordinator in your app. Keep the prepared window as short as possible; monitor <code>pg_prepared_xacts</code> and alert on any prepared transaction older than a few seconds. Classic legitimate cases are narrow: a bank moving money between two ledger databases that both support XA, under a proven middleware. If you're describing your own service as "the coordinator," stop &mdash; that's the smell of the trap.</p>
+      <h3>Advisory locks &mdash; the everyday coordination workhorse</h3>
+      <p>These fit a surprising number of real needs, and they're cheap:</p>
+      <ul>
+        <li><strong>Leader election</strong> &mdash; N app instances boot, each tries <code>pg_try_advisory_lock(id)</code>; the one that wins runs the singleton loop, the rest idle and retry.</li>
+        <li><strong>Single-runner cron / scheduled job</strong> &mdash; wrap the job body in <code>pg_try_advisory_xact_lock</code> so a duplicate trigger (two pods firing at once) becomes a harmless no-op.</li>
+        <li><strong>A named mutex around a non-transactional resource</strong> &mdash; serialize a risky migration step, or gate access to an external API that must be called by one worker at a time.</li>
+        <li><strong>Throttling a hot code path</strong> &mdash; a keyed lock so only one session recomputes an expensive cached artifact while others skip.</li>
+      </ul>
+      <h3>Sagas &mdash; multi-step business flows across services</h3>
+      <p>Whenever a user action fans out into several services &mdash; order &rarr; payment &rarr; inventory &rarr; shipping &mdash; model it as a saga with a compensation for each reversible step. Combine it with the <strong>transactional outbox</strong> (Lesson 46) so each local step publishes its next event atomically, and with <strong>idempotent consumers</strong> (Lesson 47) so retries are safe. That trio &mdash; outbox + idempotency + saga &mdash; is how production systems get "distributed transaction" behavior without a distributed transaction.</p>
+      <div class="callout tip">
+        <span class="k">The general rule</span>
+        <p><strong>Prefer one local transaction &mdash; then outbox + idempotency &mdash; then a saga &mdash; and only then, as a genuine last resort, 2PC.</strong> Reach for advisory locks whenever the problem is really "only one runner," not "atomic across systems." Nine times out of ten the elegant distributed transaction you're imagining is better served by making a downstream effect idempotent and letting it retry.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Reason about it</div>
+      <h2>The decision hierarchy &mdash; and where this shows up next</h2>
+      <p>Let's walk one concrete scenario down the ladder, because the ladder <em>is</em> the lesson. Suppose a "place order" action must: create the order, charge the card (an external payment service), and reserve inventory (a separate service). You want all-or-nothing. How do you build it?</p>
+      <ul>
+        <li><strong>Rung 1 &mdash; can it be one local transaction?</strong> If all three effects lived in one Postgres database, you'd wrap them in <code>BEGIN &hellip; COMMIT</code> and be done. They don't &mdash; the payment and inventory are other systems &mdash; so a single transaction can't span them. Move down only because you're forced to.</li>
+        <li><strong>Rung 2 &mdash; outbox + idempotency for the cross-system edges.</strong> Create the order and, in the <em>same</em> transaction, write outbox rows ("charge requested", "reserve requested"). A relay publishes them; the payment and inventory consumers are idempotent, so redelivery is safe. Now each hop is atomic-with-the-DB and at-least-once.</li>
+        <li><strong>Rung 3 &mdash; a saga for the multi-step flow.</strong> String those hops into a saga: order &rarr; charge &rarr; reserve. If reserve fails, run compensations &mdash; refund the charge, cancel the order &mdash; in reverse. Consistency without a distributed lock. This is the answer for almost every real "distributed transaction" you'll ever design.</li>
+        <li><strong>Rung 4 &mdash; 2PC, only if you truly must.</strong> If some regulatory or ledger requirement genuinely forbids any intermediate visible state and you have a real XA manager, then and only then reach for <code>PREPARE TRANSACTION</code> &mdash; eyes open to the coordinator SPOF, the blocking, and the <code>pg_prepared_xacts</code> monitoring you now own.</li>
+        <li><strong>Sideways &mdash; advisory locks for coordination.</strong> Orthogonal to all of the above: if the real problem is "only one worker should process this saga at a time," or "elect one leader to run the relay," reach for <code>pg_try_advisory_lock</code>. That's coordination, not commit.</li>
+      </ul>
+      <p>The through-line of this whole final phase is that <strong>distributed systems don't give you atomicity for free &mdash; they give you the tools to <em>simulate</em> it well enough.</strong> Idempotency turns "at-least-once" into "effectively once." Outboxes turn "dual write" into "one atomic write plus a relay." Sagas turn "roll back everything" into "compensate what committed." Advisory locks turn "who's in charge?" into a single database round-trip. Master those four, and the shiny distributed transaction almost never earns its keep.</p>
+      <div class="callout">
+        <span class="k">Where this shows up next</span>
+        <p>This closes the loop opened by the <strong>dual-write problem</strong> and the <strong>transactional outbox</strong> (Lesson 46) and <strong>idempotent consumers</strong> (Lesson 47). In a systems-design interview, "how do you keep these two datastores consistent?" is a direct invitation to walk this exact ladder aloud &mdash; naming 2PC, explaining why you're <em>not</em> using it, and reaching for outbox + idempotency + saga instead. That reasoning, not the syntax, is what's being graded.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>you cannot get free atomicity across independent systems, so prefer to simulate it &mdash; one local transaction if you can, then outbox + idempotency, then a saga with compensation &mdash; and treat two-phase commit as a blocking, coordinator-dependent last resort, while advisory locks handle plain coordination.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Dual write has no free lunch</b><span>You can't atomically commit to two independent systems; every option trades one inconsistency window for another cost.</span></div>
+        <div class="tk"><span class="num">02</span><b>2PC = prepare then commit</b><span>A coordinator asks all participants to <code>PREPARE</code> (vote), and only if all say YES does it <code>COMMIT PREPARED</code> everywhere.</span></div>
+        <div class="tk"><span class="num">03</span><b>PREPARE holds locks</b><span>A prepared transaction is durable but not visible, and it keeps its locks &mdash; the participant has surrendered its autonomy to the coordinator.</span></div>
+        <div class="tk"><span class="num">04</span><b>The trap: blocking on failure</b><span>A coordinator crash between phases leaves an in-doubt prepared xact holding locks and blocking <code>VACUUM</code> until a human resolves it.</span></div>
+        <div class="tk"><span class="num">05</span><b>Guarded by default</b><span><code>max_prepared_transactions</code> is 0 out of the box; enabling 2PC means owning <code>pg_prepared_xacts</code> monitoring forever.</span></div>
+        <div class="tk"><span class="num">06</span><b>Sagas over rollback</b><span>A sequence of local transactions; on failure, run idempotent compensations in reverse &mdash; eventual consistency, no distributed lock.</span></div>
+        <div class="tk"><span class="num">07</span><b>Advisory locks = app mutex</b><span><code>pg_try_advisory_lock</code> / <code>pg_advisory_xact_lock</code>: a cross-session mutex for leader election and single-runner jobs.</span></div>
+        <div class="tk"><span class="num">08</span><b>The ladder</b><span>Local txn &rarr; outbox + idempotency &rarr; saga &rarr; 2PC (last resort); advisory locks for coordination, sideways to all of it.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Describe both phases of 2PC. What exactly does a participant do &mdash; and give up &mdash; when it executes <code>PREPARE TRANSACTION</code>?<br>
+        (2) Walk the coordinator-crash failure. Name three concrete harms an orphaned prepared transaction causes, and the one catalog view that reveals it.<br>
+        (3) Why is <code>max_prepared_transactions = 0</code> by default a deliberate design message?<br>
+        (4) Contrast a saga with a distributed rollback. What replaces "undo," and what two properties must every compensation have?<br>
+        (5) Give two real uses for an advisory lock, and say why you'd prefer the transaction-scoped, non-blocking variant.<br>
+        (6) Recite the decision hierarchy for "keep two systems consistent," from one local transaction down to 2PC, and say where advisory locks sit.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 49 &middot; DISTRIBUTED TRANSACTIONS, 2PC &amp; ADVISORY LOCKS &middot; interactive edition<br>
+      Original study notes for engineers &middot; prefer local-txn &rarr; outbox+idempotency &rarr; saga; 2PC is a last resort.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — two-phase commit, the happy path */
+  makeStepper(_g('fig-2pc'), [
+    {text:"A transaction must land atomically across two databases. A coordinator will drive an all-or-nothing commit over both.", dec:"begin — coordinator has work to commit on A and B", va:"idle", vb:"idle", read:""},
+    {text:"Phase 1 — PREPARE. The coordinator asks DB-A to prepare. DB-A writes its changes durably, keeps its locks held, and votes YES.", path:"f1-pa", dec:"phase 1: PREPARE", va:"prepared ✓ votes YES", vb:"idle", read:"DB-A is now bound to the coordinator's decision"},
+    {text:"The coordinator asks DB-B to prepare too. DB-B prepares and also votes YES. Both participants are now holding locks, waiting.", path:"f1-pb", dec:"phase 1: PREPARE", va:"prepared ✓ votes YES", vb:"prepared ✓ votes YES", read:"both prepared — both waiting on the coordinator"},
+    {text:"All votes are YES, so the coordinator DECIDES to commit. (Any single NO would make it decide ROLLBACK for everyone instead.)", dec:"all YES → decide COMMIT", va:"prepared ✓ votes YES", vb:"prepared ✓ votes YES", read:"the decision is now durable at the coordinator"},
+    {text:"Phase 2 — COMMIT PREPARED to DB-A. It finalizes its prepared transaction and releases its locks.", path:"f1-ca", dec:"phase 2: COMMIT PREPARED", va:"committed ✓", vb:"prepared ✓ votes YES", read:"DB-A committed and unlocked"},
+    {text:"COMMIT PREPARED to DB-B as well. Both committed; the change is atomic across the two systems. This is the happy path — the next figure shows the trap.", path:"f1-cb", dec:"done ✓ atomic across A and B", va:"committed ✓", vb:"committed ✓", read:"atomicity achieved — as long as the coordinator survived"}
+  ], function(idx,s){
+    function col(t){return t.indexOf('✓')>=0?'#3f7a2e':'#5A574E';}
+    var va=_g('f1-va'), vb=_g('f1-vb');
+    va.textContent=s.va; va.setAttribute('fill',col(s.va));
+    vb.textContent=s.vb; vb.setAttribute('fill',col(s.vb));
+    _g('f1-dec').textContent=s.dec;
+    _g('f1-read').textContent=s.read;
+  });
+
+  /* FIG 2 — coordinator crash leaves an in-doubt prepared transaction */
+  makeStepper(_g('fig-crash'), [
+    {text:"2PC is underway. The coordinator sends PREPARE; the participant prepares — writing a prepared transaction and holding its locks.", show:["f2-c-prep","f2-p-prep"], state:"PREPARED", cls:"", v:"the participant has voted YES and holds locks"},
+    {text:"The participant now awaits the decision. It has surrendered control: it may NOT unilaterally commit or abort — it must obey the coordinator.", show:["f2-c-prep","f2-p-prep","f2-p-wait"], state:"WAITING", cls:"", v:"cannot decide alone — it promised to obey"},
+    {text:"Then the coordinator CRASHES — after collecting the vote but before sending commit or rollback.", show:["f2-c-prep","f2-p-prep","f2-p-wait","f2-c-crash"], state:"?", cls:"kbad", v:"✗ coordinator dies between the two phases"},
+    {text:"The participant is now IN-DOUBT: an orphaned prepared transaction. Commit or abort? It doesn't know, and there's no coordinator left to ask.", show:["f2-c-prep","f2-p-prep","f2-p-wait","f2-c-crash","f2-p-doubt"], state:"IN-DOUBT", cls:"kbad", v:"in-doubt prepared xact — blocked, indefinitely"},
+    {text:"The damage spreads: its row locks stay held, blocking other transactions, and it holds back VACUUM — dead tuples pile up and the table bloats.", show:["f2-c-prep","f2-p-prep","f2-p-wait","f2-c-crash","f2-p-doubt"], state:"LOCKS PINNED", cls:"kbad", v:"locks held · VACUUM blocked · resources pinned"},
+    {text:"And it's durable — it survives restarts. Only a human running ROLLBACK PREPARED (or COMMIT PREPARED) clears it. That's 2PC's blocking failure mode.", show:["f2-c-prep","f2-p-prep","f2-p-wait","f2-c-crash","f2-p-doubt"], state:"BLOCKED", cls:"kbad", v:"needs manual pg_prepared_xacts resolution"}
+  ], function(idx,s){
+    ['f2-c-prep','f2-c-crash','f2-p-prep','f2-p-wait','f2-p-doubt'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.show.indexOf(id)>=0?1:0.15);});
+    _g('f2-state').textContent=s.state;
+    _g('f2-state').setAttribute('fill', s.cls==='kbad'?'#B0532F':'#20201D');
+    _g('f2-box').setAttribute('class','balbox'+(s.cls?' '+s.cls:''));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':'#5A574E');
+  });
+
+  /* FIG 3 — a saga with compensation */
+  makeStepper(_g('fig-saga'), [
+    {text:"A saga replaces one distributed transaction with a chain of local ones. T1 commits on its own: the order row is created and durable.", active:["f3-t1"], read:"T1 committed — a normal local transaction"},
+    {text:"T2 commits in its own local transaction: the card is charged. There is no shared lock spanning T1 and T2 — each is independent.", active:["f3-t1","f3-t2"], path:"f3-f1", read:"T2 committed — payment captured"},
+    {text:"T3 tries to reserve inventory — and FAILS (out of stock). There is no global rollback: T1 and T2 already committed and can't be un-done.", active:["f3-t3"], path:"f3-f2", reject:true, read:"✗ T3 failed — no distributed rollback exists"},
+    {text:"So the saga runs COMPENSATING actions in reverse. C2 issues a refund — a new local transaction that semantically undoes T2's charge.", active:["f3-t3","f3-c2"], path:"f3-b2", reject:true, read:"C2 compensates T2 — refund the charge"},
+    {text:"Then C1 cancels the order, compensating T1. Each compensation is itself a local, idempotent transaction — safe to retry.", active:["f3-c2","f3-c1"], path:"f3-b1", reject:true, read:"C1 compensates T1 — cancel the order"},
+    {text:"The system is consistent again — reached by forward progress plus compensation, never by holding a distributed lock. Eventual, not atomic.", active:["f3-c1"], read:"consistent again ✓ — via compensation, no 2PC"}
+  ], function(idx,s){
+    _g('f3-read').textContent=s.read;
+  });
+</script>
+</body>
+</html>

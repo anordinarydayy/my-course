@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 21 — Index Types in Postgres (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Index Types in Postgres</div>
+    <h4>The toolbox</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>One size doesn&rsquo;t fit all</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>B-tree &amp; Hash &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>GIN &amp; GiST &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>BRIN &amp; SP-GiST</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: pick the index &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">21</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Index Types in Postgres</h1>
+      <p class="lede">The B-tree is the default, and for most work it is exactly right &mdash; equality, ranges, sorting. But Postgres ships a whole toolbox of specialized index types for data a B-tree handles badly: arrays, JSONB, full-text, geometry, and enormous append-only tables. This lesson teaches you to recognize each query shape and reach for the index built for it &mdash; and, just as importantly, when the default is the <em>wrong</em> choice.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch, PostgreSQL-based and current to <strong>PG&nbsp;17/18</strong>. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a <strong>practice</strong> lesson: it ends in a worked SQL problem where you choose the index for three real queries, then a set of graded drills with solutions and a list of traps to avoid.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>One size doesn&rsquo;t fit all</h2>
+      <p>By now you know the deal an index offers: a separate, ordered structure that lets Postgres find rows without scanning the whole heap. But &ldquo;ordered structure&rdquo; described the <strong>B-tree</strong> specifically, and a B-tree is only one shape of index. It is the default, and for the bread-and-butter of an OLTP app &mdash; look up a row by id, filter a date range, sort a page of results &mdash; it is the correct default. You will type <code>CREATE INDEX</code> without a <code>USING</code> clause the vast majority of the time and be right.</p>
+      <p>The trouble is that a B-tree indexes <strong>one comparable key per row</strong>. Ask it to index a column that holds <em>many</em> values per row (an array of tags, a JSONB document, the words of a paragraph), or a value with no meaningful total order (a polygon, a geographic point, an IP subnet), or a table so vast that even a slim B-tree would cost gigabytes &mdash; and the default stops being the right answer. For each of those, Postgres gives you a purpose-built <strong>access method</strong>:</p>
+      <div class="vs three">
+        <div class="col"><h4>B-tree</h4><ul><li>The default. <strong>Ordered</strong>.</li><li><code>=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>BETWEEN</code>, <code>ORDER BY</code>, prefix <code>LIKE 'a%'</code>.</li></ul></div>
+        <div class="col"><h4>Hash</h4><ul><li>Equality <strong>only</strong>.</li><li>Compact for very large keys. WAL-logged since PG&nbsp;10.</li></ul></div>
+        <div class="col"><h4>GIN</h4><ul><li><strong>Inverted</strong>: many keys per row.</li><li>Arrays <code>@&gt;</code>, JSONB, full-text, <code>pg_trgm</code>.</li></ul></div>
+        <div class="col"><h4>GiST</h4><ul><li>Balanced tree for <strong>overlap / nearest</strong>.</li><li>Ranges, geometry (PostGIS), KNN.</li></ul></div>
+        <div class="col"><h4>BRIN</h4><ul><li><strong>Block-range</strong> min/max summaries. Tiny.</li><li>Huge, physically-ordered tables.</li></ul></div>
+        <div class="col"><h4>SP-GiST</h4><ul><li><strong>Space-partitioned</strong>, non-balanced.</li><li>Quadtrees, tries, text prefixes.</li></ul></div>
+      </div>
+      <p>The whole skill is a mapping: <strong>from the shape of your query and the type of your column, to the access method that serves it.</strong> Miss it and you either get no index used at all, or an index that technically works but is the wrong tool &mdash; a giant B-tree where a kilobyte-sized BRIN would do. The rest of this lesson walks the toolbox pair by pair, then makes you choose.</p>
+      <div class="callout">
+        <span class="k">The one line to remember</span>
+        <p>Postgres exposes these as <strong>access methods</strong> (<code>SELECT amname FROM pg_am;</code>) and you pick one with <code>CREATE INDEX &hellip; USING &lt;method&gt; (&hellip;)</code>. Omit <code>USING</code> and you get a B-tree. Everything specialized is a deliberate choice you make because the default can&rsquo;t serve the query.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The two ordered-vs-not</div>
+      <h2>B-tree &amp; Hash &#9656;</h2>
+      <p>Start with the two simplest types, because the contrast between them explains half of everything that follows. Both index a single scalar column. The difference is one word: a <strong>B-tree keeps its keys in sorted order</strong>; a <strong>hash index does not</strong>. From that one property everything each can (and can&rsquo;t) do falls out.</p>
+      <p>Because a B-tree is ordered, it serves the widest set of predicates of any index type: equality (<code>=</code>), inequalities (<code>&lt;</code>, <code>&gt;</code>), <code>BETWEEN</code>, <code>ORDER BY</code> (the leaves are already sorted, so no separate <code>Sort</code> is needed), and even a prefix match like <code>LIKE 'abc%'</code> (a prefix is a range: everything from <code>'abc'</code> up to <code>'abd'</code>).</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- B-tree (the default): equality, ranges, and sorting</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_users_created <span class="kw">ON</span> users (created_at);
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> created_at <span class="kw">BETWEEN</span> <span class="lit">'2026-01-01'</span> <span class="kw">AND</span> <span class="lit">'2026-02-01'</span>;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> email <span class="kw">LIKE</span> <span class="lit">'ana%'</span>;   <span class="cm">-- prefix → range, usable</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span> <span class="kw">LIMIT</span> <span class="lit">20</span>;</code></pre>
+      <p>A <strong>hash index</strong> throws the key through a hash function and stores it in the resulting bucket. That makes equality lookups compact and quick &mdash; and for a <em>very large</em> key (say a long token, or a big text value) the hash is often smaller on disk than a B-tree, which must store the whole key in every internal page. But hashing deliberately destroys order: two keys that are &ldquo;next to each other&rdquo; land in unrelated buckets. So a hash index can answer <code>=</code> and <strong>nothing else</strong> &mdash; no range, no <code>ORDER BY</code>, no prefix.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- Hash: equality only. Crash-safe / WAL-logged since PG 10.</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_sessions_token <span class="kw">ON</span> sessions <span class="kw">USING</span> hash (token);
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> sessions <span class="kw">WHERE</span> token = <span class="lit">'a1b2c3d4e5'</span>;   <span class="cm">-- can use the hash index</span>
+<span class="cm">-- WHERE token &gt; 'x'  or  ORDER BY token  → the hash index is useless</span></code></pre>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-btvh">
+          <svg viewBox="0 0 660 264" role="img" aria-label="Interactive: a sorted B-tree serving lookup, range, and sort, next to a hash index serving equality only">
+            <text class="lbl-sm" x="170" y="20" text-anchor="middle">B-TREE &mdash; ordered structure</text>
+            <text class="lbl-sm" x="497" y="20" text-anchor="middle">HASH &mdash; equality only</text>
+            <path d="M330 30 V 250" class="flow-d"/>
+
+            <!-- root arrows (static) -->
+            <path class="flow" d="M150 76 C 120 100, 92 110, 74 126" marker-end="url(#arrow)"/>
+            <path id="f1-p-root2" class="flow" d="M170 76 V 126" marker-end="url(#arrow)"/>
+            <path class="flow" d="M190 76 C 230 100, 250 110, 266 126" marker-end="url(#arrow)"/>
+            <!-- packet path root->leaf1 -->
+            <path id="f1-p-root1" d="M150 76 C 120 100, 92 110, 74 126" fill="none" stroke="none"/>
+            <!-- ordered leaf chain (static + packet paths) -->
+            <path class="flow-d" d="M72 174 C 100 200, 142 200, 170 174" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M170 174 C 200 200, 240 200, 268 174" marker-end="url(#arrow-s)"/>
+            <path id="f1-p-chain" d="M72 174 C 100 200, 142 200, 170 174" fill="none" stroke="none"/>
+            <path id="f1-p-chain2" d="M170 174 C 200 200, 240 200, 268 174" fill="none" stroke="none"/>
+
+            <g class="st" id="f1-stk-root"><rect class="node-b" x="95" y="40" width="150" height="36" rx="8"/><text class="lbl" x="170" y="63" text-anchor="middle">B-tree root</text></g>
+            <g class="st" id="f1-stk-leaf1"><rect class="node" x="26" y="130" width="92" height="44" rx="6"/><text class="lbl-sm" x="72" y="149" text-anchor="middle">leaf</text><text class="lbl" x="72" y="166" text-anchor="middle" font-size="12">40 41 42</text></g>
+            <g class="st" id="f1-stk-leaf2"><rect class="node" x="124" y="130" width="92" height="44" rx="6"/><text class="lbl-sm" x="170" y="149" text-anchor="middle">leaf</text><text class="lbl" x="170" y="166" text-anchor="middle" font-size="12">43 44 45</text></g>
+            <g class="st" id="f1-stk-leaf3"><rect class="node" x="222" y="130" width="92" height="44" rx="6"/><text class="lbl-sm" x="268" y="149" text-anchor="middle">leaf</text><text class="lbl" x="268" y="166" text-anchor="middle" font-size="12">46 47 48</text></g>
+
+            <!-- hash -->
+            <path class="flow-r" d="M495 84 C 512 108, 526 128, 533 148" marker-end="url(#arrow-r)"/>
+            <path id="f1-p-hash" d="M495 84 C 512 108, 526 128, 533 148" fill="none" stroke="none"/>
+            <g class="st" id="f1-stk-hash"><rect class="node-r" x="418" y="44" width="154" height="40" rx="8"/><text class="lbl" x="495" y="69" text-anchor="middle">hash(42) = 2</text></g>
+            <g class="st" id="f1-stk-buckets">
+              <rect class="node" x="356" y="150" width="66" height="44" rx="6"/><text class="lbl" x="389" y="177" text-anchor="middle">b0</text>
+              <rect class="node" x="428" y="150" width="66" height="44" rx="6"/><text class="lbl" x="461" y="177" text-anchor="middle">b1</text>
+              <rect class="node" id="f1-b2" x="500" y="150" width="66" height="44" rx="6"/><text class="lbl" x="533" y="172" text-anchor="middle">b2</text><text class="lbl-sm" x="533" y="187" text-anchor="middle">&rarr; 42</text>
+              <rect class="node" x="572" y="150" width="66" height="44" rx="6"/><text class="lbl" x="605" y="177" text-anchor="middle">b3</text>
+            </g>
+            <text id="f1-x" x="497" y="214" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#B0532F" style="opacity:0">&#10007; no range &middot; no sort</text>
+            <text id="f1-read" class="readout" x="330" y="246" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: ordered leaves let a B-tree range and sort; a hash index only jumps to one bucket</figcaption>
+      </figure>
+
+      <p>So why does hash still exist, given B-tree already does equality? Two niche wins: on huge keys the hash can be materially smaller, and its equality lookup is a flat jump rather than a few tree hops. In practice the default B-tree is almost always fine even for equality, so hash indexes are rare &mdash; but knowing the trade-off is exactly the kind of thing an interviewer probes. The headline: <strong>reach for hash only when you do <em>nothing but</em> <code>=</code> on a large key</strong>, and never when a range or sort might appear.</p>
+      <div class="callout note">
+        <span class="k">Historical footnote worth knowing</span>
+        <p>Before PostgreSQL&nbsp;10, hash indexes were <strong>not WAL-logged</strong> &mdash; they weren&rsquo;t crash-safe and weren&rsquo;t replicated, so the docs actively discouraged them. That warning is now obsolete: since PG&nbsp;10 hash indexes are fully WAL-logged and safe. If you read old advice saying &ldquo;never use hash indexes,&rdquo; it predates this fix &mdash; the real reason to skip them today is just that B-tree usually matches or beats them.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Many-values &amp; overlap</div>
+      <h2>GIN &amp; GiST &#9656;</h2>
+      <p>The next pair is where Postgres pulls away from other databases. Both handle data a B-tree simply can&rsquo;t model, but they solve different problems.</p>
+      <p><strong>GIN</strong> (Generalized Inverted iNdex) is an <strong>inverted index</strong>: it&rsquo;s built for columns where <em>one row contains many indexable values</em>. Instead of &ldquo;row &rarr; key,&rdquo; it stores &ldquo;key &rarr; the list of rows that contain it&rdquo; (a <strong>posting list</strong>). That is exactly the structure a search engine uses. It powers array containment (<code>@&gt;</code>), JSONB queries, PostgreSQL full-text search (<code>tsvector</code> / <code>@@</code>), and trigram matching (<code>pg_trgm</code>).</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-gin">
+          <svg viewBox="0 0 660 272" role="img" aria-label="Interactive: a GIN inverted index mapping each tag to the list of rows that contain it, and answering a containment query">
+            <!-- docs table -->
+            <rect class="thead" x="30" y="40" width="214" height="28" rx="4"/><text class="tcap" x="137" y="59" text-anchor="middle">docs</text>
+            <rect class="thead" x="30" y="68" width="54" height="26"/><text class="tval" x="57" y="85" text-anchor="middle">id</text>
+            <rect class="thead" x="84" y="68" width="160" height="26"/><text class="tval" x="164" y="85" text-anchor="middle">tags (text[])</text>
+            <rect class="tcell" id="f2-d1-id" x="30" y="94" width="54" height="28"/><text class="tval" x="57" y="113" text-anchor="middle">1</text>
+            <rect class="tcell" id="f2-d1-tag" x="84" y="94" width="160" height="28"/><text class="tval" x="164" y="113" text-anchor="middle">{sql, index}</text>
+            <rect class="tcell" id="f2-d2-id" x="30" y="122" width="54" height="28"/><text class="tval" x="57" y="141" text-anchor="middle">2</text>
+            <rect class="tcell" id="f2-d2-tag" x="84" y="122" width="160" height="28"/><text class="tval" x="164" y="141" text-anchor="middle">{sql, jsonb}</text>
+            <rect class="tcell" id="f2-d3-id" x="30" y="150" width="54" height="28"/><text class="tval" x="57" y="169" text-anchor="middle">3</text>
+            <rect class="tcell" id="f2-d3-tag" x="84" y="150" width="160" height="28"/><text class="tval" x="164" y="169" text-anchor="middle">{index, cache}</text>
+            <!-- invert arc -->
+            <text class="lbl-sm" x="318" y="82" text-anchor="middle">invert: value &rarr; rows</text>
+            <path class="flow-d" d="M248 110 C 300 90, 336 90, 384 108" marker-end="url(#arrow-s)"/>
+            <!-- inverted index -->
+            <rect class="thead" x="386" y="40" width="244" height="28" rx="4"/><text class="tcap" x="508" y="59" text-anchor="middle">GIN &mdash; inverted index</text>
+            <rect class="thead" x="386" y="68" width="104" height="26"/><text class="tval" x="438" y="85" text-anchor="middle">token</text>
+            <rect class="thead" x="490" y="68" width="140" height="26"/><text class="tval" x="560" y="85" text-anchor="middle">&rarr; row ids</text>
+            <rect class="tcell" id="f2-tok-sql" x="386" y="94" width="104" height="28"/><text class="tval" x="438" y="113" text-anchor="middle">sql</text>
+            <rect class="tcell" id="f2-post-sql" x="490" y="94" width="140" height="28"/><text class="tval" x="560" y="113" text-anchor="middle">1, 2</text>
+            <rect class="tcell" id="f2-tok-index" x="386" y="122" width="104" height="28"/><text class="tval" x="438" y="141" text-anchor="middle">index</text>
+            <rect class="tcell" id="f2-post-index" x="490" y="122" width="140" height="28"/><text class="tval" x="560" y="141" text-anchor="middle">1, 3</text>
+            <rect class="tcell" id="f2-tok-jsonb" x="386" y="150" width="104" height="28"/><text class="tval" x="438" y="169" text-anchor="middle">jsonb</text>
+            <rect class="tcell" id="f2-post-jsonb" x="490" y="150" width="140" height="28"/><text class="tval" x="560" y="169" text-anchor="middle">2</text>
+            <rect class="tcell" id="f2-tok-cache" x="386" y="178" width="104" height="28"/><text class="tval" x="438" y="197" text-anchor="middle">cache</text>
+            <rect class="tcell" id="f2-post-cache" x="490" y="178" width="140" height="28"/><text class="tval" x="560" y="197" text-anchor="middle">3</text>
+            <text id="f2-read" class="readout" x="330" y="248" text-anchor="middle" font-size="13.5" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: GIN maps each element to a posting list of rows; a containment query reads and intersects those lists</figcaption>
+      </figure>
+
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- GIN for array containment</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_posts_tags <span class="kw">ON</span> posts <span class="kw">USING</span> gin (tags);
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> posts <span class="kw">WHERE</span> tags @&gt; <span class="kw">ARRAY</span>[<span class="lit">'sql'</span>];
+
+<span class="cm">-- GIN for JSONB containment (jsonb_path_ops: smaller, tuned for @&gt;)</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_events_data <span class="kw">ON</span> events <span class="kw">USING</span> gin (data jsonb_path_ops);
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> events <span class="kw">WHERE</span> data @&gt; <span class="lit">'{"type":"click"}'</span>;
+
+<span class="cm">-- GIN for full-text search</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_docs_fts <span class="kw">ON</span> docs <span class="kw">USING</span> gin (<span class="fn">to_tsvector</span>(<span class="lit">'english'</span>, body));
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> docs
+<span class="kw">WHERE</span> <span class="fn">to_tsvector</span>(<span class="lit">'english'</span>, body) @@ <span class="fn">to_tsquery</span>(<span class="lit">'english'</span>, <span class="lit">'index &amp; scan'</span>);</code></pre>
+      <p>The price of that read power is <strong>write cost</strong>. Inserting one row means updating every token&rsquo;s posting list &mdash; a row with ten tags touches ten places in the index. To soften that, GIN keeps a <strong>pending list</strong> (the <code>fastupdate</code> option): new entries are buffered and merged in bulk later. Great for read-heavy tables; something to watch on write-heavy ones.</p>
+      <p><strong>GiST</strong> (Generalized Search Tree) is a different animal: a <em>balanced</em> tree, like a B-tree, but where each internal node stores a <strong>bounding predicate</strong> (&ldquo;everything below me fits inside this box / this range&rdquo;) instead of a single sort key. That makes it the tool for questions of <strong>overlap</strong> and <strong>nearness</strong> rather than ordering: does this range overlap that one (<code>&amp;&amp;</code>), does this box contain that point, and &mdash; crucially &mdash; <strong>K-nearest-neighbour</strong> searches (<code>ORDER BY column &lt;-&gt; target</code>), which GiST can answer directly. It is the backbone of PostGIS geometry and of range-type exclusion constraints.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- GiST for range overlap (e.g. no double-booking a room)</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_res_during <span class="kw">ON</span> reservations <span class="kw">USING</span> gist (during);   <span class="cm">-- during tsrange</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> reservations <span class="kw">WHERE</span> during &amp;&amp; <span class="fn">tsrange</span>(<span class="lit">'2026-07-01'</span>, <span class="lit">'2026-07-05'</span>);
+
+<span class="cm">-- GiST for K-nearest-neighbour: 5 closest places to a point</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_places_geom <span class="kw">ON</span> places <span class="kw">USING</span> gist (geom);
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> places <span class="kw">ORDER BY</span> geom &lt;-&gt; <span class="fn">ST_Point</span>(<span class="lit">0</span>, <span class="lit">0</span>) <span class="kw">LIMIT</span> <span class="lit">5</span>;</code></pre>
+      <div class="callout tip">
+        <span class="k">GIN vs GiST, in one breath</span>
+        <p><strong>GIN</strong> = <em>many discrete keys per row</em> (tags, JSONB paths, words, trigrams) &mdash; faster to read, slower to write. <strong>GiST</strong> = <em>continuous / spatial &ldquo;does it overlap or how near&rdquo;</em> (ranges, geometry, KNN) &mdash; more balanced read/write, and the go-to index for nearest-neighbour search (SP-GiST also supports KNN for point types). If the question is &ldquo;does this row contain value X,&rdquo; think GIN; if it&rsquo;s &ldquo;does this shape overlap / what&rsquo;s closest,&rdquo; think GiST. (JSONB is L31, full-text is L32 &mdash; both come back to GIN.)</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Tiny &amp; space-partitioned</div>
+      <h2>BRIN &amp; SP-GiST</h2>
+      <p>The last pair are the specialists you reach for rarely but that win enormously when they fit. <strong>BRIN</strong> (Block Range INdex) is the one worth real attention, because it inverts the usual index trade-off. A B-tree stores an entry <em>per row</em>; a BRIN stores a tiny summary <em>per range of pages</em> &mdash; typically the <strong>min and max</strong> value of the indexed column across each 128-page block (1&nbsp;MB by default). For a table of hundreds of millions of rows, the entire BRIN can be a few <em>kilobytes</em>, versus gigabytes for a B-tree.</p>
+      <p>The catch is what makes it work: <strong>physical correlation</strong>. A range scan with BRIN reads the per-block min/max, skips any block whose range can&rsquo;t contain matching rows, and reads only the survivors from the heap. That only pays off if rows are stored roughly <em>in order</em> of the indexed column &mdash; which is exactly the case for <strong>append-only, time-ordered tables</strong>: an event log where <code>created_at</code> only ever increases as rows are inserted. If the column is scattered randomly across the heap, every block&rsquo;s min/max spans the whole domain, nothing can be skipped, and BRIN degenerates into a full scan.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- BRIN: a kilobyte-scale summary index for a huge, time-ordered log</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_events_created_brin <span class="kw">ON</span> events <span class="kw">USING</span> brin (created_at);
+
+<span class="cm">-- Tune the granularity: fewer pages per range = finer summaries, bigger index</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_events_created_brin <span class="kw">ON</span> events
+  <span class="kw">USING</span> brin (created_at) <span class="kw">WITH</span> (pages_per_range = <span class="lit">32</span>);
+
+<span class="kw">SELECT</span> <span class="fn">count</span>(*) <span class="kw">FROM</span> events
+<span class="kw">WHERE</span> created_at &gt;= <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'1 day'</span>;</code></pre>
+      <p>When does BRIN beat B-tree? When <em>all</em> of these hold: the table is <strong>enormous</strong>, the queries are <strong>range</strong> scans (not point lookups &mdash; BRIN is lossy and still rechecks the heap), the column has high physical <strong>correlation</strong>, and you care about <strong>space</strong> or <strong>write overhead</strong> (a BRIN barely slows inserts). Lose the correlation &mdash; e.g. after heavy updates shuffle the heap &mdash; and you must restore order with <code>CLUSTER</code> or rely on natural append order. Note that <code>CLUSTER</code> is a one-time reorganization; Postgres does not keep the table clustered as new rows arrive.</p>
+      <p><strong>SP-GiST</strong> (Space-Partitioned GiST) rounds out the set. Where GiST is balanced, SP-GiST builds <em>unbalanced</em>, space-partitioning trees &mdash; quadtrees, k-d trees, radix tries &mdash; which fit data that naturally divides into non-overlapping regions: points in a plane, IP addresses / subnets, and text with shared prefixes. You&rsquo;ll meet it far less often than the others, but it&rsquo;s the right structure when your data is a hierarchy of disjoint partitions.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- SP-GiST: partition IP addresses by their prefix structure</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_hosts_ip <span class="kw">ON</span> hosts <span class="kw">USING</span> spgist (ip inet_ops);
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> hosts <span class="kw">WHERE</span> ip &lt;&lt;= <span class="lit">'10.0.0.0/8'</span>;   <span class="cm">-- contained in subnet</span></code></pre>
+      <div class="callout note">
+        <span class="k">BRIN&rsquo;s deal, spelled out</span>
+        <p>BRIN trades <strong>precision for size</strong>. It never says &ldquo;the row is here&rdquo; &mdash; only &ldquo;matching rows, if any, are somewhere in these blocks,&rdquo; then rechecks. On the right table (huge, ordered, range-queried) that&rsquo;s a spectacular win: a tiny index, negligible write cost, and range scans that skip most of the heap. On the wrong table (random order, point lookups) it&rsquo;s worse than useless. Correlation is not optional &mdash; it is the whole premise.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Pick the index for each query &#9656;</h2>
+      <p>Here is the skill under load. Same application, three columns, three query shapes &mdash; and three different right answers. We&rsquo;ll set up the schema, look at each query&rsquo;s naive plan, choose the index, and read the plan it enables. Watch the diagram route each query to its type, then work the SQL underneath it.</p>
+      <p class="codetag">sql &middot; schema</p>
+      <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">TABLE</span> posts (
+  id         bigint <span class="kw">PRIMARY KEY</span>,
+  author_id  uuid   <span class="kw">NOT NULL</span>,
+  tags       text[] <span class="kw">NOT NULL</span>,
+  created_at timestamptz <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+
+<span class="cm">-- append-only, ~500M rows, inserted strictly in time order</span>
+<span class="kw">CREATE</span> <span class="kw">TABLE</span> events (
+  id         bigint <span class="kw">GENERATED ALWAYS AS IDENTITY</span>,
+  user_id    uuid   <span class="kw">NOT NULL</span>,
+  kind       text   <span class="kw">NOT NULL</span>,
+  created_at timestamptz <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);</code></pre>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pick">
+          <svg viewBox="0 0 660 372" role="img" aria-label="Interactive: three query shapes each routing to the index type that serves them — GIN, BRIN, B-tree">
+            <path id="f3-p-gin" class="flow" d="M330 82 C 250 150, 160 190, 118 246" marker-end="url(#arrow)"/>
+            <path id="f3-p-brin" class="flow" d="M330 82 V 246" marker-end="url(#arrow)"/>
+            <path id="f3-p-btree" class="flow" d="M330 82 C 410 150, 500 190, 542 246" marker-end="url(#arrow)"/>
+
+            <text class="lbl-sm" x="150" y="188" text-anchor="middle">array containment</text>
+            <text class="lbl-sm" x="330" y="176" text-anchor="middle">range on 500M rows</text>
+            <text class="lbl-sm" x="512" y="188" text-anchor="middle">selective equality</text>
+
+            <g class="st" id="f3-stk-q"><rect class="node-b" x="200" y="30" width="260" height="52" rx="10"/><text class="lbl" x="330" y="52" text-anchor="middle">incoming query</text><text class="lbl-sm" id="f3-qtext" x="330" y="70" text-anchor="middle">pick by shape &darr;</text></g>
+
+            <g class="st" id="f3-stk-gin"><rect class="node-t" x="24" y="250" width="188" height="64" rx="10"/><text class="lbl" x="118" y="278" text-anchor="middle">GIN</text><text class="lbl-sm" x="118" y="296" text-anchor="middle">array @&gt; &middot; JSONB &middot; FTS</text></g>
+            <g class="st" id="f3-stk-brin"><rect class="node-r" x="236" y="250" width="188" height="64" rx="10"/><text class="lbl" x="330" y="278" text-anchor="middle">BRIN</text><text class="lbl-sm" x="330" y="296" text-anchor="middle">huge &middot; ordered &middot; ranges</text></g>
+            <g class="st" id="f3-stk-btree"><rect class="node-b" x="448" y="250" width="188" height="64" rx="10"/><text class="lbl" x="542" y="278" text-anchor="middle">B-TREE (default)</text><text class="lbl-sm" x="542" y="296" text-anchor="middle">= &middot; &lt; &middot; &gt; &middot; ORDER BY</text></g>
+
+            <text id="f3-read" class="readout" x="330" y="350" text-anchor="middle" font-size="13.5" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the query&rsquo;s shape, not the table, dictates the index type</figcaption>
+      </figure>
+
+      <h3>Case A — array containment &rarr; GIN</h3>
+      <p><strong>Task:</strong> find every post tagged <code>sql</code>: <code>WHERE tags @&gt; ARRAY['sql']</code>. With no index, the planner has no choice but to read all million rows and test each array:</p>
+      <p class="codetag">illustrative &middot; before</p>
+      <pre class="code"><code>Seq Scan on posts  (cost=0.00..24500.00 rows=1180 width=64)
+  Filter: (tags @&gt; '{sql}'::text[])
+  Rows Removed by Filter: 998820</code></pre>
+      <p>Nearly a million rows read and discarded. A B-tree on <code>tags</code> can&rsquo;t help &mdash; it would index each array as one opaque key, useless for &ldquo;contains sql.&rdquo; The right tool is GIN:</p>
+      <p class="codetag">sql &middot; fix</p>
+      <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_posts_tags <span class="kw">ON</span> posts <span class="kw">USING</span> gin (tags);</code></pre>
+      <p class="codetag">illustrative &middot; after</p>
+      <pre class="code"><code>Bitmap Heap Scan on posts  (cost=32.10..3180.40 rows=1180 width=64)
+  Recheck Cond: (tags @&gt; '{sql}'::text[])
+  -&gt;  Bitmap Index Scan on idx_posts_tags  (cost=0.00..31.80 rows=1180 width=0)
+        Index Cond: (tags @&gt; '{sql}'::text[])</code></pre>
+      <p>The GIN index produces a bitmap of matching rows (<code>Bitmap Index Scan</code>), the heap reads only those pages (<code>Bitmap Heap Scan</code>), and the estimated cost drops by nearly 8&times;. Reading bottom-up: probe the inverted index for <code>sql</code>, build a bitmap, fetch only the matching heap pages.</p>
+
+      <h3>Case B — a range on a giant log &rarr; BRIN</h3>
+      <p><strong>Task:</strong> count events from the last day on the 500-million-row, time-ordered <code>events</code> table: <code>WHERE created_at &gt;= now() - interval '1 day'</code>. A B-tree on <code>created_at</code> <em>would</em> serve this &mdash; but on 500M rows that index is several gigabytes and slows every insert. Because rows arrive in <code>created_at</code> order, a BRIN summarizes the whole table in kilobytes:</p>
+      <p class="codetag">sql &middot; fix</p>
+      <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_events_created_brin <span class="kw">ON</span> events <span class="kw">USING</span> brin (created_at);</code></pre>
+      <p class="codetag">illustrative &middot; after (PG 18: BUFFERS on by default)</p>
+      <pre class="code"><code>Aggregate  (cost=182450.0..182450.1 rows=1 width=8) (actual time=421.7..421.7 rows=1 loops=1)
+  Buffers: shared hit=210 read=23140
+  -&gt;  Bitmap Heap Scan on events  (cost=64.0..181900.0 rows=220000 width=0)
+        Recheck Cond: (created_at &gt;= now() - '1 day'::interval)
+        Rows Removed by Index Recheck: 4100
+        -&gt;  Bitmap Index Scan on idx_events_created_brin  (cost=0.0..9.0 rows=... width=0)
+              Index Cond: (created_at &gt;= now() - '1 day'::interval)</code></pre>
+      <p>The <code>Bitmap Index Scan</code> on the BRIN costs almost nothing because the index is tiny; it flags the block ranges whose min/max could hold recent rows, and the heap scan reads only those blocks. The <code>Rows Removed by Index Recheck</code> line is BRIN being lossy &mdash; it hands back whole blocks, and the recheck drops the few non-matching rows within them. On a random-order table this plan would collapse into reading everything; correlation is what makes it fast.</p>
+
+      <h3>Case C — selective equality &rarr; B-tree (default)</h3>
+      <p><strong>Task:</strong> fetch one user&rsquo;s recent events: <code>WHERE user_id = :uuid</code>. This is textbook B-tree work &mdash; a highly selective equality on a scalar column that also feeds joins and <code>ORDER BY created_at</code>. No exotic type needed; the default is exactly right:</p>
+      <p class="codetag">sql &middot; fix</p>
+      <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_events_user <span class="kw">ON</span> events (user_id, created_at <span class="kw">DESC</span>);</code></pre>
+      <p class="codetag">illustrative &middot; after</p>
+      <pre class="code"><code>Index Scan using idx_events_user on events  (cost=0.57..8.79 rows=7 width=48)
+  Index Cond: (user_id = '3f9a...'::uuid)</code></pre>
+      <p>An <code>Index Scan</code> straight to the seven matching rows, already ordered by <code>created_at DESC</code> because the composite index put the sort column second &mdash; so a &ldquo;latest events for this user&rdquo; page needs no <code>Sort</code> node at all. GIN can&rsquo;t do this (it&rsquo;s for many-values-per-row), BRIN can&rsquo;t (it&rsquo;s lossy and range-only) &mdash; equality on a selective scalar is the B-tree&rsquo;s home turf.</p>
+      <div class="callout tip">
+        <span class="k">Narrate it &mdash; the reasoning you&rsquo;d say out loud</span>
+        <p>&ldquo;Three columns, three shapes. <code>tags</code> holds many values per row and the test is containment, so I invert it with <strong>GIN</strong>. <code>created_at</code> is a range query over a 500-million-row, append-ordered log where a B-tree would be gigabytes &mdash; so a kilobyte-scale <strong>BRIN</strong> on the correlated column, accepting the lossy recheck. <code>user_id</code> is a selective equality that also sorts and joins, so the <strong>default B-tree</strong>, composite with <code>created_at DESC</code> to serve the ordering for free.&rdquo; That sentence &mdash; column type, query shape, why this method &mdash; is the whole answer an interviewer wants.</p>
+      </div>
+    </section>
+
+    <!-- 05 GRADED DRILLS -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Graded drills</div>
+      <h2>Graded drills &amp; the traps</h2>
+      <p>Four drills, increasing in subtlety. Read each challenge, decide the index (and its <em>operator class</em>) before you open the solution &mdash; the operator class is where most people slip.</p>
+
+      <h3>Drill 1 &mdash; JSONB containment</h3>
+      <p>An <code>events</code> table has a <code>data jsonb</code> column. The hot query is <code>WHERE data @&gt; '{"plan":"pro"}'</code>, run constantly; you never use the key-exists operators (<code>?</code>, <code>?|</code>). Index it for the smallest, fastest structure.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_events_data <span class="kw">ON</span> events <span class="kw">USING</span> gin (data jsonb_path_ops);
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> events <span class="kw">WHERE</span> data @&gt; <span class="lit">'{"plan":"pro"}'</span>;</code></pre>
+        <p><strong>Why:</strong> the default <code>jsonb_ops</code> class supports <code>@&gt;</code> <em>and</em> key-exists (<code>?</code>), but is larger. <code>jsonb_path_ops</code> indexes only value-paths &mdash; smaller and faster for <code>@&gt;</code> &mdash; at the cost of not supporting <code>?</code>. Since you only do containment, it&rsquo;s the better fit.</p>
+      </div>
+
+      <h3>Drill 2 &mdash; case-insensitive infix search</h3>
+      <p>Users type a fragment into a search box and you run <code>WHERE name ILIKE '%ana%'</code>. A plain B-tree is useless here (the leading <code>%</code> means it isn&rsquo;t a prefix). Make this fast.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">EXTENSION</span> <span class="kw">IF NOT EXISTS</span> pg_trgm;
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_users_name_trgm <span class="kw">ON</span> users <span class="kw">USING</span> gin (name gin_trgm_ops);
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> name <span class="kw">ILIKE</span> <span class="lit">'%ana%'</span>;</code></pre>
+        <p><strong>Why:</strong> <code>pg_trgm</code> breaks each value into 3-character trigrams and indexes those, so an <em>infix</em> or leading-wildcard match becomes a lookup of the query&rsquo;s trigrams &mdash; something no B-tree can do. Use <code>gin_trgm_ops</code> for fast reads; <code>gist_trgm_ops</code> is an option when writes dominate.</p>
+      </div>
+
+      <h3>Drill 3 &mdash; a range on a log table</h3>
+      <p>An 800-million-row <code>logs(ts, level, msg)</code> table is append-only (rows always arrive in <code>ts</code> order). The only queries are recent-window scans like <code>WHERE ts &gt;= now() - interval '2 hours'</code>. You want the smallest index that serves them without slowing inserts.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_logs_ts_brin <span class="kw">ON</span> logs <span class="kw">USING</span> brin (ts) <span class="kw">WITH</span> (pages_per_range = <span class="lit">64</span>);</code></pre>
+        <p><strong>Why:</strong> enormous + physically ordered + range query = BRIN&rsquo;s sweet spot &mdash; a few kilobytes, negligible insert cost, and block-range skipping for the recent window. Tuning <code>pages_per_range</code> down sharpens the summaries for tighter time windows. This only holds because inserts preserve <code>ts</code> order; if that ever breaks, the BRIN stops skipping and you&rsquo;d need <code>CLUSTER</code>.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; the low-cardinality boolean trap</h3>
+      <p>You index <code>users(is_active)</code> with a plain B-tree so that <code>WHERE is_active</code> is fast &mdash; but the planner keeps choosing a <code>Seq Scan</code> anyway. Why, and what should you build instead?</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag">sql</p>
+        <pre class="code"><code><span class="cm">-- Nearly useless: a boolean has ~2 distinct values; is_active = true</span>
+<span class="cm">-- matches ~half the table, so a Seq Scan is cheaper than index + heap fetches.</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_users_active <span class="kw">ON</span> users (is_active);
+
+<span class="cm">-- Better: a PARTIAL index over just the rows you actually query,</span>
+<span class="cm">-- carrying a useful sort column as the key.</span>
+<span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_users_active_recent <span class="kw">ON</span> users (created_at <span class="kw">DESC</span>) <span class="kw">WHERE</span> is_active;</code></pre>
+        <p><strong>Why:</strong> an index only helps when it lets you skip most of the table. A predicate matching half the rows doesn&rsquo;t &mdash; the random heap fetches cost more than a sequential scan. The fix isn&rsquo;t a different <em>type</em>, it&rsquo;s a smarter B-tree: a partial index that only covers the hot subset (and here also serves the ordering). If instead <code>is_active = true</code> were <em>rare</em> (say 1%), even a plain B-tree would be worth it &mdash; selectivity, not the boolean type, is the real driver.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">The traps that bite in review</span>
+        <p></p>
+        <ul>
+          <li><strong>GIN write amplification.</strong> One insert updates every token&rsquo;s posting list. On write-heavy tables tune <code>fastupdate</code> / <code>gin_pending_list_limit</code> &mdash; or reconsider whether you need the index at all.</li>
+          <li><strong>BRIN with no correlation.</strong> If rows aren&rsquo;t physically ordered by the indexed column, every block&rsquo;s min/max spans the domain, nothing is skipped, and BRIN reads the whole heap. It needs natural append order or a <code>CLUSTER</code> &mdash; and <code>CLUSTER</code> is not maintained automatically.</li>
+          <li><strong>Hash can&rsquo;t range, sort, or prefix.</strong> Equality only. The moment a <code>&lt;</code>, <code>&gt;</code>, <code>ORDER BY</code>, or <code>LIKE 'a%'</code> appears, a hash index is dead weight &mdash; use B-tree.</li>
+          <li><strong>Wrong operator class.</strong> <code>gin (data)</code> vs <code>gin (data jsonb_path_ops)</code>; <code>gin_trgm_ops</code> for <code>LIKE</code>/<code>ILIKE</code>; <code>inet_ops</code> for SP-GiST. The wrong opclass means the index is silently unused &mdash; always confirm with <code>EXPLAIN</code>.</li>
+        </ul>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea carries the lesson: <em>the index type is dictated by the shape of the query and the type of the column, not by habit.</em> B-tree is the correct default for scalar equality, ranges, and sorting &mdash; but arrays, JSONB, text, geometry, and giant ordered tables each have a purpose-built access method that the default cannot match.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>B-tree is the default</b><span>Ordered, so it serves <code>=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>BETWEEN</code>, <code>ORDER BY</code>, and prefix <code>LIKE</code>. Right for most OLTP work.</span></div>
+        <div class="tk"><span class="num">02</span><b>Hash = equality only</b><span>No range, sort, or prefix. Niche win on very large keys; WAL-safe since PG&nbsp;10.</span></div>
+        <div class="tk"><span class="num">03</span><b>GIN inverts</b><span>Many keys per row &rarr; posting lists. Arrays <code>@&gt;</code>, JSONB, full-text, trigrams. Fast reads, heavier writes.</span></div>
+        <div class="tk"><span class="num">04</span><b>GiST = overlap &amp; near</b><span>Balanced tree of bounding predicates. Ranges, geometry, and the primary KNN index (SP-GiST also does KNN for points).</span></div>
+        <div class="tk"><span class="num">05</span><b>BRIN is tiny</b><span>Per-block min/max summaries. Kilobytes for a huge table &mdash; but only with high physical correlation.</span></div>
+        <div class="tk"><span class="num">06</span><b>SP-GiST partitions space</b><span>Unbalanced quadtrees / tries / radix. Points, IP subnets, shared text prefixes.</span></div>
+        <div class="tk"><span class="num">07</span><b>Operator class matters</b><span><code>jsonb_path_ops</code>, <code>gin_trgm_ops</code>, <code>inet_ops</code> &mdash; the wrong one means the index goes unused.</span></div>
+        <div class="tk"><span class="num">08</span><b>Selectivity trumps type</b><span>A low-cardinality column wants a partial index, not a plain B-tree. An index only helps if it skips most rows.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Why can a B-tree serve <code>ORDER BY</code> and prefix <code>LIKE 'a%'</code>, but a hash index can serve neither?<br>
+        (2) Explain &ldquo;inverted index&rdquo; and name three column shapes that need GIN. Why are its writes slower?<br>
+        (3) GIN vs GiST: give the one-line rule and what GiST is the go-to index for (overlap &amp; nearest-neighbour).<br>
+        (4) State the three conditions under which BRIN beats a B-tree, and the one property that makes BRIN useless.<br>
+        (5) For each: <code>tags @&gt; ARRAY['sql']</code>, <code>created_at BETWEEN</code> on a 500M-row log, <code>user_id = :uuid</code> &mdash; name the index type and why.<br>
+        (6) A plain B-tree on <code>is_active</code> goes unused. Give the reason and the better index.<br>
+        Any fuzzy answer &#8594; re-read that section, replay its diagram, and re-derive the plan.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 21 &middot; INDEX TYPES IN POSTGRES &middot; interactive edition<br>
+      Original study notes for engineers &middot; PostgreSQL 17/18 &middot; choose by query shape, verify with EXPLAIN.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* shared table-cell recolor helper */
+  function relSet(ids,cls){ids.forEach(function(id){var e=_g(id); if(e) e.setAttribute('class','tcell'+(cls?' '+cls:''));});}
+
+  /* FIG 1 — B-tree vs Hash */
+  makeStepper(_g('fig-btvh'), [
+    {text:"Same data, two index types. A B-tree keeps its keys sorted; a hash index scatters them into buckets. That one difference decides what each can do.", active:[], read:"ordered tree  vs  unordered buckets"},
+    {text:"Point lookup, WHERE id = 42: the B-tree descends root → leaf in a few hops — O(log n). Equality works.", active:["f1-stk-root","f1-stk-leaf1"], path:"f1-p-root1", read:"id = 42 → root → leaf (O(log n))"},
+    {text:"Range, WHERE id BETWEEN 42 AND 45: because leaves are sorted and linked, Postgres finds 42 then walks sideways along them. Ranges work.", active:["f1-stk-leaf1","f1-stk-leaf2"], path:"f1-p-chain", read:"42..45 → walk the ordered leaves"},
+    {text:"ORDER BY id: the leaves are already in order, so the index returns rows pre-sorted — no separate Sort node needed.", active:["f1-stk-leaf1","f1-stk-leaf2","f1-stk-leaf3"], path:"f1-p-chain2", read:"ORDER BY → read leaves in order"},
+    {text:"Hash index, WHERE token = 42: hash(42) points straight at one bucket — compact and quick for equality on very large keys.", active:["f1-stk-hash","f1-stk-buckets"], path:"f1-p-hash", hl:"hget", read:"hash(42) → bucket 2, direct"},
+    {text:"But WHERE token > 42, or ORDER BY token? Hashing scrambles order, so neighbours land in random buckets. A hash index does equality and nothing else.", active:["f1-stk-buckets"], hl:"hrange", read:"no range · no sort · no prefix"}
+  ], function(idx,s){
+    var b2=_g('f1-b2'); if(b2) b2.setAttribute('class', s.hl==='hget'?'node-t':'node');
+    var x=_g('f1-x'); if(x) x.style.opacity=(s.hl==='hrange'?1:0);
+    _g('f1-read').textContent=s.read||'';
+  });
+
+  /* FIG 2 — GIN inverted index */
+  makeStepper(_g('fig-gin'), [
+    {text:"A B-tree stores one key per row. But a row here holds many values — an array of tags. Indexing the whole array as one key can't answer “contains sql”.", hl:"intro", read:"one row · many values → B-tree can't help"},
+    {text:"GIN turns the table inside-out: it lists every distinct element and, for each, the rows that contain it. This is an inverted index — value → rows.", hl:"build", read:"each element → a posting list of row ids"},
+    {text:"Query WHERE tags @> ARRAY['sql']: look up 'sql' once in the index and read its posting list → rows 1 and 2. No table scan.", hl:"sql", read:"tags @> ARRAY['sql'] → rows {1, 2}"},
+    {text:"WHERE tags @> ARRAY['sql','index']: GIN fetches both posting lists — sql {1,2} and index {1,3} — and intersects them → row 1.", hl:"both", read:"{1,2} ∩ {1,3} = {1}"},
+    {text:"The cost: inserting one row updates every one of its tokens' lists (here index and cache), so writes are heavier. GIN buffers them in a pending list (fastupdate).", hl:"write", read:"one insert → many list updates (slower writes)"}
+  ], function(idx,s){
+    relSet(['f2-d1-id','f2-d1-tag','f2-d2-id','f2-d2-tag','f2-d3-id','f2-d3-tag',
+            'f2-tok-sql','f2-post-sql','f2-tok-index','f2-post-index','f2-tok-jsonb','f2-post-jsonb','f2-tok-cache','f2-post-cache'],'');
+    if(s.hl==='build'){ relSet(['f2-tok-sql','f2-tok-index','f2-tok-jsonb','f2-tok-cache'],'kb'); }
+    else if(s.hl==='sql'){ relSet(['f2-tok-sql','f2-post-sql'],'kt'); relSet(['f2-d1-id','f2-d1-tag','f2-d2-id','f2-d2-tag'],'kg'); }
+    else if(s.hl==='both'){ relSet(['f2-tok-sql','f2-post-sql','f2-tok-index','f2-post-index'],'kt'); relSet(['f2-d1-id','f2-d1-tag'],'kg'); }
+    else if(s.hl==='write'){ relSet(['f2-d3-id','f2-d3-tag'],'kb'); relSet(['f2-tok-index','f2-post-index','f2-tok-cache','f2-post-cache'],'kt'); }
+    _g('f2-read').textContent=s.read||'';
+  });
+
+  /* FIG 3 — worked index-choice decision */
+  makeStepper(_g('fig-pick'), [
+    {text:"Three queries against three different columns. There is no single “best” index — the right one is dictated by the shape of the predicate. Watch each route to its type.", active:[], q:"pick by shape ↓", read:"match the index to the query, not the table"},
+    {text:"Case A — WHERE tags @> ARRAY['sql'] on a text[] column. Many values per row, a containment test → GIN.", active:["f3-stk-q","f3-stk-gin"], path:"f3-p-gin", q:"tags @> ARRAY['sql']", read:"array containment → GIN inverted index"},
+    {text:"Case B — WHERE created_at BETWEEN … on a 500-million-row append-only log. Rows arrive in time order, so page min/max summaries suffice → BRIN (kilobytes, not gigabytes).", active:["f3-stk-q","f3-stk-brin"], path:"f3-p-brin", q:"created_at BETWEEN … (500M rows)", read:"huge + ordered + range → BRIN"},
+    {text:"Case C — WHERE user_id = :uuid, a highly selective equality that also feeds ORDER BY and joins. The default is exactly right → B-tree.", active:["f3-stk-q","f3-stk-btree"], path:"f3-p-btree", q:"user_id = :uuid", read:"selective equality → B-tree (default)"},
+    {text:"Same events table could carry all three: a B-tree on the PK, a GIN on a JSONB payload, a BRIN on created_at. Index each column for the query it serves.", active:["f3-stk-gin","f3-stk-brin","f3-stk-btree"], q:"one table → three index types", read:"one table can need several index types"}
+  ], function(idx,s){
+    _g('f3-qtext').textContent=s.q||'';
+    _g('f3-read').textContent=s.read||'';
+  });
+</script>
+</body>
+</html>

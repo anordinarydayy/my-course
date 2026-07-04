@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 28 — Build a Job Queue (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Build a Job Queue</div>
+    <h4>The build</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>A queue inside your DB</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The naive race &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>FOR UPDATE SKIP LOCKED &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The full claim pattern</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The complete build &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">28</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Build a Job Queue</h1>
+      <p class="lede">"Do I really need a message broker for background jobs?" is a classic interview question, and the surprising answer is often <em>no</em> — PostgreSQL already ships the two ingredients a correct queue needs: row locks and transactions. In this practice lesson you build a concurrent worker queue directly in the database, starting from the naive version that hands the same job to two workers and fixing it with one clause, <code>FOR UPDATE SKIP LOCKED</code>. By the end you will have a complete schema, an atomic claim query, retries with backoff, and a stuck-job reclaimer — the exact pattern behind tools like <em>que</em>, <em>graphile-worker</em>, and <em>River</em>.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want database depth that pays off in interviews and in real systems. All SQL is valid <strong>PostgreSQL</strong> and current as of <strong>PG&nbsp;17/18</strong>. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked SQL problem and graded drills</strong> you should attempt before reading the answer.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>28</b> Motivation</div>
+      <h2>A queue inside your database</h2>
+      <p>A <strong>job queue</strong> is one table of work to be done later: send this email, resize that image, retry this webhook. Some worker processes poll the table, each grabs a job, does the work, and marks it finished. The whole design question is coordination — <strong>how do many workers share one table without stepping on each other?</strong></p>
+      <p>You could reach for a dedicated broker, but doing it in Postgres buys you something a broker cannot: your jobs live in the <em>same</em> database as your data, so enqueuing a job is <strong>transactional with the change that caused it</strong>. Create an order and enqueue its confirmation email in one transaction — either both commit or neither does. There is no window where the order exists but the email job was lost, and no window where the job fired for an order that rolled back. And there is no extra service to run, monitor, or secure.</p>
+      <p>Whatever the mechanism, a real queue owes you four guarantees:</p>
+      <ul>
+        <li><strong>Exactly-one delivery per attempt.</strong> Each job is handled by <em>one</em> worker at a time — never two at once.</li>
+        <li><strong>No double-processing.</strong> Two workers polling simultaneously must not both claim the same row.</li>
+        <li><strong>Retries.</strong> A job that throws should be tried again — with a cap, so a poison job cannot loop forever.</li>
+        <li><strong>Ordering.</strong> Older jobs (or higher-priority ones) should generally go first.</li>
+      </ul>
+      <div class="callout note">
+        <span class="k">When a broker wins instead</span>
+        <p>This pattern is excellent from small scale up through a healthy chunk of production traffic — thousands of jobs per second is very achievable. But at genuinely high throughput, or when you need fan-out to many consumer groups, features like dead-letter routing, or cross-service delivery, a purpose-built broker (the subject of the <strong>RabbitMQ course</strong>) earns its keep. Reach for the database queue first; graduate to a broker when you have measured a reason to.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>28</b> The race</div>
+      <h2>The naive queue and its race &#9656;</h2>
+      <p>The obvious first attempt reads the oldest pending row, then flips it to <code>running</code> in a second statement:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- Worker: step 1, find a job</span>
+<span class="kw">SELECT</span> id <span class="kw">FROM</span> jobs
+<span class="kw">WHERE</span>  status = <span class="lit">'pending'</span>
+<span class="kw">ORDER BY</span> created_at
+<span class="kw">LIMIT</span>  <span class="lit">1</span>;
+
+<span class="cm">-- Worker: step 2, claim it (separate statement, using the id from step 1)</span>
+<span class="kw">UPDATE</span> jobs <span class="kw">SET</span> status = <span class="lit">'running'</span> <span class="kw">WHERE</span> id = <span class="lit">$1</span>;</code></pre>
+      <p>With one worker this is fine. With two, it is broken. Nothing stops <strong>both</strong> workers from running the <code>SELECT</code> in the same instant, before either has run its <code>UPDATE</code>. Both see the row as <code>pending</code>, both take its id, both flip it to <code>running</code>, and both do the work. That is a <strong>lost update / double-processing</strong> bug — the confirmation email goes out twice, the charge is applied twice. Step through exactly how the two workers collide:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-race">
+          <svg viewBox="0 0 640 330" role="img" aria-label="Interactive: two workers both SELECT the same pending job and both process it, a double-processing race">
+            <text class="lbl-sm" x="60" y="50" text-anchor="start">WORKER 1</text>
+            <text class="lbl-sm" x="60" y="226" text-anchor="start">WORKER 2</text>
+            <g id="f1-w1a" style="opacity:.2"><rect class="chip cA" x="60" y="58" width="168" height="42" rx="8"/><text class="chiptext" x="144" y="84" text-anchor="middle">W1: SELECT #1</text></g>
+            <g id="f1-w1b" style="opacity:.2"><rect class="chip cA" x="400" y="58" width="190" height="42" rx="8"/><text class="chiptext" x="495" y="84" text-anchor="middle">W1: UPDATE #1</text></g>
+            <g id="f1-w2a" style="opacity:.2"><rect class="chip cB" x="60" y="234" width="168" height="42" rx="8"/><text class="chiptext" x="144" y="260" text-anchor="middle">W2: SELECT #1</text></g>
+            <g id="f1-w2b" style="opacity:.2"><rect class="chip cBad" x="400" y="234" width="190" height="42" rx="8"/><text class="chiptext" x="495" y="260" text-anchor="middle">W2: UPDATE #1</text></g>
+            <text class="lbl-sm" x="320" y="128" text-anchor="middle">jobs &middot; oldest row</text>
+            <rect id="f1-statebox" class="balbox" x="250" y="135" width="140" height="58" rx="9"/>
+            <text id="f1-state" x="320" y="172" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="18" font-weight="700" fill="#20201D">#1 pending</text>
+            <path d="M40 210 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="205" text-anchor="end">time &#8594;</text>
+            <text id="f1-verdict" x="320" y="316" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: two workers SELECT the same pending row before either claims it, so job #1 runs twice</figcaption>
+      </figure>
+
+      <p>The instinct is to add <code>FOR UPDATE</code> to the <code>SELECT</code>, taking a row lock. That fixes correctness — the second worker now <em>blocks</em> until the first commits, so it never processes the same row. But it fixes it the wrong way: plain <code>FOR UPDATE</code> makes the second worker <strong>wait</strong> for the locked row, and it is still waiting for that exact row when the first worker releases it. Your pool of workers collapses into a single-file line, all queuing for whichever row is at the front. Correct, but serial — you have thrown away all your concurrency.</p>
+      <div class="callout tip">
+        <span class="k">The shape of the fix</span>
+        <p>What you actually want is for the second worker to say: "that row is taken? <em>Skip it</em> and give me the next free one." Not "block on it." That single change — skip locked rows instead of waiting on them — is the whole trick, and Postgres has a clause for exactly it.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>28</b> The fix</div>
+      <h2>FOR UPDATE SKIP LOCKED &#9656;</h2>
+      <p>Add <code>SKIP LOCKED</code> to a locking <code>SELECT</code> and Postgres changes the rule: instead of waiting for a row another transaction has locked, it <strong>silently steps over it</strong> and returns the next row that is free to lock. Each worker locks the oldest <em>unlocked</em> pending row:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id <span class="kw">FROM</span> jobs
+<span class="kw">WHERE</span>  status = <span class="lit">'pending'</span>
+<span class="kw">ORDER BY</span> created_at
+<span class="kw">FOR UPDATE SKIP LOCKED</span>
+<span class="kw">LIMIT</span>  <span class="lit">1</span>;</code></pre>
+      <p>Now two workers running at the same instant do <strong>not</strong> collide. Worker&nbsp;1 locks job&nbsp;#1; Worker&nbsp;2 reaches #1, sees it locked, skips it, and locks job&nbsp;#2 instead. Both hold different rows, both proceed — no blocking, no double-processing. Watch it play out:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-skiplocked">
+          <svg viewBox="0 0 640 344" role="img" aria-label="Interactive: FOR UPDATE SKIP LOCKED lets worker two skip the locked job and claim a different one, running concurrently">
+            <text class="lbl-sm" x="60" y="50" text-anchor="start">WORKER 1</text>
+            <text class="lbl-sm" x="60" y="246" text-anchor="start">WORKER 2</text>
+            <g id="f2-w1a" style="opacity:.2"><rect class="chip cA" x="60" y="58" width="168" height="42" rx="8"/><text class="chiptext" x="144" y="84" text-anchor="middle">W1: lock #1</text></g>
+            <g id="f2-w1b" style="opacity:.2"><rect class="chip cA" x="400" y="58" width="190" height="42" rx="8"/><text class="chiptext" x="495" y="84" text-anchor="middle">W1: run #1</text></g>
+            <g id="f2-w2a" style="opacity:.2"><rect class="chip cB" x="60" y="254" width="168" height="42" rx="8"/><text class="chiptext" x="144" y="280" text-anchor="middle">W2: skip #1</text></g>
+            <g id="f2-w2b" style="opacity:.2"><rect class="chip cB" x="400" y="254" width="190" height="42" rx="8"/><text class="chiptext" x="495" y="280" text-anchor="middle">W2: lock+run #2</text></g>
+            <text class="lbl-sm" x="320" y="110" text-anchor="middle">pending queue</text>
+            <rect id="f2-statebox" class="balbox" x="230" y="118" width="180" height="86" rx="9"/>
+            <text id="f2-j1" x="320" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="600" fill="#20201D">#1  pending</text>
+            <text id="f2-j2" x="320" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="600" fill="#20201D">#2  pending</text>
+            <path d="M40 226 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="221" text-anchor="end">time &#8594;</text>
+            <text id="f2-verdict" x="320" y="330" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: Worker 2 skips the row Worker 1 holds and claims the next free one; both run concurrently</figcaption>
+      </figure>
+
+      <p>Three properties make this the standard answer. It is <strong>non-blocking</strong>: no worker ever waits on another, so throughput scales with your worker count. It is <strong>correct</strong>: the row lock guarantees only one worker holds a given row, so nothing is double-claimed. And it <strong>degrades gracefully</strong>: add more workers than there are ready jobs and the extras simply get empty results and poll again — they never pile up on a lock.</p>
+      <div class="callout note">
+        <span class="k">SKIP LOCKED is deliberately "wrong" for reads</span>
+        <p><code>SKIP LOCKED</code> returns an <em>inconsistent</em> snapshot on purpose — it silently omits rows it could not lock. That is exactly what you want for a queue (any free job will do) and exactly what you must <em>never</em> use for a report or a count, where skipping rows would drop data. Reach for it only when "give me any available rows, I don't care which" is truly the intent.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>28</b> The pattern</div>
+      <h2>The full claim pattern</h2>
+      <p>Two statements — a <code>SELECT</code> then an <code>UPDATE</code> — leave a gap where a worker could crash after selecting but before claiming. Collapse them into <strong>one atomic statement</strong>: an <code>UPDATE</code> whose target row is chosen by the <code>SKIP&nbsp;LOCKED</code> subquery, returning the claimed row so the worker knows what to do:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">UPDATE</span> jobs
+<span class="kw">SET</span>    status = <span class="lit">'running'</span>,
+       locked_at = <span class="fn">now</span>(),
+       attempts = attempts + <span class="lit">1</span>
+<span class="kw">WHERE</span>  id = (
+  <span class="kw">SELECT</span> id <span class="kw">FROM</span> jobs
+  <span class="kw">WHERE</span>  status = <span class="lit">'pending'</span> <span class="kw">AND</span> run_after &lt;= <span class="fn">now</span>()
+  <span class="kw">ORDER BY</span> created_at
+  <span class="kw">FOR UPDATE SKIP LOCKED</span>
+  <span class="kw">LIMIT</span>  <span class="lit">1</span>
+)
+<span class="kw">RETURNING</span> *;</code></pre>
+      <p>That one statement <em>is</em> the claim. The inner <code>SELECT</code> picks the oldest ready-and-unlocked job and locks it; the outer <code>UPDATE</code> flips it to <code>running</code>, stamps <code>locked_at</code>, and bumps the attempt counter; <code>RETURNING&nbsp;*</code> hands the whole row back to the worker. If the queue is empty, zero rows come back and the worker sleeps a moment before polling again. Around that claim, a worker's life is a small loop:</p>
+      <ul>
+        <li><strong>Claim</strong> one job with the statement above.</li>
+        <li><strong>Process</strong> it — do the actual work, <em>outside</em> a long transaction (more on why in the traps).</li>
+        <li><strong>Mark done</strong> on success (<code>status = 'done'</code>), or on failure decide between a retry and giving up.</li>
+      </ul>
+      <p><strong>Retries with backoff.</strong> The <code>attempts</code> counter (already incremented at claim time) is your retry budget. On failure, if the job still has attempts left, set it back to <code>pending</code> but push <code>run_after</code> into the future so it is not retried instantly. The formula below is a simple <strong>linear</strong> backoff (10s, 20s, 30s&hellip;); many systems prefer <strong>exponential</strong> &mdash; <code>run_after = now() + base * power(2, attempts)</code>. Once <code>attempts</code> crosses a cap, park it as <code>failed</code> so a poison job cannot loop forever.</p>
+      <p><strong>Reclaiming stuck jobs.</strong> A worker can crash mid-job, leaving a row stranded in <code>running</code> forever. That is what <code>locked_at</code> is for: a periodic sweeper flips any <code>running</code> row whose <code>locked_at</code> is older than a timeout back to <code>pending</code>, so another worker can pick it up. This is your at-least-once safety net.</p>
+      <p><strong>Keeping the scan tiny.</strong> As jobs complete, done rows pile up — but the claim only ever cares about <code>pending</code> ones. A <strong>partial index</strong> indexes exactly those:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE INDEX</span> jobs_pending_idx <span class="kw">ON</span> jobs (created_at)
+  <span class="kw">WHERE</span> status = <span class="lit">'pending'</span>;</code></pre>
+      <p>Because the index only contains pending rows, it stays small no matter how many millions of finished jobs sit in the table, and it delivers them already sorted by <code>created_at</code> — so the claim is an index scan over a handful of entries, not a scan of the whole table.</p>
+      <div class="callout">
+        <span class="k">Why RETURNING closes the gap</span>
+        <p>Folding select-and-claim into one <code>UPDATE ... RETURNING</code> means the row is chosen, locked, and marked <code>running</code> in a single atomic step. There is no instant where a job is "selected but not yet claimed," so a worker crash can never leak a half-claimed job. The claim is all-or-nothing — Atomicity doing exactly its job.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>28</b> Worked build</div>
+      <h2>The complete build &#9656;</h2>
+      <p>Now assemble the whole thing. Read the task, try to write each piece yourself, then check against the worked answer. First, see the healthy lifecycle you are building toward — two workers, two different jobs, each running claim &rarr; process &rarr; done exactly once:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-lifecycle">
+          <svg viewBox="0 0 680 372" role="img" aria-label="Interactive: the full job lifecycle across two workers, each claiming, processing, and marking a different job done">
+            <text class="lbl-sm" x="40" y="48" text-anchor="start">WORKER 1</text>
+            <text class="lbl-sm" x="40" y="250" text-anchor="start">WORKER 2</text>
+            <g id="f3-w1a" style="opacity:.2"><rect class="chip cA" x="40" y="56" width="148" height="40" rx="8"/><text class="chiptext" x="114" y="82" text-anchor="middle">W1: claim #1</text></g>
+            <g id="f3-w1b" style="opacity:.2"><rect class="chip cA" x="266" y="56" width="148" height="40" rx="8"/><text class="chiptext" x="340" y="82" text-anchor="middle">W1: run #1</text></g>
+            <g id="f3-w1c" style="opacity:.2"><rect class="chip cA" x="492" y="56" width="148" height="40" rx="8"/><text class="chiptext" x="566" y="82" text-anchor="middle">W1: done #1</text></g>
+            <g id="f3-w2a" style="opacity:.2"><rect class="chip cB" x="40" y="260" width="148" height="40" rx="8"/><text class="chiptext" x="114" y="286" text-anchor="middle">W2: claim #2</text></g>
+            <g id="f3-w2b" style="opacity:.2"><rect class="chip cB" x="266" y="260" width="148" height="40" rx="8"/><text class="chiptext" x="340" y="286" text-anchor="middle">W2: run #2</text></g>
+            <g id="f3-w2c" style="opacity:.2"><rect class="chip cB" x="492" y="260" width="148" height="40" rx="8"/><text class="chiptext" x="566" y="286" text-anchor="middle">W2: done #2</text></g>
+            <text class="lbl-sm" x="340" y="120" text-anchor="middle">jobs table</text>
+            <rect id="f3-statebox" class="balbox" x="250" y="128" width="180" height="74" rx="9"/>
+            <text id="f3-j1" x="340" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="600" fill="#20201D">#1  pending</text>
+            <text id="f3-j2" x="340" y="186" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="600" fill="#20201D">#2  pending</text>
+            <path d="M30 222 H 650" class="flow-d"/>
+            <text class="lbl-sm" x="650" y="217" text-anchor="end">time &#8594;</text>
+            <text id="f3-verdict" x="340" y="356" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the full lifecycle — each worker claims, processes, and completes a different job exactly once</figcaption>
+      </figure>
+
+      <h3>1 &middot; The schema</h3>
+      <p>Six columns carry everything a worker needs: an identity key, the work itself as <code>jsonb</code>, a status, a retry counter, a "not before" timestamp for delays and backoff, and a lock timestamp for reclaiming crashes.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> jobs (
+  id         <span class="kw">bigint</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span> <span class="kw">PRIMARY KEY</span>,
+  payload    <span class="kw">jsonb</span>        <span class="kw">NOT NULL</span>,
+  status     <span class="kw">text</span>         <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="lit">'pending'</span>,
+  attempts   <span class="kw">int</span>          <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="lit">0</span>,
+  run_after  <span class="kw">timestamptz</span>  <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>(),
+  locked_at  <span class="kw">timestamptz</span>,
+  <span class="kw">CHECK</span> (status <span class="kw">IN</span> (<span class="lit">'pending'</span>, <span class="lit">'running'</span>, <span class="lit">'done'</span>, <span class="lit">'failed'</span>))
+);
+
+<span class="kw">CREATE INDEX</span> jobs_pending_idx <span class="kw">ON</span> jobs (created_at)
+  <span class="kw">WHERE</span> status = <span class="lit">'pending'</span>;</code></pre>
+      <p class="callout note" style="font-size:15px"><span class="k" style="margin-bottom:4px">note</span>The partial index above orders on <code>created_at</code>, so add a <code>created_at timestamptz NOT NULL DEFAULT now()</code> column too — shown separately here only to keep the six "moving parts" columns in focus.</p>
+
+      <h3>2 &middot; The task</h3>
+      <p>You have the table. Write: (a) the <em>wrong</em> naive claim and say why it fails; (b) the correct atomic claim; (c) the worker's success and failure updates, with capped retries and backoff; (d) the stuck-job reclaimer. Try each before reading on.</p>
+
+      <h3>3 &middot; The naive claim, and why it is wrong</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- WRONG: a plain SELECT takes no lock, so two workers</span>
+<span class="cm">-- can both read the same row as pending and both claim it.</span>
+<span class="kw">SELECT</span> id <span class="kw">FROM</span> jobs
+<span class="kw">WHERE</span>  status = <span class="lit">'pending'</span>
+<span class="kw">ORDER BY</span> created_at
+<span class="kw">LIMIT</span>  <span class="lit">1</span>;
+<span class="cm">-- ...then a separate UPDATE ... SET status='running' WHERE id=$1;</span>
+<span class="cm">-- Between the SELECT and the UPDATE, another worker slips in. Double-processing.</span></code></pre>
+
+      <h3>4 &middot; The correct claim + worker loop</h3>
+      <p>The atomic claim from section&nbsp;03 does the hard part. Then the worker either marks the job done, or — on failure — retries with backoff until the cap, and only then gives up:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- CLAIM: atomic select-and-lock-and-mark-running</span>
+<span class="kw">UPDATE</span> jobs
+<span class="kw">SET</span>    status = <span class="lit">'running'</span>, locked_at = <span class="fn">now</span>(), attempts = attempts + <span class="lit">1</span>
+<span class="kw">WHERE</span>  id = (
+  <span class="kw">SELECT</span> id <span class="kw">FROM</span> jobs
+  <span class="kw">WHERE</span>  status = <span class="lit">'pending'</span> <span class="kw">AND</span> run_after &lt;= <span class="fn">now</span>()
+  <span class="kw">ORDER BY</span> created_at
+  <span class="kw">FOR UPDATE SKIP LOCKED</span>
+  <span class="kw">LIMIT</span>  <span class="lit">1</span>
+)
+<span class="kw">RETURNING</span> *;
+
+<span class="cm">-- SUCCESS: worker finished the payload cleanly</span>
+<span class="kw">UPDATE</span> jobs <span class="kw">SET</span> status = <span class="lit">'done'</span>, locked_at = <span class="kw">NULL</span> <span class="kw">WHERE</span> id = <span class="lit">$1</span>;
+
+<span class="cm">-- FAILURE: retry with linear backoff, or give up after 5 tries</span>
+<span class="kw">UPDATE</span> jobs
+<span class="kw">SET</span>    status = <span class="kw">CASE WHEN</span> attempts &gt;= <span class="lit">5</span> <span class="kw">THEN</span> <span class="lit">'failed'</span> <span class="kw">ELSE</span> <span class="lit">'pending'</span> <span class="kw">END</span>,
+       run_after = <span class="fn">now</span>() + (<span class="kw">interval</span> <span class="lit">'10 seconds'</span> * attempts),
+       locked_at = <span class="kw">NULL</span>
+<span class="kw">WHERE</span>  id = <span class="lit">$1</span>;</code></pre>
+      <p>Note that <code>attempts</code> was already incremented by the claim, so the failure update reads the true count. The backoff <code>interval '10 seconds' * attempts</code> spreads retries out — 10s, 20s, 30s — instead of hammering a failing dependency.</p>
+
+      <h3>5 &middot; The stuck-job reclaimer</h3>
+      <p>Run this on a schedule (say every minute) from a sweeper. Anything left <code>running</code> past the timeout is presumed dead and returned to the pool:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">UPDATE</span> jobs
+<span class="kw">SET</span>    status = <span class="lit">'pending'</span>, locked_at = <span class="kw">NULL</span>
+<span class="kw">WHERE</span>  status = <span class="lit">'running'</span>
+  <span class="kw">AND</span>  locked_at &lt; <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'5 minutes'</span>;</code></pre>
+
+      <h3>6 &middot; What the planner does with the claim</h3>
+      <p>The point of the partial index is that the claim never scans the growing table. An illustrative <code>EXPLAIN</code> of the whole claim shows the <code>InitPlan</code> (the subquery) doing an <em>index scan</em> on <code>jobs_pending_idx</code> wrapped in a <code>LockRows</code> node (that is where <code>FOR UPDATE SKIP LOCKED</code> lives), and the outer <code>Update</code> finding its one target row by primary key:</p>
+      <p class="codetag">text</p>
+      <pre class="code"><code><span class="cm">Update on jobs  (cost=0.43..8.47 rows=0 ...)</span>
+  InitPlan 1 (returns $1)
+    -&gt;  Limit  (cost=0.43..0.48 rows=1 ...)
+          -&gt;  LockRows  (cost=0.43..8.46 rows=1 ...)
+                -&gt;  Index Scan using jobs_pending_idx on jobs jobs_1
+                      Filter: (run_after &lt;= now())
+  -&gt;  Index Scan using jobs_pkey on jobs
+        Index Cond: (id = $1)</code></pre>
+      <p>An <code>Index Scan using jobs_pending_idx</code> — not a <code>Seq Scan on jobs</code> — is the line that tells you the queue will stay fast at ten million completed rows. If you ever see a sequential scan here, your partial index is missing or unused, and the claim's cost is growing with the whole table.</p>
+      <div class="callout tip">
+        <span class="k">Narrate it in an interview</span>
+        <p>"One table; workers claim with a single <code>UPDATE ... WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *</code>, so the pick, the lock, and the status flip are atomic. <code>SKIP LOCKED</code> keeps workers concurrent instead of serialized; a partial index on pending rows keeps the scan tiny; <code>attempts</code> plus <code>run_after</code> give capped retries with backoff; and a <code>locked_at</code> timeout reclaims crashed workers." That is the whole design in four sentences. The same <em>idempotent-claim</em> idea returns in Phase 8, where an inbox table dedupes incoming events the same way — claim-once, process-once.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>28</b> Drills</div>
+      <h2>Graded drills &amp; traps</h2>
+      <p>Attempt each drill on paper before opening its answer. They all build on the claim from section&nbsp;04.</p>
+
+      <h3>Drill 1 — Claim a batch of N jobs</h3>
+      <p>A worker that claims one job at a time makes one round-trip per job. Rewrite the claim to grab up to <strong>10</strong> jobs in a single statement.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Swap the <code>id = (...)</code> equality for <code>id IN (...)</code> and lift the <code>LIMIT</code> to&nbsp;10 — the subquery still uses <code>FOR UPDATE SKIP LOCKED</code>, so the batch is a set of distinct, unlocked rows:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="kw">UPDATE</span> jobs <span class="kw">SET</span> status = <span class="lit">'running'</span>, locked_at = <span class="fn">now</span>(), attempts = attempts + <span class="lit">1</span>
+<span class="kw">WHERE</span>  id <span class="kw">IN</span> (
+  <span class="kw">SELECT</span> id <span class="kw">FROM</span> jobs
+  <span class="kw">WHERE</span>  status = <span class="lit">'pending'</span> <span class="kw">AND</span> run_after &lt;= <span class="fn">now</span>()
+  <span class="kw">ORDER BY</span> created_at
+  <span class="kw">FOR UPDATE SKIP LOCKED</span>
+  <span class="kw">LIMIT</span>  <span class="lit">10</span>
+)
+<span class="kw">RETURNING</span> *;</code></pre>
+      </div>
+
+      <h3>Drill 2 — Schedule a job for later</h3>
+      <p>Enqueue a job that must not run until <strong>one hour from now</strong>. Change nothing in the claim.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>The claim already filters on <code>run_after &lt;= now()</code>, so delay is just an insert with a future <code>run_after</code> — no worker will touch it until the clock catches up:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="kw">INSERT INTO</span> jobs (payload, run_after)
+<span class="kw">VALUES</span> (<span class="lit">'{"kind":"reminder"}'</span>, <span class="fn">now</span>() + <span class="kw">interval</span> <span class="lit">'1 hour'</span>);</code></pre>
+      </div>
+
+      <h3>Drill 3 — Reclaim jobs stuck past a timeout</h3>
+      <p>Write the sweep that returns jobs stranded in <code>running</code> for more than <strong>2 minutes</strong> back to the pool.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Compare <code>locked_at</code> to <code>now()</code> minus the timeout interval:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="kw">UPDATE</span> jobs <span class="kw">SET</span> status = <span class="lit">'pending'</span>, locked_at = <span class="kw">NULL</span>
+<span class="kw">WHERE</span>  status = <span class="lit">'running'</span>
+  <span class="kw">AND</span>  locked_at &lt; <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'2 minutes'</span>;</code></pre>
+      </div>
+
+      <h3>Drill 4 — Turn it into a priority queue</h3>
+      <p>Add a <code>priority int NOT NULL DEFAULT 0</code> column and make high-priority jobs jump the line while ties still run oldest-first.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Change only the <code>ORDER BY</code> in the claim's subquery — highest priority first, oldest-created as the tiebreaker (and a partial index on <code>(priority DESC, created_at) WHERE status = 'pending'</code> to keep it fast):</p>
+        <pre class="code" style="margin-top:10px"><code>  <span class="cm">-- inside the claim's inner SELECT:</span>
+  <span class="kw">ORDER BY</span> priority <span class="kw">DESC</span>, created_at</code></pre>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">The four traps that break real queues</span>
+        <p>
+        (1) <strong>Omitting <code>SKIP LOCKED</code>.</strong> Plain <code>FOR UPDATE</code> is correct but serializes every worker onto the front-of-line row — your concurrency silently vanishes.<br>
+        (2) <strong>No partial index.</strong> Without <code>WHERE status = 'pending'</code>, the index (or scan) grows with every completed job, and claim latency creeps up as the table ages.<br>
+        (3) <strong>Processing inside one long transaction.</strong> If you claim, do minutes of work, then commit — all in one transaction — you hold the row lock the whole time and bloat the table with dead tuples. Claim in a short transaction; process outside it; mark done in another short one.<br>
+        (4) <strong>No retry cap.</strong> Infinite retries turn one poison job into an endless loop that burns a worker forever. Always cap <code>attempts</code> and park exhausted jobs as <code>failed</code>.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>28</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one line: <em>a correct database job queue is a single table plus one atomic claim — <code>UPDATE ... WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *</code> — surrounded by capped retries, backoff via <code>run_after</code>, a <code>locked_at</code> timeout for crashes, and a partial index on the pending rows.</em> Everything else is a variation on that claim.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Queue = one table</b><span>Jobs live beside your data, so enqueuing is transactional with the change that caused it. No broker, no lost-email window.</span></div>
+        <div class="tk"><span class="num">02</span><b>The naive race</b><span>SELECT-then-UPDATE lets two workers claim the same row and double-process it — a lost update.</span></div>
+        <div class="tk"><span class="num">03</span><b>SKIP LOCKED is the fix</b><span>Locked rows are skipped, not waited on, so workers claim different jobs concurrently — no blocking, no duplicates.</span></div>
+        <div class="tk"><span class="num">04</span><b>Plain FOR UPDATE serializes</b><span>Correct but wrong: without SKIP LOCKED every worker queues on the front row and concurrency collapses.</span></div>
+        <div class="tk"><span class="num">05</span><b>Atomic claim</b><span>One UPDATE ... RETURNING picks, locks, and marks running in a single step — no half-claimed gap on a crash.</span></div>
+        <div class="tk"><span class="num">06</span><b>Retries + backoff</b><span>An attempts counter caps tries; pushing run_after forward spaces retries out so a failing dependency isn't hammered.</span></div>
+        <div class="tk"><span class="num">07</span><b>Reclaim the stuck</b><span>locked_at plus a timeout sweep returns crashed jobs to pending — the at-least-once safety net.</span></div>
+        <div class="tk"><span class="num">08</span><b>Partial index</b><span>Index only pending rows so the scan stays tiny as done rows pile into the millions.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Walk the naive SELECT-then-UPDATE race and name the exact instant two workers collide. What bug is it?<br>
+        (2) What does <code>SKIP LOCKED</code> do that plain <code>FOR UPDATE</code> does not, and why does plain <code>FOR UPDATE</code> kill your throughput?<br>
+        (3) Write the atomic claim from memory. Why does folding SELECT and UPDATE into one statement remove the crash gap?<br>
+        (4) How do <code>attempts</code> and <code>run_after</code> together give you capped retries with backoff? Where does the cap live?<br>
+        (5) A job is stuck in <code>running</code> because its worker died. What column and what query bring it back, and what guarantee does that give you?<br>
+        (6) Why a <em>partial</em> index, and what would you expect to see in <code>EXPLAIN</code> that proves the queue will still be fast at scale?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and rebuild the claim from a blank page.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 28 &middot; BUILD A JOB QUEUE &middot; interactive edition<br>
+      Original study notes for engineers &middot; write the claim from memory, replay each race, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the naive race */
+  makeStepper(_g('fig-race'), [
+    {text:"Two workers share one queue. Job #1 is the oldest pending row; both workers are about to poll for the next pending job.", lit:[], st:"#1 pending", stc:"", v:""},
+    {text:"Worker 1 runs SELECT ... WHERE status='pending' LIMIT 1 and gets job #1. It has not claimed it yet — no lock was taken.", lit:["f1-w1a"], st:"#1 pending", stc:"", v:"W1 selected #1"},
+    {text:"A blink later Worker 2 runs the very same SELECT. Nothing has changed the row, so it also gets job #1.", lit:["f1-w1a","f1-w2a"], st:"#1 pending", stc:"", v:"W2 also selected #1"},
+    {text:"Worker 1 UPDATEs #1 to running and starts processing.", lit:["f1-w1a","f1-w2a","f1-w1b"], st:"#1 running", stc:"", v:"W1 processing #1"},
+    {text:"Worker 2 UPDATEs the same row and ALSO processes #1. The job runs twice — a lost update / double-processing bug.", lit:["f1-w1a","f1-w2a","f1-w1b","f1-w2b"], st:"#1 run x2", stc:"kbad", v:"✗ #1 double-processed"}
+  ], function(idx,s){
+    ['f1-w1a','f1-w1b','f1-w2a','f1-w2b'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f1-state').textContent=s.st;
+    _g('f1-state').setAttribute('fill', s.stc==='kbad'?'#B0532F':(s.stc==='kok'?'#3f7a2e':'#20201D'));
+    _g('f1-statebox').setAttribute('class','balbox'+(s.stc?' '+s.stc:''));
+    var vd=_g('f1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.stc==='kbad'?'#B0532F':(s.stc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — FOR UPDATE SKIP LOCKED */
+  makeStepper(_g('fig-skiplocked'), [
+    {text:"The queue holds two pending jobs, #1 and #2. Both workers claim with FOR UPDATE SKIP LOCKED.", lit:[], j1:"#1  pending", j2:"#2  pending", stc:"", v:""},
+    {text:"Worker 1 locks the oldest unlocked pending row — job #1 — and holds that row lock.", lit:["f2-w1a"], j1:"#1 → W1  locked", j2:"#2  pending", stc:"", v:"W1 locks #1"},
+    {text:"Worker 2 runs at the same instant. It reaches #1, sees W1's lock, and SKIPS it instead of waiting.", lit:["f2-w1a","f2-w2a"], j1:"#1 → W1  locked", j2:"#2  pending", stc:"", v:"W2 hits #1 → SKIP LOCKED"},
+    {text:"Worker 2 takes the next unlocked pending row — job #2 — and locks that one.", lit:["f2-w1a","f2-w2a","f2-w2b"], j1:"#1 → W1  locked", j2:"#2 → W2  locked", stc:"", v:"W2 locks the next free row, #2"},
+    {text:"Both workers now hold different jobs and process concurrently. No blocking, no double-processing.", lit:["f2-w1a","f2-w2a","f2-w1b","f2-w2b"], j1:"#1 → W1  running", j2:"#2 → W2  running", stc:"kok", v:"✓ #1 by W1, #2 by W2 — concurrent"}
+  ], function(idx,s){
+    ['f2-w1a','f2-w1b','f2-w2a','f2-w2b'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f2-j1').textContent=s.j1;
+    _g('f2-j2').textContent=s.j2;
+    _g('f2-statebox').setAttribute('class','balbox'+(s.stc?' '+s.stc:''));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.stc==='kok'?'#3f7a2e':(s.stc==='kbad'?'#B0532F':'#5A574E'));
+  });
+
+  /* FIG 3 — the full lifecycle */
+  makeStepper(_g('fig-lifecycle'), [
+    {text:"Two workers, two pending jobs. Each will run the full lifecycle: claim → process → mark done.", lit:[], j1:"#1  pending", j2:"#2  pending", stc:"", v:""},
+    {text:"Worker 1 atomically claims job #1 — one UPDATE ... RETURNING flips it to running and locks it.", lit:["f3-w1a"], j1:"#1  running", j2:"#2  pending", stc:"", v:"W1 claims #1"},
+    {text:"Worker 2's claim skips #1 and takes #2 — a different row. Both are now running.", lit:["f3-w1a","f3-w2a"], j1:"#1  running", j2:"#2  running", stc:"", v:"W2 claims #2 — a different row"},
+    {text:"Each worker processes its own job outside the lock's critical section — the claim already made it theirs.", lit:["f3-w1a","f3-w2a","f3-w1b","f3-w2b"], j1:"#1  running", j2:"#2  running", stc:"", v:"both processing concurrently"},
+    {text:"Worker 1 finishes and marks #1 done, clearing its lock.", lit:["f3-w1a","f3-w2a","f3-w1b","f3-w2b","f3-w1c"], j1:"#1  done", j2:"#2  running", stc:"", v:"#1 complete"},
+    {text:"Worker 2 finishes and marks #2 done. Each job ran exactly once — correct and concurrent.", lit:["f3-w1a","f3-w2a","f3-w1b","f3-w2b","f3-w1c","f3-w2c"], j1:"#1  done", j2:"#2  done", stc:"kok", v:"✓ each job ran exactly once"}
+  ], function(idx,s){
+    ['f3-w1a','f3-w1b','f3-w1c','f3-w2a','f3-w2b','f3-w2c'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('f3-j1').textContent=s.j1;
+    _g('f3-j2').textContent=s.j2;
+    _g('f3-statebox').setAttribute('class','balbox'+(s.stc?' '+s.stc:''));
+    var vd=_g('f3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.stc==='kok'?'#3f7a2e':'#5A574E');
+  });
+</script>
+</body>
+</html>

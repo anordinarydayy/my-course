@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 03 — ACID &amp; the Transaction (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">ACID &amp; the Transaction</div>
+    <h4>The four guarantees</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The unit of work</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Atomicity &mdash; all or nothing &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Consistency &mdash; invariants</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Isolation &mdash; the dial &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Durability &mdash; the crash &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Using transactions well</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">03</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>ACID &amp; the Transaction</h1>
+      <p class="lede">Lesson 00 named ACID and let you watch a lost update. Now we take each of the four letters seriously — one mechanism, one failure mode at a time — built around the one primitive they all describe: the <strong>transaction</strong>. By the end you'll know exactly what <code>COMMIT</code> promises, why two of the four guarantees are really <em>dials</em> you tune, and how a crash one millisecond after &ldquo;success&rdquo; still leaves your data intact.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch, PostgreSQL-based (targeting PG 17/18). This is the transaction deep-dive of Phase 0: it sets up <strong>Phase 5</strong> (isolation &amp; MVCC) and <strong>Phase 7</strong> (durability &amp; the WAL), which each take one dial and go all the way down. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a concept lesson — <strong>no SQL drill</strong>; it builds the mental model the rest of the course tunes.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The primitive</div>
+      <h2>The transaction as the unit of work</h2>
+      <p>A <strong>transaction</strong> is a group of statements the database agrees to treat as a single, indivisible <em>unit of work</em>. You open one with <code>BEGIN</code>, run any number of statements, and end it two ways: <code>COMMIT</code> makes every change permanent and visible, or <code>ROLLBACK</code> throws all of them away as if none had happened. Between those two words, the whole group either lands together or vanishes together — there is no in-between that the outside world can observe.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">BEGIN</span>;
+  <span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance - <span class="lit">60</span> <span class="kw">WHERE</span> id = <span class="lit">1</span>;  <span class="cm">-- debit A</span>
+  <span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = balance + <span class="lit">60</span> <span class="kw">WHERE</span> id = <span class="lit">2</span>;  <span class="cm">-- credit B</span>
+<span class="kw">COMMIT</span>;  <span class="cm">-- both, or (on ROLLBACK) neither</span></code></pre>
+      <p>Now the part that trips people up: <strong>you are always in a transaction, whether you say so or not.</strong> By default Postgres runs in <em>autocommit</em> mode, which means every bare statement you send is silently wrapped in its own one-statement transaction that commits the instant it succeeds. A lone <code>UPDATE</code> is a complete transaction. Typing <code>BEGIN</code> is just how you tell Postgres &ldquo;<em>don't</em> auto-commit after each statement — hold them open until I say <code>COMMIT</code>,&rdquo; so that several statements share one all-or-nothing fate.</p>
+      <p>That sharing is the entire point. A single statement rarely needs the ceremony; the value shows up the moment a real operation is <em>more than one statement</em> and the statements only make sense together:</p>
+      <ul>
+        <li>A <strong>money transfer</strong> is a debit <em>and</em> a credit. Apply one without the other and money is created or destroyed — so they must commit together or not at all.</li>
+        <li>An <strong>order</strong> is a row in <code>orders</code> <em>and</em> several rows in <code>order_lines</code>. An order with no lines, or lines pointing at an order that never got inserted, is corrupt data.</li>
+        <li>A <strong>signup</strong> might insert a user, a profile, and a default settings row. Half a signup is a support ticket waiting to happen.</li>
+      </ul>
+      <p>Wrap each of those in <code>BEGIN … COMMIT</code> and you've drawn a boundary around &ldquo;one logical thing.&rdquo; Everything else in this lesson — atomicity, consistency, isolation, durability — is a promise the database makes <em>about that boundary</em>. ACID isn't four unrelated features; it's four things a transaction guarantees.</p>
+      <div class="callout">
+        <span class="k">The reframe for this lesson</span>
+        <p>Don't think of ACID as a checklist of database features. Think of it as the <strong>contract of one transaction</strong>: given a group of statements between <code>BEGIN</code> and <code>COMMIT</code>, the engine promises they are <em>Atomic</em> (all or none), leave the database <em>Consistent</em> (valid → valid), run in <em>Isolation</em> from others, and — once committed — are <em>Durable</em>. Four adjectives, one noun.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The &ldquo;A&rdquo;</div>
+      <h2>Atomicity &mdash; all or nothing &#9656;</h2>
+      <p><strong>Atomicity</strong> is the guarantee that a transaction is indivisible: every statement inside it takes effect, or — if anything goes wrong — none of them do. The word comes from the Greek for &ldquo;uncuttable.&rdquo; The failure mode it defends against is the <strong>partial write</strong>: the debit that lands while the matching credit is lost, the order header saved without its lines. Atomicity's promise is that such a half-state can <em>never be committed</em> and can <em>never be observed</em> by anyone.</p>
+      <p>The mechanism is <code>ROLLBACK</code>. While a transaction runs, its changes are provisional — real to that transaction, invisible and undoable to everyone else. If a statement raises an error, if a constraint is violated, or if you simply choose to abort, Postgres unwinds every change back to the state at <code>BEGIN</code>. Watch a $60 transfer take both paths — the failure that rolls back, and the success that commits:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-atom">
+          <svg viewBox="0 0 640 360" role="img" aria-label="Interactive: a transfer inside one transaction — a failed credit rolls back leaving both accounts untouched, then a successful transfer commits both together">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">TRANSFER $60 &middot; A &#8594; B, inside one transaction</text>
+            <text id="at-envlbl" class="lbl-sm" x="320" y="44" text-anchor="middle" fill="#5A574E"></text>
+            <rect id="at-env" x="70" y="52" width="500" height="150" rx="12" fill="none" stroke="#1F4E79" stroke-width="1.6" stroke-dasharray="6 5"/>
+            <text class="lbl-sm" x="185" y="96" text-anchor="middle">account A</text>
+            <rect id="at-abox" class="balbox" x="110" y="104" width="150" height="64" rx="9"/>
+            <text id="at-abal" x="185" y="146" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="24" font-weight="700" fill="#20201D">$100</text>
+            <text class="lbl-sm" x="320" y="126" text-anchor="middle">$60</text>
+            <path d="M264 136 H 376" class="flow" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="455" y="96" text-anchor="middle">account B</text>
+            <rect id="at-bbox" class="balbox" x="380" y="104" width="150" height="64" rx="9"/>
+            <text id="at-bbal" x="455" y="146" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="24" font-weight="700" fill="#20201D">$100</text>
+            <text id="at-x" class="lbl-sm" x="455" y="190" text-anchor="middle" fill="#B0532F" style="opacity:0">&#10007; CHECK failed</text>
+            <path d="M40 232 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="228" text-anchor="end">time &#8594;</text>
+            <text id="at-verdict" x="320" y="326" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: a failed credit rolls the whole transfer back; a clean run commits both writes together</figcaption>
+      </figure>
+
+      <p>Notice what you never saw: A at $40 while B was still $100, sitting in the committed database for another transaction to read. That partial state existed only <em>inside</em> the running transaction, and <code>ROLLBACK</code> erased it. This is why atomicity and durability are not in tension — Postgres can be aggressive about not-yet-durable provisional changes precisely because it can always throw them away. The unit of durability is the <em>committed</em> transaction, and a rolled-back one was never committed.</p>
+      <div class="callout note">
+        <span class="k">Atomicity is about failure, not concurrency</span>
+        <p>Keep this letter in its lane. Atomicity answers &ldquo;what happens when <em>one</em> transaction hits a problem partway through?&rdquo; — and the answer is always &ldquo;undo the whole thing.&rdquo; It says nothing about what <em>other</em> transactions can see while yours runs; that's Isolation (section 03). The lost update from Lesson 00 was an isolation bug, not an atomicity bug.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The &ldquo;C&rdquo;</div>
+      <h2>Consistency &mdash; invariants hold across the boundary</h2>
+      <p><strong>Consistency</strong> is the guarantee that a transaction takes the database from one <em>valid</em> state to another valid state — never leaving it in a broken one. &ldquo;Valid&rdquo; means every rule you've declared about your data still holds: primary keys are unique, foreign keys point at rows that exist, <code>CHECK</code> constraints pass, <code>NOT NULL</code> columns are filled. If a transaction would violate any of those, the engine refuses the offending statement and — if you don't recover — the transaction can only roll back. Consistency is enforced <em>at the boundary</em>: the checks that matter are the ones true at <code>COMMIT</code>.</p>
+      <p>The subtle thing about the C is that it's a <strong>shared responsibility</strong>. Part of it is yours and part is the engine's:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Your half — declare the invariants</h4>
+          <ul>
+            <li>You decide the rules: <code>balance &gt;= 0</code>, an order total equals the sum of its lines, a status is one of a fixed set.</li>
+            <li>You write them into the schema as constraints — or, where a rule spans rows the engine can't express, into the transaction's logic.</li>
+            <li>If you never declare it, the database can't protect it.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>The engine's half — enforce them</h4>
+          <ul>
+            <li>Every declared constraint is checked as the transaction runs and at commit.</li>
+            <li>A violation raises an error and <strong>rolls the transaction back</strong> rather than storing bad data.</li>
+            <li>Atomicity is the tool it uses to keep C: undo everything rather than commit something invalid.</li>
+          </ul>
+        </div>
+      </div>
+      <p>So the way to buy consistency is to <em>make the database the keeper of your invariants</em>. Encode them as constraints and they hold no matter which code path, script, or careless human issues the write:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">TABLE</span> accounts (
+  id       bigint <span class="kw">GENERATED</span> <span class="kw">ALWAYS</span> <span class="kw">AS</span> <span class="kw">IDENTITY</span> <span class="kw">PRIMARY KEY</span>,
+  owner    text    <span class="kw">NOT NULL</span>,
+  balance  numeric <span class="kw">NOT NULL</span> <span class="kw">CHECK</span> (balance &gt;= <span class="lit">0</span>)   <span class="cm">-- the invariant, declared once</span>
+);</code></pre>
+      <p>Now <em>any</em> transaction that would push a balance negative fails on that <code>CHECK</code> and rolls back — the debit half of an over-large withdrawal is undone with it. The rule lives in one place, enforced for everyone, forever. (Note the modern choices: <code>GENERATED ALWAYS AS IDENTITY</code> instead of <code>serial</code>, and <code>numeric</code> — not <code>float</code> — for money, so cents never drift.)</p>
+      <div class="callout note">
+        <span class="k">This C is not the C in CAP</span>
+        <p>Two famous acronyms, same letter, different meaning — a genuine trap. In <strong>ACID</strong>, Consistency means &ldquo;the transaction respects your declared integrity rules.&rdquo; In the <strong>CAP theorem</strong> (about distributed systems), Consistency means &ldquo;every node returns the latest write&rdquo; — really a statement about <em>replication and reads across machines</em>. They are unrelated concepts that happen to share a word. When someone says a system is &ldquo;consistent,&rdquo; ask which C they mean.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The &ldquo;I&rdquo;</div>
+      <h2>Isolation &mdash; the dial &#9656;</h2>
+      <p><strong>Isolation</strong> is the guarantee about <em>concurrency</em>: it governs how much of each other's in-flight work simultaneous transactions can see. The ideal — <em>serializability</em> — is that the result of running many transactions at once is identical to running them one after another in <em>some</em> order. But that ideal costs coordination, so isolation is not a switch; it's a <strong>dial</strong>, and where you set it trades safety against concurrency. To choose a setting, you have to know the anomalies each level lets through:</p>
+      <ul>
+        <li><strong>Dirty read</strong> — reading another transaction's <em>uncommitted</em> change (which might still roll back). Postgres never allows this at any level.</li>
+        <li><strong>Non-repeatable read</strong> — you read a row, someone else commits an <em>update</em> to it, you read it again and the value changed under you.</li>
+        <li><strong>Phantom</strong> — you run a range query (<code>WHERE price &lt; 10</code>), someone commits a <em>new</em> matching row, you re-run and a row appears that wasn't there.</li>
+        <li><strong>Lost update</strong> — two transactions read the same value, both write back based on what they read, and one overwrites the other (Lesson 00's bank balance).</li>
+        <li><strong>Write skew</strong> — two transactions each read a shared rule, each individually keeps it, but their combined writes break it (both doctors go off-call at once).</li>
+      </ul>
+      <p>PostgreSQL offers three usable levels, and moving up the dial removes anomalies at the price of more conflicts and retries: <strong>Read Committed</strong> (the default — each statement sees the latest committed data) → <strong>Repeatable Read</strong> (a snapshot frozen at the transaction's start) → <strong>Serializable</strong> (as if truly one-at-a-time). Let's make one anomaly concrete — a <em>non-repeatable read</em> under the default level:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-iso">
+          <svg viewBox="0 0 640 340" role="img" aria-label="Interactive: at Read Committed, T1 reads a value twice and sees it change because T2 committed in between; Repeatable Read would freeze T1's snapshot">
+            <text class="lbl-sm" x="54" y="44" text-anchor="start">SESSION T1</text>
+            <g id="g-t1a" style="opacity:.2"><rect class="chip cA" x="54" y="52" width="160" height="42" rx="8"/><text class="chiptext" x="134" y="78" text-anchor="middle">read qty &#8594; 10</text></g>
+            <g id="g-t1b" style="opacity:.2"><rect class="chip cA" x="430" y="52" width="176" height="42" rx="8"/><text class="chiptext" x="518" y="78" text-anchor="middle">read qty &#8594; 8</text></g>
+            <text class="lbl-sm" x="320" y="148" text-anchor="middle">products.qty (id 7)</text>
+            <rect id="is-box" class="balbox" x="262" y="156" width="116" height="58" rx="9"/>
+            <text id="is-qty" x="320" y="196" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="26" font-weight="700" fill="#20201D">10</text>
+            <path d="M40 236 H 600" class="flow-d"/>
+            <text class="lbl-sm" x="600" y="232" text-anchor="end">time &#8594;</text>
+            <text class="lbl-sm" x="54" y="262" text-anchor="start">SESSION T2</text>
+            <g id="g-t2" style="opacity:.2"><rect class="chip cB" x="224" y="270" width="224" height="42" rx="8"/><text class="chiptext" x="336" y="296" text-anchor="middle">UPDATE qty=8; COMMIT</text></g>
+            <text id="is-verdict" x="320" y="332" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: same query, two answers — a non-repeatable read at Read Committed, which Repeatable Read would prevent</figcaption>
+      </figure>
+
+      <p>The point is not that Read Committed is &ldquo;wrong&rdquo; — for most OLTP work it's the right default, because it's cheap and app code rarely reads the same row twice inside one transaction. The point is that <strong>the level is a choice with a cost on both sides</strong>: turn the dial up and T1 would see a stable 10, but the engine must hold a snapshot and may force a serialization failure that your code has to retry; leave it down and you get maximum concurrency but must design around anomalies like this one. How Postgres implements all of this without locking readers — its multiversion concurrency control, MVCC — is a whole story of its own.</p>
+      <div class="callout tip">
+        <span class="k">Where this goes next</span>
+        <p>Isolation is the single richest topic in the course, and it gets an entire phase. <strong>Phase 5 (Transactions &amp; MVCC)</strong> walks every anomaly, shows exactly what each level guarantees in Postgres, explains how MVCC keeps readers and writers from blocking each other, and teaches the retry loop that <em>Serializable</em> requires. For now, just carry the instinct: <em>isolation is a dial, and the default is Read Committed.</em></p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The &ldquo;D&rdquo;</div>
+      <h2>Durability &mdash; surviving a crash &#9656;</h2>
+      <p><strong>Durability</strong> is the guarantee that once <code>COMMIT</code> returns success, the change survives anything short of losing the disk — a process kill, a kernel panic, a yanked power cord. The mechanism is the one Lesson 02 introduced: the <strong>write-ahead log (WAL)</strong>. Before a committed change is considered safe, Postgres writes a compact record of it to the WAL and <code>fsync</code>s that record to durable storage. Crucially, <code>COMMIT</code> does not return until that <code>fsync</code> completes — so the moment your client hears &ldquo;committed,&rdquo; the change is already on disk in the log, even if the data pages themselves are still only in RAM.</p>
+      <p>Why the log and not the pages? Because appending a small sequential record to one file is far faster than hunting down and flushing every scattered data page a transaction touched. The WAL turns &ldquo;make it durable&rdquo; into one cheap sequential write. The data pages catch up lazily later; if a crash beats them to it, the log is enough to reconstruct everything. Follow a commit into a crash and back out the other side:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-dur">
+          <svg viewBox="0 0 640 430" role="img" aria-label="Interactive: COMMIT writes and fsyncs a WAL record before returning; a crash loses RAM; on restart Postgres replays the WAL and restores committed data">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">COMMIT &#8594; WAL &#8594; crash &#8594; recovery</text>
+            <g class="st" id="stk-0"><rect class="node-b" x="140" y="40" width="360" height="44" rx="8"/><text class="lbl" x="320" y="67" text-anchor="middle">COMMIT issued</text></g>
+            <g class="st" id="stk-1"><rect class="node" x="140" y="100" width="360" height="44" rx="8"/><text class="lbl" x="320" y="127" text-anchor="middle">append WAL record</text></g>
+            <g class="st" id="stk-2"><rect class="node-b" x="140" y="160" width="360" height="48" rx="8"/><text class="lbl" x="320" y="182" text-anchor="middle">fsync WAL to pg_wal</text><text class="lbl-sm" x="320" y="199" text-anchor="middle">&#8592; COMMIT returns OK only here</text></g>
+            <g class="st" id="stk-3"><rect class="node-r" x="140" y="224" width="360" height="48" rx="8"/><text class="lbl" x="320" y="246" text-anchor="middle" fill="#B0532F">CRASH &mdash; power lost</text><text class="lbl-sm" x="320" y="263" text-anchor="middle" fill="#B0532F">in-memory pages gone</text></g>
+            <g class="st" id="stk-4"><rect class="node" x="140" y="288" width="360" height="44" rx="8"/><text class="lbl" x="320" y="315" text-anchor="middle">restart &#8594; replay the WAL</text></g>
+            <g class="st" id="stk-5"><rect class="node-t" x="140" y="344" width="360" height="50" rx="8"/><text class="lbl" x="320" y="366" text-anchor="middle" fill="#7a2c43">committed data restored</text><text class="lbl-sm" x="320" y="383" text-anchor="middle" fill="#7a2c43">uncommitted changes discarded</text></g>
+            <path id="sp-0" class="flow" d="M320 24 V 38" marker-end="url(#arrow)"/>
+            <path id="sp-1" class="flow" d="M320 84 V 98" marker-end="url(#arrow)"/>
+            <path id="sp-2" class="flow" d="M320 144 V 158" marker-end="url(#arrow)"/>
+            <path id="sp-3" class="flow" d="M320 208 V 222" marker-end="url(#arrow)"/>
+            <path id="sp-4" class="flow" d="M320 272 V 286" marker-end="url(#arrow)"/>
+            <path id="sp-5" class="flow" d="M320 332 V 342" marker-end="url(#arrow)"/>
+            <rect x="516" y="100" width="104" height="108" rx="10" fill="none" stroke="#4A7BA6" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="568" y="154" text-anchor="middle" fill="#4A7BA6" transform="rotate(-90 568 154)">the durability point</text>
+            <text id="du-read" x="320" y="412" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: COMMIT returns only after the WAL is fsync'd; on restart the WAL replay redoes committed work and discards the rest</figcaption>
+      </figure>
+
+      <p>Recovery has two jobs, and the diagram shows both: <em>redo</em> every change the WAL says was committed (some may not have reached the data files yet), and <em>discard</em> anything that was in flight but never committed. When it finishes, the database is exactly the set of transactions that had heard &ldquo;committed&rdquo; — no more, no less. That is durability made mechanical.</p>
+      <p>And like isolation, durability has a dial. The <code>synchronous_commit</code> setting decides how hard <code>COMMIT</code> waits:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- the durability dial (settable per session or globally)</span>
+<span class="kw">SET</span> synchronous_commit = <span class="kw">on</span>;   <span class="cm">-- default: COMMIT waits for the WAL fsync (safe)</span>
+<span class="kw">SET</span> synchronous_commit = <span class="kw">off</span>;  <span class="cm">-- faster; a crash may lose the last ~fraction of a second of commits</span></code></pre>
+      <p>With it <code>off</code>, <code>COMMIT</code> returns before the <code>fsync</code>, so a crash can lose the most recent commits — but the database is never <em>corrupted</em> (it still recovers to a consistent point, just an slightly older one). That's a deliberate trade of a little durability for throughput, and it's exactly the kind of decision Phases 7 and 8 make explicit — right alongside replication, where a commit can even wait for a WAL record to reach a <em>second machine</em> before it returns.</p>
+      <div class="callout tip">
+        <span class="k">Where this goes next</span>
+        <p>The WAL is the backbone of far more than crash recovery: point-in-time restore, streaming replication, and read replicas are all &ldquo;replay this log somewhere else.&rdquo; <strong>Phase 7 (Durability, backups &amp; the WAL)</strong> and <strong>Phase 8 (replication &amp; scale)</strong> build on exactly the picture in this diagram. For now: <em>COMMIT means fsync'd to the WAL, and how synchronously it waits is a tunable dial.</em></p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Reason about it</div>
+      <h2>Using transactions well</h2>
+      <p>Let's turn the four guarantees into habits. Reasoning through how transactions behave in real code is what separates &ldquo;I know what ACID stands for&rdquo; from &ldquo;I can write correct concurrent database code.&rdquo; Walk through the decisions you'll actually make.</p>
+      <p><strong>Wrap a logical operation, then commit or roll back.</strong> The shape almost every codebase uses is: <code>BEGIN</code>, run the statements, and on success <code>COMMIT</code>; on any exception, <code>ROLLBACK</code>. Most database libraries give you a <em>transaction block</em> that does exactly this — commit if the block returns normally, roll back if it throws — so you rarely type the keywords by hand, but that is precisely what runs underneath.</p>
+      <p><strong>An error inside a transaction aborts the whole thing.</strong> This one surprises newcomers to Postgres: the instant any statement raises an error, the transaction enters an <em>aborted</em> state, and every subsequent statement is rejected with &ldquo;current transaction is aborted, commands ignored until end of transaction block&rdquo; — until you issue <code>ROLLBACK</code>. You cannot &ldquo;catch and continue&rdquo; in the middle of a plain transaction. To recover from an expected failure without throwing away everything before it, use a <strong>savepoint</strong> — a named marker you can roll back <em>to</em>, undoing only the work after it:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">BEGIN</span>;
+  <span class="kw">INSERT</span> <span class="kw">INTO</span> orders (customer_id) <span class="kw">VALUES</span> (<span class="lit">42</span>);
+  <span class="kw">SAVEPOINT</span> before_lines;
+  <span class="kw">INSERT</span> <span class="kw">INTO</span> order_lines (order_id, sku) <span class="kw">VALUES</span> (<span class="lit">1001</span>, <span class="lit">'OUT-OF-STOCK'</span>);
+  <span class="cm">-- that raised an error; the txn is aborted *back to the savepoint*</span>
+  <span class="kw">ROLLBACK</span> <span class="kw">TO</span> <span class="kw">SAVEPOINT</span> before_lines;   <span class="cm">-- keep the order, drop the bad line</span>
+  <span class="kw">INSERT</span> <span class="kw">INTO</span> order_lines (order_id, sku) <span class="kw">VALUES</span> (<span class="lit">1001</span>, <span class="lit">'IN-STOCK'</span>);
+<span class="kw">COMMIT</span>;</code></pre>
+      <p><strong>Keep transactions short.</strong> This is the operational rule that matters most, and it comes straight from the mechanisms above. A transaction holds its locks and its MVCC snapshot from <code>BEGIN</code> until it ends — so a long-running or, worse, an <em>idle-in-transaction</em> one blocks other writers, and it pins old row versions so <code>VACUUM</code> can't reclaim them, letting table bloat grow. Do slow work (call an API, wait for user input) <em>outside</em> the transaction; open <code>BEGIN</code>, do the writes, <code>COMMIT</code>, and get out. That single discipline prevents a large share of production database incidents — and it's the bridge into Phase 5.</p>
+      <p>Step back and the four letters resolve into a simple mental model. Two of them are guarantees you basically get for free on every committed transaction: <strong>Atomicity</strong> (all or nothing) and <strong>Consistency</strong> (your declared constraints hold). The other two are <strong>dials</strong> — <strong>Isolation</strong> (how much concurrency safety, traded against throughput and retries) and <strong>Durability</strong> (how synchronously a commit is flushed, traded against latency). Knowing which are switches and which are dials is most of what senior database judgment consists of.</p>
+      <div class="callout">
+        <span class="k">The posture to carry forward</span>
+        <p>When you design a write path, ask the four questions in order: <em>Atomic?</em> — is this one <code>BEGIN…COMMIT</code> so a partial result is impossible? <em>Consistent?</em> — is every invariant a declared constraint, not a hope? <em>Isolated?</em> — at what level, and which anomalies can still bite? <em>Durable?</em> — is the default <code>synchronous_commit</code> right for this data's value? Two of those answers are almost always yes; the other two are decisions. <strong>Phase 5</strong> owns the third question and <strong>Phase 7</strong> owns the fourth.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>a transaction is one unit of work between <code>BEGIN</code> and <code>COMMIT</code>, and ACID is the four-part promise the database makes about that unit — it is Atomic and Consistent by default, Isolated and Durable to the degree you dial in.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Transaction = unit of work</b><span><code>BEGIN…COMMIT</code> makes several statements share one fate. Autocommit means a bare statement is already its own one-statement transaction.</span></div>
+        <div class="tk"><span class="num">02</span><b>Atomicity: all or none</b><span>A failure anywhere rolls the whole transaction back to <code>BEGIN</code>. A partial write can never be committed or observed. It's about <em>failure</em>.</span></div>
+        <div class="tk"><span class="num">03</span><b>Consistency: valid → valid</b><span>Declared constraints always hold at the boundary. You declare the invariants; the engine enforces them and rolls back on violation.</span></div>
+        <div class="tk"><span class="num">04</span><b>Two different C's</b><span>ACID's C (integrity rules) is unrelated to CAP's C (every node returns the latest write). Same letter, different world.</span></div>
+        <div class="tk"><span class="num">05</span><b>Isolation: a dial</b><span>Read Committed → Repeatable Read → Serializable trades concurrency for safety. Each level lets specific anomalies through.</span></div>
+        <div class="tk"><span class="num">06</span><b>Know the anomalies</b><span>Dirty read (never in PG), non-repeatable read, phantom, lost update, write skew — each names a way concurrency can bite.</span></div>
+        <div class="tk"><span class="num">07</span><b>Durability = fsync'd WAL</b><span><code>COMMIT</code> returns only after the WAL record is on disk. On restart, replay redoes committed work and discards the rest.</span></div>
+        <div class="tk"><span class="num">08</span><b>Short transactions</b><span>They hold locks and pin snapshots, blocking writers and <code>VACUUM</code>. Do slow work outside; open, write, commit, leave.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) What does <code>BEGIN</code> change about default autocommit behavior, and why would you ever group statements this way? Give two real examples.<br>
+        (2) State atomicity in one sentence and name its mechanism. Why does a rolled-back partial state never threaten durability?<br>
+        (3) Consistency is a shared responsibility — which half is yours and which is the engine's? Show one invariant as a constraint.<br>
+        (4) Re-tell the non-repeatable read. Which isolation level allows it, which prevents it, and what does the higher level cost?<br>
+        (5) Trace a <code>COMMIT</code> through the WAL to a crash and back. At exactly which moment does the change become durable, and what does <code>synchronous_commit=off</code> give up?<br>
+        (6) Why keep transactions short? Name the two things a long one holds and what each one blocks.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 03 &middot; ACID &amp; THE TRANSACTION &middot; interactive edition<br>
+      Original study notes for engineers &middot; replay each letter, then teach it back from the diagram.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — atomicity: a transfer that rolls back, then commits */
+  makeStepper(_g('fig-atom'), [
+    {text:"BEGIN opens one transaction — a single unit of work. A holds $100, B holds $100. We will move $60 from A to B.",
+      a:"100", b:"100", open:true, env:"BEGIN — transaction open", v:"one unit of work: debit A, credit B", vc:""},
+    {text:"First statement: debit A by $60. Inside the transaction A now reads $40 — provisional, not yet committed, invisible to others.",
+      a:"40", b:"100", open:true, env:"debit A −$60 (uncommitted)", v:"A shows $40 inside the txn — not yet permanent", vc:""},
+    {text:"The credit statement fails — say a CHECK constraint fires. The transaction is now aborted; it can no longer COMMIT.",
+      a:"40", b:"100", open:true, abort:true, err:true, ac:"kbad", env:"credit B FAILS → transaction aborted", v:"error inside the txn → it can only ROLLBACK", vc:"kbad"},
+    {text:"ROLLBACK. Every change since BEGIN is undone: A returns to $100, B is still $100. No partial transfer was ever visible.",
+      a:"100", b:"100", open:false, ac:"kok", bc:"kok", env:"ROLLBACK — every change undone", v:"✓ atomic: all-or-nothing — nothing happened", vc:"kok"},
+    {text:"Now the success path. BEGIN again: debit A to $40 and credit B to $160 — this time both statements succeed.",
+      a:"40", b:"160", open:true, env:"BEGIN — debit A, credit B (both succeed)", v:"both statements applied inside the txn", vc:""},
+    {text:"COMMIT. Both writes become permanent together. $200 before, $200 after — the invariant held. Atomicity means both, or neither.",
+      a:"40", b:"160", open:false, ac:"kok", bc:"kok", env:"COMMIT — both writes permanent together", v:"✓ both or neither · committed", vc:"kok"}
+  ], function(idx,s){
+    _g('at-abal').textContent='$'+s.a;
+    _g('at-bbal').textContent='$'+s.b;
+    var ca=s.ac||'', cb=s.bc||'';
+    _g('at-abox').setAttribute('class','balbox'+(ca?' '+ca:''));
+    _g('at-bbox').setAttribute('class','balbox'+(cb?' '+cb:''));
+    _g('at-abal').setAttribute('fill', ca==='kbad'?'#B0532F':(ca==='kok'?'#3f7a2e':'#20201D'));
+    _g('at-bbal').setAttribute('fill', cb==='kbad'?'#B0532F':(cb==='kok'?'#3f7a2e':'#20201D'));
+    var env=_g('at-env');
+    env.setAttribute('stroke', s.abort?'#B0532F':(s.open?'#1F4E79':'#D2C7B0'));
+    var el=_g('at-envlbl'); el.textContent=s.env||'';
+    el.setAttribute('fill', s.abort?'#B0532F':'#5A574E');
+    _g('at-x').style.opacity=s.err?1:0;
+    var vd=_g('at-verdict'); vd.textContent=s.v||'';
+    vd.setAttribute('fill', s.vc==='kbad'?'#B0532F':(s.vc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — isolation: a non-repeatable read */
+  makeStepper(_g('fig-iso'), [
+    {text:"products.qty holds 10. T1 opens a transaction at READ COMMITTED — the Postgres default — and will read this row twice.",
+      lit:[], qty:"10", qc:"", v:"T1 begins · isolation = Read Committed", vc:""},
+    {text:"T1's first read: SELECT qty FROM products WHERE id=7 → 10.",
+      lit:["g-t1a"], qty:"10", qc:"", v:"T1 read #1 → 10", vc:""},
+    {text:"Concurrently T2 runs UPDATE qty=8 and COMMITs. Eight is now the latest committed value of the row.",
+      lit:["g-t1a","g-t2"], qty:"8", qc:"kbad", v:"T2 committed qty = 8", vc:""},
+    {text:"T1 runs the very same SELECT again — and now reads 8. One query, two answers, inside one transaction: a NON-REPEATABLE READ.",
+      lit:["g-t1a","g-t2","g-t1b"], qty:"8", qc:"kbad", v:"✗ non-repeatable read — 10, then 8", vc:"kbad"},
+    {text:"Why: under Read Committed each statement sees a fresh snapshot of the latest committed data, so T1's second read picked up T2's commit.",
+      lit:["g-t1a","g-t2","g-t1b"], qty:"8", qc:"kbad", v:"Read Committed → per-statement snapshot", vc:"kbad"},
+    {text:"Turn the dial up: at REPEATABLE READ, T1's snapshot is frozen at BEGIN. Both reads return 10 — T2's commit is invisible until T1 ends.",
+      lit:["g-t1a"], qty:"10", qc:"kok", v:"✓ Repeatable Read → snapshot frozen at 10", vc:"kok"}
+  ], function(idx,s){
+    ['g-t1a','g-t2','g-t1b'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.2);});
+    _g('is-qty').textContent=s.qty;
+    _g('is-qty').setAttribute('fill', s.qc==='kbad'?'#B0532F':(s.qc==='kok'?'#3f7a2e':'#20201D'));
+    _g('is-box').setAttribute('class','balbox'+(s.qc?' '+s.qc:''));
+    var vd=_g('is-verdict'); vd.textContent=s.v||'';
+    vd.setAttribute('fill', s.vc==='kbad'?'#B0532F':(s.vc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — durability: WAL fsync, crash, replay */
+  makeStepper(_g('fig-dur'), [
+    {text:"Your transaction runs COMMIT. Nothing is durable yet — the changed data pages may still live only in RAM.",
+      active:["stk-0"], path:"sp-0", read:"COMMIT issued — not yet safe"},
+    {text:"Postgres writes a compact WAL record describing the change — a single cheap sequential append.",
+      active:["stk-1"], path:"sp-1", read:"change recorded in the WAL"},
+    {text:"It fsyncs that WAL record to pg_wal. Only AFTER the fsync returns does COMMIT report success — this is the durability point.",
+      active:["stk-2"], path:"sp-2", read:"fsync OK → COMMIT returns success"},
+    {text:"Now the power is cut. In-memory pages vanish and the server halts mid-flight — but the WAL record is already on disk.",
+      active:["stk-3"], path:"sp-3", reject:true, read:"✗ crash — RAM contents lost"},
+    {text:"On restart Postgres reads the WAL and REPLAYS it: it redoes every committed change and discards anything uncommitted.",
+      active:["stk-4"], path:"sp-4", read:"recovery: replaying the WAL…"},
+    {text:"The committed data is back, exactly as promised. Durability held: a COMMIT that returned success survived the crash.",
+      active:["stk-5"], path:"sp-5", read:"✓ committed data restored", ok:true}
+  ], function(idx,s){
+    var r=_g('du-read'); r.textContent=s.read||'';
+    r.setAttribute('fill', s.ok?'#3f7a2e':(s.reject?'#B0532F':'#5A574E'));
+  });
+</script>
+</body>
+</html>

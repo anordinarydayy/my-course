@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 24 — Query-Tuning Playbook (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Query-Tuning Playbook</div>
+    <h4>The method</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>A method, not guesses</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The tuning loop &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Index-defeating anti-patterns &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The usual suspects</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: 2&nbsp;s &#8594; 2&nbsp;ms &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">24</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Query-Tuning Playbook</h1>
+      <p class="lede">Slow-query firefighting looks like art, but it is really a <em>checklist</em>. This capstone ties Phase&nbsp;4 together into one repeatable loop — reproduce, measure, isolate the single most expensive node, form <strong>one</strong> hypothesis, change <strong>one</strong> thing, re-measure — and catalogues the anti-patterns that silently turn an index-backed query into a full-table scan. By the end you can walk a real dashboard query from two seconds down to two milliseconds, and explain every step of why.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers preparing for interviews and on-call. Examples are <strong>PostgreSQL 17/18</strong>-correct and runnable; EXPLAIN output is labelled <em>illustrative</em> (real plan nodes and shapes, representative numbers). Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson — it ends in a fully worked SQL problem and a set of graded drills. The one habit to carry out of it: <strong>measure, don't guess.</strong>
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The mindset</div>
+      <h2>A method, not guesses</h2>
+      <p>The single biggest mistake in query tuning is <strong>changing something before you have measured anything.</strong> An engineer sees a slow endpoint, decides "it probably needs an index," adds one, and either gets lucky or — far more often — adds an index the planner never uses, ships it, and moves on while the query stays slow. Tuning is not pattern-matching on the SQL text. It is a short, boring, <em>repeatable</em> loop, and the discipline is doing it in order instead of jumping to a fix.</p>
+      <p>Here is the whole loop. Everything else in this lesson is detail on one of these steps:</p>
+      <ul>
+        <li><strong>Reproduce.</strong> Get a query and parameters that are reliably slow. A query that is slow "sometimes" is usually slow for <em>specific</em> parameter values (a skewed <code>WHERE</code>), and you need those exact values to measure anything.</li>
+        <li><strong>Measure.</strong> Run <code>EXPLAIN (ANALYZE, BUFFERS)</code> and read the plan tree <em>bottom-up</em>. Do not read the SQL and imagine what Postgres does — read what it <em>actually did</em>.</li>
+        <li><strong>Find the single hottest node.</strong> One node almost always dominates the <em>actual</em> time (or the buffer reads). Ignore the cheap nodes; they are noise.</li>
+        <li><strong>Form ONE hypothesis.</strong> Why is that node expensive? Pick exactly one cause: a missing index, stale statistics, an index-defeating query shape, or the wrong grain (returning far more rows than you need).</li>
+        <li><strong>Change ONE thing.</strong> Add the one index, rewrite the one predicate, run <code>ANALYZE</code>. One change per iteration — so the re-measurement tells you unambiguously whether <em>that</em> change helped.</li>
+        <li><strong>Re-measure.</strong> Run the same <code>EXPLAIN (ANALYZE, BUFFERS)</code>. Keep the change if it helped; revert it if it did not. Then loop.</li>
+      </ul>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- the only measurement that matters: what the query ACTUALLY did.</span>
+<span class="cm">-- ANALYZE runs it; BUFFERS shows cache hits vs disk reads (default in PG18).</span>
+<span class="kw">EXPLAIN</span> (<span class="kw">ANALYZE</span>, <span class="kw">BUFFERS</span>) <span class="kw">SELECT</span> &hellip; <span class="kw">FROM</span> events <span class="kw">WHERE</span> &hellip; <span class="kw">ORDER BY</span> &hellip;;
+
+<span class="cm">-- writes? wrap in a transaction so ANALYZE doesn't persist the change:</span>
+<span class="kw">BEGIN</span>; <span class="kw">EXPLAIN</span> (<span class="kw">ANALYZE</span>) <span class="kw">UPDATE</span> events <span class="kw">SET</span> status = <span class="lit">'closed'</span> <span class="kw">WHERE</span> id = <span class="lit">42</span>; <span class="kw">ROLLBACK</span>;</code></pre>
+      <p>Two numbers do most of the diagnosis. The first is <strong>estimated rows vs actual rows</strong> on each node: when the planner expected 5 rows and got 500,000, it chose its plan on a lie — the cause is bad statistics, and the fix is <code>ANALYZE</code> or better stats, not an index. The second is <strong>buffers</strong>: a node with <code>read=48211</code> touched 48,211 eight-kilobyte pages from disk (~386&nbsp;MB) — that is what "slow" physically <em>is</em>. Cost numbers (the <code>cost=0.00..247489.00</code> figures) are abstract planner units, useful only for comparing plans, never a time in milliseconds.</p>
+      <div class="callout tip">
+        <span class="k">Measure, don't guess</span>
+        <p>Before you touch anything, you should be able to point at <em>one</em> node and say a sentence: "this Seq Scan reads 48k pages and removes 4.9M rows by filter — because the predicate isn't sargable." If you can't say that sentence, you haven't measured yet, and any index you add is a guess. Postgres has <strong>no query hints</strong> — you cannot order the planner to use an index. You change the facts it plans on (indexes, statistics, query shape) and let it re-decide. That is why measuring first is not optional: the fix is always aimed at a specific measured cause.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The loop</div>
+      <h2>The tuning loop &#9656;</h2>
+      <p>Draw the loop once and it stops feeling like firefighting. You are never "trying things" — you are always at a known station in a cycle, and each lap either improves the slow node or teaches you that your hypothesis was wrong (which is also progress). Play it through:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-f1">
+          <svg viewBox="0 0 660 400" role="img" aria-label="A five-station tuning loop: measure, find the hot node, hypothesize, change one thing, re-measure, and back to measure">
+            <circle cx="330" cy="210" r="100" class="flow-d"/>
+            <text class="lbl" x="330" y="205" text-anchor="middle">THE TUNING LOOP</text>
+            <text class="lbl-sm" x="330" y="224" text-anchor="middle">measure, don't guess</text>
+
+            <path id="f1-p0" class="flow" d="M361.5 82.9 Q426.5 77.7 441.5 141.1" marker-end="url(#arrow)"/>
+            <path id="f1-p1" class="flow" d="M460.9 200.7 Q485.9 260.6 430.1 294.3" marker-end="url(#arrow)"/>
+            <path id="f1-p2" class="flow" d="M379.3 331 Q330 373.4 280.7 331" marker-end="url(#arrow)"/>
+            <path id="f1-p3" class="flow" d="M229.9 294.3 Q174.1 260.6 199.1 200.7" marker-end="url(#arrow)"/>
+            <path id="f1-p4" class="flow" d="M218.5 141.1 Q233.5 77.7 298.5 82.9" marker-end="url(#arrow)"/>
+
+            <g class="st" id="f1-n0"><rect class="node-b" x="255" y="36" width="150" height="48" rx="9"/><text class="lbl" x="330" y="57" text-anchor="middle">Measure</text><text class="lbl-sm" x="330" y="73" text-anchor="middle">EXPLAIN ANALYZE</text></g>
+            <g class="st" id="f1-n1"><rect class="node-b" x="398" y="140" width="150" height="48" rx="9"/><text class="lbl" x="473" y="161" text-anchor="middle">Find hot node</text><text class="lbl-sm" x="473" y="177" text-anchor="middle">the costliest node</text></g>
+            <g class="st" id="f1-n2"><rect class="node-r" x="343" y="307" width="150" height="48" rx="9"/><text class="lbl" x="418" y="328" text-anchor="middle" fill="#B0532F">Hypothesize</text><text class="lbl-sm" x="418" y="344" text-anchor="middle" fill="#B0532F">one likely cause</text></g>
+            <g class="st" id="f1-n3"><rect class="node-t" x="167" y="307" width="150" height="48" rx="9"/><text class="lbl" x="242" y="328" text-anchor="middle" fill="#7a2c43">Change 1 thing</text><text class="lbl-sm" x="242" y="344" text-anchor="middle" fill="#7a2c43">index or rewrite</text></g>
+            <g class="st" id="f1-n4"><rect class="node-b" x="112" y="140" width="150" height="48" rx="9"/><text class="lbl" x="187" y="161" text-anchor="middle">Re-measure</text><text class="lbl-sm" x="187" y="177" text-anchor="middle">keep or revert</text></g>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: one lap of the loop; every fix is a single, re-measured change</figcaption>
+      </figure>
+
+      <p>Two rules give the loop its power. <strong>One change per lap</strong> is not fussiness — if you add an index <em>and</em> rewrite the predicate <em>and</em> raise the stats target all at once and the query gets faster, you have learned nothing about <em>which</em> of the three mattered, and you will carry two useless changes forever. <strong>Re-measure every lap</strong> because the planner's choice can flip: an index that helps at one row-count is ignored at another, and a rewrite that looks obviously better can lose to a plan you didn't expect. The loop is short on purpose so that running it many times is cheap.</p>
+      <div class="callout note">
+        <span class="k">The loop <em>ends</em>, too</span>
+        <p>Stop when the hottest node is cheap enough that the <em>next</em> most expensive node dominates — and that node is already as cheap as the query can be. Chasing a 0.3&nbsp;ms Sort while a 2000&nbsp;ms Seq Scan sits above it is the classic beginner error; so is polishing a query that is already fast. Tuning has a finish line: when the plan is doing the minimal work the result actually requires, you are done.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Sargability</div>
+      <h2>Index-defeating anti-patterns &#9656;</h2>
+      <p>Most "missing index" bugs are not missing indexes at all — the index exists, and the query is written in a way that the index cannot serve. The word for a predicate an index <em>can</em> use is <strong>sargable</strong> (from "Search ARGument-able"): the indexed column appears <em>bare</em> on one side of a comparison the B-tree understands (<code>=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>BETWEEN</code>, range). The instant you wrap the column in a function, the B-tree — which is ordered by the column's raw value, not by <code>lower(column)</code> or <code>date(column)</code> — is useless, and the planner falls back to a Seq Scan.</p>
+
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- &#10007; a function on the indexed column: the btree on email is ordered by</span>
+<span class="cm">--   email, not by lower(email), so it cannot be used &#8594; Seq Scan.</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> <span class="fn">lower</span>(email) = <span class="lit">'ana@x.io'</span>;
+
+<span class="cm">-- &#10003; fix A: index the expression itself (gives it its own ordered structure)</span>
+<span class="kw">CREATE INDEX</span> ix_users_lower_email <span class="kw">ON</span> users (<span class="fn">lower</span>(email));
+
+<span class="cm">-- &#10003; fix B: don't wrap the column at all &#8212; store/compare it already-normalized</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> email = <span class="lit">'ana@x.io'</span>;</code></pre>
+
+      <p>The most common offender is a date function used to mean "on this day." <code>date(created_at) = DATE '2026-07-03'</code> reads naturally but wraps the column. The sargable rewrite is a <strong>half-open range</strong> on the bare column — same result, and now a plain B-tree on <code>created_at</code> serves it. Step through the transformation and watch the plan flip from Seq Scan to Index Scan:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-f2">
+          <svg viewBox="0 0 660 330" role="img" aria-label="The same date predicate: with a function on the column it forces a full scan; rewritten to a bare-column range it uses the index">
+            <text class="lbl-sm" x="90" y="26" text-anchor="start">WHERE predicate on events.created_at</text>
+            <rect id="f2-pred" class="chip cB" x="90" y="34" width="480" height="50" rx="10"/>
+            <text id="f2-predtext" class="chiptext" x="330" y="64" text-anchor="middle">date(created_at) = DATE '2026-07-03'</text>
+            <path class="flow" d="M330 84 V 112" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="418" y="146" text-anchor="start">planner picks</text>
+            <rect id="f2-state" class="balbox" x="252" y="116" width="156" height="50" rx="9"/>
+            <text id="f2-statetext" x="330" y="147" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="18" font-weight="700" fill="#20201D">?</text>
+            <path class="flow" d="M330 166 V 194" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="66" y="210" text-anchor="start">heap &middot; 8 pages of events</text>
+            <rect id="f2-pg-0" class="chip" x="66"  y="216" width="54" height="40" rx="5"/><text class="tval" x="93"  y="241" text-anchor="middle">1</text>
+            <rect id="f2-pg-1" class="chip" x="128" y="216" width="54" height="40" rx="5"/><text class="tval" x="155" y="241" text-anchor="middle">2</text>
+            <rect id="f2-pg-2" class="chip" x="190" y="216" width="54" height="40" rx="5"/><text class="tval" x="217" y="241" text-anchor="middle">3</text>
+            <rect id="f2-pg-3" class="chip" x="252" y="216" width="54" height="40" rx="5"/><text class="tval" x="279" y="241" text-anchor="middle">4</text>
+            <rect id="f2-pg-4" class="chip" x="314" y="216" width="54" height="40" rx="5"/><text class="tval" x="341" y="241" text-anchor="middle">5</text>
+            <rect id="f2-pg-5" class="chip" x="376" y="216" width="54" height="40" rx="5"/><text class="tval" x="403" y="241" text-anchor="middle">6</text>
+            <rect id="f2-pg-6" class="chip" x="438" y="216" width="54" height="40" rx="5"/><text class="tval" x="465" y="241" text-anchor="middle">7</text>
+            <rect id="f2-pg-7" class="chip" x="500" y="216" width="54" height="40" rx="5"/><text class="tval" x="527" y="241" text-anchor="middle">8</text>
+            <text id="f2-verdict" x="330" y="298" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: a function on the column forces a full scan; a bare-column range uses the index</figcaption>
+      </figure>
+
+      <p>The same shape of bug wears several disguises. Learn to spot the column-not-bare pattern under each of them:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- &#10007; leading wildcard: a btree is ordered left-to-right, so it can't start</span>
+<span class="cm">--   a search in the middle of the string. Trigram GIN can.</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> name <span class="kw">LIKE</span> <span class="lit">'%ana%'</span>;         <span class="cm">-- Seq Scan</span>
+<span class="kw">CREATE EXTENSION IF NOT EXISTS</span> pg_trgm;
+<span class="kw">CREATE INDEX</span> ix_users_name_trgm <span class="kw">ON</span> users <span class="kw">USING</span> gin (name gin_trgm_ops);
+
+<span class="cm">-- &#10007; a cast on the COLUMN side (user_id is bigint) defeats its index</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders <span class="kw">WHERE</span> user_id::<span class="kw">text</span> = <span class="lit">'42'</span>;         <span class="cm">-- cast the literal, not the column:</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders <span class="kw">WHERE</span> user_id = <span class="lit">42</span>;
+
+<span class="cm">-- &#10007; OR across two columns often forces one scan; UNION lets each arm use its index</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> email = $1 <span class="kw">OR</span> phone = $1;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> email = $1
+<span class="kw">UNION</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> users <span class="kw">WHERE</span> phone = $1;</code></pre>
+      <div class="callout">
+        <span class="k">The test in one sentence</span>
+        <p>Ask: <em>is the indexed column sitting bare on one side of the comparison?</em> If it is wrapped in a function, cast, or expression — or if the pattern has a leading <code>%</code> — a plain B-tree cannot help, and you have exactly two moves: <strong>rewrite the predicate</strong> so the column is bare (a range instead of <code>date()</code>, the literal cast instead of the column), or <strong>build an index that matches the expression</strong> (an expression index, or a trigram/GIN index for the wildcard case).</p>
+      </div>
+    </section>
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The catalogue</div>
+      <h2>The usual suspects</h2>
+      <p>Sargability is one family. A handful of other patterns account for most of the remaining slow queries you will meet. Each has a recognisable signature in the plan and a standard fix — learn the pairs and half your diagnoses are done before you finish reading the <code>EXPLAIN</code>.</p>
+
+      <h3>N+1 &mdash; the loop that should have been a set</h3>
+      <p>The application fetches a list, then loops and runs one more query per row: 1 query for 100 users, then 100 queries for their orders. Each round-trip is cheap; a hundred of them is not. This is the single most common performance bug in application code, and it is invisible in any one <code>EXPLAIN</code> — you only see it in the query log or an APM trace showing the same statement run 100 times. The fix is the set-based version from Lesson 00: ask once.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- &#10007; N+1: app loops and runs this once per user id</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders <span class="kw">WHERE</span> user_id = <span class="lit">$1</span>;   <span class="cm">-- &#215; 100</span>
+
+<span class="cm">-- &#10003; one round-trip: hand the whole set to the database</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders <span class="kw">WHERE</span> user_id = <span class="kw">ANY</span>(<span class="lit">$1</span>);   <span class="cm">-- $1 = array of ids</span>
+<span class="cm">-- &#10003; or a single JOIN when you want users and orders together</span>
+<span class="kw">SELECT</span> u.id, o.* <span class="kw">FROM</span> users u <span class="kw">JOIN</span> orders o <span class="kw">ON</span> o.user_id = u.id
+<span class="kw">WHERE</span> u.id = <span class="kw">ANY</span>(<span class="lit">$1</span>);</code></pre>
+
+      <div class="vs">
+        <div class="col">
+          <h4>SELECT&nbsp;* &mdash; over-fetch</h4>
+          <ul>
+            <li>Ships columns you never read &mdash; bytes over the wire, memory in the client.</li>
+            <li><strong>Defeats index-only scans</strong>: pulling every column forces a heap fetch even when the index held all you needed.</li>
+            <li>Fix: select only the columns you use; let a covering index (<code>INCLUDE</code>) serve them.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Unindexed FK join</h4>
+          <ul>
+            <li>Postgres indexes the <em>parent</em> key automatically, but <strong>not</strong> the child's foreign-key column.</li>
+            <li>Joining or deleting on a bare FK column &#8594; a Seq Scan or a Nested Loop with a scan on the inner side (recap Lesson&nbsp;05).</li>
+            <li>Fix: <code>CREATE INDEX ON orders (user_id)</code> &mdash; index every FK you join or cascade on.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>OFFSET-deep pagination</h3>
+      <p><code>OFFSET 10000 LIMIT 20</code> does not skip 10,000 rows for free — the executor must <em>produce</em> and then <em>discard</em> all 10,020, every page getting slower than the last (recap Lesson&nbsp;14). <strong>Keyset (seek) pagination</strong> replaces the offset with a <code>WHERE</code> on the last row you saw, so every page reads exactly <code>LIMIT</code> rows through the index:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- &#10007; deep offset: produces and throws away 10,020 rows</span>
+<span class="kw">SELECT</span> id, created_at <span class="kw">FROM</span> events <span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span> <span class="kw">OFFSET</span> <span class="lit">10000</span> <span class="kw">LIMIT</span> <span class="lit">20</span>;
+
+<span class="cm">-- &#10003; keyset: carry the last row's sort key; read only 20 rows</span>
+<span class="kw">SELECT</span> id, created_at <span class="kw">FROM</span> events
+<span class="kw">WHERE</span> (created_at, id) &lt; (<span class="lit">$last_created_at</span>, <span class="lit">$last_id</span>)
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span> <span class="kw">LIMIT</span> <span class="lit">20</span>;</code></pre>
+
+      <p>One more suspect is the opposite of a missing index: <strong>an index the planner rightly refuses.</strong> An index on a low-selectivity column — <code>status</code> where 90% of rows are <code>'open'</code> — is worse than a Seq Scan, because an Index Scan that matches most rows does a random heap fetch for nearly every row, which is slower than reading the pages sequentially once. When you add an index and <code>EXPLAIN</code> still shows a Seq Scan, the planner is very often <em>correct</em>: your index isn't selective enough to be worth it. That is not a bug to fight; it is the planner doing its job. (A <em>partial</em> index on just the hot subset can rescue the case — more on that next.)</p>
+      <div class="callout note">
+        <span class="k">Diagnose by signature</span>
+        <p>N+1 &#8594; same statement N times in the log. <code>SELECT *</code> &#8594; a Heap Fetch / no Index Only Scan where one was possible. Unindexed FK &#8594; Seq Scan on the child inside a join. Deep OFFSET &#8594; a plan whose <em>actual rows</em> at the scan node far exceed your <code>LIMIT</code>. Unselective index &#8594; the index exists but the plan won't use it. Each signature points straight at its fix — which is why you read the plan first.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Worked: two seconds &#8594; two milliseconds &#9656;</h2>
+      <p>Now the whole method on one realistic query — a dashboard's "open events" feed that combines <em>all three</em> problems: a function on the column, a missing index, and a deep offset. We fix them one at a time, re-measuring each lap, and watch the plan collapse.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> events (
+    id          <span class="kw">bigserial</span> <span class="kw">PRIMARY KEY</span>,
+    user_id     <span class="kw">bigint</span>      <span class="kw">NOT NULL</span>,
+    status      <span class="kw">text</span>        <span class="kw">NOT NULL</span>,   <span class="cm">-- 'open' | 'closed' | 'archived'</span>
+    payload     <span class="kw">jsonb</span>,
+    created_at  <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+<span class="cm">-- ~5,000,000 rows; ~52k have status='open'; only the implicit PK index exists.</span></code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>Power the "open events" feed: the newest open events from the last 30 days, paginated. The user has scrolled deep — page ~500, so <code>OFFSET 10000</code>. Here is what shipped:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, user_id, status, created_at
+<span class="kw">FROM</span> events
+<span class="kw">WHERE</span> status = <span class="lit">'open'</span>
+  <span class="kw">AND</span> <span class="fn">date_trunc</span>(<span class="lit">'day'</span>, created_at) &gt;= <span class="kw">current_date</span> - <span class="lit">30</span>
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>
+<span class="kw">OFFSET</span> <span class="lit">10000</span> <span class="kw">LIMIT</span> <span class="lit">20</span>;</code></pre>
+
+      <h3>3 &middot; Measure &mdash; why it takes ~2 seconds</h3>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code><span class="kw">Limit</span>  (cost=612480.10..612480.15 rows=20 width=40) (actual time=2074.559..2074.567 rows=20 loops=1)
+  <span class="fn">Buffers:</span> shared hit=192 read=48211
+  -&gt;  <span class="kw">Sort</span>  (cost=612455.10..612575.63 rows=48213 width=40) (actual time=2068.244..2072.930 rows=10020 loops=1)
+        <span class="fn">Sort Key:</span> created_at DESC
+        <span class="fn">Sort Method:</span> top-N heapsort  Memory: 1893kB
+        <span class="fn">Buffers:</span> shared hit=192 read=48211
+        -&gt;  <span class="kw">Seq Scan</span> on events  (cost=0.00..611170.00 rows=48213 width=40) (actual time=0.028..2011.590 rows=51902 loops=1)
+              <span class="fn">Filter:</span> ((status = 'open'::text) AND (date_trunc('day'::text, created_at) &gt;= (CURRENT_DATE - 30)))
+              <span class="fn">Rows Removed by Filter:</span> 4948098
+              <span class="fn">Buffers:</span> shared hit=192 read=48211
+<span class="fn">Planning Time:</span> 0.211 ms
+<span class="fn">Execution Time:</span> 2075.140 ms</code></pre>
+      <p>Read it bottom-up. The <strong>Seq Scan</strong> is the hot node: it reads <code>read=48211</code> pages and throws away <code>4,948,098</code> rows by filter — it visits the entire 5-million-row table because <code>date_trunc(...)</code> makes the predicate non-sargable, so no index could be used even if one existed. Its 51,902 survivors then hit a bounded <strong>top-N heapsort</strong> &mdash; the <code>OFFSET 10000 LIMIT 20</code> lets it keep only the top ~10,020 in memory rather than spilling to disk &mdash; but it must still sort all 51,902 and then discard the first 10,000 to reach the 20 you asked for. Three problems, stacked. Fix them one lap at a time:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-f3">
+          <svg viewBox="0 0 660 370" role="img" aria-label="The plan tree collapsing across three fixes: from Seq Scan plus disk Sort at two seconds down to an Index Scan at two milliseconds">
+            <text class="lbl-sm" x="40" y="26" text-anchor="start">plan &middot; read bottom-up &#8593;</text>
+            <text class="lbl-sm" x="40" y="52" text-anchor="start">dashboard: newest 20 open events, deep page</text>
+
+            <path id="f3-a1" class="flow" d="M200 168 V 144" marker-end="url(#arrow)"/>
+            <path id="f3-a2" class="flow" d="M200 252 V 228" marker-end="url(#arrow)"/>
+
+            <g id="f3-g0"><rect id="f3-r0" class="node" x="40" y="84" width="320" height="58" rx="8"/><text id="f3-t0" class="lbl" x="200" y="110" text-anchor="middle">Limit</text><text id="f3-u0" class="lbl-sm" x="200" y="128" text-anchor="middle">OFFSET 10000</text></g>
+            <g id="f3-g1"><rect id="f3-r1" class="node-r" x="40" y="168" width="320" height="58" rx="8"/><text id="f3-t1" class="lbl" x="200" y="194" text-anchor="middle">Sort</text><text id="f3-u1" class="lbl-sm" x="200" y="212" text-anchor="middle">top-N heapsort &middot; skip 10k</text></g>
+            <g id="f3-g2"><rect id="f3-r2" class="node-r" x="40" y="252" width="320" height="58" rx="8"/><text id="f3-t2" class="lbl" x="200" y="278" text-anchor="middle">Seq Scan on events</text><text id="f3-u2" class="lbl-sm" x="200" y="296" text-anchor="middle">Rows Removed by Filter: 4.9M</text></g>
+
+            <text class="lbl-sm" x="520" y="102" text-anchor="middle">latency (actual)</text>
+            <rect id="f3-timebox" class="balbox" x="430" y="110" width="180" height="84" rx="12"/>
+            <text id="f3-time" x="520" y="162" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="28" font-weight="700" fill="#20201D">2075 ms</text>
+            <text id="f3-buffers" class="lbl-sm" x="520" y="216" text-anchor="middle">buffers: read=48211</text>
+
+            <text id="f3-fixtext" x="330" y="334" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#B0532F">BEFORE &mdash; function predicate, no index, deep OFFSET</text>
+            <text id="f3-read" x="330" y="356" text-anchor="middle" font-family="Newsreader, serif" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: one fix per lap &mdash; rewrite, then index, then keyset &mdash; and the plan collapses</figcaption>
+      </figure>
+
+      <h3>4 &middot; The fixes, one lap at a time</h3>
+      <ul>
+        <li><strong>Fix 1 &mdash; make the predicate sargable.</strong> Replace <code>date_trunc('day', created_at) &gt;= current_date - 30</code> with the exactly-equivalent bare-column range <code>created_at &gt;= current_date - interval '30 days'</code> (both cut at midnight 30 days ago). Re-measure: still ~2&nbsp;s and still a Seq Scan — because there is no index yet. This lap looks like a failure, but it <em>unlocked</em> the next one: the predicate is now index-ready.</li>
+        <li><strong>Fix 2 &mdash; add the composite, partial index.</strong> Only <code>status='open'</code> rows matter and we sort by <code>created_at</code>, so index exactly that hot subset:
+          <p class="codetag">sql</p>
+          <pre class="code"><code><span class="kw">CREATE INDEX</span> ix_events_open <span class="kw">ON</span> events (created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>)
+    <span class="kw">WHERE</span> status = <span class="lit">'open'</span>;</code></pre>
+          Now the index supplies rows already in <code>created_at DESC</code> order, so the <strong>Sort disappears</strong> and the scan becomes an <strong>Index Scan</strong>. Re-measure: ~140&nbsp;ms. Better — but <code>OFFSET 10000</code> still forces the executor to walk 10,020 index tuples before returning 20.</li>
+        <li><strong>Fix 3 &mdash; swap OFFSET for keyset.</strong> Carry the last row's <code>(created_at, id)</code> and seek past it, so the index jumps straight to your page:
+          <p class="codetag">sql</p>
+          <pre class="code"><code><span class="kw">SELECT</span> id, user_id, status, created_at
+<span class="kw">FROM</span> events
+<span class="kw">WHERE</span> status = <span class="lit">'open'</span>
+  <span class="kw">AND</span> created_at &gt;= <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'30 days'</span>
+  <span class="kw">AND</span> (created_at, id) &lt; (<span class="lit">$last_created_at</span>, <span class="lit">$last_id</span>)
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="lit">20</span>;</code></pre>
+        </li>
+      </ul>
+
+      <h3>5 &middot; Re-measure &mdash; the plan collapses</h3>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code><span class="kw">Limit</span>  (cost=0.43..4.02 rows=20 width=40) (actual time=0.041..2.104 rows=20 loops=1)
+  <span class="fn">Buffers:</span> shared hit=26
+  -&gt;  <span class="kw">Index Scan</span> using ix_events_open on events  (cost=0.43..9218.55 rows=48213 width=40) (actual time=0.036..2.061 rows=20 loops=1)
+        <span class="fn">Index Cond:</span> ((created_at &gt;= (now() - '30 days'::interval)) AND (ROW(created_at, id) &lt; ROW('2026-06-14 09:14:57+00'::timestamptz, 918234::bigint)))
+        <span class="fn">Buffers:</span> shared hit=26
+<span class="fn">Planning Time:</span> 0.180 ms
+<span class="fn">Execution Time:</span> 2.171 ms</code></pre>
+      <p>No Seq Scan, no Sort, no discarded rows. The <strong>Index Scan</strong> descends the partial index (already in <code>DESC</code> order, so no <em>Backward</em> needed), seeks straight to the keyset boundary, and reads <code>actual rows=20</code> — exactly the page. <code>Buffers</code> drops from <code>read=48211</code> (386&nbsp;MB off disk) to <code>hit=26</code> (208&nbsp;KB, all cached). Execution time: <code>2075&nbsp;ms &#8594; 2.171&nbsp;ms</code>, roughly a <strong>950&times;</strong> improvement.</p>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>The diagnosis was mechanical, not clever. Measure &#8594; the Seq Scan dominates (48k pages, 4.9M rows removed) &#8594; hypothesis: the <code>date_trunc</code> predicate is non-sargable so no index can help &#8594; make it sargable (lap 1: no faster yet, but now indexable) &#8594; hypothesis: with a bare column, a partial index on the hot subset lets the index supply order &#8594; add it (lap 2: Sort gone, 140&nbsp;ms, but OFFSET still walks 10k) &#8594; hypothesis: the deep OFFSET is now the hot cost &#8594; keyset (lap 3: reads only the 20 rows returned). Three laps, one change each, re-measured every time. Nobody guessed; each fix was aimed at a node the plan had just shown to be expensive.</p>
+      <div class="callout tip">
+        <span class="k">The pattern to remember</span>
+        <p>A big win often needs several fixes, but you still change <em>one thing per lap</em>. Fix&nbsp;1 alone didn't move the clock — and that's fine: its job was to make the column sargable so Fix&nbsp;2 could work. If you had bundled all three changes together and it got fast, you'd never know the rewrite was load-bearing or that the keyset (not the index) killed the last 138&nbsp;ms. One change, one measurement, every time.</p>
+      </div>
+    </section>
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Practice</div>
+      <h2>Graded drills &amp; traps</h2>
+      <p>Four drills of increasing difficulty. For each, write the diagnosis and the fix <em>before</em> opening the solution — say the one-sentence "why" out loud, the way you would in an interview. Assume PostgreSQL 17/18 and a table with an existing B-tree where noted.</p>
+
+      <h3>Drill 1 &mdash; the daily filter</h3>
+      <p>There is a B-tree on <code>events(created_at)</code>, yet this "today's events" query does a Seq Scan. Make it use the index without changing the result.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> * <span class="kw">FROM</span> events <span class="kw">WHERE</span> <span class="fn">date</span>(created_at) = <span class="kw">current_date</span>;</code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> Rewrite the wrapped column into a bare-column half-open range:</p>
+        <pre class="code" style="margin-top:8px"><code><span class="kw">SELECT</span> * <span class="kw">FROM</span> events
+<span class="kw">WHERE</span> created_at &gt;= <span class="kw">current_date</span>
+  <span class="kw">AND</span> created_at &lt; <span class="kw">current_date</span> + <span class="lit">1</span>;</code></pre>
+        <p style="margin-top:8px"><em>Why:</em> <code>date(created_at)</code> wraps the column so the B-tree (ordered by raw <code>created_at</code>) can't be searched; the range leaves the column bare, so it becomes an Index Scan / Bitmap Index Scan. (Alternative: <code>CREATE INDEX ON events (date(created_at))</code> to index the expression instead.)</p>
+      </div>
+
+      <h3>Drill 2 &mdash; the substring search</h3>
+      <p>A search box filters products by any substring of the name. The B-tree on <code>products(name)</code> is never used. Make the substring search index-backed.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> * <span class="kw">FROM</span> products <span class="kw">WHERE</span> name <span class="kw">ILIKE</span> <span class="lit">'%widget%'</span>;</code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> A leading wildcard can't use a B-tree; a trigram GIN index can:</p>
+        <pre class="code" style="margin-top:8px"><code><span class="kw">CREATE EXTENSION IF NOT EXISTS</span> pg_trgm;
+<span class="kw">CREATE INDEX</span> ix_products_name_trgm <span class="kw">ON</span> products <span class="kw">USING</span> gin (name gin_trgm_ops);</code></pre>
+        <p style="margin-top:8px"><em>Why:</em> a B-tree is ordered left-to-right, so <code>'%widget%'</code> gives it no prefix to seek on. A trigram index breaks each name into 3-character grams, so any substring (and <code>ILIKE</code>) becomes a fast Bitmap Index Scan.</p>
+      </div>
+
+      <h3>Drill 3 &mdash; the N+1 report</h3>
+      <p>A report loops over 500 selected users and, for each, runs one query for their order count — 501 round-trips. Collapse it to one query that returns each user's count.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- runs once per user id (&#215; 500)</span>
+<span class="kw">SELECT</span> <span class="fn">count</span>(*) <span class="kw">FROM</span> orders <span class="kw">WHERE</span> user_id = <span class="lit">$1</span>;</code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> Hand the whole id set to the database and let it aggregate once:</p>
+        <pre class="code" style="margin-top:8px"><code><span class="kw">SELECT</span> u.id, <span class="fn">count</span>(o.id) <span class="kw">AS</span> orders
+<span class="kw">FROM</span> users u
+<span class="kw">LEFT JOIN</span> orders o <span class="kw">ON</span> o.user_id = u.id
+<span class="kw">WHERE</span> u.id = <span class="kw">ANY</span>(<span class="lit">$1</span>)          <span class="cm">-- $1 = array of the 500 ids</span>
+<span class="kw">GROUP BY</span> u.id;</code></pre>
+        <p style="margin-top:8px"><em>Why:</em> one set-based query with a <code>LEFT JOIN</code> (so zero-order users still appear) plus <code>GROUP BY</code> replaces 500 round-trips with one, and lets the planner use an index on <code>orders(user_id)</code>. Make sure that FK index exists.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; the deep page</h3>
+      <p>An infinite-scroll feed paginates with <code>OFFSET</code>, and page 800 crawls. There is an index on <code>posts(created_at DESC, id DESC)</code>. Make every page cost the same.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, created_at <span class="kw">FROM</span> posts
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span> <span class="kw">OFFSET</span> <span class="lit">16000</span> <span class="kw">LIMIT</span> <span class="lit">20</span>;</code></pre>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>Solution.</strong> Keyset: seek past the last row of the previous page instead of counting to it.</p>
+        <pre class="code" style="margin-top:8px"><code><span class="kw">SELECT</span> id, created_at <span class="kw">FROM</span> posts
+<span class="kw">WHERE</span> (created_at, id) &lt; (<span class="lit">$last_created_at</span>, <span class="lit">$last_id</span>)
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span>, id <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="lit">20</span>;</code></pre>
+        <p style="margin-top:8px"><em>Why:</em> the composite index matches the <code>(created_at, id)</code> row comparison and the <code>ORDER BY</code>, so the Index Scan jumps directly to your page and reads exactly 20 rows — page 800 costs the same as page 1. The tradeoff: you lose random "jump to page N" access, which infinite scroll doesn't need.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Traps &mdash; the five ways tuning goes wrong</span>
+        <p>
+        <strong>1. Guessing before measuring.</strong> Adding an index off the SQL text without an <code>EXPLAIN (ANALYZE)</code> — you fix a node that was never the bottleneck.<br>
+        <strong>2. Adding an index the planner won't use.</strong> An index on a low-selectivity column (<code>status</code>, a boolean) is refused for good reason; a Seq Scan beats random heap fetches for most rows. A <em>partial</em> index on the hot subset is the fix.<br>
+        <strong>3. Optimizing a cheap node.</strong> Shaving a 0.3&nbsp;ms Sort while a 2000&nbsp;ms Seq Scan sits above it. Always attack the node with the largest <em>actual</em> time or buffers.<br>
+        <strong>4. Changing several things at once.</strong> Three changes, one measurement — you can't tell which mattered, and you keep the useless ones forever.<br>
+        <strong>5. <code>SELECT *</code> defeating index-only scans.</strong> Pulling every column forces a heap fetch even when a covering index held all you needed. Select only what you use.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one habit: <em>tuning is a loop, not a guess — reproduce, measure with <code>EXPLAIN (ANALYZE, BUFFERS)</code>, isolate the single hottest node, form one hypothesis, change one thing, re-measure.</em> The anti-patterns are just the hypotheses you reach for most: a non-sargable predicate, a missing index, an over-fetch, a deep offset. Fix the measured cause, not the query text you assume is guilty.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Measure, don't guess</b><span>Read the actual plan before touching anything. Any index added off the SQL text alone is a guess.</span></div>
+        <div class="tk"><span class="num">02</span><b>The six-step loop</b><span>Reproduce &#8594; measure &#8594; find the hot node &#8594; one hypothesis &#8594; change one thing &#8594; re-measure. Repeat.</span></div>
+        <div class="tk"><span class="num">03</span><b>One change per lap</b><span>Bundle changes and you never learn which one mattered — and you keep the useless ones forever.</span></div>
+        <div class="tk"><span class="num">04</span><b>Sargable or not</b><span>The indexed column must sit bare on one side. A function, cast, or leading <code>%</code> defeats a B-tree.</span></div>
+        <div class="tk"><span class="num">05</span><b>Rewrite or match</b><span>Two moves for a defeated index: rewrite to a bare-column range, or build an index for the expression.</span></div>
+        <div class="tk"><span class="num">06</span><b>The usual suspects</b><span>N+1, <code>SELECT *</code>, unindexed FK joins, deep OFFSET, and an unselective index the planner rightly refuses.</span></div>
+        <div class="tk"><span class="num">07</span><b>Read bottom-up, by node</b><span>One node dominates the actual time or buffers. Estimated-vs-actual rows far apart &#8594; bad stats, not a missing index.</span></div>
+        <div class="tk"><span class="num">08</span><b>No hints in Postgres</b><span>You can't order a plan. You change the facts — indexes, statistics, query shape — and let the planner re-decide.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Recite the six steps of the tuning loop in order, and say why "change one thing per lap" matters.<br>
+        (2) What does <em>sargable</em> mean? Give two predicates that defeat a B-tree and rewrite each to be index-usable.<br>
+        (3) You add an index and <code>EXPLAIN</code> still shows a Seq Scan. Name two different reasons that can be <em>correct</em> planner behaviour.<br>
+        (4) In an <code>EXPLAIN (ANALYZE)</code>, which two numbers point at "bad statistics," and which point at "physically slow"? What do you do for each?<br>
+        (5) Walk the worked query's three fixes and say what each one removed from the plan (Seq Scan, Sort, deep OFFSET).<br>
+        (6) Why does <code>SELECT *</code> defeat an index-only scan, and when is an unselective index worse than no index at all?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw the plan-collapse from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 24 &middot; QUERY-TUNING PLAYBOOK &middot; interactive edition<br>
+      Reproduce &#8594; EXPLAIN &#8594; find the hot node &#8594; one hypothesis &#8594; change one thing &#8594; re-measure.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the tuning loop */
+  makeStepper(_g('fig-f1'), [
+    {text:"Start at Measure: reproduce the slow query with real parameters, then run EXPLAIN (ANALYZE, BUFFERS). Read what it actually did, not what you imagine it does.", active:["f1-n0"]},
+    {text:"Find the single hottest node — the one dominating actual time or buffer reads. The cheap nodes are noise; ignore them.", active:["f1-n1"], path:"f1-p0"},
+    {text:"Hypothesize ONE cause: a missing index, stale statistics, an index-defeating query shape, or the wrong grain. Just one.", active:["f1-n2"], path:"f1-p1"},
+    {text:"Change ONE thing that follows from the hypothesis: add the one index, rewrite the one predicate, or run ANALYZE.", active:["f1-n3"], path:"f1-p2"},
+    {text:"Re-measure with the exact same EXPLAIN. Did that one change help? Keep it if yes, revert it if no.", active:["f1-n4"], path:"f1-p3"},
+    {text:"The loop closes back to Measure. Keep looping until the hottest node is as cheap as the result allows — then stop.", active:["f1-n0"], path:"f1-p4"}
+  ]);
+
+  /* FIG 2 — index-defeating anti-pattern → sargable rewrite */
+  makeStepper(_g('fig-f2'), [
+    {pred:"date(created_at) = DATE '2026-07-03'", predc:"cB", state:"?", statec:"", pages:"none",
+     v:"A B-tree index on created_at exists. Will the planner be able to use it?", vc:""},
+    {pred:"date(created_at) = DATE '2026-07-03'", predc:"cBad", state:"Seq Scan", statec:"kbad", pages:"all",
+     v:"date(...) wraps the column, so the btree is unusable → Seq Scan reads every page.", vc:"bad"},
+    {pred:"created_at >= '2026-07-03' AND created_at < '2026-07-04'", predc:"cA", state:"?", statec:"", pages:"none",
+     v:"Rewrite to a sargable half-open range: the column is now bare on each comparison.", vc:""},
+    {pred:"created_at >= '2026-07-03' AND created_at < '2026-07-04'", predc:"cA", state:"Index Scan", statec:"kok", pages:"one",
+     v:"Now btree(created_at) matches → Index Scan touches a couple of pages, not thousands.", vc:"ok"},
+    {pred:"date(created_at) = DATE '2026-07-03'", predc:"cA", state:"Index Scan", statec:"kok", pages:"one",
+     v:"OR keep the function and index it: CREATE INDEX ON events (date(created_at)).", vc:"ok"}
+  ], function(idx,s){
+    _g('f2-predtext').textContent=s.pred;
+    _g('f2-pred').setAttribute('class','chip'+(s.predc?' '+s.predc:''));
+    _g('f2-statetext').textContent=s.state;
+    _g('f2-state').setAttribute('class','balbox'+(s.statec?' '+s.statec:''));
+    _g('f2-statetext').setAttribute('fill', s.statec==='kbad'?'#B0532F':(s.statec==='kok'?'#3f7a2e':'#20201D'));
+    for(var k=0;k<8;k++){var pg=_g('f2-pg-'+k); pg.setAttribute('class','chip'); pg.removeAttribute('style');}
+    if(s.pages==='all'){ for(var j=0;j<8;j++){ _g('f2-pg-'+j).setAttribute('class','chip cBad'); } }
+    else if(s.pages==='one'){ _g('f2-pg-3').setAttribute('style','fill:#E6F1DF;stroke:var(--green);stroke-width:1.8'); }
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.vc==='bad'?'#B0532F':(s.vc==='ok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — worked plan collapse: before → after each fix */
+  function f3apply(k,n){
+    var g=_g('f3-g'+k), r=_g('f3-r'+k), t=_g('f3-t'+k), u=_g('f3-u'+k);
+    if(!n){ g.style.opacity=0; if(k==='2'){ _g('f3-a2').style.opacity=0; } return; }
+    g.style.opacity=1; if(k==='2'){ _g('f3-a2').style.opacity=1; }
+    r.setAttribute('class',n.c); t.textContent=n.t; u.textContent=n.u;
+  }
+  makeStepper(_g('fig-f3'), [
+    {text:"BEFORE. Bottom-up: a Seq Scan reads 48k pages and removes 4.9M rows (non-sargable filter), feeds a disk Sort, then Limit skips to the deep OFFSET. ~2075 ms.",
+     n0:{t:"Limit",u:"OFFSET 10000",c:"node"}, n1:{t:"Sort",u:"top-N heapsort · skip 10k",c:"node-r"}, n2:{t:"Seq Scan on events",u:"Rows Removed by Filter: 4.9M",c:"node-r"},
+     time:"2075 ms", timec:"kbad", buf:"buffers: read=48211", fix:"BEFORE — function predicate, no index, deep OFFSET",
+     read:"Three problems stacked: full scan + disk Sort + deep OFFSET."},
+    {text:"FIX 1 — rewrite date_trunc(created_at) ≥ … to the bare-column range created_at ≥ current_date - interval '30 days'. Re-measure: still a Seq Scan, still ~2 s — no index yet.",
+     n0:{t:"Limit",u:"OFFSET 10000",c:"node"}, n1:{t:"Sort",u:"top-N heapsort · skip 10k",c:"node-r"}, n2:{t:"Seq Scan on events",u:"filter now sargable — but no index",c:"node-r"},
+     time:"2020 ms", timec:"kbad", buf:"buffers: read=48180", fix:"FIX 1 · make the predicate sargable (bare-column range)",
+     read:"One change, re-measured: not faster yet — but the predicate is now index-ready."},
+    {text:"FIX 2 — add a partial composite index on the hot subset: (created_at DESC, id DESC) WHERE status='open'. The index supplies order, so the Sort disappears.",
+     n0:{t:"Limit",u:"OFFSET 10000 · walks 10020",c:"node"}, n1:{t:"Index Scan using ix_events_open",u:"reads 10020 tuples for OFFSET",c:"node-b"}, n2:null,
+     time:"140 ms", timec:"", buf:"buffers: shared hit=10240", fix:"FIX 2 · CREATE INDEX … (created_at DESC, id DESC) WHERE status='open'",
+     read:"Sort gone, Index Scan in — but OFFSET 10000 still walks 10020 index tuples."},
+    {text:"FIX 3 — swap OFFSET for keyset: WHERE (created_at, id) < (:last). The index seeks straight to the page and reads exactly 20 rows. ~2 ms.",
+     n0:{t:"Limit",u:"20 rows",c:"node"}, n1:{t:"Index Scan using ix_events_open",u:"reads exactly 20 tuples",c:"node-b"}, n2:null,
+     time:"2.2 ms", timec:"kok", buf:"buffers: shared hit=26", fix:"FIX 3 · keyset: WHERE (created_at, id) < (:ca, :id)",
+     read:"No OFFSET: read only the 20 rows returned. 2075 ms → 2 ms (~950×)."},
+    {text:"AFTER. The plan is just Limit → Index Scan: no Seq Scan, no Sort, no discarded rows. One hypothesis per lap, each re-measured; the cheap nodes were never touched.",
+     n0:{t:"Limit",u:"20 rows",c:"node"}, n1:{t:"Index Scan using ix_events_open",u:"reads exactly 20 tuples",c:"node-b"}, n2:null,
+     time:"2.2 ms", timec:"kok", buf:"buffers: shared hit=26", fix:"AFTER — Limit → Index Scan (partial, ordered, keyset)",
+     read:"Same SQL question, ~950× faster — by aiming each change at a measured node."}
+  ], function(idx,s){
+    f3apply('0',s.n0); f3apply('1',s.n1); f3apply('2',s.n2);
+    _g('f3-time').textContent=s.time;
+    _g('f3-timebox').setAttribute('class','balbox'+(s.timec?' '+s.timec:''));
+    _g('f3-time').setAttribute('fill', s.timec==='kbad'?'#B0532F':(s.timec==='kok'?'#3f7a2e':'#20201D'));
+    _g('f3-buffers').textContent=s.buf;
+    _g('f3-fixtext').textContent=s.fix;
+    _g('f3-fixtext').setAttribute('fill', s.timec==='kok'?'#3f7a2e':(s.timec==='kbad'?'#B0532F':'#4A7BA6'));
+    _g('f3-read').textContent=s.read;
+  });
+</script>
+</body>
+</html>

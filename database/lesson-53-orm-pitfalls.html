@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 53 — ORM Pitfalls (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">ORM Pitfalls</div>
+    <h4>The productive lie</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The abstraction that hides SQL</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The N+1 query &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Lazy loads &amp; txn scope &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The other four traps</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: kill an N+1 &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">53</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>ORM Pitfalls</h1>
+      <p class="lede">An ORM turns tables into objects and makes CRUD feel like plain code &mdash; and that convenience is exactly what makes it dangerous. Every property access can secretly be a query, every list can secretly be a loop of queries, and the SQL it emits is invisible until you go looking. This lesson names the recurring traps &mdash; <strong>N+1</strong>, lazy loading across transaction boundaries, over-fetching, and unreviewed generated SQL &mdash; and drills the habit of reading the query log the ORM would rather you ignore.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written for engineers who ship on an ORM (ActiveRecord, Hibernate/JPA, Django, SQLAlchemy, Prisma, Sequelize) but interview and debug on raw SQL. Examples target <strong>PostgreSQL (PG 17/18)</strong>; the ORM snippets are deliberately framework-agnostic pseudocode. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson: it ends in a <strong>worked SQL problem</strong> and a set of <strong>graded drills</strong> so the fixes become reflex, not trivia.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>The abstraction that hides the SQL</h2>
+      <p>An <strong>ORM</strong> (object&ndash;relational mapper) exists to close a gap: your code thinks in objects and collections, your database thinks in rows and joins. The ORM translates between them so you can write <code>user.orders</code> instead of hand-rolling a <code>SELECT</code>. That is genuinely great &mdash; it removes boilerplate, gives you migrations and identity maps, and lets a team move fast. The problem is never that the ORM is <em>wrong</em>; it usually emits perfectly valid SQL. The problem is that it emits SQL <strong>you didn't see</strong>, at moments <strong>you didn't choose</strong>.</p>
+      <p>Because a mapped object looks like an ordinary object, engineers stop thinking about the wire. A field access that costs a network round trip reads exactly like a field access that costs nothing. Multiply that by a loop and by a request handler that runs a thousand times a second, and the same abstraction that saved you an afternoon of typing quietly becomes the top entry in your slow-query log. Four traps account for the overwhelming majority of ORM-caused pain:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>What the ORM gives you</h4>
+          <ul>
+            <li>Objects and collections instead of rows &mdash; less boilerplate.</li>
+            <li>Migrations, an identity map, dirty tracking, associations.</li>
+            <li>Portability and a uniform API across databases.</li>
+            <li>Fast iteration for straightforward CRUD.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>What it hides &mdash; the four traps</h4>
+          <ul>
+            <li><strong>N+1</strong>: a list load, then one query per row.</li>
+            <li><strong>Lazy loading</strong> firing outside the intended transaction.</li>
+            <li><strong>Over-fetching</strong>: whole entities / <code>SELECT *</code> when you needed two columns.</li>
+            <li><strong>Unreviewed SQL</strong>: generated queries and migrations nobody read.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The cure is not "drop the ORM." The cure is a posture: <strong>treat the query log as part of the code.</strong> Turn on SQL logging in development, watch the count of statements per request, and stay fluent enough in SQL that when you see the ORM do something dumb you can reach for the escape hatch. The rest of this lesson is that posture, one trap at a time.</p>
+      <div class="callout">
+        <span class="k">The one habit</span>
+        <p>For any endpoint, ask a single question: <strong>how many SQL statements does one request run, and does that number grow with the data?</strong> A handler that runs 3 queries for 10 rows and 3 for 10,000 is healthy. One that runs 11 for 10 rows and 10,001 for 10,000 has an N+1 and will fall over in production. Every trap below is a variation on watching that number.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The classic trap</div>
+      <h2>The N+1 query &#9656;</h2>
+      <p>The <strong>N+1 query problem</strong> is the single most common database performance bug, and the ORM practically invites it. You load a <em>list</em> of parent rows &mdash; that's the <strong>1</strong> query. Then you loop over them and touch a related object on each &mdash; and each of those lazy accesses fires <strong>its own</strong> query, giving you <strong>N</strong> more. Total: <code>1&nbsp;+&nbsp;N</code> statements to render one page, almost all of them tiny, near-identical, and dominated by round-trip latency rather than real work.</p>
+      <p>Here is the shape in framework-agnostic pseudocode &mdash; it looks completely innocent:</p>
+      <p class="codetag">pseudocode &middot; the trap</p>
+      <pre class="code"><code><span class="cm"># 1 query: load the list of users</span>
+users = User.limit(<span class="lit">5</span>)
+
+<span class="kw">for</span> u <span class="kw">in</span> users:
+    <span class="cm"># each u.orders is a LAZY relation -&gt; +1 query PER user (N)</span>
+    print(u.name, u.orders.count)</code></pre>
+      <p>Step through what actually hits the database. Watch the statement counter climb, then watch the fix collapse it back to one:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-nplus">
+          <svg viewBox="0 0 660 380" role="img" aria-label="Interactive: a list query followed by one query per row, the 1+N explosion, then the single-query fix">
+            <text class="lbl-sm" x="40" y="40" text-anchor="start">STATEMENTS EMITTED</text>
+            <g id="f1-q0"><rect class="chip cA" x="36" y="52" width="300" height="34" rx="8"/><text class="chiptext" x="186" y="74" text-anchor="middle">SELECT * FROM users LIMIT 5</text></g>
+            <g id="f1-q1"><rect class="chip cB" x="74" y="96" width="262" height="30" rx="7"/><text class="chiptext" x="205" y="116" text-anchor="middle">SELECT orders WHERE user_id=1</text></g>
+            <g id="f1-q2"><rect class="chip cB" x="74" y="132" width="262" height="30" rx="7"/><text class="chiptext" x="205" y="152" text-anchor="middle">SELECT orders WHERE user_id=2</text></g>
+            <g id="f1-q3"><rect class="chip cB" x="74" y="168" width="262" height="30" rx="7"/><text class="chiptext" x="205" y="188" text-anchor="middle">SELECT orders WHERE user_id=3</text></g>
+            <g id="f1-q4"><rect class="chip cB" x="74" y="204" width="262" height="30" rx="7"/><text class="chiptext" x="205" y="224" text-anchor="middle">SELECT orders WHERE user_id=4</text></g>
+            <g id="f1-q5"><rect class="chip cBad" x="74" y="240" width="262" height="30" rx="7"/><text class="chiptext" x="205" y="260" text-anchor="middle">SELECT orders WHERE user_id=5</text></g>
+            <g id="f1-fix"><rect class="chip cA" x="36" y="286" width="300" height="42" rx="8"/><text class="chiptext" x="186" y="303" text-anchor="middle">SELECT ... FROM users u</text><text class="chiptext" x="186" y="320" text-anchor="middle">JOIN orders o ON o.user_id = u.id</text></g>
+            <text class="lbl-sm" x="520" y="70" text-anchor="middle">queries</text>
+            <rect id="f1-box" class="balbox" x="430" y="82" width="180" height="96" rx="12"/>
+            <text id="f1-count" x="520" y="146" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="40" font-weight="700" fill="#20201D">1</text>
+            <text id="f1-verdict" x="520" y="230" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: 1 list query + N per-row queries = 1+N; eager loading collapses it to one</figcaption>
+      </figure>
+
+      <p>The insidious part is that N+1 is invisible in development. With 5 seed rows the page is fast and the bug is silent; in production with 500 rows the same code fires 501 queries and the endpoint times out. The fix is to tell the ORM you want the relation <em>up front</em> &mdash; <strong>eager loading</strong>. Every ORM has a word for it: <code>JOIN</code>/<code>includes</code> (ActiveRecord), <code>select_related</code>/<code>prefetch_related</code> (Django), <code>JOIN FETCH</code> or an entity graph (JPA/Hibernate), <code>joinedload</code>/<code>selectinload</code> (SQLAlchemy), <code>include</code> (Prisma). Under the hood it resolves to one of two constant-query strategies: a single <code>JOIN</code>, or a two-step batch load with <code>WHERE id = ANY(...)</code>.</p>
+      <div class="callout note">
+        <span class="k">1 JOIN vs 2 batched queries</span>
+        <p>Both fixes are correct; they trade differently. A single <strong>JOIN</strong> is one round trip but multiplies parent columns across every child row (wide result, worse for many-to-many). A <strong>batched</strong> load (<code>selectinload</code>, <code>prefetch_related</code>) runs exactly <strong>2</strong> queries &mdash; parents, then all children via <code>WHERE parent_id = ANY(ARRAY[...])</code> &mdash; and avoids the row explosion. The rule that matters: either way the query count is <strong>constant</strong>, not proportional to the number of rows.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Where the query fires</div>
+      <h2>Lazy loading &amp; transaction boundaries &#9656;</h2>
+      <p>Lazy loading is the mechanism behind N+1, but it causes a second, subtler class of bug: the query doesn't just fire <em>too often</em> &mdash; it fires <em>at the wrong time</em>, outside the transaction you thought you were in. A lazy association is a placeholder proxy; it runs its <code>SELECT</code> the first moment you touch it. If that touch happens after your service method returned and the transaction committed &mdash; say, while a view template renders &mdash; the query lands on a <strong>different snapshot</strong>, on a <strong>different connection</strong>, or on a session that's already <strong>closed</strong>.</p>
+      <p>This is the <strong>open-session-in-view</strong> anti-pattern: frameworks keep the persistence session open for the whole HTTP request so lazy loads in the view "just work," which hides N+1s and stretches transactions across rendering. Follow where the boundary actually is versus where the query fires:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-txn">
+          <svg viewBox="0 0 640 412" role="img" aria-label="A transaction opening and committing, then a lazy relation firing a query outside the committed boundary, then the eager-fetch fix">
+            <rect x="132" y="38" width="376" height="172" rx="10" fill="none" stroke="#A23A5B" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="124" y="124" text-anchor="middle" fill="#A23A5B" transform="rotate(-90 124 124)">transaction / session boundary</text>
+            <g class="st" id="f2-stk-0"><rect class="node-b" x="150" y="42" width="340" height="40" rx="8"/><text class="lbl" x="320" y="67" text-anchor="middle">BEGIN &mdash; open transaction</text></g>
+            <g class="st" id="f2-stk-1"><rect class="node-b" x="150" y="98" width="340" height="40" rx="8"/><text class="lbl" x="320" y="123" text-anchor="middle">SELECT user &mdash; loaded inside</text></g>
+            <g class="st" id="f2-stk-2"><rect class="node-b" x="150" y="154" width="340" height="40" rx="8"/><text class="lbl" x="320" y="179" text-anchor="middle">COMMIT &mdash; unit of work ends</text></g>
+            <g class="st" id="f2-stk-3"><rect class="node" x="150" y="222" width="340" height="44" rx="8"/><text class="lbl" x="320" y="243" text-anchor="middle">view renders &#8594; touches user.orders</text><text class="lbl-sm" x="320" y="259" text-anchor="middle">relation was never loaded</text></g>
+            <g class="st" id="f2-stk-4"><rect class="node-r" x="150" y="278" width="340" height="44" rx="8"/><text class="lbl" x="320" y="299" text-anchor="middle" fill="#B0532F">lazy SELECT orders &mdash; OUTSIDE the txn</text><text class="lbl-sm" x="320" y="315" text-anchor="middle" fill="#B0532F">new snapshot, or session closed &#8594; error</text></g>
+            <g class="st" id="f2-stk-5"><rect class="node-t" x="150" y="350" width="340" height="44" rx="8"/><text class="lbl" x="320" y="371" text-anchor="middle" fill="#7a2c43">fix: eager fetch inside the boundary</text><text class="lbl-sm" x="320" y="387" text-anchor="middle" fill="#7a2c43">JOIN FETCH / select_related / includes</text></g>
+            <path id="f2-sp-0" class="flow" d="M320 28 V 40" marker-end="url(#arrow)"/>
+            <path id="f2-sp-1" class="flow" d="M320 82 V 96" marker-end="url(#arrow)"/>
+            <path id="f2-sp-2" class="flow" d="M320 138 V 152" marker-end="url(#arrow)"/>
+            <path id="f2-sp-3" class="flow" d="M320 194 V 220" marker-end="url(#arrow)"/>
+            <path id="f2-sp-4" class="flow" d="M320 266 V 276" marker-end="url(#arrow)"/>
+            <path id="f2-sp-5" class="flow" d="M320 322 V 348" marker-end="url(#arrow)"/>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: a lazy relation firing after COMMIT lands outside the boundary you reasoned about</figcaption>
+      </figure>
+
+      <p>Two distinct failures live in that last-but-one box. In stacks that close the session at the service boundary (classic JPA/Hibernate), touching a lazy relation afterward throws a <code>LazyInitializationException</code> outright &mdash; a hard crash. In stacks that keep the session open through rendering, it silently <em>works</em> but reads on a <strong>later, possibly inconsistent snapshot</strong> than the rest of your logic saw, and it does so one row at a time. Either way the root cause is the same: you let the ORM decide <em>when</em> to query, and it chose a moment your transaction no longer covered.</p>
+      <div class="callout tip">
+        <span class="k">Make the boundary explicit</span>
+        <p>Decide, per use case, exactly what data the response needs and load <strong>all of it inside one transaction</strong>, eagerly. Return plain DTOs/values from the service layer so the view has nothing left to lazy-load. Treat <em>open-session-in-view</em> as off by default. The transaction boundary is a design decision &mdash; when you let lazy loading move it for you, you've lost the isolation and atomicity guarantees you opened a transaction to get (see Phase 5).</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The rest of the field</div>
+      <h2>The other four traps</h2>
+      <p>N+1 and lazy boundaries are the headline acts, but the same "the object hides the SQL" root cause produces a handful more. None of these needs a diagram &mdash; each is a habit to build.</p>
+
+      <h3>Over-fetching &mdash; loading columns you never use</h3>
+      <p>By default an ORM hydrates the <em>whole entity</em>: <code>SELECT *</code> on every column, including the fat <code>text</code>/<code>bytea</code>/<code>jsonb</code> ones you didn't need. Two costs follow. First, you ship bytes over the wire and build objects for nothing. Second, and more subtle, <code>SELECT *</code> <strong>defeats an index-only scan</strong>: if you only need <code>id</code> and <code>email</code> and there's a covering index on <code>(id, email)</code>, selecting just those two lets Postgres answer from the index alone &mdash; but ask for every column and it must visit the heap for each row (see Phase 4 / L22). Reach for the ORM's column projection: <code>select(:id, :email)</code>, <code>.only()</code>/<code>.values()</code>, a DTO/constructor-expression query, or Prisma's <code>select</code>.</p>
+
+      <h3>Missing indexes the ORM won't add for you</h3>
+      <p>ORMs generate tables and, usually, an index on the primary key and on declared foreign keys &mdash; but they do <strong>not</strong> know your query patterns. The index that makes <code>WHERE status = 'active' AND created_at &gt; ...</code> fast, or the composite/partial index your hottest endpoint needs, is <em>your</em> job. The ORM cheerfully runs a sequential scan forever and never warns you. Read the plan of your important queries with <code>EXPLAIN</code> and add indexes by hand in a migration.</p>
+
+      <h3>Unreviewed generated migrations and SQL</h3>
+      <p>Auto-generated migrations are a convenience, not a safety net. A one-line model change can emit an <code>ALTER TABLE</code> that takes an <code>ACCESS EXCLUSIVE</code> lock, or a plain <code>CREATE INDEX</code> that blocks writes for the whole build, or a <code>NOT NULL</code>-with-backfill that rewrites a huge table &mdash; each an outage on a live system (see L52 on zero-downtime migrations). <strong>Read every generated migration before it ships.</strong> Prefer <code>CREATE INDEX CONCURRENTLY</code>, <code>ADD COLUMN</code> with no volatile default, and <code>NOT NULL</code> via <code>CHECK ... NOT VALID</code> then <code>VALIDATE</code>.</p>
+
+      <h3>Fighting the pooler &mdash; and knowing the escape hatch</h3>
+      <p>Two operational realities. First, ORM connection pools interact with an <em>external</em> pooler (PgBouncer in transaction mode, see L38): server-side prepared statements, <code>SET</code>, advisory locks, and session state don't survive across transactions, so an ORM that leans on them can break behind a transaction-mode pooler unless configured for it. Second &mdash; and the release valve for everything above &mdash; when the ORM's generated SQL is wrong, slow, or contorted, <strong>drop to raw SQL</strong>. Every ORM has an escape hatch (<code>find_by_sql</code>, <code>@Query(nativeQuery)</code>, <code>session.execute(text(...))</code>, <code>$queryRaw</code>). Using it is not a failure of the ORM; it's using the ORM correctly.</p>
+      <div class="callout">
+        <span class="k">The through-line</span>
+        <p>Every trap here is the same mistake wearing a different hat: <strong>you stopped looking at the SQL.</strong> Over-fetching, the missing index, the dangerous migration, the pooler mismatch &mdash; each is caught the instant you read the generated statement and its plan. The ORM is a great typist and a poor DBA; you have to be the DBA.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Kill a pathological N+1 &#9656;</h2>
+      <p>Time to fix a real one end to end &mdash; from the query log, to the rewrite, to the plan.</p>
+
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> authors (
+  id    <span class="kw">bigint</span> <span class="kw">PRIMARY KEY</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span>,
+  name  <span class="kw">text</span> <span class="kw">NOT NULL</span>
+);
+
+<span class="kw">CREATE TABLE</span> posts (
+  id         <span class="kw">bigint</span> <span class="kw">PRIMARY KEY</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span>,
+  author_id  <span class="kw">bigint</span> <span class="kw">NOT NULL</span> <span class="kw">REFERENCES</span> authors(id),
+  title      <span class="kw">text</span> <span class="kw">NOT NULL</span>,
+  body       <span class="kw">text</span> <span class="kw">NOT NULL</span>,
+  created_at <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+
+<span class="cm">-- indexes for the access pattern</span>
+<span class="kw">CREATE INDEX</span> posts_created_at_idx <span class="kw">ON</span> posts (created_at <span class="kw">DESC</span>);
+<span class="kw">CREATE INDEX</span> posts_author_id_idx  <span class="kw">ON</span> posts (author_id);</code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>Render the <strong>50 most recent posts</strong>, each line showing the post title and its <strong>author's name</strong>. Straightforward &mdash; and a perfect N+1 trap.</p>
+
+      <h3>3 &middot; The naive attempt &mdash; and why it's slow</h3>
+      <p class="codetag">pseudocode &middot; ORM, as written</p>
+      <pre class="code"><code>posts = Post.order(created_at: <span class="kw">:desc</span>).limit(<span class="lit">50</span>)   <span class="cm"># 1 query</span>
+<span class="kw">for</span> p <span class="kw">in</span> posts:
+    render(p.title, p.author.name)                <span class="cm"># p.author is lazy -&gt; +1 query each</span></code></pre>
+      <p>The generated query log tells the whole story:</p>
+      <p class="codetag">generated sql &middot; the log</p>
+      <pre class="code"><code><span class="kw">SELECT</span> * <span class="kw">FROM</span> posts <span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span> <span class="kw">LIMIT</span> <span class="lit">50</span>;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> authors <span class="kw">WHERE</span> id = <span class="lit">7</span>;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> authors <span class="kw">WHERE</span> id = <span class="lit">3</span>;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> authors <span class="kw">WHERE</span> id = <span class="lit">7</span>;   <span class="cm">-- id 7 again: duplicate work</span>
+<span class="cm">-- ... 47 more single-row author lookups ...</span></code></pre>
+      <p><strong>Why it hurts:</strong> that's <code>1 + 50 = 51</code> statements for one page. Each is a full network round trip; the total wall time is dominated by <em>51 &times; latency</em>, not by any real database work. Worse, many author lookups repeat the same id, so you re-fetch rows you already have. It benchmarks fine on 5 seed posts and melts under a real feed.</p>
+
+      <h3>4 &middot; The fix &mdash; eager load</h3>
+      <p>Tell the ORM you need the author with the post. It resolves to a single joined query:</p>
+      <p class="codetag">sql &middot; the rewrite (one query)</p>
+      <pre class="code"><code><span class="kw">SELECT</span> p.id, p.title, a.name <span class="kw">AS</span> author
+<span class="kw">FROM</span> posts p
+<span class="kw">JOIN</span> authors a <span class="kw">ON</span> a.id = p.author_id
+<span class="kw">ORDER BY</span> p.created_at <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="lit">50</span>;</code></pre>
+      <p>In ORM terms that's <code>Post.includes(:author)</code> / <code>select_related('author')</code> / <code>JOIN FETCH p.author</code> / <code>include:{author:true}</code>. If you'd rather avoid widening every post row with author columns, the batched form is two queries and just as constant:</p>
+      <p class="codetag">sql &middot; the batched alternative (two queries)</p>
+      <pre class="code"><code><span class="kw">SELECT</span> id, title, author_id <span class="kw">FROM</span> posts <span class="kw">ORDER BY</span> created_at <span class="kw">DESC</span> <span class="kw">LIMIT</span> <span class="lit">50</span>;
+<span class="kw">SELECT</span> id, name <span class="kw">FROM</span> authors <span class="kw">WHERE</span> id = <span class="kw">ANY</span>(<span class="kw">ARRAY</span>[<span class="lit">7</span>,<span class="lit">3</span>,<span class="lit">9</span>, <span class="cm">/* distinct ids */</span>]);</code></pre>
+
+      <h3>5 &middot; Why it's better &mdash; the plan</h3>
+      <p>The rewrite goes from <strong>51 round trips to 1</strong>, and the join happens <em>inside</em> the engine with no network cost per author. The plan for the JOIN version:</p>
+      <p class="codetag">EXPLAIN ANALYZE &middot; illustrative</p>
+      <pre class="code"><code>Limit  (actual time=0.05..0.42 rows=50 loops=1)
+  -&gt;  Nested Loop  (actual time=0.04..0.36 rows=50 loops=1)
+        -&gt;  Index Scan Backward using posts_created_at_idx on posts p
+              (actual time=0.02..0.10 rows=50 loops=1)
+        -&gt;  Index Scan using authors_pkey on authors a
+              (actual time=0.004..0.004 rows=1 loops=50)
+              Index Cond: (id = p.author_id)
+Planning Time: 0.20 ms
+Execution Time: 0.51 ms</code></pre>
+      <p>Read it carefully: the inner <code>Index Scan on authors_pkey</code> still runs <code>loops=50</code> &mdash; one primary-key lookup per post. The win is <em>not</em> that Postgres does less index work; it's that all 50 lookups happen in a <strong>single query, on one connection, on one snapshot</strong>, with zero client round trips between them. The <code>Index Scan Backward</code> on <code>posts_created_at_idx</code> also serves the <code>ORDER BY ... LIMIT 50</code> without a sort. One statement, sub-millisecond, constant in the number of authors.</p>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>&ldquo;The endpoint loads 50 posts, then lazily touches <code>post.author</code> on each row, so the ORM fires one <code>authors</code> lookup per post &mdash; 1 + 50 = 51 statements, all round-trip-bound and many of them duplicates. I eager-load the author with <code>includes(:author)</code>, which the ORM emits as a single <code>JOIN</code> ordered by <code>created_at DESC LIMIT 50</code>. The plan is a Nested Loop whose inner side is 50 primary-key index lookups &mdash; same index work, but one query on one snapshot instead of 51 network trips. Query count is now constant in the number of posts.&rdquo;</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Drills</div>
+      <h2>Graded drills &amp; traps</h2>
+      <p>Four drills, increasing in difficulty. Try each before opening the solution &mdash; say the fix out loud, then check.</p>
+
+      <h3>Drill 1 &mdash; spot the N+1</h3>
+      <p>An endpoint renders a team roster:</p>
+      <p class="codetag">pseudocode</p>
+      <pre class="code"><code>members = TeamMember.where(team_id: <span class="lit">42</span>)   <span class="cm"># how many queries?</span>
+<span class="kw">for</span> m <span class="kw">in</span> members:
+    render(m.user.full_name, m.user.avatar_url)</code></pre>
+      <p>How many statements does this run for a 30-person team, and how do you make it constant?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><strong>1 + 30 = 31</strong> queries: one for the members, then one <code>users</code> lookup per member (both <code>m.user</code> accesses hit the same already-loaded row, so it's per-member not per-access). Fix: eager-load the association &mdash; <code>TeamMember.where(team_id: 42).includes(:user)</code> (or <code>select_related('user')</code> / <code>JOIN FETCH</code>). Now it's a constant 1&ndash;2 queries regardless of team size. <em>Why:</em> the relation is loaded up front in one join/batch instead of on first touch per row.</p>
+      </div>
+
+      <h3>Drill 2 &mdash; over-fetching kills the index-only scan</h3>
+      <p>You need only each user's <code>id</code> and <code>email</code> for an export, and there's a covering index <code>ON users (id, email)</code>. The ORM runs <code>User.all</code> and the plan shows a <code>Seq Scan</code> reading every column (including a big <code>bio text</code>). Two changes to get an <code>Index Only Scan</code>?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>(1) Project only the columns you need so the query is satisfiable from the index: <code>User.select(:id, :email)</code> / <code>.values('id','email')</code> / a DTO query &mdash; emitting <code>SELECT id, email FROM users</code> instead of <code>SELECT *</code>. (2) Ensure the covering index exists and the table is reasonably vacuumed so the visibility map lets Postgres skip the heap. The plan flips from <code>Seq Scan</code> to <code>Index Only Scan using users_id_email_idx</code>. <em>Why:</em> <code>SELECT *</code> forces a heap visit for the unindexed columns, defeating the index-only path.</p>
+      </div>
+
+      <h3>Drill 3 &mdash; the lazy load that crashes after commit</h3>
+      <p>A service method loads an <code>order</code>, commits, and returns it. A JSON serializer then reads <code>order.line_items</code> and the app throws <code>could not initialize proxy / session closed</code>. What happened, and what are the two clean fixes?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p><code>line_items</code> is a lazy relation that was never loaded inside the transaction; touching it during serialization &mdash; after the session/txn closed &mdash; has no session to run the <code>SELECT</code>, so it errors (a <code>LazyInitializationException</code>-class failure). Fixes: (a) <strong>eager-fetch inside the boundary</strong> &mdash; <code>JOIN FETCH o.line_items</code> / <code>includes(:line_items)</code> / <code>select_related</code>+<code>prefetch_related</code> &mdash; so the data is present before commit; or (b) return a <strong>DTO/plain value</strong> from the service with the items already materialized, giving the serializer nothing to lazy-load. <em>Why:</em> a lazy relation must be resolved while the session is open; decide what the response needs and load it in-transaction. Avoid papering over it with open-session-in-view.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; the migration that locks production</h3>
+      <p>Your ORM auto-generates this migration for a 200-million-row table:</p>
+      <p class="codetag">generated sql</p>
+      <pre class="code"><code><span class="kw">CREATE INDEX</span> idx_events_user <span class="kw">ON</span> events (user_id);
+<span class="kw">ALTER TABLE</span> events <span class="kw">ADD COLUMN</span> is_archived <span class="kw">boolean</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="kw">false</span>;</code></pre>
+      <p>Which statement is dangerous on a live table, which is safe, and how do you ship the index without downtime?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>The <code>ADD COLUMN ... NOT NULL DEFAULT false</code> is <strong>safe</strong>: a constant (non-volatile) default is a metadata-only change in modern Postgres &mdash; instant, no rewrite. The plain <code>CREATE INDEX</code> is <strong>dangerous</strong>: it takes a <code>SHARE</code> lock that <em>blocks all writes</em> to <code>events</code> for the entire (long) build. Fix: build it concurrently &mdash; <code>CREATE INDEX CONCURRENTLY idx_events_user ON events (user_id);</code> &mdash; which doesn't block writes. Because <code>CONCURRENTLY</code> cannot run inside a transaction block, disable the migration's automatic transaction wrapper (e.g. Rails <code>disable_ddl_transaction!</code> + <code>algorithm: :concurrently</code>). <em>Why:</em> auto-generated DDL doesn't account for table size or live traffic &mdash; you must review it.</p>
+      </div>
+
+      <h3>Traps to remember</h3>
+      <ul>
+        <li><strong>N+1 is invisible in dev.</strong> Five seed rows hide it; assert on query <em>count</em> in tests, not just correctness.</li>
+        <li><strong>Eager-loading everything is its own bug.</strong> A blanket <code>includes</code> can pull huge unused graphs &mdash; load what the response needs, no more.</li>
+        <li><strong><code>includes</code> that you then filter on may silently switch strategy.</strong> Filtering on an eager-loaded association can force a single big <code>JOIN</code> (and even a <code>references</code> requirement in ActiveRecord) &mdash; check the emitted SQL.</li>
+        <li><strong><code>SELECT *</code> is the default and it kills index-only scans.</strong> Project columns for hot read paths.</li>
+        <li><strong>Counting/aggregating in app code.</strong> <code>records.size</code> after loading all rows fetches everything; use a <code>COUNT(*)</code> query (<code>.count</code>) instead.</li>
+        <li><strong>Never ship an auto-generated migration unread.</strong> Check for table locks, rewrites, and non-concurrent index builds first.</li>
+        <li><strong>Trusting the ORM's SQL blindly.</strong> Turn on statement logging in dev; when the SQL is wrong or slow, use the raw-SQL escape hatch without guilt.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-fix">
+          <svg viewBox="0 0 660 380" role="img" aria-label="Interactive: the before feed of 1+50 lazy author lookups versus the after single JOIN, with the query counter collapsing">
+            <text class="lbl-sm" x="40" y="42" text-anchor="start">BEFORE &middot; lazy</text>
+            <text class="lbl-sm" x="620" y="42" text-anchor="end">AFTER &middot; eager</text>
+            <g id="f3-b0"><rect class="chip cA" x="36" y="52" width="300" height="32" rx="8"/><text class="chiptext" x="186" y="73" text-anchor="middle">SELECT posts ... LIMIT 50</text></g>
+            <g id="f3-b1"><rect class="chip cB" x="74" y="92" width="262" height="28" rx="7"/><text class="chiptext" x="205" y="111" text-anchor="middle">SELECT author WHERE id=7</text></g>
+            <g id="f3-b2"><rect class="chip cB" x="74" y="126" width="262" height="28" rx="7"/><text class="chiptext" x="205" y="145" text-anchor="middle">SELECT author WHERE id=3</text></g>
+            <g id="f3-b3"><rect class="chip cB" x="74" y="160" width="262" height="28" rx="7"/><text class="chiptext" x="205" y="179" text-anchor="middle">SELECT author WHERE id=9</text></g>
+            <g id="f3-bmore"><rect class="chip cBad" x="74" y="194" width="262" height="28" rx="7"/><text class="chiptext" x="205" y="213" text-anchor="middle">... 47 more, many duplicates</text></g>
+            <g id="f3-a0"><rect class="chip cA" x="356" y="52" width="288" height="46" rx="8"/><text class="chiptext" x="500" y="70" text-anchor="middle">SELECT p.*, a.name FROM posts p</text><text class="chiptext" x="500" y="87" text-anchor="middle">JOIN authors a ON a.id=p.author_id</text></g>
+            <g id="f3-a1"><rect class="chip cB" x="356" y="108" width="288" height="28" rx="7"/><text class="chiptext" x="500" y="127" text-anchor="middle">or: authors WHERE id = ANY(...)</text></g>
+            <text class="lbl-sm" x="330" y="252" text-anchor="middle">statements</text>
+            <rect id="f3-box" class="balbox" x="250" y="262" width="160" height="80" rx="12"/>
+            <text id="f3-count" x="330" y="316" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="34" font-weight="700" fill="#20201D">1</text>
+            <text id="f3-verdict" x="330" y="368" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: the worked feed, 1+50 lazy lookups collapsing to a single JOIN (or 2 batched queries)</figcaption>
+      </figure>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea underneath every trap: <em>an ORM makes a query look like a field access, so the discipline it demands is to keep watching the SQL &mdash; how many statements run, when they fire, and which columns they touch.</em> Keep the query log open, keep the transaction boundary explicit, and keep raw SQL within reach.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>The object hides the SQL</b><span>A property access can be a network round trip. The ORM emits valid SQL you didn't see, when you didn't choose.</span></div>
+        <div class="tk"><span class="num">02</span><b>N+1 is the big one</b><span>1 list query + N per-row lazy queries. Fix by eager loading: one JOIN, or 2 batched queries with <code>= ANY(...)</code>.</span></div>
+        <div class="tk"><span class="num">03</span><b>Count, don't grow</b><span>Healthy endpoints run a constant number of queries. If statements scale with rows, you have an N+1.</span></div>
+        <div class="tk"><span class="num">04</span><b>Lazy loads move the boundary</b><span>A lazy relation fires when touched &mdash; possibly after COMMIT, on a new snapshot or a closed session. Fetch inside the transaction.</span></div>
+        <div class="tk"><span class="num">05</span><b>Over-fetching costs twice</b><span><code>SELECT *</code> ships unused bytes and defeats index-only scans. Project the columns the response needs.</span></div>
+        <div class="tk"><span class="num">06</span><b>Indexes are your job</b><span>The ORM indexes PKs and FKs, not your query patterns. Read <code>EXPLAIN</code> and add composite/partial indexes by hand.</span></div>
+        <div class="tk"><span class="num">07</span><b>Review generated migrations</b><span>Auto-DDL ignores table size and live traffic. Watch for blocking locks; prefer <code>CREATE INDEX CONCURRENTLY</code>.</span></div>
+        <div class="tk"><span class="num">08</span><b>Keep the escape hatch</b><span>When the generated SQL is wrong or slow, drop to raw SQL. That's using the ORM correctly, not failing it.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Define the N+1 problem in one sentence and give the two constant-query fixes (and how they differ).<br>
+        (2) A page runs 1 query for 10 rows but 501 for 500 rows &mdash; name the bug and where it hid during development.<br>
+        (3) Explain how a lazy relation can fire <em>outside</em> the transaction. What two different failures can result, and what is open-session-in-view?<br>
+        (4) Why does <code>SELECT *</code> defeat an index-only scan, and what change fixes it?<br>
+        (5) Given <code>CREATE INDEX idx ON big_table(col);</code> in a generated migration, why is it dangerous and what do you replace it with?<br>
+        (6) Name the ORM raw-SQL escape hatch you'd use, and one situation where reaching for it is the right call.<br>
+        Any fuzzy answer &#8594; re-read that section and replay its diagram.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 53 &middot; ORM PITFALLS &middot; interactive edition<br>
+      Original study notes for engineers &middot; watch the query log, keep the boundary explicit, keep raw SQL close.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the N+1 explosion */
+  makeStepper(_g('fig-nplus'), [
+    {text:"1 query loads the list: SELECT * FROM users LIMIT 5. So far, healthy.", lit:["f1-q0"], count:"1", box:"", v:"1 query · the list"},
+    {text:"The loop touches u.orders on user 1 — a lazy relation. That fires its own query. Now 2.", lit:["f1-q0","f1-q1"], count:"2", box:"", v:"+1 lazy load per row"},
+    {text:"Users 2 and 3 do the same. One extra query each — the count climbs linearly.", lit:["f1-q0","f1-q1","f1-q2","f1-q3"], count:"4", box:"", v:"one query per user"},
+    {text:"Users 4 and 5 finish the loop: 1 + 5 = 6 queries for 5 rows. At 500 rows it's 501 — the N+1 explosion.", lit:["f1-q0","f1-q1","f1-q2","f1-q3","f1-q4","f1-q5"], count:"6", box:"kbad", v:"✗ 1+N — scales with rows"},
+    {text:"Fix: eager-load the relation. One JOIN (or a 2-query batch) fetches everyone's orders up front — constant, not 1+N.", lit:["f1-fix"], count:"1", box:"kok", v:"✓ eager load → constant"}
+  ], function(idx,s){
+    ['f1-q0','f1-q1','f1-q2','f1-q3','f1-q4','f1-q5','f1-fix'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.18);});
+    _g('f1-count').textContent=s.count;
+    _g('f1-count').setAttribute('fill', s.box==='kbad'?'#B0532F':(s.box==='kok'?'#3f7a2e':'#20201D'));
+    _g('f1-box').setAttribute('class','balbox'+(s.box?' '+s.box:''));
+    var vd=_g('f1-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.box==='kbad'?'#B0532F':(s.box==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 2 — lazy loading & transaction boundaries */
+  makeStepper(_g('fig-txn'), [
+    {text:"The controller opens a transaction with BEGIN. Everything up to COMMIT is one atomic, isolated unit.", active:["f2-stk-0"], path:"f2-sp-0"},
+    {text:"Inside the boundary, the ORM loads the user row — one clean read, on the transaction's snapshot.", active:["f2-stk-1"], path:"f2-sp-1"},
+    {text:"The service returns and the transaction COMMITs. In many stacks the DB session closes right here.", active:["f2-stk-2"], path:"f2-sp-2"},
+    {text:"Later, the view template renders and touches user.orders — a lazy relation that was never loaded.", active:["f2-stk-3"], path:"f2-sp-3"},
+    {text:"Touching it NOW fires a fresh SELECT — outside the committed transaction. Best case: an extra round trip on a newer, possibly inconsistent snapshot. Worst case: the session is closed → a lazy-load error.", active:["f2-stk-4"], path:"f2-sp-4", reject:true},
+    {text:"Fix: load what the view needs eagerly, inside the boundary (JOIN FETCH / select_related / includes), or widen the transaction deliberately — never by accident via open-session-in-view.", active:["f2-stk-5"], path:"f2-sp-5"}
+  ]);
+
+  /* FIG 3 — the worked N+1 fix */
+  makeStepper(_g('fig-fix'), [
+    {text:"The task: 50 recent posts, each with its author. The list is 1 query: SELECT posts ... LIMIT 50.", lit:["f3-b0"], count:"1", box:"", v:"1 query · the posts"},
+    {text:"Then post.author fires lazily — one authors lookup per row. The count starts climbing.", lit:["f3-b0","f3-b1","f3-b2","f3-b3"], count:"4", box:"", v:"+1 per post (lazy)"},
+    {text:"All 50 posts do it — 1 + 50 = 51 statements, round-trip-bound and many of them duplicate ids.", lit:["f3-b0","f3-b1","f3-b2","f3-b3","f3-bmore"], count:"51", box:"kbad", v:"✗ 51 round trips"},
+    {text:"Rewrite as one JOIN: SELECT p.*, a.name ... JOIN authors ... ORDER BY created_at DESC LIMIT 50. One statement.", lit:["f3-a0"], count:"1", box:"kok", v:"✓ one JOIN"},
+    {text:"Or preload with WHERE id = ANY(...): exactly 2 queries. Either way the count is constant in the number of posts.", lit:["f3-a0","f3-a1"], count:"2", box:"kok", v:"✓ or 2 batched — constant"}
+  ], function(idx,s){
+    ['f3-b0','f3-b1','f3-b2','f3-b3','f3-bmore','f3-a0','f3-a1'].forEach(function(id){
+      var g=_g(id); if(g) g.style.opacity=(s.lit.indexOf(id)>=0?1:0.18);});
+    _g('f3-count').textContent=s.count;
+    _g('f3-count').setAttribute('fill', s.box==='kbad'?'#B0532F':(s.box==='kok'?'#3f7a2e':'#20201D'));
+    _g('f3-box').setAttribute('class','balbox'+(s.box?' '+s.box:''));
+    var vd=_g('f3-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.box==='kbad'?'#B0532F':(s.box==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

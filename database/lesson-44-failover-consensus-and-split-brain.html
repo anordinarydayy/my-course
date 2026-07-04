@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 44 — Failover, Consensus &amp; Split-Brain (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Failover, Consensus &amp; Split-Brain</div>
+    <h4>When the leader falls</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The primary just died</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Automatic failover &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Consensus &amp; quorum &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Split-brain &amp; fencing &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The real stack</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Reason about it</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">44</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>Failover, Consensus &amp; Split-Brain</h1>
+      <p class="lede">Replication gives you standbys &mdash; but a standby is worthless until, the instant the primary dies, one of them actually <em>becomes</em> the new primary. That promotion is <strong>failover</strong>, and doing it safely is harder than it looks: the real enemy is <strong>split-brain</strong>, two nodes both accepting writes and quietly diverging. This lesson shows how a cluster manager, a consensus store, and a proxy cooperate to promote exactly one standby &mdash; and how <strong>quorum</strong> and <strong>fencing</strong> guarantee at most one primary, ever.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written for engineers who want database depth that pays off in interviews and in production incidents. Examples use <strong>PostgreSQL (PG 17/18)</strong> with Patroni, etcd, and HAProxy, but the ideas &mdash; leader leases, quorum, fencing &mdash; are how every distributed system elects a single leader. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a concept lesson &mdash; no SQL drill; it builds the mental model that failover tooling assumes you already have.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>The primary just died &mdash; now what?</h2>
+      <p>By now you know the shape of a replicated cluster (<strong>L42</strong>): one <strong>primary</strong> takes writes and streams its <code>WAL</code> to one or more <strong>standbys</strong>, and hot standbys can serve reads (<strong>L43</strong> covered slots, lag, and synchronous replication). Replication buys you redundancy &mdash; but redundancy only <em>pays out</em> at the moment it matters: when the primary crashes, loses power, or falls off the network. A standby that never gets promoted is just an expensive backup.</p>
+      <p>The act of turning a standby into the new primary is <strong>failover</strong>. First, know which node you are even talking to &mdash; a standby is in recovery, a primary is not:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- Which node am I? true on a standby, false on the primary</span>
+<span class="kw">SELECT</span> <span class="fn">pg_is_in_recovery</span>();
+
+<span class="cm">-- Promote this standby to primary (what a manager runs under the hood)</span>
+<span class="kw">SELECT</span> <span class="fn">pg_promote</span>();</code></pre>
+      <p>You <em>could</em> do failover by hand: an on-call engineer notices the primary is down, picks a healthy standby, runs <code>pg_promote()</code>, and repoints the application. That works, and it needs no extra infrastructure &mdash; but it is <strong>slow</strong> (minutes of downtime is a bad <strong>RTO</strong>, the recovery time objective) and <strong>error-prone</strong> at 3&nbsp;a.m. Worse, a nervous human or a flaky script can promote a <em>second</em> standby while the first is still alive. Now you have two primaries.</p>
+      <p>Two questions turn out to be the entire subject:</p>
+      <ul>
+        <li><strong>Who decides</strong> to promote, and <em>which</em> standby &mdash; automatically, in seconds, without a human?</li>
+        <li>How do you <strong>guarantee only one primary exists</strong> at any instant &mdash; even during a network partition where the old primary is alive but simply unreachable?</li>
+      </ul>
+      <p>That second question is the dangerous one. If the old primary is not really dead &mdash; just isolated &mdash; and it keeps accepting writes while a new primary is promoted elsewhere, the two databases diverge into two conflicting histories that cannot be cleanly merged. That is <strong>split-brain</strong>, and preventing it is what everything in this lesson is for.</p>
+      <div class="callout">
+        <span class="k">The one invariant</span>
+        <p>Hold this line above everything else: <strong>at most one primary, ever.</strong> A cluster can briefly have <em>zero</em> primaries (a short write outage during failover, which the app rides out with retries) &mdash; that is survivable. It must <em>never</em> have <em>two</em> primaries taking writes. Every mechanism below &mdash; leader keys, quorum, fencing &mdash; exists to defend that single invariant.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The mechanism</div>
+      <h2>Automatic failover: a leader key nobody can forge &#9656;</h2>
+      <p>Automatic failover replaces the human with three cooperating pieces. First, a <strong>cluster manager</strong> &mdash; <strong>Patroni</strong> is the standard choice &mdash; runs as an agent beside <em>each</em> Postgres node, watching its health and driving promotion or demotion. Second, a <strong>consensus store</strong>, also called a <strong>DCS</strong> (distributed configuration store): <strong>etcd</strong>, Consul, or ZooKeeper, a small highly-available key/value cluster that is the <em>single source of truth</em> for one fact &mdash; who the primary is. Third, a <strong>proxy</strong> (HAProxy, or a VIP) that clients connect to, which always forwards writes to whichever node is currently the leader.</p>
+      <p>The trick that makes it safe is the <strong>leader key</strong>: a single key in the DCS, held with a short <strong>TTL lease</strong>. The primary must keep renewing that lease (a heartbeat). Holding the key <em>is</em> what makes a node the primary. Stop renewing &mdash; because you crashed &mdash; and the key expires, freeing the cluster to elect someone else. Step through the whole failover:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-fail">
+          <svg viewBox="0 0 660 420" role="img" aria-label="Automatic failover: the primary crashes, its leader key expires in etcd, a standby wins the key and is promoted, and the proxy reroutes clients">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">clients / application</text>
+            <g class="st" id="f1-stk-lb"><rect class="node-b" x="200" y="30" width="260" height="44" rx="8"/><text class="lbl" x="330" y="57" text-anchor="middle">HAProxy &#8594; routes to leader</text></g>
+            <g class="st" id="f1-stk-dcs"><rect class="node-t" x="470" y="150" width="168" height="96" rx="8"/><text class="lbl" x="554" y="180" text-anchor="middle" fill="#7a2c43">DCS: etcd (Raft)</text><text class="lbl-sm" id="f1-dcs-state" x="554" y="202" text-anchor="middle" fill="#7a2c43">leader key = pri</text><text class="lbl-sm" x="554" y="222" text-anchor="middle" fill="#7a2c43">+ TTL lease</text></g>
+            <g class="st" id="f1-stk-pri"><rect id="f1-pri-rect" class="node" x="40" y="150" width="200" height="56" rx="8"/><text class="lbl" id="f1-pri-lbl" x="140" y="175" text-anchor="middle">PostgreSQL &mdash; PRIMARY</text><text class="lbl-sm" x="140" y="194" text-anchor="middle">accepts writes</text></g>
+            <g class="st" id="f1-stk-sa"><rect id="f1-sa-rect" class="node" x="40" y="250" width="200" height="52" rx="8"/><text class="lbl" id="f1-sa-lbl" x="140" y="281" text-anchor="middle">Standby A (replica)</text></g>
+            <g class="st" id="f1-stk-sb"><rect class="node" x="40" y="330" width="200" height="52" rx="8"/><text class="lbl" x="140" y="361" text-anchor="middle">Standby B (replica)</text></g>
+            <path class="flow-d" d="M140 206 V 248"/>
+            <path class="flow-d" d="M100 206 C 28 258, 28 302, 42 330"/>
+            <path id="f1-sp-write" class="flow" d="M300 74 C 240 104, 190 120, 150 150" marker-end="url(#arrow)"/>
+            <path id="f1-sp-hb" class="flow" d="M240 172 C 350 168, 400 182, 468 186" marker-end="url(#arrow)"/>
+            <path id="f1-sp-acquire" class="flow" d="M240 272 C 360 268, 410 224, 468 214" marker-end="url(#arrow)"/>
+            <path id="f1-sp-reroute" class="flow" d="M300 74 C 230 140, 190 210, 150 250" marker-end="url(#arrow)"/>
+            <text class="readout" id="f1-read" x="330" y="410" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: nobody promotes by hand; the leader key in etcd decides, and the proxy follows it</figcaption>
+      </figure>
+
+      <p>Notice what did the deciding: not the primary, and not any single standby &mdash; the <strong>DCS</strong> did, by refusing to hand the leader key to more than one node. Patroni is only the muscle that reacts to the key; etcd is the brain that holds the truth. That separation is the point. A node cannot promote itself just because <em>it</em> thinks the primary is gone; it must first <em>win the key</em>, and winning the key requires agreement from a majority of the DCS &mdash; which is exactly what the next section is about.</p>
+      <div class="callout note">
+        <span class="k">Holding the key == being primary</span>
+        <p>&ldquo;Primary&rdquo; is not a property baked into a server &mdash; it is a <em>lease you currently hold</em> in the DCS. This reframing kills a whole class of bugs: a node that lost the network can&rsquo;t keep believing it is primary, because it can no longer renew the key. When the lease lapses, its own Patroni will demote it. The database&rsquo;s identity lives in the consensus store, not in the box.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The math</div>
+      <h2>Consensus &amp; quorum: why you need an odd number &#9656;</h2>
+      <p>How can etcd guarantee it never grants that leader key to two nodes at once &mdash; even while messages are being lost and nodes are crashing? The answer is a <strong>consensus algorithm</strong> (etcd uses <strong>Raft</strong>), and its core rule is <strong>quorum</strong>: no decision is made unless a <em>majority</em> of the cluster agrees on it. Concretely, quorum is <strong>&#8970;N/2&#8971;&nbsp;+&nbsp;1</strong> nodes &mdash; 2 of 3, 3 of 5, 4 of 7.</p>
+      <p>Majority is the magic number because <em>two different majorities of the same set must overlap in at least one node</em> &mdash; and that shared node will not vote for two conflicting leaders. So two leaders can never be elected at the same time. Watch a partition try, and fail, to produce a second leader:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-quorum">
+          <svg viewBox="0 0 660 360" role="img" aria-label="Five DCS nodes; a partition splits them three and two; only the three-node majority reaches quorum and elects a leader">
+            <text class="lbl-sm" x="330" y="22" text-anchor="middle">etcd / Raft cluster &mdash; 5 nodes</text>
+            <rect id="f2-n1" class="node" x="20" y="40" width="96" height="56" rx="8"/><text class="lbl-sm" x="68" y="73" text-anchor="middle">node 1</text>
+            <rect id="f2-n2" class="node" x="146" y="40" width="96" height="56" rx="8"/><text class="lbl-sm" x="194" y="73" text-anchor="middle">node 2</text>
+            <rect id="f2-n3" class="node" x="272" y="40" width="96" height="56" rx="8"/><text class="lbl-sm" x="320" y="73" text-anchor="middle">node 3</text>
+            <rect id="f2-n4" class="node" x="398" y="40" width="96" height="56" rx="8"/><text class="lbl-sm" x="446" y="73" text-anchor="middle">node 4</text>
+            <rect id="f2-n5" class="node" x="524" y="40" width="96" height="56" rx="8"/><text class="lbl-sm" x="572" y="73" text-anchor="middle">node 5</text>
+            <line id="f2-split" x1="383" y1="24" x2="383" y2="152" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 5" style="opacity:0"/>
+            <text id="f2-lmark" class="lbl-sm" x="194" y="142" text-anchor="middle" fill="#4A7BA6" style="opacity:0">majority side: 3</text>
+            <text id="f2-rmark" class="lbl-sm" x="510" y="142" text-anchor="middle" fill="#B0532F" style="opacity:0">minority side: 2</text>
+            <text class="lbl-sm" x="330" y="184" text-anchor="middle">can this side elect a leader?</text>
+            <rect id="f2-box" class="balbox" x="240" y="196" width="180" height="60" rx="9"/>
+            <text id="f2-boxtext" x="330" y="232" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="700" fill="#20201D">5 nodes 1 leader</text>
+            <text id="f2-verdict" x="330" y="298" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <text class="lbl-sm" x="330" y="336" text-anchor="middle">quorum = &#8970;N/2&#8971; + 1 &#8594; &#8970;5/2&#8971; + 1 = 3</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: only a majority can elect a leader, so the minority side can never mint a second one</figcaption>
+      </figure>
+
+      <p>Two consequences fall out of this, and both matter in practice. First, <strong>odd node counts</strong>: with an even cluster a partition can split evenly (2&nbsp;|&nbsp;2) and <em>neither</em> side has a majority, so nobody leads &mdash; you paid for a fourth node and got <em>less</em> fault tolerance, not more. Three nodes tolerate one failure; five tolerate two; four tolerate the same one as three. Second, this is why the DCS is a <em>cluster</em> in the first place: a single etcd node would be a single point of failure, and its &ldquo;majority&rdquo; would be trivially one node &mdash; no protection at all.</p>
+      <div class="callout tip">
+        <span class="k">The DCS must survive, or failover can&rsquo;t happen</span>
+        <p>Flip the guarantee around: if <em>the etcd cluster itself</em> loses quorum (say two of three DCS nodes die), then <strong>no</strong> leader key can be granted or renewed &mdash; and Postgres failover freezes. A healthy database cluster can be stuck read-only because its <em>consensus store</em> lost majority. That is why you run the DCS with its own odd, well-spread set of nodes and monitor it as carefully as the databases it governs.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The failure &amp; the fix</div>
+      <h2>Split-brain &amp; fencing: at most one primary &#9656;</h2>
+      <p>Quorum stops the <em>minority</em> side of a partition from electing a <em>new</em> leader. But it does not, by itself, stop the <em>old</em> primary &mdash; the one already running on the minority side &mdash; from continuing to accept writes it thinks are still valid. That gap is exactly where <strong>split-brain</strong> is born: the new primary and the stranded old primary both write, to two databases that now disagree. Watch it happen, then watch what closes the gap:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-split">
+          <svg viewBox="0 0 660 340" role="img" aria-label="An isolated old primary and a new primary both taking writes cause divergent data, until fencing kills the old node so at most one primary survives">
+            <text class="lbl-sm" x="46" y="44" text-anchor="start">OLD PRIMARY (isolated)</text>
+            <g id="f3-old-alive" style="opacity:.2"><rect class="chip cB" x="40" y="52" width="150" height="42" rx="8"/><text class="chiptext" x="115" y="78" text-anchor="middle">still alive</text></g>
+            <g id="f3-old-x" style="opacity:.2"><rect class="chip cB" x="210" y="52" width="150" height="42" rx="8"/><text class="chiptext" x="285" y="78" text-anchor="middle">accepts write X</text></g>
+            <g id="f3-old-fence" style="opacity:.2"><rect class="chip cBad" x="440" y="52" width="180" height="42" rx="8"/><text class="chiptext" x="530" y="78" text-anchor="middle">watchdog fences it</text></g>
+            <text class="lbl-sm" x="335" y="130" text-anchor="middle">cluster data</text>
+            <rect id="f3-box" class="balbox" x="250" y="138" width="170" height="56" rx="9"/>
+            <text id="f3-boxtext" x="335" y="172" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#20201D">consistent</text>
+            <path d="M40 214 H 620" class="flow-d"/>
+            <text class="lbl-sm" x="620" y="209" text-anchor="end">time &#8594;</text>
+            <text class="lbl-sm" x="46" y="238" text-anchor="start">NEW PRIMARY</text>
+            <g id="f3-new-promoted" style="opacity:.2"><rect class="chip cA" x="40" y="246" width="180" height="42" rx="8"/><text class="chiptext" x="130" y="272" text-anchor="middle">promoted (holds key)</text></g>
+            <g id="f3-new-y" style="opacity:.2"><rect class="chip cA" x="240" y="246" width="150" height="42" rx="8"/><text class="chiptext" x="315" y="272" text-anchor="middle">accepts write Y</text></g>
+            <text id="f3-verdict" x="330" y="326" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: two primaries writing at once = split-brain; fencing + quorum guarantee at most one</figcaption>
+      </figure>
+
+      <p><strong>Fencing</strong> is the missing half. Quorum handles the majority side (only it can promote); fencing handles the minority side (the isolated old primary must be <em>forced</em> to stop writing). Patroni does this two ways at once. Because the old primary can no longer renew its leader key, its own Patroni agent <strong>demotes</strong> it (drops it to read-only). And for the terrifying case where Postgres is up but Patroni is wedged and can&rsquo;t demote in time, a hardware or software <strong>watchdog</strong> (<code>/dev/watchdog</code>) reboots the machine if the agent fails to pet it within the TTL &mdash; a form of <em>self-fencing</em> (classic <strong>STONITH</strong> means a healthy node shoots the <em>other</em>; a watchdog is a node reliably shooting <em>itself</em>). Either way, the isolated node is out of the write path <em>before</em> it can diverge for longer than the lease.</p>
+      <div class="callout note">
+        <span class="k">Quorum and fencing are a pair</span>
+        <p>People memorize &ldquo;quorum prevents split-brain&rdquo; and it is half-true. Quorum guarantees the losing side can&rsquo;t <em>elect a new</em> primary &mdash; but the losing side may already <em>have</em> the old one. You need <strong>fencing</strong> to positively stop that stranded primary. Config that makes fencing real: a required <strong>watchdog</strong>, a lease <code>ttl</code> short enough that the old primary self-demotes fast, and (for zero data loss) synchronous replication so an un-replicated write on the loser can&rsquo;t have been acknowledged. The recovered node later rejoins as a standby with <code>pg_rewind</code>, snapping back onto the survivor&rsquo;s timeline.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The stack</div>
+      <h2>The real stack: Patroni, etcd, and HAProxy</h2>
+      <p>In production the three roles are usually three named tools. It is worth seeing exactly how they wire together, because the config makes the abstract ideas concrete. <strong>Patroni</strong> runs on each database node and talks to the DCS:</p>
+      <p class="codetag">yaml &middot; patroni.yml</p>
+      <pre class="code"><code><span class="cm"># one agent per Postgres node; all share the same DCS</span>
+scope: bank-cluster
+etcd3:
+  hosts: [10.0.0.11:2379, 10.0.0.12:2379, 10.0.0.13:2379]
+bootstrap:
+  dcs:
+    ttl: <span class="lit">30</span>            <span class="cm"># leader-lease seconds: how long before a dead primary's key expires</span>
+    loop_wait: <span class="lit">10</span>      <span class="cm"># health-check / renewal interval</span>
+    retry_timeout: <span class="lit">10</span>
+postgresql:
+  parameters:
+    synchronous_commit: remote_apply   <span class="cm"># only bites with synchronous_mode: true set (below)</span>
+watchdog:
+  mode: required        <span class="cm"># STONITH: reboot this node if the agent stalls</span></code></pre>
+      <p>The <strong>DCS</strong> (etcd here) is a separate 3- or 5-node cluster holding the leader key and cluster state. Keep it on its own well-spread nodes; its health <em>is</em> your ability to fail over. Finally, <strong>HAProxy</strong> sends clients to whichever node is currently leader by probing Patroni&rsquo;s REST health endpoint &mdash; only the true primary answers <code>200</code> on <code>/primary</code>:</p>
+      <p class="codetag">haproxy.cfg</p>
+      <pre class="code"><code><span class="cm"># writes go only to the current leader; the check does the routing</span>
+backend postgres_primary
+    option httpchk GET /primary
+    server pg1 10.0.0.11:5432 check port <span class="lit">8008</span>
+    server pg2 10.0.0.12:5432 check port <span class="lit">8008</span>
+    server pg3 10.0.0.13:5432 check port <span class="lit">8008</span></code></pre>
+      <p>Two operations get confused constantly, so pin them down. A <strong>failover</strong> is <em>unplanned</em>: the primary died and the cluster reacts to save itself, possibly losing the last un-replicated writes (your <strong>RPO</strong>). A <strong>switchover</strong> is <em>planned</em>: you deliberately swap roles for maintenance, at a moment you choose, with zero data loss because the old primary is drained first. You drive a switchover yourself:</p>
+      <p class="codetag">shell &middot; patronictl</p>
+      <pre class="code"><code><span class="cm"># planned, zero-data-loss role swap (for maintenance)</span>
+patronictl -c patroni.yml switchover --leader pg1 --candidate pg2
+
+<span class="cm"># inspect cluster state: who is Leader, who is Replica, and lag</span>
+patronictl -c patroni.yml list</code></pre>
+      <p>And from inside SQL, the primary can see who is streaming and how far behind &mdash; the same lag that becomes your data loss if that node has to be promoted:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- run on the primary: replicas, sync status, and replay lag</span>
+<span class="kw">SELECT</span> client_addr, state, sync_state, replay_lag
+<span class="kw">FROM</span> pg_stat_replication;</code></pre>
+      <p>One last operational rule, and it is the one most teams skip: <strong>test your failover.</strong> A failover path that has never been exercised is a theory, not a safety net. Regularly (in staging, then production game-days) <code>kill -9</code> the primary, pull its network cable, or stop its VM &mdash; and measure the real RTO while confirming exactly one primary comes back. The classic outage is discovering, during a real 3&nbsp;a.m. incident, that the watchdog was never armed or the DCS had quietly lost quorum weeks ago.</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Putting it together</div>
+      <h2>Reason about it: the guarantee and its price</h2>
+      <p>Step back and assemble the whole machine from the invariant down. The goal is <strong>at most one primary, ever.</strong> Achieving it needs three things working together, and you can now name why each is non-negotiable:</p>
+      <ul>
+        <li><strong>A single source of truth</strong> (the leader key in the DCS) so &ldquo;who is primary&rdquo; is one authoritative fact, not each node&rsquo;s private opinion.</li>
+        <li><strong>Quorum</strong> so that fact can only be <em>changed</em> by a majority &mdash; making it impossible for two sides of a partition to both claim leadership.</li>
+        <li><strong>Fencing</strong> so a node that <em>lost</em> the truth is forcibly stopped from writing, closing the split-brain window the old primary would otherwise leave open.</li>
+      </ul>
+      <p>Now see why the tempting shortcut is a disaster. A naive &ldquo;just promote a standby&rdquo; health-check script looks like this &mdash; and it is how real companies have corrupted real data:</p>
+      <p class="codetag">shell &middot; the dangerous version</p>
+      <pre class="code"><code><span class="cm"># DON'T: promote from a single node's point of view</span>
+<span class="kw">if</span> ! pg_isready -h primary; <span class="kw">then</span>
+    psql -h standby -c <span class="lit">"SELECT pg_promote()"</span>
+<span class="kw">fi</span>
+<span class="cm"># Fatal flaw: "primary unreachable from HERE" is NOT "primary is dead".</span>
+<span class="cm"># A network blip promotes the standby while the old primary keeps</span>
+<span class="cm"># taking writes  ->  TWO primaries  ->  split-brain.</span>
+<span class="cm"># No shared source of truth, no quorum, no fencing.</span></code></pre>
+      <p>The script has no quorum (it trusts one observer&rsquo;s ping), no shared truth (nothing stops a second promotion), and no fencing (it never stops the old primary). Every one of those is a place split-brain walks in. This is the lesson behind all the machinery: correct distributed failover is not a script, it is a <em>protocol</em>, and you should adopt Patroni/etcd rather than hand-roll it.</p>
+      <p>The guarantee also has a real <strong>price</strong>, and honesty about it is part of understanding it. You now run and must monitor a whole extra quorum system (etcd), whose own health gates your database&rsquo;s ability to fail over &mdash; a lost DCS majority freezes promotion. Synchronous replication for zero data loss costs commit latency on every write. And even a perfect failover has a non-zero <strong>RTO</strong>: for a few seconds there is <em>zero</em> primary, in-flight connections drop, and writes error out. That is not a bug &mdash; it is the safe half of the invariant. It does mean the burden shifts to the application.</p>
+      <div class="callout tip">
+        <span class="k">Where this shows up next</span>
+        <p>Because failover briefly breaks connections and rewinds a standby&rsquo;s recent writes, your app cannot assume a connection lives forever or that a write always &ldquo;took.&rdquo; The database did its job &mdash; keep one primary; now the <em>client</em> must do its job: detect the drop, reconnect through the proxy, and <strong>retry idempotently</strong>. That is exactly the resilience work of <strong>L46&ndash;L48</strong> (reconnect, retry, and read-after-write during failover). And it all builds on the replication foundation of <strong>L42</strong> (topologies) and <strong>L43</strong> (slots, lag, synchronous commit) &mdash; failover is what finally makes those standbys earn their keep.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>failover turns a standby into a primary the instant the old one dies &mdash; and the entire craft is guaranteeing that at most one primary ever exists, which takes a shared leader key, quorum to change it, and fencing to silence whoever lost it.</em> Everything else &mdash; Patroni, etcd, HAProxy, watchdogs &mdash; is machinery in service of that single invariant.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Failover = promotion</b><span>A standby is useless until, the moment the primary dies, it actually becomes the new primary. That takeover is the point of replication.</span></div>
+        <div class="tk"><span class="num">02</span><b>The one invariant</b><span>At most one primary, ever. Zero primaries briefly is survivable; two primaries writing is catastrophe. Everything defends this line.</span></div>
+        <div class="tk"><span class="num">03</span><b>The leader key</b><span>&ldquo;Primary&rdquo; is a TTL lease held in a DCS (etcd), not a property of a box. Stop renewing it (you crashed) and it expires.</span></div>
+        <div class="tk"><span class="num">04</span><b>Quorum, odd nodes</b><span>Only a majority (&#8970;N/2&#8971;+1) can grant the key. Two majorities of one set must overlap, so two leaders can&rsquo;t be elected at once.</span></div>
+        <div class="tk"><span class="num">05</span><b>Split-brain</b><span>An isolated old primary that keeps writing while a new one is promoted = two divergent histories with no clean merge. The disaster.</span></div>
+        <div class="tk"><span class="num">06</span><b>Fencing / STONITH</b><span>Quorum stops the minority electing; the watchdog stops the stranded old primary writing. You need both &mdash; they are a pair.</span></div>
+        <div class="tk"><span class="num">07</span><b>The stack</b><span>Patroni (manager) + etcd (DCS) + HAProxy (routes to the leader). Adopt it; a hand-rolled &ldquo;promote a standby&rdquo; script causes split-brain.</span></div>
+        <div class="tk"><span class="num">08</span><b>Not free</b><span>You now run and monitor a quorum; a dead DCS freezes failover; and a non-zero RTO means the app must reconnect + retry.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Define failover and split-brain, and state the single invariant the whole design protects. Why is zero primaries survivable but two never?<br>
+        (2) Walk the automatic-failover sequence: what does the primary do with the leader key, what happens when it crashes, and how does a standby become primary?<br>
+        (3) Why an <em>odd</em> number of DCS nodes, and what is quorum = &#8970;N/2&#8971;+1 for? Show why a 3&nbsp;|&nbsp;2 partition cannot produce two leaders.<br>
+        (4) Quorum stops the minority from <em>electing</em> a leader &mdash; why is that not enough to prevent split-brain, and what exactly does fencing/STONITH add?<br>
+        (5) Name the three tools in the Patroni + etcd + HAProxy stack and each one&rsquo;s job. What is the difference between a failover and a switchover?<br>
+        (6) Why does automatic failover force the application to handle reconnect + retry, and what is RTO? Why is a &ldquo;just promote a standby&rdquo; bash script dangerous?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 44 &middot; FAILOVER, CONSENSUS &amp; SPLIT-BRAIN &middot; interactive edition<br>
+      Original study notes for engineers &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — automatic failover: election + promote */
+  makeStepper(_g('fig-fail'), [
+    {text:"Healthy cluster. HAProxy sends every write to the primary; the two standbys stream its WAL and stay ready.", active:["f1-stk-lb","f1-stk-pri"], path:"f1-sp-write"},
+    {text:"The primary continuously renews a short-lived leader key — a lease with a TTL — in etcd. Holding that key is what makes it 'the primary'.", active:["f1-stk-pri","f1-stk-dcs"], path:"f1-sp-hb"},
+    {text:"The primary crashes. It stops answering — and, crucially, it stops renewing its leader key.", active:["f1-stk-pri"]},
+    {text:"With no renewal, the TTL runs out and etcd expires the leader key. For a moment the cluster has NO leader.", active:["f1-stk-dcs"]},
+    {text:"Standby A races to claim the now-free key. etcd grants it — via quorum (see fig 2) — to exactly one node: A.", active:["f1-stk-sa","f1-stk-dcs"], path:"f1-sp-acquire"},
+    {text:"Holding the key, Patroni on A runs pg_promote(): A becomes the new primary. HAProxy, watching the key, reroutes writes to A. Failover done — no human touched it.", active:["f1-stk-lb","f1-stk-sa"], path:"f1-sp-reroute"}
+  ], function(idx,s){
+    var pri=_g('f1-pri-rect'), sa=_g('f1-sa-rect'), pl=_g('f1-pri-lbl'), sl=_g('f1-sa-lbl'), ds=_g('f1-dcs-state'), rd=_g('f1-read');
+    pri.setAttribute('class','node'); sa.setAttribute('class','node');
+    pl.textContent='PostgreSQL — PRIMARY'; sl.textContent='Standby A (replica)';
+    ds.textContent='leader key = pri';
+    var reads=["proxy → primary · standbys replicate","primary renews its lease in etcd","primary down — heartbeats stop","leader key EXPIRED — no leader","A wins the key (needs quorum)","A promoted · proxy now points to A"];
+    rd.textContent=reads[idx]||'';
+    if(idx>=2){ pri.setAttribute('class','node-r'); pl.textContent='PRIMARY  ✗ down'; }
+    if(idx>=3){ ds.textContent='leader key EXPIRED'; }
+    if(idx>=4){ sa.setAttribute('class','node-b'); sl.textContent='Standby A → candidate'; ds.textContent='leader key = A'; }
+    if(idx>=5){ sa.setAttribute('class','node-b'); sl.textContent='NEW PRIMARY (A)'; }
+  });
+
+  /* FIG 2 — consensus & quorum */
+  makeStepper(_g('fig-quorum'), [
+    {text:"A DCS runs an odd number of nodes — here 5 — using the Raft consensus algorithm. All five agree on one shared value: who the leader is.", box:"5 nodes 1 leader"},
+    {text:"To change that value (elect a new leader) a candidate must win a MAJORITY of votes: a quorum of ⌊N/2⌋+1 = 3 of the 5. Two nodes agreeing alone decides nothing.", box:"quorum = 3 / 5"},
+    {text:"Now a network partition cuts the cluster in two: nodes 1–3 on one side, nodes 4–5 on the other. Each side can talk to itself, but not across.", split:true, box:"split  3 | 2"},
+    {text:"The 3-node side counts 3 votes. 3 ≥ 3 → it has quorum. It elects the leader and keeps serving.", split:true, color:true, box:"left 3 ≥ 3  ✓", cls:"kok", v:"majority elects the leader"},
+    {text:"The 2-node side counts only 2 votes. 2 < 3 → no quorum. It CANNOT elect a leader, so it refuses. This is what stops a second primary.", split:true, color:true, box:"right 2 < 3  ✗", cls:"kbad", v:"✗ minority can elect nothing"},
+    {text:"Outcome: at most one leader can ever exist, because two sides can't both hold a majority of the same 5 nodes. Odd counts avoid a tie with no winner.", split:true, color:true, box:"one leader safe", cls:"kok", v:"✓ exactly one leader, ever"}
+  ], function(idx,s){
+    ['f2-n1','f2-n2','f2-n3','f2-n4','f2-n5'].forEach(function(id){_g(id).setAttribute('class','node');});
+    _g('f2-split').style.opacity = s.split?1:0;
+    _g('f2-lmark').style.opacity = s.split?1:0;
+    _g('f2-rmark').style.opacity = s.split?1:0;
+    if(idx===1){ ['f2-n1','f2-n2','f2-n3','f2-n4','f2-n5'].forEach(function(id){_g(id).setAttribute('class','node-b');}); }
+    if(s.color){ ['f2-n1','f2-n2','f2-n3'].forEach(function(id){_g(id).setAttribute('class','node-b');});
+      ['f2-n4','f2-n5'].forEach(function(id){_g(id).setAttribute('class','node-r');}); }
+    var box=_g('f2-box'), bt=_g('f2-boxtext'), vd=_g('f2-verdict');
+    bt.textContent = s.box;
+    box.setAttribute('class','balbox'+(s.cls?(' '+s.cls):''));
+    bt.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#20201D'));
+    vd.textContent = s.v || '';
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — split-brain & fencing */
+  makeStepper(_g('fig-split'), [
+    {text:"Failover promoted a NEW primary — but the OLD primary didn't crash. A partition just isolated it from etcd and from half the clients. It's still running, and doesn't yet know it lost.", lit:["f3-old-alive","f3-new-promoted"], box:"2 leaders ?!", cls:"kbad", v:"both believe they can write"},
+    {text:"Clients still connected to the OLD primary send it a write. It accepts X — because nothing has told it to stop.", lit:["f3-old-alive","f3-old-x","f3-new-promoted"], box:"old DB  + X", cls:"kbad", v:"X lands only on the old node"},
+    {text:"The NEW primary accepts write Y. The two databases now hold DIFFERENT data with no way to merge — this is SPLIT-BRAIN.", lit:["f3-old-alive","f3-old-x","f3-new-promoted","f3-new-y"], box:"diverged X | Y", cls:"kbad", v:"✗ split-brain — divergent data"},
+    {text:"The cure: the old primary lost its leader key, so Patroni demotes it. If it can't confirm in time, the WATCHDOG (STONITH) reboots the node. Either way it stops taking writes — fencing.", lit:["f3-old-fence","f3-new-promoted","f3-new-y"], box:"old node fenced", cls:"", v:"isolated node forced to stop"},
+    {text:"Fencing plus quorum guarantee AT MOST ONE primary. The old node rejoins as a standby and re-syncs from the new primary (pg_rewind) — one timeline again.", lit:["f3-old-fence","f3-new-promoted","f3-new-y"], box:"one primary", cls:"kok", v:"✓ at most one primary"}
+  ], function(idx,s){
+    ['f3-old-alive','f3-old-x','f3-old-fence','f3-new-promoted','f3-new-y'].forEach(function(id){
+      _g(id).style.opacity = s.lit.indexOf(id)>=0?1:0.2;});
+    var box=_g('f3-box'), bt=_g('f3-boxtext'), vd=_g('f3-verdict');
+    bt.textContent = s.box;
+    box.setAttribute('class','balbox'+(s.cls?(' '+s.cls):''));
+    bt.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#20201D'));
+    vd.textContent = s.v;
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

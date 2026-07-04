@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 45 — Logical Replication &amp; CDC (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Logical Replication &amp; CDC</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Two kinds of replication</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Publications &amp; subscriptions &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Logical decoding &amp; CDC &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Uses, rules &amp; failover slots</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: CDC to a search index &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">45</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Logical Replication &amp; CDC</h1>
+      <p class="lede">Physical replication copies the WAL byte-for-byte to make an identical clone. <strong>Logical</strong> replication does something stranger and more useful: it <em>decodes</em> the same WAL into row-level changes — INSERT, UPDATE, DELETE — that you can filter, transform, ship to a different major version, and feed into systems that aren't even Postgres. That decoding is the engine of <strong>Change Data Capture</strong>, the modern way to keep a warehouse, a search index, or a cache in sync with your database of record — without the dual-write bugs that plague the naive approach.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written for engineers preparing for interviews and real systems, using <strong>PostgreSQL (PG&nbsp;17/18)</strong>. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>). This is a practice lesson: it ends in a <strong>worked SQL problem</strong> — wiring CDC to a search index — and a set of <strong>graded drills</strong> with a traps checklist. It builds on replication topologies (L41) and points straight at the outbox (L46), idempotency (L47), and cache/search sync (L48).
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>Two ways to copy a database</h2>
+      <p>Postgres can replicate itself in two fundamentally different ways, and the whole lesson turns on the distinction. <strong>Physical (streaming) replication</strong> — the subject of L41 — ships the raw <strong>WAL byte-stream</strong> and the standby replays it, producing a block-for-block identical copy of the entire cluster. It is simple and fast, but it is also rigid: the standby is read-only, must be the <em>same</em> major version, and copies <em>everything</em>, whether you wanted that table or not.</p>
+      <p><strong>Logical replication</strong> starts from the same WAL but runs it through a decoder first. Instead of "apply these bytes to that disk block," it emits "row 42 in <code>orders</code> changed from this to that." Those row-level changes can be filtered to specific tables, replayed on a <em>different</em> major version, and applied to a target that is a normal, writable database. Everything you'll build in the rest of Phase 8 — feeding a warehouse, a search index, a cache — rides on that difference.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Physical / streaming (L41)</h4>
+          <ul>
+            <li>Ships <strong>WAL bytes</strong>; standby replays block-for-block.</li>
+            <li>Whole cluster, <strong>all databases &amp; tables</strong> — no picking.</li>
+            <li>Standby is <strong>read-only</strong>; same <strong>major version</strong>.</li>
+            <li>Great for <strong>HA</strong> and read scaling; a faithful clone.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Logical / decoded</h4>
+          <ul>
+            <li>Decodes WAL into <strong>row-level changes</strong> (I/U/D).</li>
+            <li><strong>Selective</strong>: chosen tables, rows, even columns.</li>
+            <li>Target is <strong>writable</strong>; works <strong>cross-version</strong>.</li>
+            <li>The basis of <strong>CDC</strong> — feed non-Postgres systems.</li>
+          </ul>
+        </div>
+      </div>
+      <p><strong>Change Data Capture (CDC)</strong> is the pattern that falls out of this: tap the stream of committed row changes and use it to drive other systems, so your database stays the single source of truth and everything downstream is a derived copy that follows along. Postgres provides the raw capability — <em>logical decoding</em> — and tools like Debezium build the full pipeline on top of it.</p>
+      <div class="callout note">
+        <span class="k">Same WAL, two readers</span>
+        <p>There is only ever <em>one</em> write-ahead log. Physical replication and logical decoding are two different <strong>consumers</strong> of it: one wants the bytes to make an identical block image; the other wants the meaning — which row, which table, which operation. Understanding that both start from the same WAL is the key that makes replication, CDC, and even backup/PITR (L36–L37) click together.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The wiring</div>
+      <h2>Publications &amp; subscriptions &#9656;</h2>
+      <p>Native logical replication is configured with two objects. On the source (the <strong>publisher</strong>) you create a <code>PUBLICATION</code> — a named set of tables whose changes you want to expose. On the target (the <strong>subscriber</strong>) you create a <code>SUBSCRIPTION</code> that connects to that publication and starts pulling changes. The one prerequisite is server-side: <code>wal_level = logical</code> in <code>postgresql.conf</code> (a restart), which tells Postgres to log enough extra detail for decoding.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- PUBLISHER (source): postgresql.conf -&gt; wal_level = logical  (needs a restart)</span>
+<span class="kw">CREATE</span> <span class="kw">PUBLICATION</span> pub_sales <span class="kw">FOR</span> <span class="kw">TABLE</span> orders, customers;
+
+<span class="cm">-- SUBSCRIBER (target): the tables must already exist with matching columns</span>
+<span class="kw">CREATE</span> <span class="kw">SUBSCRIPTION</span> sub_sales
+  <span class="kw">CONNECTION</span> <span class="lit">'host=source dbname=shop user=repl password=...'</span>
+  <span class="kw">PUBLICATION</span> pub_sales;</code></pre>
+      <p>Creating the subscription does three things in sequence: it opens a <strong>logical replication slot</strong> on the publisher (which will retain WAL until the subscriber has consumed it), takes an <strong>initial snapshot</strong> of the existing rows in the published tables, and then switches to <strong>streaming</strong> ongoing changes. Step through exactly what flows — and, just as importantly, what doesn't:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pubsub">
+          <svg viewBox="0 0 640 400" role="img" aria-label="A publication selects orders and customers; a subscription applies them on the target; audit_log is excluded">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">writes on the SOURCE &middot; orders &middot; customers &middot; audit_log</text>
+            <g class="st" id="f1-stk-0"><rect class="node-b" x="120" y="40" width="400" height="46" rx="8"/><text class="lbl" x="320" y="68" text-anchor="middle">Source Postgres (publisher)</text></g>
+            <g class="st" id="f1-stk-1"><rect class="node-r" x="120" y="100" width="400" height="50" rx="8"/><text class="lbl" x="320" y="122" text-anchor="middle" fill="#B0532F">CREATE PUBLICATION pub_sales</text><text class="lbl-sm" x="320" y="140" text-anchor="middle" fill="#B0532F">FOR TABLE orders, customers</text></g>
+            <g class="st" id="f1-stk-2"><rect class="node-b" x="120" y="164" width="400" height="50" rx="8"/><text class="lbl" x="320" y="185" text-anchor="middle">logical slot + walsender</text><text class="lbl-sm" x="320" y="203" text-anchor="middle">decodes only published tables; holds WAL for the subscriber</text></g>
+            <g class="st" id="f1-stk-3"><rect class="node-b" x="120" y="228" width="400" height="46" rx="8"/><text class="lbl" x="320" y="248" text-anchor="middle">CREATE SUBSCRIPTION sub_sales (target)</text><text class="lbl-sm" x="320" y="265" text-anchor="middle">initial snapshot, then stream</text></g>
+            <g class="st" id="f1-stk-4"><rect class="node-t" x="120" y="288" width="400" height="50" rx="8"/><text class="lbl" x="320" y="309" text-anchor="middle" fill="#7a2c43">apply worker &#8594; target: orders, customers</text><text class="lbl-sm" x="320" y="327" text-anchor="middle" fill="#7a2c43">replays each row change in commit order</text></g>
+            <g id="f1-excl" style="opacity:0"><rect class="chip cBad" x="528" y="102" width="100" height="46" rx="8"/><text class="chiptext" x="578" y="122" text-anchor="middle">audit_log</text><text class="chiptext" x="578" y="138" text-anchor="middle" font-size="11">excluded &#10007;</text></g>
+            <path id="f1-sp-0" class="flow" d="M320 24 V 38" marker-end="url(#arrow)"/>
+            <path id="f1-sp-1" class="flow" d="M320 86 V 98" marker-end="url(#arrow)"/>
+            <path id="f1-sp-2" class="flow" d="M320 150 V 162" marker-end="url(#arrow)"/>
+            <path id="f1-sp-3" class="flow" d="M320 214 V 226" marker-end="url(#arrow)"/>
+            <path id="f1-sp-4" class="flow" d="M320 274 V 286" marker-end="url(#arrow)"/>
+            <text id="f1-read" class="readout" x="320" y="366" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: a publication is a filter; audit_log is never published, so it never leaves the source</figcaption>
+      </figure>
+
+      <p>The important word is <strong>selective</strong>. A publication can name specific tables (<code>FOR TABLE</code>), every table in a schema (<code>FOR TABLES IN SCHEMA sales</code>, PG15+), or the whole database (<code>FOR ALL TABLES</code>). Since PG15 you can even attach a <strong>row filter</strong> (<code>WHERE (region = 'EU')</code>) and a <strong>column list</strong>, so the subscriber receives only the slice it needs. Nothing outside the publication is ever decoded or sent.</p>
+      <div class="callout tip">
+        <span class="k">Selective by design</span>
+        <p>Because publications choose tables (and rows, and columns), logical replication is how you build a subscriber that holds only <em>part</em> of the source — a reporting replica with just the public tables, a per-region copy, or a consolidation target that merges several shards into one. That flexibility is impossible with physical replication, which always copies the entire cluster verbatim.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The mechanism</div>
+      <h2>Logical decoding and how CDC is built on it &#9656;</h2>
+      <p>Native subscriptions are the friendly front end. Underneath sits <strong>logical decoding</strong>: a replication slot plus an <strong>output plugin</strong> that reads the WAL and reconstructs row-level change events. Postgres ships <code>pgoutput</code> (the compact binary format native replication and Debezium use) and <code>test_decoding</code> (a human-readable format, perfect for <em>seeing</em> the stream). You can tap a slot directly — no second database required — with <code>pg_recvlogical</code> or the SQL functions:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- create a logical slot using the human-readable test_decoding plugin</span>
+<span class="kw">SELECT</span> <span class="fn">pg_create_logical_replication_slot</span>(<span class="lit">'cdc_demo'</span>, <span class="lit">'test_decoding'</span>);
+
+<span class="cm">-- PEEK at the changes (does NOT advance the slot; *_get_* would consume them)</span>
+<span class="kw">SELECT</span> lsn, data
+<span class="kw">FROM</span> <span class="fn">pg_logical_slot_peek_changes</span>(<span class="lit">'cdc_demo'</span>, <span class="kw">NULL</span>, <span class="kw">NULL</span>);</code></pre>
+      <p>After an <code>INSERT</code>, an <code>UPDATE</code>, and a <code>DELETE</code> on <code>orders</code> commit in one transaction, the decoded stream looks like this — ordered, framed by <code>BEGIN</code>/<code>COMMIT</code>, one line per row change:</p>
+      <p class="codetag">illustrative &middot; test_decoding output</p>
+      <pre class="code"><code>    lsn     | data
+------------+----------------------------------------------------------
+ 0/1A2B3C0  | BEGIN 742
+ 0/1A2B3D8  | table public.orders: INSERT: id[bigint]:10 total[integer]:40
+ 0/1A2B420  | table public.orders: UPDATE: id[bigint]:10 total[integer]:55
+ 0/1A2B468  | table public.orders: DELETE: id[bigint]:10
+ 0/1A2B490  | COMMIT 742</code></pre>
+      <p>Three properties make this stream the perfect input for CDC: it is <strong>ordered</strong> (changes appear in commit order), <strong>transactional</strong> (you see whole committed transactions, never half of one), and <strong>durable to resume</strong> (the slot remembers the last position the consumer confirmed, so a crashed consumer picks up where it left off). Follow the whole path from WAL to downstream systems:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-cdc">
+          <svg viewBox="0 0 640 400" role="img" aria-label="WAL decoded by a plugin into a change stream, read by a CDC connector, fanned out to Kafka, a warehouse, search and cache">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">a transaction commits: INSERT &middot; UPDATE &middot; DELETE</text>
+            <g class="st" id="f2-stk-0"><rect class="node-b" x="120" y="40" width="400" height="46" rx="8"/><text class="lbl" x="320" y="60" text-anchor="middle">WAL &middot; write-ahead log</text><text class="lbl-sm" x="320" y="77" text-anchor="middle">raw byte records of every change (physical)</text></g>
+            <g class="st" id="f2-stk-1"><rect class="node-r" x="120" y="100" width="400" height="50" rx="8"/><text class="lbl" x="320" y="121" text-anchor="middle" fill="#B0532F">logical decoding &middot; output plugin (pgoutput)</text><text class="lbl-sm" x="320" y="139" text-anchor="middle" fill="#B0532F">reconstructs row-level changes from the WAL</text></g>
+            <g class="st" id="f2-stk-2"><rect class="node-t" x="120" y="164" width="400" height="50" rx="8"/><text class="lbl" x="320" y="185" text-anchor="middle" fill="#7a2c43">change stream &middot; {op, table, before/after}</text><text class="lbl-sm" x="320" y="203" text-anchor="middle" fill="#7a2c43">ordered, transactional (BEGIN..COMMIT)</text></g>
+            <g class="st" id="f2-stk-3"><rect class="node-b" x="120" y="228" width="400" height="46" rx="8"/><text class="lbl" x="320" y="248" text-anchor="middle">CDC connector (Debezium / pg_recvlogical)</text><text class="lbl-sm" x="320" y="265" text-anchor="middle">reads the slot; advances position after ack</text></g>
+            <g class="st" id="f2-stk-4"><rect class="node-b" x="120" y="288" width="400" height="50" rx="8"/><text class="lbl" x="320" y="309" text-anchor="middle">fan-out &#8594; Kafka</text><text class="lbl-sm" x="320" y="327" text-anchor="middle">warehouse &middot; search index &middot; cache (at-least-once)</text></g>
+            <path id="f2-sp-0" class="flow" d="M320 24 V 38" marker-end="url(#arrow)"/>
+            <path id="f2-sp-1" class="flow" d="M320 86 V 98" marker-end="url(#arrow)"/>
+            <path id="f2-sp-2" class="flow" d="M320 150 V 162" marker-end="url(#arrow)"/>
+            <path id="f2-sp-3" class="flow" d="M320 214 V 226" marker-end="url(#arrow)"/>
+            <path id="f2-sp-4" class="flow" d="M320 274 V 286" marker-end="url(#arrow)"/>
+            <text id="f2-read" class="readout" x="320" y="366" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: decoding turns the byte log into a meaningful change stream — the raw material of CDC</figcaption>
+      </figure>
+
+      <p>This is the mental model behind every CDC tool. <strong>Debezium</strong> is the most common: it runs as a Kafka Connect connector, reads a Postgres slot with <code>pgoutput</code>, and publishes each change as a message onto a Kafka topic. From there, sink connectors (or your own consumers) push the changes into a data warehouse, an Elasticsearch index, or a Redis cache — every downstream system an eventually-consistent, derived copy of what Postgres committed.</p>
+      <div class="callout note">
+        <span class="k">pgoutput vs test_decoding</span>
+        <p>Use <code>test_decoding</code> to <em>read</em> the stream with your eyes while learning or debugging — it prints the plain-text lines above. Use <code>pgoutput</code> in production: it's the built-in binary protocol that native subscriptions and Debezium speak, and it needs no extra extension installed on managed services like RDS or Cloud SQL. Same slot machinery underneath; different wire format.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Uses &amp; limits</div>
+      <h2>Where it shines, and the rules that bite</h2>
+      <p>Logical replication earns its keep in a handful of high-value situations, and it comes with a matching set of sharp edges you must respect.</p>
+      <h3>What it's for</h3>
+      <ul>
+        <li><strong>Near-zero-downtime major upgrades.</strong> Replicate PG&nbsp;16 &#8594; PG&nbsp;18 logically, let the new version catch up, then cut over — because logical works <em>across</em> major versions where physical cannot. PG17's <code>pg_createsubscriber</code> can even convert an existing physical standby into a logical subscriber almost instantly, avoiding a fresh full copy.</li>
+        <li><strong>Cross-version / cross-platform migration</strong> and consolidating several databases (or shards) into one reporting target.</li>
+        <li><strong>Feeding derived systems (CDC):</strong> warehouses, search indexes, caches, and event streams — the focus of the worked problem next.</li>
+      </ul>
+      <h3>The rules that bite</h3>
+      <ul>
+        <li><strong>REPLICA IDENTITY.</strong> To replicate an <code>UPDATE</code> or <code>DELETE</code>, the subscriber must know <em>which</em> row to touch. The table's <strong>replica identity</strong> supplies that key: <code>DEFAULT</code> uses the primary key; <code>USING INDEX</code> a chosen unique, non-partial, <code>NOT NULL</code> index; <code>FULL</code> logs the entire old row (expensive, but the only option when there's no unique key); <code>NOTHING</code> blocks updates/deletes entirely. A table with no PK and <code>DEFAULT</code> identity will <em>error</em> on the first update.</li>
+        <li><strong>No DDL, no sequences.</strong> Only row-level DML replicates. <code>ALTER TABLE</code>, new indexes, and other schema changes are <em>not</em> propagated — you apply them to the subscriber yourself, in expand/contract order (L44-style migrations). Sequence <em>values</em> aren't replicated either, so after a switchover you must re-align identity counters. (<code>TRUNCATE</code> is replicated since PG11.)</li>
+        <li><strong>Slots retain WAL.</strong> A slot pins WAL at its <code>restart_lsn</code> until the consumer confirms it. An idle or forgotten slot therefore keeps WAL forever and can fill the primary's disk — a classic outage. Cap the damage with <code>max_slot_wal_keep_size</code> and monitor <code>pg_replication_slots</code>.</li>
+        <li><strong>Failover used to break CDC.</strong> Logical slots lived only on the primary and weren't copied to standbys, so a failover orphaned every slot — the promoted node had no idea where the consumer was, forcing a full re-snapshot.</li>
+      </ul>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- when a table has no primary key, give it an identity for U/D replication</span>
+<span class="kw">ALTER</span> <span class="kw">TABLE</span> orders <span class="kw">REPLICA</span> <span class="kw">IDENTITY</span> <span class="kw">FULL</span>;        <span class="cm">-- or USING INDEX orders_uk</span>
+
+<span class="cm">-- PG17: keep the logical slot synchronized to standbys so CDC survives failover</span>
+<span class="kw">CREATE</span> <span class="kw">SUBSCRIPTION</span> sub_sales
+  <span class="kw">CONNECTION</span> <span class="lit">'...'</span> <span class="kw">PUBLICATION</span> pub_sales
+  <span class="kw">WITH</span> (failover = <span class="lit">true</span>);
+
+<span class="cm">-- watch WAL a slot is retaining (an inactive slot here is a red flag)</span>
+<span class="kw">SELECT</span> slot_name, active, wal_status,
+       <span class="fn">pg_size_pretty</span>(<span class="fn">pg_wal_lsn_diff</span>(<span class="fn">pg_current_wal_lsn</span>(), restart_lsn)) <span class="kw">AS</span> retained_wal
+<span class="kw">FROM</span> pg_replication_slots;</code></pre>
+      <div class="callout tip">
+        <span class="k">PG17 failover slots — CDC that survives HA</span>
+        <p>PG17 makes logical slots <strong>synchronizable</strong>: create the subscription (or slot) with <code>failover = true</code>, and set <code>synchronized_standby_slots</code> so the primary only advances the logical slot after the standby has the same WAL. Now when a standby is promoted, it carries a copy of the slot at the right position and your Debezium pipeline resumes without re-snapshotting the whole database. This closed the biggest operational gap in production CDC.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Keep a search index in sync with CDC &#9656;</h2>
+      <p>Time to build the real thing. You run an e-commerce catalog in Postgres, and product search is served by <strong>Elasticsearch</strong>. When a price or stock flag changes in Postgres, search results must reflect it within a few seconds — <em>without</em> the fragile "write the DB, then write ES" code that so often loses updates.</p>
+      <h3>1 &middot; The schema</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">TABLE</span> products (
+  product_id   <span class="kw">bigint</span> <span class="kw">PRIMARY KEY</span>,
+  title        <span class="kw">text</span>        <span class="kw">NOT NULL</span>,
+  price_cents  <span class="kw">integer</span>     <span class="kw">NOT NULL</span>,
+  in_stock     <span class="kw">boolean</span>     <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="lit">true</span>,
+  updated_at   <span class="kw">timestamptz</span> <span class="kw">NOT NULL</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);</code></pre>
+      <h3>2 &middot; The task</h3>
+      <p>Every committed change to <code>products</code> — insert, price update, stock toggle, delete — must be reflected in the Elasticsearch <code>products</code> index promptly, reliably, and without blocking the write path or losing events on a crash.</p>
+      <h3>3 &middot; The naive attempt (and why it's wrong)</h3>
+      <p>The obvious code writes both stores in the application:</p>
+      <p class="codetag">pseudo-code &middot; the dual write</p>
+      <pre class="code"><code><span class="cm">// application request handler</span>
+db.execute(<span class="lit">"UPDATE products SET price_cents=1999 WHERE product_id=42"</span>);
+db.commit();                                  <span class="cm">// (1) Postgres committed</span>
+es.index(<span class="lit">"products"</span>, <span class="lit">42</span>, {price_cents: <span class="lit">1999</span>});    <span class="cm">// (2) now update search</span></code></pre>
+      <p>This is the <strong>dual-write problem</strong>. There is no transaction spanning Postgres and Elasticsearch, so any of these interleavings corrupts the index:</p>
+      <ul>
+        <li>The process <strong>crashes between (1) and (2)</strong> &#8594; Postgres has the new price, search is permanently stale.</li>
+        <li>The <strong>ES call fails</strong> (timeout, ES down) after the DB commit &#8594; same stale index, and now you're writing rollback/retry logic by hand.</li>
+        <li>Two concurrent updates commit as A&#8594;B in the DB but their ES calls race and land B&#8594;A &#8594; the index ends on the <strong>older</strong> value (a write-write / invalidation race).</li>
+      </ul>
+      <p>You cannot fix this with more retries or a bigger try/catch: the fault is structural — two independent systems, no shared commit. (L46's transactional outbox is the other principled cure; here we use CDC.)</p>
+      <h3>4 &middot; The fix: drive the index from CDC</h3>
+      <p>Make Postgres the single source of truth and let the search index <em>follow the WAL</em>. The application writes only to Postgres; a CDC pipeline carries every committed change to Elasticsearch.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- 0) postgresql.conf: wal_level = logical   (restart once)</span>
+
+<span class="cm">-- 1) publish the table whose changes drive search</span>
+<span class="kw">CREATE</span> <span class="kw">PUBLICATION</span> pub_products <span class="kw">FOR</span> <span class="kw">TABLE</span> products;
+
+<span class="cm">-- 2) REPLICA IDENTITY defaults to the PK (product_id), so every</span>
+<span class="cm">--    UPDATE and DELETE event already carries the id the sink keys on.</span>
+<span class="cm">--    (Use FULL only if a downstream transform needs old non-key columns.)</span>
+
+<span class="cm">-- 3) a Debezium (pgoutput) connector reads the slot and emits, per change:</span>
+<span class="cm">--    { op:'u', after:{ product_id:42, price_cents:1999, in_stock:true, ... } }</span>
+<span class="cm">--    keyed by product_id; a consumer upserts it into Elasticsearch.</span></code></pre>
+      <p>Follow the pipeline end to end, including the duplicate that <em>every</em> at-least-once system eventually delivers:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-search">
+          <svg viewBox="0 0 640 400" role="img" aria-label="A product change flows via publication, Debezium, a Kafka topic keyed by product_id, into an idempotent upsert in Elasticsearch">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">UPDATE products SET price_cents=1999 WHERE product_id=42</text>
+            <g class="st" id="f3-stk-0"><rect class="node-b" x="120" y="40" width="400" height="46" rx="8"/><text class="lbl" x="320" y="60" text-anchor="middle">Postgres &middot; products (source of truth)</text><text class="lbl-sm" x="320" y="77" text-anchor="middle">the UPDATE is written to the WAL</text></g>
+            <g class="st" id="f3-stk-1"><rect class="node-r" x="120" y="100" width="400" height="50" rx="8"/><text class="lbl" x="320" y="121" text-anchor="middle" fill="#B0532F">PUBLICATION pub_products &middot; REPLICA IDENTITY = PK</text><text class="lbl-sm" x="320" y="139" text-anchor="middle" fill="#B0532F">every U/D event carries product_id</text></g>
+            <g class="st" id="f3-stk-2"><rect class="node-b" x="120" y="164" width="400" height="50" rx="8"/><text class="lbl" x="320" y="185" text-anchor="middle">Debezium connector (reads the slot)</text><text class="lbl-sm" x="320" y="203" text-anchor="middle">emits {op:'u', after:{...}} keyed by product_id</text></g>
+            <g class="st" id="f3-stk-3"><rect class="node-t" x="120" y="228" width="400" height="46" rx="8"/><text class="lbl" x="320" y="248" text-anchor="middle" fill="#7a2c43">Kafka topic products.changes</text><text class="lbl-sm" x="320" y="265" text-anchor="middle" fill="#7a2c43">partition by product_id &#8594; per-key order</text></g>
+            <g class="st" id="f3-stk-4"><rect class="node-b" x="120" y="288" width="400" height="50" rx="8"/><text class="lbl" x="320" y="309" text-anchor="middle">indexer &#8594; idempotent upsert into Elasticsearch</text><text class="lbl-sm" x="320" y="327" text-anchor="middle">PUT /products/_doc/42  (_id = product_id)</text></g>
+            <path id="f3-sp-0" class="flow" d="M320 24 V 38" marker-end="url(#arrow)"/>
+            <path id="f3-sp-1" class="flow" d="M320 86 V 98" marker-end="url(#arrow)"/>
+            <path id="f3-sp-2" class="flow" d="M320 150 V 162" marker-end="url(#arrow)"/>
+            <path id="f3-sp-3" class="flow" d="M320 214 V 226" marker-end="url(#arrow)"/>
+            <path id="f3-sp-4" class="flow" d="M320 274 V 286" marker-end="url(#arrow)"/>
+            <text id="f3-read" class="readout" x="320" y="366" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: DB &#8594; publication &#8594; Debezium &#8594; Kafka (keyed) &#8594; idempotent upsert into search</figcaption>
+      </figure>
+
+      <h3>5 &middot; Why it's better</h3>
+      <p>There is now exactly one write in the request path — the Postgres commit — and it is <em>impossible</em> to lose a change, because every committed change is in the WAL and the slot guarantees the consumer will eventually see it. Delivery is <strong>at-least-once</strong>: a consumer that crashes after applying but before acking will be re-sent the same event. That's why the sink must be <strong>idempotent</strong> — an upsert keyed by <code>product_id</code> re-applied is a harmless no-op, so at-least-once + idempotent = effectively once.</p>
+      <p>Idempotency at the consumer often uses a tiny dedup table (an "inbox") keyed by the event's LSN, so a replay is a cheap no-op. That check is a primary-key conflict — here's the plan Postgres runs for it:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE</span> <span class="kw">TABLE</span> search_inbox (event_lsn <span class="kw">pg_lsn</span> <span class="kw">PRIMARY KEY</span>);
+
+<span class="kw">EXPLAIN</span> <span class="kw">ANALYZE</span>
+<span class="kw">INSERT INTO</span> search_inbox (event_lsn) <span class="kw">VALUES</span> (<span class="lit">'0/1A2B420'</span>)
+<span class="kw">ON CONFLICT</span> (event_lsn) <span class="kw">DO NOTHING</span>;</code></pre>
+      <p class="codetag">illustrative &middot; a redelivered event = a no-op</p>
+      <pre class="code"><code>Insert on search_inbox  (cost=0.00..0.01 rows=0 width=0)
+                        (actual time=0.041..0.041 rows=0 loops=1)
+  Conflict Resolution: NOTHING
+  Conflict Arbiter Indexes: search_inbox_pkey
+  Tuples Inserted: 0
+  Conflicting Tuples: 1
+  -&gt;  Result  (cost=0.00..0.01 rows=1 width=8)
+              (actual time=0.002..0.002 rows=1 loops=1)
+ Planning Time: 0.058 ms
+ Execution Time: 0.071 ms</code></pre>
+      <p>Read it: <em>Tuples Inserted: 0, Conflicting Tuples: 1</em>. The duplicate hit the <code>search_inbox_pkey</code> arbiter index and was dropped — the second delivery did nothing, exactly what idempotency requires. Ordering, meanwhile, comes from partitioning the Kafka topic by <code>product_id</code>, so all changes to one product stay in order relative to each other even under concurrency.</p>
+      <h3>6 &middot; Narrate it</h3>
+      <p><em>"The app writes only Postgres. A publication exposes <code>products</code>; because its replica identity is the primary key, every update and delete event carries <code>product_id</code>. Debezium reads the logical slot and drops keyed change events on a Kafka topic partitioned by <code>product_id</code>, preserving per-product order. An indexer upserts each event into Elasticsearch using <code>product_id</code> as the document id. Delivery is at-least-once, so I made the sink idempotent — a re-delivered event upserts the same doc, a no-op. No dual write, no lost updates; search is an eventually-consistent derived view of the WAL."</em> That last idea — a cache or index as a derived, eventually-consistent copy of the database of record — is exactly what <strong>L48</strong> generalizes.</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Drills</div>
+      <h2>Graded drills &amp; the traps list</h2>
+      <p>Work each drill before opening its solution. They rise in difficulty and target the exact places logical replication and CDC go wrong in production.</p>
+
+      <h3>Drill 1 &middot; The updates that won't replicate</h3>
+      <p>You publish a table and INSERTs replicate perfectly, but the first <code>UPDATE</code> fails with <code>cannot update table ... because it does not have a replica identity and publishes updates</code>. What's wrong, and the one-line fix?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>The table has <strong>no primary key</strong>, so its default replica identity can't tell the subscriber which row an UPDATE/DELETE targets. INSERTs work because they carry the whole new row; U/D need a <em>key</em>. Fix: give it one — <code>ALTER TABLE t REPLICA IDENTITY FULL;</code> (logs the whole old row) or, better, add a unique <code>NOT NULL</code> index and <code>ALTER TABLE t REPLICA IDENTITY USING INDEX t_uk;</code>. <em>Why:</em> logical replication identifies rows by the replica identity, and without a PK you must supply one explicitly.</p>
+      </div>
+
+      <h3>Drill 2 &middot; The column that vanished downstream</h3>
+      <p>You ran <code>ALTER TABLE products ADD COLUMN brand text</code> on the publisher. Later an app INSERT that sets <code>brand</code> starts <em>erroring on the subscriber</em>, and the subscriber's <code>products</code> has no <code>brand</code> column at all. Why, and what's the correct rollout?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>Logical replication <strong>does not replicate DDL</strong> — only row changes. Your <code>ADD COLUMN</code> never reached the subscriber, so when the publisher streams an INSERT that includes <code>brand</code>, the apply worker can't map it and the subscription stalls. Correct order (expand/contract): add the column on the <strong>subscriber first</strong> (compatibly, e.g. nullable), then on the publisher, then start writing the new column. <em>Why:</em> schema must lead on the consumer side because the stream carries data, not structure.</p>
+      </div>
+
+      <h3>Drill 3 &middot; The disk that keeps filling</h3>
+      <p>Your primary's disk usage climbs steadily even though write volume is flat, and <code>pg_wal</code> won't shrink after checkpoints. <code>pg_replication_slots</code> shows a slot with <code>active = false</code> and a huge <code>retained_wal</code>. Diagnose and fix — and name the guardrail.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>An <strong>inactive logical slot</strong> is pinning WAL at its <code>restart_lsn</code>: Postgres can't recycle any WAL the (dead or disconnected) consumer never confirmed, so <code>pg_wal</code> grows without bound — a classic outage. Fix: restart the consumer so it drains and advances the slot, or if it's truly abandoned, <code>SELECT pg_drop_replication_slot('slot_name');</code>. Guardrail: set <code>max_slot_wal_keep_size</code> so a lagging slot is invalidated instead of filling the disk, and alert on slot lag. <em>Why:</em> slots trade retained WAL for reliable resume — an orphaned one keeps the promise forever.</p>
+      </div>
+
+      <h3>Drill 4 &middot; CDC that survives a failover</h3>
+      <p>Your Debezium pipeline feeds search off a logical slot on the primary. A planned failover promotes a standby; afterward the connector can't find its slot and wants to re-snapshot the entire database. On a fresh (PG17) cluster, how do you make CDC survive promotion, and why does it work?</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p>Historically logical slots existed <strong>only on the primary</strong> and weren't copied to standbys, so a promotion orphaned CDC. On PG17: create the slot/subscription with <code>failover = true</code> and set <code>synchronized_standby_slots</code> so the primary advances the logical slot only after the standby has that WAL; the standby then keeps a <strong>synchronized copy</strong> of the slot. (<code>pg_createsubscriber</code> can also stand up a subscriber from a standby.) After promotion the new primary resumes from the synchronized position — no re-snapshot. <em>Why:</em> the slot's confirmed position is now durable on the standby, not just the failed primary.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Traps to keep on a card</span>
+        <p>&bull; <strong>Missing REPLICA IDENTITY</strong> &#8594; UPDATE/DELETE break (no PK) or ship too little (need FULL for old-column transforms).<br>
+        &bull; <strong>DDL &amp; sequences don't replicate</strong> &#8594; roll schema out on the subscriber first; re-align identity counters after switchover.<br>
+        &bull; <strong>Idle/forgotten slot</strong> &#8594; retained WAL fills the disk; monitor slots, cap with <code>max_slot_wal_keep_size</code>.<br>
+        &bull; <strong>The initial snapshot</strong> &#8594; a big table's first sync COPYs the whole table and can take hours / add load; plan it (or <code>copy_data = false</code> + a manual load).<br>
+        &bull; <strong>"Exactly-once" is a myth</strong> &#8594; it's at-least-once + an idempotent consumer; expect duplicates and cross-key reordering.<br>
+        &bull; <strong>Replication is not a backup</strong> &#8594; a bad <code>DELETE</code> is replicated faithfully to every downstream copy.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea to carry: <em>logical replication decodes the WAL into row-level changes you can filter, transform, and ship anywhere — and that decoded stream is exactly what CDC taps to keep derived systems (warehouse, search, cache) in sync with the database of record, at-least-once, without dual writes.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Physical vs logical</b><span>Physical ships WAL bytes for an identical whole-cluster clone; logical decodes the WAL into selective, cross-version row changes.</span></div>
+        <div class="tk"><span class="num">02</span><b>Publication &amp; subscription</b><span>PUBLICATION picks tables on the source; SUBSCRIPTION on the target snapshots then streams. Needs <code>wal_level = logical</code>.</span></div>
+        <div class="tk"><span class="num">03</span><b>Logical decoding</b><span>A slot + output plugin (pgoutput / test_decoding) turns the byte log into an ordered, transactional change stream.</span></div>
+        <div class="tk"><span class="num">04</span><b>CDC = tap the stream</b><span>Debezium reads the slot and fans changes to Kafka &#8594; warehouse, search, cache — each a derived copy.</span></div>
+        <div class="tk"><span class="num">05</span><b>REPLICA IDENTITY</b><span>UPDATE/DELETE need a row key: DEFAULT (PK), USING INDEX, or FULL. No PK + DEFAULT = the update errors.</span></div>
+        <div class="tk"><span class="num">06</span><b>No DDL, watch the slot</b><span>Schema and sequences don't replicate; an idle slot pins WAL and fills the disk. Cap with <code>max_slot_wal_keep_size</code>.</span></div>
+        <div class="tk"><span class="num">07</span><b>Beats the dual write</b><span>Driving search from CDC removes the write-DB-then-write-ES race: one commit, guaranteed delivery from the WAL.</span></div>
+        <div class="tk"><span class="num">08</span><b>At-least-once + idempotent</b><span>Expect duplicates; make the sink an upsert keyed by id. PG17 failover slots let CDC survive promotion.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Contrast physical and logical replication on four axes: what's copied, granularity, version compatibility, and whether the target is writable.<br>
+        (2) Name the two objects that wire up native logical replication and where each lives. What three things happen when the subscription is created?<br>
+        (3) What is logical decoding, and what does an output plugin do? Sketch the test_decoding lines for an INSERT + UPDATE + DELETE in one transaction.<br>
+        (4) Why does an UPDATE need REPLICA IDENTITY, and what are the four settings? Which do you use when the table has no primary key?<br>
+        (5) Re-tell the dual-write bug for DB + search, then explain how CDC fixes it and why the sink must be idempotent.<br>
+        (6) An idle replication slot is filling the primary's disk — why, how do you fix it, and what guardrail prevents a repeat? Bonus: how does PG17 keep CDC alive across a failover?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 45 &middot; LOGICAL REPLICATION &amp; CDC &middot; interactive edition<br>
+      Original study notes for engineers &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — publications & subscriptions (selective) */
+  makeStepper(_g('fig-pubsub'), [
+    {text:"On the source, three tables take writes: orders, customers, and audit_log. All three land in the WAL — but that doesn't decide what leaves the server.", active:["f1-stk-0"], path:"f1-sp-0", read:"source WAL: orders, customers, audit_log all logged"},
+    {text:"A PUBLICATION is a named set of tables to expose. pub_sales lists orders and customers — audit_log is deliberately left out, so it will never be replicated.", active:["f1-stk-1"], path:"f1-sp-1", read:"pub_sales = {orders, customers} · audit_log excluded", excl:true},
+    {text:"Postgres opens a logical replication slot; the walsender decodes only the published tables' changes and retains WAL until the subscriber confirms it.", active:["f1-stk-2"], path:"f1-sp-2", read:"slot decodes only published tables; retains WAL for it"},
+    {text:"On the target, CREATE SUBSCRIPTION connects to pub_sales, takes an initial snapshot of the existing rows, then switches to streaming.", active:["f1-stk-3"], path:"f1-sp-3", read:"subscriber: snapshot existing rows → then stream"},
+    {text:"The apply worker replays each change into the target's orders and customers, in commit order. audit_log never crossed the wire — replication was selective.", active:["f1-stk-4"], path:"f1-sp-4", read:"target updated: orders + customers · audit_log stayed home", excl:true}
+  ], function(idx,s){
+    _g('f1-read').textContent=s.read||'';
+    var ex=_g('f1-excl'); if(ex) ex.style.opacity=(s.excl?1:0);
+  });
+
+  /* FIG 2 — logical decoding -> CDC stream */
+  makeStepper(_g('fig-cdc'), [
+    {text:"A transaction commits three row changes — an INSERT, an UPDATE, and a DELETE. Each was written to the WAL before commit, as always.", active:["f2-stk-0"], path:"f2-sp-0", read:"WAL: raw byte records of every change (physical)"},
+    {text:"Physical replication would ship those WAL bytes verbatim. Logical decoding runs an output plugin (pgoutput) that reads the WAL and reconstructs row-level change events.", active:["f2-stk-1"], path:"f2-sp-1", read:"decode: WAL bytes → logical row changes"},
+    {text:"Out comes an ordered change stream. Each event carries its operation and table: INSERT ships the new row; UPDATE ships the new image plus the key; DELETE ships just the key of the removed row.", active:["f2-stk-2"], path:"f2-sp-2", read:"{op:INSERT, table:orders, after:{id:10, total:40}}"},
+    {text:"A CDC connector — Debezium, or pg_recvlogical — reads the stream from the replication slot and advances its confirmed position only after it has safely handled each change.", active:["f2-stk-3"], path:"f2-sp-3", read:"connector reads slot · advances restart_lsn after ack"},
+    {text:"From there the changes fan out to derived systems: a Kafka topic, a warehouse, a search index, a cache — each an at-least-once copy of what changed. Decoded, not byte-copied: selective and cross-version. That is Change Data Capture.", active:["f2-stk-4"], path:"f2-sp-4", read:"fan-out → Kafka · warehouse · search · cache"}
+  ], function(idx,s){ _g('f2-read').textContent=s.read||''; });
+
+  /* FIG 3 — worked: CDC to a search index */
+  makeStepper(_g('fig-search'), [
+    {text:"A product's price changes in Postgres. The UPDATE is written to the WAL like any other change — no application code has to notify search.", active:["f3-stk-0"], path:"f3-sp-0", read:"UPDATE products SET price_cents=1999 WHERE product_id=42"},
+    {text:"products is published, and its REPLICA IDENTITY is the default (the primary key). That guarantees every UPDATE and DELETE event carries product_id — the identity the sink needs.", active:["f3-stk-1"], path:"f3-sp-1", read:"REPLICA IDENTITY = PK → events carry product_id"},
+    {text:"The connector reads the slot and emits a change event keyed by product_id: {op:'u', after:{product_id:42, price_cents:1999, ...}}.", active:["f3-stk-2"], path:"f3-sp-2", read:"event: key=42 · op=u · after={price_cents:1999}"},
+    {text:"Events land on a Kafka topic partitioned by product_id, so every change to one product is delivered in order relative to itself.", active:["f3-stk-3"], path:"f3-sp-3", read:"topic products.changes · partition by product_id"},
+    {text:"The indexer consumes and does an idempotent upsert into Elasticsearch, using product_id as the document _id: PUT /products/_doc/42.", active:["f3-stk-4"], path:"f3-sp-4", read:"PUT /products/_doc/42  (upsert the after-image)"},
+    {text:"Delivery is at-least-once: after a consumer crash the same event is redelivered. The upsert simply writes the same document again — a harmless no-op. At-least-once + idempotent = effectively once.", active:["f3-stk-4"], path:"f3-sp-4", read:"redelivered event → same upsert → no-op (idempotent)", reject:true}
+  ], function(idx,s){ _g('f3-read').textContent=s.read||''; });
+</script>
+</body>
+</html>

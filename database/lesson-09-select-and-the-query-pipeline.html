@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 09 — SELECT &amp; the Query Pipeline (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">SELECT &amp; the Query Pipeline</div>
+    <h4>How SQL is really evaluated</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>You write it in the wrong order</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The logical evaluation order &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>FROM &amp; WHERE &mdash; assemble, then filter</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>GROUP BY &amp; HAVING &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>SELECT, ORDER BY &amp; the alias trap &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Reason about it</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">09</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>SELECT &amp; the Query Pipeline</h1>
+      <p class="lede">A query is <em>written</em> <code>SELECT</code>-first, but it is <em>evaluated</em> almost <code>SELECT</code>-last. Once you internalize the true evaluation order &mdash; <strong>FROM &#8594; WHERE &#8594; GROUP BY &#8594; HAVING &#8594; SELECT &#8594; DISTINCT &#8594; ORDER BY &#8594; LIMIT</strong> &mdash; a dozen confusing "why won't this work?" errors stop being mysteries and become predictions. This lesson builds that pipeline in your head so the rest of the SQL phase clicks.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers, using <strong>PostgreSQL (PG 17/18)</strong>. Every SQL snippet is runnable; the error messages quoted are the ones Postgres actually prints. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a <strong>concept lesson</strong> &mdash; no SQL drill; it builds the mental model the rest of the phase writes against.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>You write it in the wrong order</h2>
+      <p>Here is the anchor idea for the whole lesson: <strong>the order you type a query is not the order the database runs it.</strong> You always <em>write</em> the clauses in one fixed sequence &mdash; <code>SELECT</code> comes first on the page &mdash; but Postgres <em>evaluates</em> them in a completely different, equally fixed sequence, and <code>SELECT</code> lands near the end. That single mismatch is the hidden cause behind most beginner (and plenty of senior) SQL errors.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Written order (how you type it)</h4>
+          <ul>
+            <li><strong>SELECT</strong> &mdash; the columns you want</li>
+            <li><strong>FROM</strong> / JOIN &mdash; the tables</li>
+            <li><strong>WHERE</strong> &mdash; row filter</li>
+            <li><strong>GROUP BY</strong> &mdash; grouping keys</li>
+            <li><strong>HAVING</strong> &mdash; group filter</li>
+            <li><strong>ORDER BY</strong> &mdash; sort</li>
+            <li><strong>LIMIT</strong> / OFFSET &mdash; slice</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Logical order (how it runs)</h4>
+          <ul>
+            <li><strong>FROM</strong> / JOIN &mdash; build the row-set</li>
+            <li><strong>WHERE</strong> &mdash; filter <em>rows</em></li>
+            <li><strong>GROUP BY</strong> &mdash; form groups</li>
+            <li><strong>HAVING</strong> &mdash; filter <em>groups</em></li>
+            <li><strong>SELECT</strong> &mdash; project &amp; name (aliases)</li>
+            <li><strong>DISTINCT</strong> &mdash; drop duplicates</li>
+            <li><strong>ORDER BY</strong> &mdash; sort the result</li>
+            <li><strong>LIMIT</strong> / OFFSET &mdash; slice the result</li>
+          </ul>
+        </div>
+      </div>
+      <p>Read the right-hand column top to bottom and every classic error explains itself. <em>"Column <code>net</code> does not exist"</em> when you use a <code>SELECT</code> alias in <code>WHERE</code>? Of course &mdash; <code>WHERE</code> ran four stages before <code>SELECT</code> created that name. <em>"Aggregate functions are not allowed in <code>WHERE</code>"</em>? Naturally &mdash; grouping hasn't happened yet at <code>WHERE</code> time. <em>"Column must appear in the <code>GROUP BY</code> clause"</em>? That rule lives at the grouping stage. None of these are arbitrary; they all fall out of one ordering.</p>
+      <div class="callout note">
+        <span class="k">Logical order vs the physical plan</span>
+        <p>This evaluation order is the <em>logical</em> (semantic) model &mdash; it defines what the <strong>result</strong> must be. The <strong>planner</strong> (Phase&nbsp;4) is then free to execute things in a different <em>physical</em> order for speed: it may push a <code>WHERE</code> filter down into an index, apply <code>LIMIT</code> early to stop a sort short, or reorder joins. Those optimizations never change the answer, because the answer is pinned by the logical order you're about to learn. Think of it like a compiler: source order defines meaning, the optimizer picks the machine steps.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The pipeline</div>
+      <h2>The logical evaluation order &#9656;</h2>
+      <p>The cleanest way to hold this is as a <strong>pipeline</strong>: a stack of stages, each one taking a set of rows in and handing a transformed set of rows out. The data flows straight down. Every stage can only see what the stages <em>above</em> it produced &mdash; that "can only see above me" rule is the entire secret to predicting SQL behavior. Step through them in evaluation order (SELECT and DISTINCT share a box):</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pipe">
+          <svg viewBox="0 0 640 452" role="img" aria-label="The logical stages a SELECT passes through, from FROM down to LIMIT">
+            <text class="lbl-sm" x="320" y="14" text-anchor="middle">one query &middot; evaluated top &#8594; bottom</text>
+            <g class="st" id="stk-0"><rect class="node-b" x="140" y="34" width="360" height="42" rx="8"/><text class="lbl" x="320" y="60" text-anchor="middle">1 &middot; FROM / JOIN &mdash; assemble source rows</text></g>
+            <g class="st" id="stk-1"><rect class="node-r" x="140" y="92" width="360" height="42" rx="8"/><text class="lbl" x="320" y="118" text-anchor="middle" fill="#B0532F">2 &middot; WHERE &mdash; keep rows (pre-group)</text></g>
+            <g class="st" id="stk-2"><rect class="node-b" x="140" y="150" width="360" height="42" rx="8"/><text class="lbl" x="320" y="176" text-anchor="middle">3 &middot; GROUP BY &mdash; collapse into groups</text></g>
+            <g class="st" id="stk-3"><rect class="node-r" x="140" y="208" width="360" height="42" rx="8"/><text class="lbl" x="320" y="234" text-anchor="middle" fill="#B0532F">4 &middot; HAVING &mdash; keep groups (post-agg)</text></g>
+            <g class="st" id="stk-4"><rect class="node-t" x="140" y="266" width="360" height="42" rx="8"/><text class="lbl" x="320" y="292" text-anchor="middle" fill="#7a2c43">5 &middot; SELECT / DISTINCT &mdash; project &amp; dedup</text></g>
+            <g class="st" id="stk-5"><rect class="node-b" x="140" y="324" width="360" height="42" rx="8"/><text class="lbl" x="320" y="350" text-anchor="middle">6 &middot; ORDER BY &mdash; sort the projection</text></g>
+            <g class="st" id="stk-6"><rect class="node-b" x="140" y="382" width="360" height="42" rx="8"/><text class="lbl" x="320" y="408" text-anchor="middle">7 &middot; LIMIT / OFFSET &mdash; slice the result</text></g>
+            <rect x="516" y="34" width="104" height="390" rx="10" fill="none" stroke="#A23A5B" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="568" y="229" text-anchor="middle" fill="#A23A5B" transform="rotate(-90 568 229)">logical order &middot; the plan may differ</text>
+            <path id="sp-0" class="flow" d="M320 20 V 32" marker-end="url(#arrow)"/>
+            <path id="sp-1" class="flow" d="M320 76 V 90" marker-end="url(#arrow)"/>
+            <path id="sp-2" class="flow" d="M320 134 V 148" marker-end="url(#arrow)"/>
+            <path id="sp-3" class="flow" d="M320 192 V 206" marker-end="url(#arrow)"/>
+            <path id="sp-4" class="flow" d="M320 250 V 264" marker-end="url(#arrow)"/>
+            <path id="sp-5" class="flow" d="M320 308 V 322" marker-end="url(#arrow)"/>
+            <path id="sp-6" class="flow" d="M320 366 V 380" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="320" y="444" text-anchor="middle">&#8595; the surviving rows are the result &#8595;</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the logical evaluation order, top to bottom — SELECT runs near the end, after WHERE and GROUP BY</figcaption>
+      </figure>
+
+      <p>Notice the shape of it. The two <strong>rust</strong> stages &mdash; <code>WHERE</code> and <code>HAVING</code> &mdash; are the filters, and they sit on opposite sides of grouping: <code>WHERE</code> filters <em>rows</em> before groups form, <code>HAVING</code> filters <em>groups</em> after. The <strong>garnet</strong> stage in the middle &mdash; <code>SELECT</code> &mdash; is where columns are finally computed and aliases are born, which is why nothing above it can use an alias. And the last two stages, <code>ORDER BY</code> and <code>LIMIT</code>, work on the already-projected result, which is exactly why <code>ORDER BY</code> <em>can</em> use an alias. Keep this picture; the next three sections just zoom into pieces of it.</p>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Build then filter rows</div>
+      <h2>FROM &amp; WHERE &mdash; assemble, then filter</h2>
+      <p>The first two stages produce the raw material everything else works on. <strong><code>FROM</code> (with its <code>JOIN</code>s) assembles the working set of rows.</strong> If you join <code>orders</code> to <code>customers</code>, the output of this stage is the combined, widened rows &mdash; every order paired with its customer's columns. This is the <em>source</em>; it may be far bigger than the answer you ultimately want.</p>
+      <p>Then <strong><code>WHERE</code> filters that set one row at a time.</strong> It looks at each individual row and keeps it only if the predicate is <code>TRUE</code>. Two consequences follow directly from <em>where</em> it sits in the pipeline &mdash; and both are exam favorites:</p>
+      <ul>
+        <li><strong>No aggregates in <code>WHERE</code>.</strong> Grouping hasn't happened yet, so there is no such thing as <code>sum(amount)</code> for a group at this point. Writing <code>WHERE sum(amount) &gt; 100</code> earns <em>"aggregate functions are not allowed in WHERE"</em>. Aggregate filters belong in <code>HAVING</code>.</li>
+        <li><strong>No <code>SELECT</code> aliases in <code>WHERE</code>.</strong> The <code>SELECT</code> list runs three stages later, so a name you invented there doesn't exist yet. You must repeat the underlying expression.</li>
+      </ul>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- WHERE sees one row at a time, before any grouping</span>
+<span class="kw">SELECT</span> o.id, o.amount
+<span class="kw">FROM</span>   orders o
+<span class="kw">JOIN</span>   customers c <span class="kw">ON</span> c.id = o.customer_id
+<span class="kw">WHERE</span>  o.status = <span class="lit">'paid'</span>
+  <span class="kw">AND</span>  c.country = <span class="lit">'DE'</span>;</code></pre>
+      <p>Because <code>WHERE</code> runs so early &mdash; before grouping, sorting, or projection &mdash; it is also your single biggest performance lever. The fewer rows survive this stage, the less work every later stage does. That is why the planner tries so hard to satisfy <code>WHERE</code> from an index: a predicate like <code>o.status = 'paid'</code> can jump straight to matching rows if an index on <code>status</code> exists.</p>
+      <div class="callout tip">
+        <span class="k">Sargability, previewed</span>
+        <p>A predicate the index can use is called <strong>sargable</strong> (Search ARGument-able). <code>WHERE created_at &gt;= '2026-01-01'</code> is sargable &mdash; the index on <code>created_at</code> can seek to that point. But wrap the column in a function &mdash; <code>WHERE date(created_at) = '2026-01-01'</code> or <code>WHERE lower(email) = '...'</code> &mdash; and you hide the raw column from its plain index, forcing a full scan. Keep the column bare on one side of the comparison. We'll make this rigorous, with <code>EXPLAIN</code>, in <strong>Phase&nbsp;4</strong>; for now just file it next to "WHERE runs first."</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Collapse then filter groups</div>
+      <h2>GROUP BY &amp; HAVING &#9656;</h2>
+      <p>After <code>WHERE</code> has thinned the rows, <strong><code>GROUP BY</code> collapses the survivors into groups</strong> &mdash; one output row per distinct combination of the grouping keys. Once rows are grouped, the only things you can talk about per group are (a) the grouping keys themselves and (b) <strong>aggregates</strong> computed over each group: <code>count()</code>, <code>sum()</code>, <code>avg()</code>, <code>max()</code>, and so on. Then <strong><code>HAVING</code> filters those groups</strong>, post-aggregation &mdash; it is <code>WHERE</code> for groups. Watch the row-set shrink twice, once for rows and once for groups:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-grp">
+          <svg viewBox="0 0 660 400" role="img" aria-label="An orders table filtered by WHERE, grouped by category, then its groups filtered by HAVING">
+            <rect class="thead" x="40" y="36" width="260" height="26" rx="4"/><text class="tcap" x="170" y="54" text-anchor="middle">orders</text>
+            <rect class="thead" x="40" y="62" width="110" height="26"/><text class="tval" x="95" y="79" text-anchor="middle">category</text>
+            <rect class="thead" x="150" y="62" width="80" height="26"/><text class="tval" x="190" y="79" text-anchor="middle">status</text>
+            <rect class="thead" x="230" y="62" width="70" height="26"/><text class="tval" x="265" y="79" text-anchor="middle">amount</text>
+            <g class="gdim" id="row-1"><rect class="tcell" id="d-cat-1" x="40" y="88" width="110" height="28"/><text class="tval" x="95" y="107" text-anchor="middle">books</text><rect class="tcell" id="d-st-1" x="150" y="88" width="80" height="28"/><text class="tval" x="190" y="107" text-anchor="middle">paid</text><rect class="tcell" id="d-amt-1" x="230" y="88" width="70" height="28"/><text class="tval" x="265" y="107" text-anchor="middle">40</text></g>
+            <g class="gdim" id="row-2"><rect class="tcell" id="d-cat-2" x="40" y="116" width="110" height="28"/><text class="tval" x="95" y="135" text-anchor="middle">books</text><rect class="tcell" id="d-st-2" x="150" y="116" width="80" height="28"/><text class="tval" x="190" y="135" text-anchor="middle">paid</text><rect class="tcell" id="d-amt-2" x="230" y="116" width="70" height="28"/><text class="tval" x="265" y="135" text-anchor="middle">70</text></g>
+            <g class="gdim" id="row-3"><rect class="tcell" id="d-cat-3" x="40" y="144" width="110" height="28"/><text class="tval" x="95" y="163" text-anchor="middle">games</text><rect class="tcell" id="d-st-3" x="150" y="144" width="80" height="28"/><text class="tval" x="190" y="163" text-anchor="middle">void</text><rect class="tcell" id="d-amt-3" x="230" y="144" width="70" height="28"/><text class="tval" x="265" y="163" text-anchor="middle">50</text></g>
+            <g class="gdim" id="row-4"><rect class="tcell" id="d-cat-4" x="40" y="172" width="110" height="28"/><text class="tval" x="95" y="191" text-anchor="middle">games</text><rect class="tcell" id="d-st-4" x="150" y="172" width="80" height="28"/><text class="tval" x="190" y="191" text-anchor="middle">paid</text><rect class="tcell" id="d-amt-4" x="230" y="172" width="70" height="28"/><text class="tval" x="265" y="191" text-anchor="middle">30</text></g>
+            <g class="gdim" id="row-5"><rect class="tcell" id="d-cat-5" x="40" y="200" width="110" height="28"/><text class="tval" x="95" y="219" text-anchor="middle">music</text><rect class="tcell" id="d-st-5" x="150" y="200" width="80" height="28"/><text class="tval" x="190" y="219" text-anchor="middle">paid</text><rect class="tcell" id="d-amt-5" x="230" y="200" width="70" height="28"/><text class="tval" x="265" y="219" text-anchor="middle">20</text></g>
+            <g class="gdim" id="row-6"><rect class="tcell" id="d-cat-6" x="40" y="228" width="110" height="28"/><text class="tval" x="95" y="247" text-anchor="middle">music</text><rect class="tcell" id="d-st-6" x="150" y="228" width="80" height="28"/><text class="tval" x="190" y="247" text-anchor="middle">paid</text><rect class="tcell" id="d-amt-6" x="230" y="228" width="70" height="28"/><text class="tval" x="265" y="247" text-anchor="middle">15</text></g>
+            <path id="res-arc" class="flow-d" d="M300 150 C 344 150, 352 176, 378 176" marker-end="url(#arrow-s)" style="opacity:0"/>
+            <g id="g-results" style="opacity:0">
+              <rect class="thead" x="380" y="96" width="200" height="26" rx="4"/><text class="tcap" x="480" y="114" text-anchor="middle">per category</text>
+              <rect class="thead" x="380" y="122" width="110" height="26"/><text class="tval" x="435" y="139" text-anchor="middle">category</text>
+              <rect class="thead" x="490" y="122" width="90" height="26"/><text class="tval" x="535" y="139" text-anchor="middle">sum(amount)</text>
+              <g id="rg-books"><rect class="tcell" id="res-books-cat" x="380" y="148" width="110" height="28"/><text class="tval" x="435" y="167" text-anchor="middle">books</text><rect class="tcell" id="res-books-sum" x="490" y="148" width="90" height="28"/><text class="tval" x="535" y="167" text-anchor="middle">110</text></g>
+              <g id="rg-games"><rect class="tcell" id="res-games-cat" x="380" y="176" width="110" height="28"/><text class="tval" x="435" y="195" text-anchor="middle">games</text><rect class="tcell" id="res-games-sum" x="490" y="176" width="90" height="28"/><text class="tval" x="535" y="195" text-anchor="middle">30</text></g>
+              <g id="rg-music"><rect class="tcell" id="res-music-cat" x="380" y="204" width="110" height="28"/><text class="tval" x="435" y="223" text-anchor="middle">music</text><rect class="tcell" id="res-music-sum" x="490" y="204" width="90" height="28"/><text class="tval" x="535" y="223" text-anchor="middle">35</text></g>
+            </g>
+            <text id="fig2-read" class="readout" x="330" y="388" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: WHERE filters rows; GROUP BY collapses them; HAVING filters the groups</figcaption>
+      </figure>
+
+      <p>The diagram makes the two filters concrete. <code>WHERE status = 'paid'</code> dropped the void <code>games</code> row <em>before</em> grouping, so that $50 never reaches any total. <code>HAVING sum(amount) &gt; 100</code> then dropped whole <em>groups</em> after totals were computed. Confuse the two and you get the wrong number: put the group condition in <code>WHERE</code> and Postgres rejects it; put the row condition in <code>HAVING</code> and it either errors or scans far more than it needed to. The query behind the figure:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span>   category, <span class="fn">sum</span>(amount) <span class="kw">AS</span> revenue
+<span class="kw">FROM</span>     orders
+<span class="kw">WHERE</span>    status = <span class="lit">'paid'</span>            <span class="cm">-- filter ROWS (pre-group)</span>
+<span class="kw">GROUP BY</span> category
+<span class="kw">HAVING</span>   <span class="fn">sum</span>(amount) &gt; <span class="lit">100</span>       <span class="cm">-- filter GROUPS (post-aggregate)</span>
+<span class="kw">ORDER BY</span> revenue <span class="kw">DESC</span>;</code></pre>
+      <p>Two rules govern this whole stage, and they're worth memorizing verbatim. <strong>Rule&nbsp;1:</strong> filter rows in <code>WHERE</code>, filter groups in <code>HAVING</code>. <strong>Rule&nbsp;2:</strong> every column in the <code>SELECT</code> list that is <em>not</em> inside an aggregate must appear in <code>GROUP BY</code>. The reason for Rule&nbsp;2 is physical: a group is many rows squeezed into one output row, so a non-grouped, non-aggregated column has no single value to show &mdash; which of the group's rows would it pick? Postgres refuses to guess: <em>"column must appear in the GROUP BY clause or be used in an aggregate function."</em></p>
+      <div class="callout">
+        <span class="k">Aggregates and NULL &mdash; a detail that bites</span>
+        <p>Aggregates <strong>skip NULLs</strong>. That makes <code>count(*)</code>, <code>count(col)</code>, and <code>count(DISTINCT col)</code> three different questions: <code>count(*)</code> counts <em>rows</em> in the group; <code>count(col)</code> counts rows where <code>col</code> is <em>not null</em>; <code>count(DISTINCT col)</code> counts the <em>distinct non-null</em> values. Likewise <code>avg(col)</code> divides by the non-null count, not the row count &mdash; so a column full of NULLs quietly changes the average. We give aggregation and NULL their own lessons (L11 and L12); note the trap here.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Project, sort, slice</div>
+      <h2>SELECT, ORDER BY &mdash; and why an alias fails in WHERE &#9656;</h2>
+      <p>Now the payoff stage. <strong><code>SELECT</code> runs fifth</strong> &mdash; after <code>FROM</code>, <code>WHERE</code>, <code>GROUP BY</code>, and <code>HAVING</code>. This is where columns are finally <em>projected</em>: expressions are computed, functions applied, window functions evaluated, and results given names with <code>AS</code>. Those names &mdash; <strong>aliases</strong> &mdash; do not exist until this moment. Then <code>DISTINCT</code> removes duplicate output rows, <code>ORDER BY</code> sorts what's left, and <code>LIMIT</code>/<code>OFFSET</code> slice off a page.</p>
+      <p>This ordering is the whole reason a single alias can be legal in one clause and an error in another. Follow the alias <code>net</code> as the query descends through the stages:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-alias">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Alias availability across stages: WHERE, GROUP BY, HAVING, SELECT, ORDER BY">
+            <text class="lbl-sm" x="330" y="22" text-anchor="middle">SELECT amount &#8722; fee AS net &hellip; ORDER BY net</text>
+            <g id="cw-1"><rect class="chip cBad" x="22" y="42" width="112" height="40" rx="8"/><text class="chiptext" x="78" y="66" text-anchor="middle">WHERE</text></g>
+            <g id="cw-2"><rect class="chip cB" x="149" y="42" width="112" height="40" rx="8"/><text class="chiptext" x="205" y="66" text-anchor="middle">GROUP BY</text></g>
+            <g id="cw-3"><rect class="chip cBad" x="276" y="42" width="112" height="40" rx="8"/><text class="chiptext" x="332" y="66" text-anchor="middle">HAVING</text></g>
+            <g id="cw-4"><rect class="chip cA" x="403" y="42" width="112" height="40" rx="8"/><text class="chiptext" x="459" y="66" text-anchor="middle">SELECT</text></g>
+            <g id="cw-5"><rect class="chip cA" x="530" y="42" width="112" height="40" rx="8"/><text class="chiptext" x="586" y="66" text-anchor="middle">ORDER BY</text></g>
+            <path class="flow-d" d="M22 100 H 636" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M78 82 V 100"/>
+            <path class="flow-d" d="M205 82 V 100"/>
+            <path class="flow-d" d="M332 82 V 100"/>
+            <path class="flow-d" d="M459 82 V 100"/>
+            <path class="flow-d" d="M586 82 V 100"/>
+            <text class="lbl-sm" x="628" y="94" text-anchor="end">time &#8594;</text>
+            <rect id="al-box" class="balbox" x="175" y="134" width="310" height="76" rx="10"/>
+            <text class="lbl-sm" x="330" y="160" text-anchor="middle">alias 'net' = amount &#8722; fee</text>
+            <text id="al-status" x="330" y="193" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="21" font-weight="700" fill="#1F4E79">not born yet &mdash; ERROR</text>
+            <text id="al-verdict" x="330" y="250" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: when the alias "net" is (and isn't) allowed, stage by stage</figcaption>
+      </figure>
+
+      <p>The takeaway is sharp: an alias is <strong>born in <code>SELECT</code></strong>, so the clauses that run <em>before</em> <code>SELECT</code> can't use it, and the clauses that run <em>after</em> it can. The three "before" filters &mdash; <code>WHERE</code>, <code>GROUP BY</code>'s expressions, <code>HAVING</code> &mdash; must instead repeat the underlying expression. <code>ORDER BY</code>, running last, is the one clause that gets to name it directly:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- alias in WHERE: ERROR  "column \"net\" does not exist"</span>
+<span class="kw">SELECT</span> amount - fee <span class="kw">AS</span> net <span class="kw">FROM</span> sales <span class="kw">WHERE</span> net &gt; <span class="lit">0</span>;
+
+<span class="cm">-- fix: repeat the expression in WHERE</span>
+<span class="kw">SELECT</span> amount - fee <span class="kw">AS</span> net <span class="kw">FROM</span> sales <span class="kw">WHERE</span> amount - fee &gt; <span class="lit">0</span>;
+
+<span class="cm">-- alias in ORDER BY: fine — ORDER BY runs after SELECT</span>
+<span class="kw">SELECT</span> amount - fee <span class="kw">AS</span> net <span class="kw">FROM</span> sales <span class="kw">ORDER BY</span> net <span class="kw">DESC</span>;</code></pre>
+      <p>The same clock explains the other two headline errors. An <strong>aggregate in <code>WHERE</code></strong> fails because grouping hasn't run yet; move it to <code>HAVING</code>. A <strong>non-grouped column in <code>SELECT</code></strong> fails because the grouping stage already collapsed the rows; add it to <code>GROUP BY</code> or wrap it in an aggregate.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- aggregate in WHERE: ERROR "aggregate functions are not allowed in WHERE"</span>
+<span class="kw">SELECT</span> category, <span class="fn">sum</span>(amount) <span class="kw">FROM</span> sales <span class="kw">WHERE</span> <span class="fn">sum</span>(amount) &gt; <span class="lit">100</span> <span class="kw">GROUP BY</span> category;
+<span class="cm">-- fix: filter groups in HAVING</span>
+<span class="kw">SELECT</span> category, <span class="fn">sum</span>(amount) <span class="kw">FROM</span> sales <span class="kw">GROUP BY</span> category <span class="kw">HAVING</span> <span class="fn">sum</span>(amount) &gt; <span class="lit">100</span>;</code></pre>
+      <div class="callout note">
+        <span class="k">A real Postgres exception: aliases in GROUP BY &amp; ORDER BY</span>
+        <p>The pure logical model says the alias isn't born until <code>SELECT</code>, so it should be illegal in <em>every</em> earlier clause. But PostgreSQL, as a non-standard convenience, <strong>does</strong> resolve an output-column alias in <code>GROUP BY</code> and <code>ORDER BY</code> &mdash; not in <code>WHERE</code> or <code>HAVING</code>. So <code>GROUP BY day</code> below works even though <code>day</code> is a <code>SELECT</code> alias. Don't rely on it in portable SQL, but recognize it, and know the strict boundary: <code>WHERE</code> and <code>HAVING</code> will <em>always</em> reject the alias.</p>
+      </div>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- Postgres extension: an output alias is accepted in GROUP BY / ORDER BY</span>
+<span class="kw">SELECT</span> <span class="fn">date_trunc</span>(<span class="lit">'day'</span>, created_at) <span class="kw">AS</span> day, <span class="fn">count</span>(*)
+<span class="kw">FROM</span>   sales
+<span class="kw">GROUP BY</span> day        <span class="cm">-- works in Postgres (not standard SQL)</span>
+<span class="kw">ORDER BY</span> day;</code></pre>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Reason about it</div>
+      <h2>Reason about it: narrate a query in evaluation order</h2>
+      <p>Here is the skill this lesson is really teaching &mdash; the one that makes you fast at reading and debugging SQL. When you see a query, don't read it top to bottom as written; <strong>replay it in evaluation order in your head.</strong> Take this one:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">SELECT</span>   c.country, <span class="fn">count</span>(*) <span class="kw">AS</span> n, <span class="fn">sum</span>(o.amount) <span class="kw">AS</span> revenue
+<span class="kw">FROM</span>     orders o
+<span class="kw">JOIN</span>     customers c <span class="kw">ON</span> c.id = o.customer_id
+<span class="kw">WHERE</span>    o.status = <span class="lit">'paid'</span>
+<span class="kw">GROUP BY</span> c.country
+<span class="kw">HAVING</span>   <span class="fn">sum</span>(o.amount) &gt; <span class="lit">1000</span>
+<span class="kw">ORDER BY</span> revenue <span class="kw">DESC</span>
+<span class="kw">LIMIT</span>    <span class="lit">10</span>;</code></pre>
+      <p>Narrate the stages aloud, and the answer &mdash; and every rule &mdash; falls out:</p>
+      <ul>
+        <li><strong>FROM / JOIN.</strong> Build the row-set: each paid-or-not order paired with its customer. This is the widest the data ever gets.</li>
+        <li><strong>WHERE.</strong> Keep only rows where <code>o.status = 'paid'</code>. Row-level, one at a time. (Try <code>WHERE revenue &gt; 0</code> here and you'd instantly know why it fails: <code>revenue</code> isn't born yet.)</li>
+        <li><strong>GROUP BY.</strong> Collapse the survivors into one group per <code>c.country</code>. From here on, only <code>c.country</code> and aggregates are namable &mdash; which is exactly why <code>count(*)</code> and <code>sum(o.amount)</code> are legal and a stray <code>o.id</code> in the <code>SELECT</code> would not be.</li>
+        <li><strong>HAVING.</strong> Keep only groups whose <code>sum(o.amount) &gt; 1000</code>. Note we <em>repeat</em> the aggregate; we can't write <code>HAVING revenue &gt; 1000</code>, because the alias still isn't born.</li>
+        <li><strong>SELECT.</strong> Now project <code>c.country</code>, <code>count(*) AS n</code>, <code>sum(o.amount) AS revenue</code>. The names <code>n</code> and <code>revenue</code> come into existence right here.</li>
+        <li><strong>ORDER BY.</strong> Sort by <code>revenue DESC</code> &mdash; legal, because <code>SELECT</code> already created <code>revenue</code>.</li>
+        <li><strong>LIMIT.</strong> Slice off the top 10 sorted groups. Done.</li>
+      </ul>
+      <p>That narration is a diagnostic engine. Any "why won't this work?" becomes a single question: <em>at the stage where I used this name, had it been created yet, and was the thing I'm referring to a row or a group?</em> Alias in <code>WHERE</code> &#8594; not born yet. Aggregate in <code>WHERE</code> &#8594; no groups yet. Bare column in a grouped <code>SELECT</code> &#8594; the group has no single value for it. One model, all three answers.</p>
+      <div class="callout tip">
+        <span class="k">Where this shows up next</span>
+        <p>This pipeline is the spine of the whole SQL phase. <strong>L10</strong> zooms into the <code>FROM</code>/<code>JOIN</code> stage (nested loop vs hash vs merge joins). <strong>L11</strong> lives in the <code>GROUP BY</code> stage (aggregation in depth). <strong>L12</strong> is about the values that flow through every stage &mdash; <code>NULL</code> and three-valued logic, which is why <code>WHERE</code> keeps only <code>TRUE</code>. <strong>Window functions</strong> (Phase&nbsp;3) run <em>inside</em> the <code>SELECT</code> stage, which is precisely why you can't filter on a window result in <code>WHERE</code> and must wrap the query. And <strong>Phase&nbsp;4</strong> reveals the <em>physical</em> order the planner actually executes &mdash; the same logical result, reached the cheapest way.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>a query is written <code>SELECT</code>-first but evaluated <code>FROM &#8594; WHERE &#8594; GROUP BY &#8594; HAVING &#8594; SELECT &#8594; DISTINCT &#8594; ORDER BY &#8594; LIMIT</code> &mdash; and every stage can only see what the stages above it produced.</em> Hold that, and SQL's error messages turn from riddles into predictions.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Written &#8800; evaluated</b><span>You type <code>SELECT</code> first, but it runs near the end &mdash; after <code>WHERE</code> and <code>GROUP BY</code>. The mismatch is the root of most SQL errors.</span></div>
+        <div class="tk"><span class="num">02</span><b>The eight stages</b><span>FROM &#8594; WHERE &#8594; GROUP BY &#8594; HAVING &#8594; SELECT &#8594; DISTINCT &#8594; ORDER BY &#8594; LIMIT. Memorize it cold.</span></div>
+        <div class="tk"><span class="num">03</span><b>WHERE filters rows</b><span>Before grouping, one row at a time. No aggregates, no <code>SELECT</code> aliases &mdash; neither exists yet.</span></div>
+        <div class="tk"><span class="num">04</span><b>HAVING filters groups</b><span>After aggregation. It's <code>WHERE</code> for groups; the group condition belongs here, not in <code>WHERE</code>.</span></div>
+        <div class="tk"><span class="num">05</span><b>Aliases are born in SELECT</b><span>Usable in <code>ORDER BY</code> (runs after), rejected in <code>WHERE</code> and <code>HAVING</code> (run before). Repeat the expression there.</span></div>
+        <div class="tk"><span class="num">06</span><b>The GROUP BY rule</b><span>Every non-aggregated <code>SELECT</code> column must be in <code>GROUP BY</code> &mdash; a group has no single value otherwise.</span></div>
+        <div class="tk"><span class="num">07</span><b>Postgres bends two clauses</b><span>As an extension, <code>GROUP BY</code> and <code>ORDER BY</code> accept an output alias. <code>WHERE</code>/<code>HAVING</code> never do.</span></div>
+        <div class="tk"><span class="num">08</span><b>Logical &#8800; physical</b><span>The planner may reorder for speed, but the result is pinned by the logical order. Meaning vs optimization.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Recite the eight logical stages in order. Which clause runs first, which runs last, and where does <code>SELECT</code> fall?<br>
+        (2) Why can a <code>SELECT</code> alias be used in <code>ORDER BY</code> but not in <code>WHERE</code>? Name the stage each one runs at.<br>
+        (3) <code>WHERE</code> vs <code>HAVING</code>: which filters rows, which filters groups? Give the one-line rule and one example of each.<br>
+        (4) You get <em>"column must appear in the GROUP BY clause."</em> What does the rule require, and what are two ways to satisfy it?<br>
+        (5) You get <em>"aggregate functions are not allowed in WHERE."</em> Why does the pipeline forbid it, and where does that predicate belong?<br>
+        (6) Which two clauses does PostgreSQL let you reference an output alias in as a non-standard extension &mdash; and which two will always reject it?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw the pipeline from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 09 &middot; SELECT &amp; THE QUERY PIPELINE &middot; interactive edition<br>
+      Original study notes for engineers &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the logical evaluation pipeline */
+  makeStepper(_g('fig-pipe'), [
+    {text:"FROM and its JOINs run first: they assemble the working set of rows every later stage will chew on. This is the widest the data gets.", active:["stk-0"], path:"sp-0"},
+    {text:"WHERE filters those rows one at a time — before any grouping — so it cannot see aggregates or SELECT aliases yet.", active:["stk-1"], path:"sp-1"},
+    {text:"GROUP BY collapses the survivors into groups: one output row per distinct combination of grouping keys.", active:["stk-2"], path:"sp-2"},
+    {text:"HAVING filters the groups, after their aggregates are computed. It is WHERE for groups, not for rows.", active:["stk-3"], path:"sp-3"},
+    {text:"SELECT finally runs: it projects columns, computes expressions and window functions, and names them with AS. DISTINCT then drops duplicate output rows.", active:["stk-4"], path:"sp-4"},
+    {text:"ORDER BY sorts the finished projection — and because it runs after SELECT, it can sort by the aliases SELECT just created.", active:["stk-5"], path:"sp-5"},
+    {text:"LIMIT / OFFSET slices the sorted result last: OFFSET discards the first rows, LIMIT keeps the next n. Whatever survives is the answer.", active:["stk-6"], path:"sp-6"}
+  ]);
+
+  /* FIG 2 — GROUP BY & HAVING: rows -> groups -> filtered groups */
+  makeStepper(_g('fig-grp'), [
+    {text:"orders holds 6 raw rows, one per line item — before any filtering or grouping.", k:"raw"},
+    {text:"WHERE status = 'paid' filters ROWS: the single void order is dropped before grouping, so its $50 never reaches any total.", k:"where"},
+    {text:"GROUP BY category buckets the 5 survivors into 3 groups — books, games, music — colored here by group.", k:"group"},
+    {text:"Each group collapses to one output row: sum(amount) per category. books=110, games=30, music=35.", k:"agg"},
+    {text:"HAVING sum(amount) > 100 filters GROUPS after aggregation: only books (110) passes; games (30) and music (35) fall out.", k:"having"}
+  ], function(idx,s){
+    var data=['d-cat-1','d-st-1','d-amt-1','d-cat-2','d-st-2','d-amt-2','d-cat-3','d-st-3','d-amt-3','d-cat-4','d-st-4','d-amt-4','d-cat-5','d-st-5','d-amt-5','d-cat-6','d-st-6','d-amt-6'];
+    var resCells=['res-books-cat','res-books-sum','res-games-cat','res-games-sum','res-music-cat','res-music-sum'];
+    function tset(ids,cls){ids.forEach(function(id){var e=_g(id);if(e)e.setAttribute('class','tcell'+(cls?' '+cls:''));});}
+    tset(data,''); tset(resCells,'');
+    ['row-1','row-2','row-3','row-4','row-5','row-6'].forEach(function(id){_g(id).style.opacity=1;});
+    ['rg-books','rg-games','rg-music'].forEach(function(id){_g(id).style.opacity=1;});
+    _g('g-results').style.opacity=0; _g('res-arc').style.opacity=0;
+    var books=['d-cat-1','d-st-1','d-amt-1','d-cat-2','d-st-2','d-amt-2'];
+    var games=['d-cat-4','d-st-4','d-amt-4'];
+    var music=['d-cat-5','d-st-5','d-amt-5','d-cat-6','d-st-6','d-amt-6'];
+    var read={raw:"6 rows in · nothing filtered yet",
+              where:"WHERE → filter ROWS · void order gone before grouping",
+              group:"GROUP BY category → 3 groups from 5 rows",
+              agg:"each group → one row · sum(amount) per category",
+              having:"HAVING sum > 100 → filter GROUPS · only books (110) survives"};
+    if(s.k==='where'){ _g('row-3').style.opacity=.2; }
+    else if(s.k==='group'){ _g('row-3').style.opacity=.2; tset(books,'kb'); tset(games,'kt'); tset(music,'kg'); }
+    else if(s.k==='agg'){ _g('row-3').style.opacity=.2; tset(books,'kb'); tset(games,'kt'); tset(music,'kg');
+      _g('g-results').style.opacity=1; _g('res-arc').style.opacity=1;
+      tset(['res-books-cat','res-books-sum'],'kb'); tset(['res-games-cat','res-games-sum'],'kt'); tset(['res-music-cat','res-music-sum'],'kg'); }
+    else if(s.k==='having'){ _g('row-3').style.opacity=.2; tset(books,'kb'); tset(games,'kt'); tset(music,'kg');
+      _g('g-results').style.opacity=1; _g('res-arc').style.opacity=1;
+      tset(['res-books-cat','res-books-sum'],'kg');
+      _g('rg-games').style.opacity=.28; _g('rg-music').style.opacity=.28; }
+    _g('fig2-read').textContent=read[s.k]||'';
+  });
+
+  /* FIG 3 — alias availability across the stages */
+  makeStepper(_g('fig-alias'), [
+    {text:"WHERE is the first filter, and the alias 'net' from SELECT does not exist yet — using it here is an error.",
+      stg:"cw-1", box:"not born yet — ERROR", cls:"kbad", v:"WHERE net > 0  →  ERROR: column \"net\" does not exist"},
+    {text:"GROUP BY runs next; logically the alias still isn't born, yet Postgres accepts the output name here as an extension.",
+      stg:"cw-2", box:"Postgres allows it", cls:"", v:"GROUP BY net → works in Postgres (extension), not standard SQL"},
+    {text:"HAVING filters groups after aggregation, but it still runs before SELECT, so it too rejects the alias.",
+      stg:"cw-3", box:"not born yet — ERROR", cls:"kbad", v:"HAVING net > 0  →  ERROR — repeat the expression instead"},
+    {text:"SELECT finally runs: amount − fee AS net is computed here, and the name 'net' comes into existence.",
+      stg:"cw-4", box:"born here ✓", cls:"kok", v:"SELECT amount − fee AS net  →  the alias 'net' is created"},
+    {text:"ORDER BY runs after SELECT, so it can sort by the freshly-created alias 'net'.",
+      stg:"cw-5", box:"usable ✓", cls:"kok", v:"ORDER BY net  →  works: sorting happens after projection"}
+  ], function(idx,s){
+    ['cw-1','cw-2','cw-3','cw-4','cw-5'].forEach(function(id){var e=_g(id); if(e) e.style.opacity=(id===s.stg?1:0.32);});
+    var box=_g('al-box'), st=_g('al-status');
+    box.setAttribute('class','balbox'+(s.cls?' '+s.cls:''));
+    st.textContent=s.box;
+    st.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#1F4E79'));
+    _g('al-verdict').textContent=s.v;
+  });
+</script>
+</body>
+</html>

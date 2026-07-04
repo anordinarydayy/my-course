@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 37 — Backup &amp; Point-in-Time Recovery (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Backup &amp; Point-in-Time Recovery</div>
+    <h4>The safety net</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Two kinds of backup</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The PITR mechanism &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Rewind to before the mistake &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Tools, RPO &amp; RTO</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>A PITR runbook &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">37</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Backup &amp; Point-in-Time Recovery</h1>
+      <p class="lede">A backup you have never restored is a rumor, not a safety net. This practice lesson builds the one recovery technique that actually saves you when a human runs <code>DELETE</code> without a <code>WHERE</code>: <strong>Point-in-Time Recovery</strong> — one physical base backup plus every WAL segment since, replayed to a chosen second. You will separate logical from physical backups, watch PITR rewind a table to the instant before disaster, and write the full runbook — enable archiving, take the base backup, and recover to a timestamp — end to end.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want database depth that pays off in interviews and in real systems. All SQL and configuration is valid <strong>PostgreSQL</strong> and current as of <strong>PG&nbsp;17/18</strong> (recovery via <code>recovery.signal</code>, not the old <code>recovery.conf</code>). Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a practice lesson: it <strong>ends in a worked runbook and graded drills</strong> you should attempt before reading the answer.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>37</b> Orientation</div>
+      <h2>Two kinds of backup — and why one of them time-travels</h2>
+      <p>Postgres gives you two fundamentally different ways to copy your data, and confusing them is the root of most backup disasters. The split is <strong>logical</strong> versus <strong>physical</strong>.</p>
+      <p>A <strong>logical backup</strong> captures the <em>meaning</em> of your data as SQL: <code>CREATE TABLE</code> and <code>COPY</code>/<code>INSERT</code> statements that rebuild the database when replayed. You take it with <code>pg_dump</code> (one database) or <code>pg_dumpall</code> (the whole cluster, including roles). It is portable across Postgres versions and even architectures, you can restore a single table, and it is human-readable — but it is a <em>snapshot as of the moment the dump began</em>, it is slow to produce and slower to restore on large data, and it can never land you on an arbitrary second.</p>
+      <p class="codetag">bash &middot; logical</p>
+      <pre class="code"><code><span class="cm"># Logical: portable SQL, per database; restores into any compatible server</span>
+pg_dump    -Fc -d shop    -f shop.dump      <span class="cm"># one database, custom (compressed) format</span>
+pg_dumpall --globals-only -f globals.sql    <span class="cm"># cluster-wide roles &amp; tablespaces</span></code></pre>
+      <p>A <strong>physical backup</strong> copies the actual bytes on disk — the entire cluster's data directory, file by file. You take it with <code>pg_basebackup</code>. It is fast, it captures every database and index exactly as stored, and — this is the crucial part — it can serve as the <em>base</em> that WAL replay continues from. It is not portable across major versions, and it is all-or-nothing (the whole cluster, never a single table).</p>
+      <p class="codetag">bash &middot; physical</p>
+      <pre class="code"><code><span class="cm"># Physical: byte-level copy of the whole cluster's data directory</span>
+pg_basebackup -D /backup/base -Fp -Xs -c fast -P</code></pre>
+      <p>Neither of those alone can undo a mistake made <em>after</em> the backup ran — a nightly dump taken at 02:00 knows nothing about the bad <code>DELETE</code> at 14:03. The technique that can is <strong>Point-in-Time Recovery (PITR)</strong>, and it is built from the physical side plus one more ingredient:</p>
+      <div class="callout">
+        <span class="k">The one-line definition of PITR</span>
+        <p><strong>PITR = one physical base backup + every WAL segment archived since it was taken.</strong> The base backup gives you the cluster as of some starting instant; the continuous stream of archived <strong>write-ahead log</strong> lets Postgres replay every committed change forward and <em>stop at any second you name</em> in between. That "stop at any second" is what turns a copy of yesterday into a machine that undoes this afternoon's accident.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>37</b> The mechanism</div>
+      <h2>How PITR is built: base + WAL &#9656;</h2>
+      <p>Recall from the durability lesson that Postgres writes every change to the <strong>WAL</strong> (write-ahead log) <em>before</em> touching the data pages, in 16&nbsp;MB segment files. PITR simply keeps those segments instead of recycling them. Two background activities run continuously: a base backup taken once (or on a schedule), and <strong>continuous archiving</strong> that copies each filled WAL segment somewhere safe — set by <code>archive_command</code>, or streamed live with <code>pg_receivewal</code>.</p>
+      <p>Restore, then, is two moves in the other direction: lay down the base backup as your starting point, then replay the archived WAL forward until you reach the target. Step through the whole loop — production on top, recovery on the bottom:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-pitr">
+          <svg viewBox="0 0 660 360" role="img" aria-label="Interactive: a base backup plus continuously archived WAL segments, then a restore that lays down the base and replays WAL up to a target">
+            <text class="lbl-sm" x="24" y="38" text-anchor="start">LIVE CLUSTER</text>
+            <g id="f1-base"><rect class="chip cA" x="30" y="50" width="84" height="44" rx="8"/><text class="chiptext" x="72" y="70" text-anchor="middle">base</text><text class="chiptext" x="72" y="86" text-anchor="middle">backup</text></g>
+            <g id="f1-w1"><rect class="chip cA" x="132" y="50" width="64" height="44" rx="8"/><text class="chiptext" x="164" y="78" text-anchor="middle">WAL 1</text></g>
+            <g id="f1-w2"><rect class="chip cA" x="204" y="50" width="64" height="44" rx="8"/><text class="chiptext" x="236" y="78" text-anchor="middle">WAL 2</text></g>
+            <g id="f1-w3"><rect class="chip cA" x="276" y="50" width="64" height="44" rx="8"/><text class="chiptext" x="308" y="78" text-anchor="middle">WAL 3</text></g>
+            <g id="f1-w4"><rect class="chip cA" x="348" y="50" width="64" height="44" rx="8"/><text class="chiptext" x="380" y="78" text-anchor="middle">WAL 4</text></g>
+            <path d="M420 72 H 464" class="flow-d" marker-end="url(#arrow-s)"/>
+            <g id="f1-arch"><rect class="node-b" x="470" y="46" width="160" height="52" rx="10"/><text class="lbl" x="550" y="70" text-anchor="middle">WAL archive</text><text class="lbl-sm" x="550" y="87" text-anchor="middle">base + WAL chain</text></g>
+            <path d="M550 100 C 550 154, 72 158, 72 218" class="flow-d" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="24" y="212" text-anchor="start">RECOVERED CLUSTER</text>
+            <g id="f1-rbase"><rect class="chip cA" x="30" y="222" width="84" height="44" rx="8"/><text class="chiptext" x="72" y="242" text-anchor="middle">base</text><text class="chiptext" x="72" y="258" text-anchor="middle">restored</text></g>
+            <g id="f1-r1"><rect class="chip cB" x="132" y="222" width="64" height="44" rx="8"/><text class="chiptext" x="164" y="250" text-anchor="middle">WAL 1</text></g>
+            <g id="f1-r2"><rect class="chip cB" x="204" y="222" width="64" height="44" rx="8"/><text class="chiptext" x="236" y="250" text-anchor="middle">WAL 2</text></g>
+            <g id="f1-r3"><rect class="chip cB" x="276" y="222" width="64" height="44" rx="8"/><text class="chiptext" x="308" y="250" text-anchor="middle">WAL 3</text></g>
+            <g id="f1-r4"><rect class="chip cB" x="348" y="222" width="64" height="44" rx="8"/><text class="chiptext" x="380" y="250" text-anchor="middle">WAL 4</text></g>
+            <g id="f1-tgt"><path d="M424 210 V 286" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 4" fill="none"/><text class="lbl-sm" x="430" y="224" text-anchor="start" fill="#B0532F">target</text></g>
+            <path id="f1-axis" d="M30 300 H 420" fill="none" stroke="none"/>
+            <text id="f1-read" class="readout" x="330" y="336" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the base backup anchors the restore; archived WAL replays forward and stops at your target</figcaption>
+      </figure>
+
+      <p>The mental model that survives the interview: <strong>the base backup is the floor, the WAL is the staircase, and the recovery target is the step you get off on.</strong> Take away the base and you have steps leading nowhere; take away the WAL and you are stuck on the floor at backup time; break the staircase — a single missing segment — and you can climb no higher than the gap.</p>
+      <div class="callout note">
+        <span class="k">Why this beats a nightly dump</span>
+        <p>A logical dump gives you a handful of discrete restore points — 02:00 today, 02:00 yesterday. PITR gives you a <em>continuous</em> range: any instant from when the base backup finished up to your most recently archived WAL. Your worst-case data loss shrinks from "up to 24 hours" to "up to one WAL segment," and you gain the ability to stop <em>just before</em> a specific bad event rather than rolling all the way back to last night.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>37</b> The rescue</div>
+      <h2>Rewind to one second before the mistake &#9656;</h2>
+      <p>Here is the scenario PITR exists for. It is a normal afternoon; committed transactions are streaming into the WAL. At <strong>14:03:07</strong> someone runs <code>DELETE FROM orders;</code> — no <code>WHERE</code>, the whole table gone — and it commits. That <code>DELETE</code> is a perfectly valid, durably-logged change; ordinary crash recovery would faithfully redo it. PITR's trick is to stop replaying <em>one second earlier</em>, at 14:03:06, so the mistake is simply never applied. Watch the replay walk up the timeline and get off the staircase just in time:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-rewind">
+          <svg viewBox="0 0 660 340" role="img" aria-label="Interactive: a WAL timeline of committed transactions ending in a destructive DELETE, and a recovery that stops one second before it">
+            <text class="lbl-sm" x="24" y="34" text-anchor="start">committed transactions &middot; on the WAL timeline</text>
+            <g id="f2-t1"><rect class="chip cA" x="38" y="60" width="104" height="46" rx="8"/><text class="chiptext" x="90" y="82" text-anchor="middle">14:02:10</text><text class="chiptext" x="90" y="98" text-anchor="middle">INSERT</text></g>
+            <g id="f2-t2"><rect class="chip cA" x="158" y="60" width="104" height="46" rx="8"/><text class="chiptext" x="210" y="82" text-anchor="middle">14:02:40</text><text class="chiptext" x="210" y="98" text-anchor="middle">UPDATE</text></g>
+            <g id="f2-t3"><rect class="chip cA" x="278" y="60" width="104" height="46" rx="8"/><text class="chiptext" x="330" y="82" text-anchor="middle">14:03:06</text><text class="chiptext" x="330" y="98" text-anchor="middle">INSERT</text></g>
+            <g id="f2-bad"><rect class="chip cBad" x="398" y="60" width="104" height="46" rx="8"/><text class="chiptext" x="450" y="82" text-anchor="middle">14:03:07</text><text class="chiptext" x="450" y="98" text-anchor="middle">DELETE *</text></g>
+            <g id="f2-t5"><rect class="chip cA" x="518" y="60" width="104" height="46" rx="8"/><text class="chiptext" x="570" y="82" text-anchor="middle">14:03:20</text><text class="chiptext" x="570" y="98" text-anchor="middle">UPDATE</text></g>
+            <g id="f2-tgt"><path d="M390 52 V 150" stroke="#B0532F" stroke-width="2" stroke-dasharray="5 4" fill="none"/><text class="lbl-sm" x="390" y="46" text-anchor="middle" fill="#B0532F">target 14:03:06</text></g>
+            <path d="M30 150 H 630" class="flow-d"/>
+            <text class="lbl-sm" x="630" y="144" text-anchor="end">time &#8594;</text>
+            <path id="f2-axis" d="M40 150 H 382" fill="none" stroke="none"/>
+            <text class="lbl-sm" x="330" y="180" text-anchor="middle">orders table</text>
+            <rect id="f2-box" class="balbox" x="255" y="186" width="150" height="52" rx="9"/>
+            <text id="f2-boxtext" x="330" y="219" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="17" font-weight="700" fill="#20201D">orders: 3 rows</text>
+            <text id="f2-verdict" x="330" y="278" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: recovery replays forward, watching commit times, and halts the instant before the destructive DELETE</figcaption>
+      </figure>
+
+      <p>Two subtleties are worth naming. First, the target is expressed as a <strong>commit time</strong> (<code>recovery_target_time</code>), and recovery stops <em>before</em> the first transaction whose commit is past the target — so pick a time strictly earlier than the mistake, not equal to it. Second, everything after the target is not deleted from the archive; it is simply not replayed onto this restored copy. If you later discover you wanted a slightly different instant, you restore the base again and pick a new target.</p>
+      <div class="callout tip">
+        <span class="k">Time is not the only kind of target</span>
+        <p><code>recovery_target_time</code> is the intuitive one, but you can also stop at a specific transaction id (<code>recovery_target_xid</code>), a WAL position (<code>recovery_target_lsn</code>), or a <em>named</em> marker you set in advance with <code>SELECT pg_create_restore_point('before_migration')</code> and then target with <code>recovery_target_name</code>. When you know the exact bad transaction, an xid or a named point is more precise than guessing a wall-clock second.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>37</b> Discipline</div>
+      <h2>Tools, retention, and the numbers that matter: RPO &amp; RTO</h2>
+      <p>You can wire up <code>archive_command</code> and <code>pg_basebackup</code> by hand — and you should do it once, to understand it — but in production almost nobody hand-rolls the plumbing. Three tools own this space, and each automates base backups, WAL archiving, retention, and (critically) the restore side:</p>
+      <ul>
+        <li><strong>pgBackRest</strong> — the most feature-complete: parallel, compressed, incremental and differential backups, encryption, and to-cloud storage. The common default for serious deployments.</li>
+        <li><strong>Barman</strong> — a backup <em>server</em> that manages many Postgres hosts centrally, with catalogs and streaming or archived WAL.</li>
+        <li><strong>WAL-G</strong> — lightweight, cloud-native, streams backups and WAL straight to S3/GCS; popular for Kubernetes and high-throughput setups.</li>
+      </ul>
+      <p>Whatever the tool, three habits separate a backup that works from one that only looks like it does. <strong>Back up from a standby, not the primary</strong>, when you can — the heavy I/O of a base backup then lands on a replica instead of your production node. <strong>Get retention right</strong>: you must keep WAL at least as far back as your <em>oldest base backup you still rely on</em>, or that backup becomes unrestorable; and beware an orphaned replication slot silently pinning WAL forever. And the rule that trumps them all:</p>
+      <div class="callout note">
+        <span class="k">An untested restore is not a backup</span>
+        <p>A backup job that reports "success" every night proves only that you can <em>write</em> files. It says nothing about whether those files can be <em>restored</em> — and plenty of teams have discovered, mid-outage, that their backups were corrupt, incomplete, or missing a WAL segment. Schedule real <strong>restore drills</strong>: periodically rebuild the cluster from scratch into a scratch environment, run PITR to a random target, and confirm the data. The drill also measures your recovery time honestly.</p>
+      </div>
+      <p>That brings us to the two numbers every backup design is ultimately judged by. They are business decisions dressed as engineering settings:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>RPO — Recovery Point Objective</h4>
+          <ul>
+            <li>How much <strong>data</strong> you can afford to lose, measured in time.</li>
+            <li>Set by your <em>archiving lag</em>: with WAL archived per 16&nbsp;MB segment, worst case is one unshipped segment.</li>
+            <li>Shrink it with <code>archive_timeout</code> (force a segment switch on a timer) or by streaming with <code>pg_receivewal</code> — approaching near-zero loss.</li>
+            <li>"We can lose at most 5 minutes of orders."</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>RTO — Recovery Time Objective</h4>
+          <ul>
+            <li>How long you can afford to be <strong>down</strong> while restoring.</li>
+            <li>Set by base-backup size, restore bandwidth, and how much WAL must replay.</li>
+            <li>Shrink it with frequent base backups (less WAL to replay), fast storage, and rehearsed runbooks.</li>
+            <li>"We must be back within 30 minutes."</li>
+          </ul>
+        </div>
+      </div>
+      <p>The two pull against cost in different directions, and against each other: more frequent base backups cut RTO (less replay) but cost I/O and storage; streaming WAL cuts RPO but adds a moving part. You do not pick "the best" — you pick the numbers the business will pay for, then engineer to hit them. And you prove you hit them with a drill, not a spreadsheet.</p>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>37</b> Worked runbook</div>
+      <h2>Worked problem: recover the cluster to 14:03:06 &#9656;</h2>
+      <p>Enough theory — here is the whole thing as a runbook you could execute under pressure. First the mental map of the six moves, then every command. The rust box is the ongoing archiving window; the garnet box is the moment you go live again:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-runbook">
+          <svg viewBox="0 0 640 424" role="img" aria-label="Interactive: the six-step PITR runbook from enabling archiving through promotion">
+            <text class="lbl-sm" x="320" y="22" text-anchor="middle">PITR runbook &middot; from healthy cluster to recovered target</text>
+            <g class="st" id="f3-stk-0"><rect class="node-b" x="120" y="36" width="400" height="46" rx="8"/><text class="lbl" x="320" y="56" text-anchor="middle">1 &middot; Enable WAL archiving</text><text class="lbl-sm" x="320" y="73" text-anchor="middle">wal_level=replica &middot; archive_mode=on</text></g>
+            <g class="st" id="f3-stk-1"><rect class="node-b" x="120" y="94" width="400" height="46" rx="8"/><text class="lbl" x="320" y="114" text-anchor="middle">2 &middot; pg_basebackup &#8594; base image</text><text class="lbl-sm" x="320" y="131" text-anchor="middle">a consistent file-level snapshot</text></g>
+            <g class="st" id="f3-stk-2"><rect class="node-r" x="120" y="152" width="400" height="46" rx="8"/><text class="lbl" x="320" y="172" text-anchor="middle" fill="#B0532F">3 &middot; WAL keeps flowing to the archive</text><text class="lbl-sm" x="320" y="189" text-anchor="middle" fill="#B0532F">this growing window is your RPO</text></g>
+            <g class="st" id="f3-stk-3"><rect class="node-b" x="120" y="210" width="400" height="46" rx="8"/><text class="lbl" x="320" y="230" text-anchor="middle">4 &middot; Disaster &#8594; stop &amp; restore base files</text><text class="lbl-sm" x="320" y="247" text-anchor="middle">wipe $PGDATA, unpack the base backup</text></g>
+            <g class="st" id="f3-stk-4"><rect class="node-b" x="120" y="268" width="400" height="46" rx="8"/><text class="lbl" x="320" y="288" text-anchor="middle">5 &middot; Set recovery_target_time + restore_command</text><text class="lbl-sm" x="320" y="305" text-anchor="middle">in postgresql.conf</text></g>
+            <g class="st" id="f3-stk-5"><rect class="node-t" x="120" y="326" width="400" height="50" rx="8"/><text class="lbl" x="320" y="346" text-anchor="middle" fill="#7a2c43">6 &middot; touch recovery.signal &#8594; start &#8594; promote</text><text class="lbl-sm" x="320" y="363" text-anchor="middle" fill="#7a2c43">replays WAL to the target, then opens R/W</text></g>
+            <path id="f3-sp-0" class="flow" d="M320 20 V 34" marker-end="url(#arrow)"/>
+            <path id="f3-sp-1" class="flow" d="M320 82 V 92" marker-end="url(#arrow)"/>
+            <path id="f3-sp-2" class="flow" d="M320 140 V 150" marker-end="url(#arrow)"/>
+            <path id="f3-sp-3" class="flow" d="M320 198 V 208" marker-end="url(#arrow)"/>
+            <path id="f3-sp-4" class="flow" d="M320 256 V 266" marker-end="url(#arrow)"/>
+            <path id="f3-sp-5" class="flow" d="M320 314 V 324" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="320" y="398" text-anchor="middle">recovered cluster, live on a new timeline &#8593;</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the six-step runbook — the first three are set up in advance; the last three are the recovery itself</figcaption>
+      </figure>
+
+      <h3>1 &middot; The starting state</h3>
+      <p>Recovery is only possible if you prepared <em>before</em> the disaster. These two things must already have been running: continuous archiving turned on, and at least one base backup on hand. This is the config in <code>postgresql.conf</code> on the live primary (changing <code>wal_level</code> requires a restart):</p>
+      <p class="codetag">conf &middot; postgresql.conf on the primary</p>
+      <pre class="code"><code>wal_level       = replica        <span class="cm"># WAL detailed enough to rebuild pages</span>
+archive_mode    = on
+archive_command = <span class="lit">'test ! -f /archive/%f &amp;&amp; cp %p /archive/%f'</span>
+<span class="cm"># %p = path to the segment to archive, %f = its filename</span>
+<span class="cm"># the test refuses to overwrite an existing archived segment</span></code></pre>
+      <p>And the base backup itself, taken (ideally from a standby) at some earlier time:</p>
+      <p class="codetag">bash</p>
+      <pre class="code"><code>pg_basebackup -D /backup/2026-07-04 -Fp -Xs -c fast -P
+<span class="cm"># -Fp plain files, -Xs stream WAL during the copy, -c fast checkpoint, -P progress</span></code></pre>
+
+      <h3>2 &middot; The task</h3>
+      <p>At <strong>14:03:07</strong> a bad <code>DELETE FROM orders;</code> committed and wiped the table. You have the archive and the morning's base backup. Bring a cluster back holding the data exactly as of <strong>14:03:06</strong>, one second before the mistake.</p>
+
+      <h3>3 &middot; The naive attempt, and why it is wrong</h3>
+      <p>The tempting shortcut is to reach for last night's logical dump:</p>
+      <p class="codetag">bash &middot; wrong</p>
+      <pre class="code"><code><span class="cm"># WRONG: restore the nightly logical dump</span>
+pg_restore -d shop /backup/shop-0200.dump</code></pre>
+      <p>This fails on two counts. It restores the state at <strong>02:00</strong>, silently discarding <em>twelve hours</em> of orders that had nothing to do with the accident — a catastrophic RPO. And a dump has no notion of "a second"; there is simply no knob to stop it at 14:03:06. A logical dump is a fine portable export and a fine coarse fallback, but it is <strong>not point-in-time</strong>, and using it here trades one data-loss event for a bigger one.</p>
+
+      <h3>4 &middot; The fix: PITR to a timestamp</h3>
+      <p>Restore the <em>physical</em> base, then let WAL replay carry it forward to the target. On a fresh host (never overwrite the damaged primary until you have investigated), the recovery moves:</p>
+      <p class="codetag">bash</p>
+      <pre class="code"><code><span class="cm"># a. stop any server on this host; b. clear the target data dir</span>
+pg_ctl -D /var/lib/pgsql/data stop
+rm -rf /var/lib/pgsql/data/*
+
+<span class="cm"># c. unpack the base backup into a fresh $PGDATA</span>
+cp -a /backup/2026-07-04/* /var/lib/pgsql/data/</code></pre>
+      <p>Now tell Postgres <em>how</em> to fetch archived WAL and <em>where</em> to stop, in the restored cluster's config:</p>
+      <p class="codetag">conf &middot; postgresql.conf on the restored copy</p>
+      <pre class="code"><code>restore_command        = <span class="lit">'cp /archive/%f %p'</span>   <span class="cm"># how to pull an archived segment</span>
+recovery_target_time   = <span class="lit">'2026-07-04 14:03:06+00'</span>
+recovery_target_action = <span class="lit">'promote'</span>              <span class="cm"># open read/write once the target is reached</span></code></pre>
+      <p>Finally, the signal file is what tells Postgres to enter <strong>archive recovery</strong> at startup rather than normal crash recovery — its mere presence is the switch (this replaced the old <code>recovery.conf</code> in PG&nbsp;12):</p>
+      <p class="codetag">bash</p>
+      <pre class="code"><code>touch  /var/lib/pgsql/data/recovery.signal
+pg_ctl -D /var/lib/pgsql/data start</code></pre>
+
+      <h3>5 &middot; Why it is right — read the recovery log</h3>
+      <p>Postgres now pulls segments via <code>restore_command</code>, replays each transaction, and watches the commit timestamps. The log tells the whole story — note the line where it stops <em>before</em> the 14:03:07 commit:</p>
+      <p class="codetag">text &middot; illustrative recovery log</p>
+      <pre class="code"><code><span class="cm">LOG:  starting point-in-time recovery to 2026-07-04 14:03:06+00</span>
+<span class="cm">LOG:  restored log file "000000010000000000000006" from archive</span>
+<span class="cm">LOG:  restored log file "000000010000000000000007" from archive</span>
+<span class="cm">LOG:  recovery stopping before commit of transaction 5142, time 2026-07-04 14:03:07.421+00</span>
+<span class="cm">LOG:  redo done at 0/7A3C120</span>
+<span class="cm">LOG:  selected new timeline ID: 2</span>
+<span class="cm">LOG:  archive recovery complete</span>
+<span class="cm">LOG:  database system is ready to accept connections</span></code></pre>
+      <p>Two lines are the payoff. <em>"recovery stopping before commit of transaction 5142"</em> is PITR refusing to replay the <code>DELETE</code> — the whole point. <em>"selected new timeline ID: 2"</em> means the cluster forked a fresh <strong>timeline</strong> at the target: everything from here diverges from the old history, so a later restore can tell your recovered branch apart from the original. <code>SELECT count(*) FROM orders;</code> now returns the pre-disaster rows.</p>
+
+      <h3>6 &middot; Narrate it</h3>
+      <p>In an interview, say it in five sentences: "Archiving was already on — <code>wal_level=replica</code>, <code>archive_mode=on</code>, and an <code>archive_command</code> shipping every WAL segment — and I had a recent <code>pg_basebackup</code>. To recover, I restored that base into a fresh data directory, set <code>restore_command</code> so Postgres could fetch archived WAL, and set <code>recovery_target_time</code> to one second before the bad <code>DELETE</code>. I dropped a <code>recovery.signal</code> file and started the server; it replayed WAL forward and stopped before the destructive commit, exactly as the log's 'recovery stopping before commit' line shows. Then it promoted onto a new timeline, and the table was whole." That is a complete, correct PITR — and it works precisely because the archiving discipline existed <em>before</em> anything went wrong.</p>
+    </section>
+
+    <!-- 05 DRILLS -->
+    <section id="s5">
+      <div class="steptag"><b>37</b> Drills</div>
+      <h2>Graded drills &amp; traps</h2>
+      <p>Attempt each on paper before opening its answer. They all assume the archiving-and-base-backup setup from the runbook is in place.</p>
+
+      <h3>Drill 1 — Recover as far forward as possible</h3>
+      <p>Different disaster: the storage under your primary died — no bad transaction to dodge, you just want <em>the least data loss possible</em>. Configure recovery to replay <strong>all</strong> archived WAL to the very end.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Set <em>no</em> <code>recovery_target_*</code> at all. With <code>recovery.signal</code> present and a <code>restore_command</code>, recovery replays every segment it can fetch and stops only when the archive runs out — your RPO is then one WAL segment:</p>
+        <pre class="code" style="margin-top:10px"><code>restore_command = <span class="lit">'cp /archive/%f %p'</span>
+<span class="cm"># no recovery_target_time / _xid / _lsn — replay to the end of the archive</span></code></pre>
+        <p style="margin-top:8px;font-size:15px"><em>Why:</em> a recovery target only ever tells Postgres where to <em>stop early</em>; omit it and "as far as the WAL goes" is the default.</p>
+      </div>
+
+      <h3>Drill 2 — Recover to a marker you set before a risky change</h3>
+      <p>You are about to run a scary schema migration. Plant a labeled restore point first, so that if the migration goes wrong you can rewind to exactly that spot without guessing a timestamp.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Create the named point on the live primary <em>before</em> the migration, then target it by name during recovery:</p>
+        <pre class="code" style="margin-top:10px"><code><span class="cm">-- on the live primary, right before the migration:</span>
+<span class="kw">SELECT</span> <span class="fn">pg_create_restore_point</span>(<span class="lit">'before_v42_migration'</span>);
+
+<span class="cm"># then, if you must recover, in postgresql.conf:</span>
+recovery_target_name = <span class="lit">'before_v42_migration'</span></code></pre>
+        <p style="margin-top:8px;font-size:15px"><em>Why:</em> a named point is exact and self-documenting — no wall-clock guessing about when the migration started.</p>
+      </div>
+
+      <h3>Drill 3 — Stop just before a specific bad transaction</h3>
+      <p>From the recovery log you know the offending change was transaction id <strong>5142</strong>. Recover to the state <em>immediately before</em> 5142 committed — more precise than a one-second-earlier timestamp.</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Target the xid and turn off inclusivity so the target transaction itself is <em>not</em> applied:</p>
+        <pre class="code" style="margin-top:10px"><code>recovery_target_xid       = <span class="lit">'5142'</span>
+recovery_target_inclusive = <span class="lit">off</span>   <span class="cm"># stop BEFORE 5142, not after</span></code></pre>
+        <p style="margin-top:8px;font-size:15px"><em>Why:</em> <code>recovery_target_lsn</code> works the same way for a WAL position; <code>inclusive = off</code> is what excludes the poisoned transaction rather than replaying it.</p>
+      </div>
+
+      <h3>Drill 4 — Recover onto a branch you already forked</h3>
+      <p>You did a PITR last week, promoting onto <strong>timeline 2</strong>, and the cluster has run there since. Today you need to PITR <em>again</em> to a point on timeline 2's history. What does <code>recovery_target_timeline</code> control, what is its default, and when would you set it explicitly?</p>
+      <div class="callout">
+        <span class="k">Try it first, then read</span>
+        <p>Tell recovery to follow the newest branch at every fork:</p>
+        <pre class="code" style="margin-top:10px"><code>recovery_target_time     = <span class="lit">'2026-06-28 09:15:00+00'</span>
+recovery_target_timeline = <span class="lit">'latest'</span>   <span class="cm"># the default since PG 12 — follow forks automatically</span></code></pre>
+        <p style="margin-top:8px;font-size:15px"><em>Why:</em> every promotion mints a new timeline. Since <strong>PostgreSQL&nbsp;12</strong> <code>recovery_target_timeline</code> defaults to <code>'latest'</code>, so a fresh restore already follows the newest fork (timeline&nbsp;2) &mdash; you get your branch for free. You set it explicitly (to a specific id, or <code>'current'</code>) only when you deliberately want to stop on an <em>earlier</em> line. On pre-12 the default was <code>'current'</code> and you had to set <code>'latest'</code> by hand &mdash; the classic gotcha this drill guards against.</p>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">The five traps that turn a "backup" into an outage</span>
+        <p>
+        (1) <strong>A gap in the WAL archive.</strong> Recovery replays segments <em>in sequence</em>; a single missing or corrupt segment stops it dead at the gap — you can recover no further. Monitor archiving and use an <code>archive_command</code> that fails loudly so a broken copy blocks WAL recycling instead of being lost.<br>
+        (2) <strong>Treating <code>pg_dump</code> as point-in-time.</strong> A dump is a snapshot as of its start and restores slowly; it cannot stop at an arbitrary second. It is a portable export, not a PITR mechanism.<br>
+        (3) <strong>Never running a restore drill.</strong> "Backup succeeded" only proves you wrote files. Untested, corrupt, or incomplete backups are discovered mid-incident. Rehearse the restore and time it.<br>
+        (4) <strong>Replaying everything after a mistake.</strong> Plain recovery redoes the bad <code>DELETE</code> too. You must set a <code>recovery_target</code> (and usually <code>inclusive = off</code>) to stop before it.<br>
+        (5) <strong>Confusing replication with backup.</strong> A standby faithfully replays the <code>DELETE</code> within seconds — replication protects against a dead node, not a bad command. You still need PITR.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one line: <em>Point-in-Time Recovery is a physical base backup plus every archived WAL segment since, so you can restore the base and replay the log forward to <strong>any second you name</strong> — most usefully, one second before a mistake.</em> Everything else is which knob names the target and the discipline that keeps the archive whole.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Logical vs physical</b><span><code>pg_dump</code>/<code>pg_dumpall</code> export portable SQL, per database, snapshot-in-time. <code>pg_basebackup</code> copies the whole cluster's bytes — and anchors PITR.</span></div>
+        <div class="tk"><span class="num">02</span><b>PITR = base + WAL</b><span>The base backup is the floor, archived WAL is the staircase, the recovery target is the step you get off on.</span></div>
+        <div class="tk"><span class="num">03</span><b>Continuous archiving</b><span><code>wal_level=replica</code>, <code>archive_mode=on</code>, and <code>archive_command</code> (or <code>pg_receivewal</code>) ship every filled segment somewhere safe.</span></div>
+        <div class="tk"><span class="num">04</span><b>Stop before the mistake</b><span><code>recovery_target_time</code> halts replay before the first commit past the target — the bad <code>DELETE</code> is simply never applied.</span></div>
+        <div class="tk"><span class="num">05</span><b>Many kinds of target</b><span>Time, xid, LSN, or a named restore point; <code>recovery_target_inclusive=off</code> stops <em>before</em> the target transaction.</span></div>
+        <div class="tk"><span class="num">06</span><b>recovery.signal</b><span>Its presence switches startup into archive recovery (PG 12+ replaced <code>recovery.conf</code>); the server replays, stops, forks a new timeline, promotes.</span></div>
+        <div class="tk"><span class="num">07</span><b>RPO vs RTO</b><span>Data you can lose vs downtime you can accept. Shrink RPO with <code>pg_receivewal</code>/<code>archive_timeout</code>; shrink RTO with frequent base backups and rehearsed runbooks.</span></div>
+        <div class="tk"><span class="num">08</span><b>Untested = not a backup</b><span>Drill the restore. A WAL gap breaks PITR, and replication is not a backup — it replays the mistake.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Logical vs physical backup — the tool for each, one strength, one limit, and which one PITR is built on.<br>
+        (2) Give the one-line definition of PITR. What role does the base backup play, and what role does the WAL archive play?<br>
+        (3) A bad <code>DELETE</code> committed at 14:03:07. Write the exact settings that recover to 14:03:06, and say why the target must be <em>strictly before</em> the mistake.<br>
+        (4) List three ways to name a recovery target other than a timestamp, and when each is the better choice.<br>
+        (5) Which files/settings are the recovery switches — what does <code>recovery.signal</code> do, and what does <code>restore_command</code> do?<br>
+        (6) Define RPO and RTO in one sentence each; name one lever that shrinks each; and explain why an untested restore and a WAL gap both quietly break PITR.<br>
+        Any fuzzy answer &#8594; re-read that section, replay its diagram, and write the runbook from a blank page.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 37 &middot; BACKUP &amp; POINT-IN-TIME RECOVERY &middot; interactive edition<br>
+      Original study notes for engineers &middot; rehearse the restore, replay the rewind, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the PITR mechanism: base + WAL, produced then replayed */
+  makeStepper(_g('fig-pitr'), [
+    {text:"At T0, pg_basebackup takes a consistent, file-level snapshot of the whole cluster. This is the anchor every restore starts from.", lit:['f1-base'], read:"base backup = the starting image (state at T0)"},
+    {text:"As the database runs, each 16 MB WAL segment is copied to the archive the moment it fills, via archive_command.", lit:['f1-base','f1-w1','f1-w2'], read:"archive_command ships each filled WAL segment"},
+    {text:"Archiving never stops: the archive now holds the base image plus an unbroken chain of WAL — every change since T0.", lit:['f1-base','f1-w1','f1-w2','f1-w3','f1-w4','f1-arch'], read:"archive = base + continuous WAL chain"},
+    {text:"Disaster strikes. To recover, first lay down the base backup — the cluster exactly as of T0, nothing newer yet.", lit:['f1-base','f1-w1','f1-w2','f1-w3','f1-w4','f1-arch','f1-rbase'], read:"restore step 1: unpack the base (state at T0)"},
+    {text:"Then Postgres replays the archived WAL forward from the base, redoing every committed change in order.", lit:['f1-base','f1-w1','f1-w2','f1-w3','f1-w4','f1-arch','f1-rbase','f1-r1','f1-r2','f1-r3','f1-r4'], read:"restore step 2: replay WAL forward, change by change", path:"f1-axis"},
+    {text:"Replay halts at your chosen target (recovery_target_time / LSN). The cluster is now exactly as of that instant — not T0, not the crash.", lit:['f1-base','f1-w1','f1-w2','f1-w3','f1-w4','f1-arch','f1-rbase','f1-r1','f1-r2','f1-r3','f1-r4','f1-tgt'], read:"stop at the target: precise state at that second"}
+  ], function(idx,s){
+    var all=['f1-base','f1-w1','f1-w2','f1-w3','f1-w4','f1-arch','f1-rbase','f1-r1','f1-r2','f1-r3','f1-r4','f1-tgt'];
+    all.forEach(function(id){var e=_g(id); if(e) e.style.opacity=(s.lit.indexOf(id)>=0?1:0.16);});
+    _g('f1-read').textContent=s.read||'';
+  });
+
+  /* FIG 2 — rewind to before the mistake */
+  makeStepper(_g('fig-rewind'), [
+    {text:"A normal afternoon: committed transactions flow into the WAL, each stamped with its own instant. The orders table holds three rows.", lit:['f2-t1','f2-t2','f2-t3'], box:"orders: 3 rows", cls:"", v:"healthy — three committed rows"},
+    {text:"14:03:07 — someone runs DELETE FROM orders; with no WHERE. Every row is gone. It commits and lands in the WAL like any other change.", lit:['f2-t1','f2-t2','f2-t3','f2-bad'], box:"orders: 0 rows", cls:"kbad", v:"✗ DELETE with no WHERE wiped every row"},
+    {text:"A plain 'replay everything' recovery would faithfully redo that DELETE too — WAL replay is literal, not smart. That is not what we want.", lit:['f2-t1','f2-t2','f2-t3','f2-bad'], box:"orders: 0 rows", cls:"kbad", v:"replaying ALL WAL reruns the mistake"},
+    {text:"So we set recovery_target_time = 14:03:06 — one second before the DELETE. Recovery will stop before the first commit past that mark.", lit:['f2-t1','f2-t2','f2-t3','f2-bad','f2-tgt'], box:"orders: 0 rows", cls:"kbad", v:"target = 14:03:06 (before the DELETE)"},
+    {text:"Recovery replays WAL forward from the base, transaction by transaction, watching each commit timestamp against the target.", lit:['f2-t1','f2-t2','f2-t3','f2-tgt'], box:"orders: 3 rows", cls:"kok", v:"replaying forward, watching commit times…", path:"f2-axis"},
+    {text:"It stops the instant before the first transaction past the target. The DELETE is never replayed — the table is whole again, frozen at 14:03:06.", lit:['f2-t1','f2-t2','f2-t3','f2-tgt'], box:"orders: 3 rows", cls:"kok", v:"✓ stopped before DELETE — 3 rows restored"}
+  ], function(idx,s){
+    ['f2-t1','f2-t2','f2-t3','f2-bad','f2-t5','f2-tgt'].forEach(function(id){
+      var e=_g(id); if(e) e.style.opacity=(s.lit.indexOf(id)>=0?1:0.16);});
+    _g('f2-boxtext').textContent=s.box;
+    _g('f2-box').setAttribute('class','balbox'+(s.cls?' '+s.cls:''));
+    var vd=_g('f2-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.cls==='kbad'?'#B0532F':(s.cls==='kok'?'#3f7a2e':'#5A574E'));
+  });
+
+  /* FIG 3 — the six-step PITR runbook */
+  makeStepper(_g('fig-runbook'), [
+    {text:"Long before any disaster: set wal_level=replica and archive_mode=on so every filled WAL segment is copied to a safe archive by archive_command.", active:["f3-stk-0"], path:"f3-sp-0"},
+    {text:"Take a base backup with pg_basebackup — a consistent, file-level snapshot of the whole cluster, ideally from a standby. This is the anchor every restore starts from.", active:["f3-stk-1"], path:"f3-sp-1"},
+    {text:"The cluster runs; WAL segments stream into the archive continuously. The gap between the last archived segment and 'now' is your worst-case data loss — your RPO.", active:["f3-stk-2"], path:"f3-sp-2"},
+    {text:"A bad DELETE lands at 14:03:07. Stop Postgres, move the damaged data directory aside, and unpack the base backup into a fresh $PGDATA on a clean host.", active:["f3-stk-3"], path:"f3-sp-3"},
+    {text:"Point recovery at the moment you want: restore_command to fetch archived WAL, and recovery_target_time = '14:03:06' — one second before the mistake.", active:["f3-stk-4"], path:"f3-sp-4"},
+    {text:"Create recovery.signal and start. Postgres replays archived WAL up to the target, stops, forks a new timeline, and promotes to a live read/write cluster.", active:["f3-stk-5"], path:"f3-sp-5"}
+  ]);
+</script>
+</body>
+</html>

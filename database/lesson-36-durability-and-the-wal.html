@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 36 — Durability &amp; the WAL (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Durability &amp; the WAL</div>
+    <h4>The write-ahead log</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>How a COMMIT survives a crash</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The WAL write path &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Checkpoints &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The durability dials</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Crash recovery: REDO &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The durability/latency dial</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">36</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>Durability &amp; the WAL</h1>
+      <p class="lede">Every other guarantee a database makes is worthless if it forgets a commit. <strong>Durability</strong> is the promise that once <code>COMMIT</code> returns, your change survives a crash, a kill, or a power cut one millisecond later — and Postgres keeps it without making every commit crawl. The trick is one mechanism: the <strong>write-ahead log</strong>. This lesson shows exactly how a committed write is made permanent, why checkpoints exist, which dials trade durability for latency, and how recovery replays the log after a crash.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want database depth that pays off in interviews and in real systems. The examples use <strong>PostgreSQL (PG 17/18)</strong>, but write-ahead logging, checkpoints, and crash recovery are universal to serious storage engines. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step through with <em>Next</em>). This is a concept lesson — no SQL drill; instead it builds the mental model that both replication (Phase 8) and point-in-time recovery (next lesson) stand on.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>How a COMMIT survives a crash</h2>
+      <p>Start with the naive design and watch it fail. Suppose, to honour durability, the database wrote the <em>actual changed data pages</em> to disk on every <code>COMMIT</code>. That would be safe — but ruinously slow, for two reasons. First, the rows you touch live in pages scattered all over the data files, so committing means a flurry of <strong>random writes</strong>, the single slowest thing a disk does. Second, an 8&nbsp;KB page write is not atomic at the hardware level: a crash halfway through can leave a <strong>torn page</strong>, half old and half new, which is corruption, not durability.</p>
+      <p>The <strong>write-ahead log</strong> (WAL) sidesteps both. Instead of forcing the sprawling data pages to disk at commit time, Postgres writes a compact, <em>append-only</em> record describing the change — enough information to <em>redo</em> it — and forces only that to disk. The rule that gives the log its name: <strong>the log record for a change reaches durable storage <em>before</em> the corresponding data page does.</strong> That is write-ahead logging. The data pages themselves catch up lazily, in bulk, at a checkpoint.</p>
+      <div class="callout">
+        <span class="k">Why a log beats the pages</span>
+        <p>Appending to the WAL is a <strong>sequential</strong> write — the one access pattern disks and SSDs are fastest at. Writing the data pages means <strong>random</strong> writes smeared across the files. The WAL turns "fsync on every commit" from expensive random I/O into cheap sequential I/O, and defers the random writes to a checkpoint where they can be batched. Same durability, a fraction of the cost.</p>
+      </div>
+      <p>Hold three facts from this section: durability is bought by the WAL, not by writing data pages eagerly; the log is written <em>ahead</em> of the data; and the win comes from turning random writes into a sequential append. Everything below is detail on those three.</p>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The write path</div>
+      <h2>What one committed UPDATE actually does &#9656;</h2>
+      <p>Let's trace a single statement all the way to durable. When your backend process runs an <code>UPDATE</code>, three things live in RAM and one thing lives on disk, and the order they happen in is the whole point. The changed row sits in a page in <strong>shared_buffers</strong> (Postgres's page cache); a description of the change sits in the <strong>WAL buffer</strong>; and only at <code>COMMIT</code> is anything <em>forced</em> to disk — and what's forced is the WAL, not the data page.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-wal">
+          <svg viewBox="0 0 660 384" role="img" aria-label="Interactive: one committed UPDATE — edit the page in shared_buffers, append a WAL record, fsync the WAL on commit, and flush the data page later">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">one committed UPDATE &mdash; the WAL write path</text>
+            <rect x="26" y="90" width="76" height="118" rx="8" fill="none" stroke="#4A7BA6" stroke-width="1.4" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="64" y="152" text-anchor="middle" transform="rotate(-90 64 152)" fill="#4A7BA6">RAM &middot; volatile</text>
+            <rect x="26" y="220" width="76" height="126" rx="8" fill="none" stroke="#A23A5B" stroke-width="1.4" stroke-dasharray="5 4"/>
+            <text class="lbl-sm" x="64" y="283" text-anchor="middle" transform="rotate(-90 64 283)" fill="#A23A5B">DISK &middot; durable</text>
+            <g class="st" id="f1-n0"><rect class="node-b" x="118" y="34" width="424" height="42" rx="8"/><text class="lbl" x="330" y="60" text-anchor="middle">backend: UPDATE accounts SET balance = balance &minus; 50</text></g>
+            <g class="st" id="f1-n1"><rect class="node-r" x="118" y="96" width="424" height="52" rx="8"/><text class="lbl" x="330" y="118" text-anchor="middle" fill="#B0532F">shared_buffers: edit the 8 KB page &#8594; DIRTY</text><text class="lbl-sm" x="330" y="136" text-anchor="middle" fill="#B0532F">in memory only &mdash; the data file is untouched</text></g>
+            <g class="st" id="f1-n2"><rect class="node-b" x="118" y="164" width="424" height="42" rx="8"/><text class="lbl" x="330" y="190" text-anchor="middle">WAL buffer: append a WAL record (redo image)</text></g>
+            <g class="st" id="f1-n3"><rect class="node-t" x="118" y="226" width="424" height="52" rx="8"/><text class="lbl" x="330" y="248" text-anchor="middle" fill="#7a2c43">pg_wal on disk: COMMIT &#8594; fsync the WAL &#10003;</text><text class="lbl-sm" x="330" y="266" text-anchor="middle" fill="#7a2c43">the durability point &mdash; a crash can no longer lose it</text></g>
+            <g class="st" id="f1-n4"><rect class="node-b" x="118" y="294" width="424" height="48" rx="8"/><text class="lbl" x="330" y="315" text-anchor="middle">data file on disk: dirty page written back later</text><text class="lbl-sm" x="330" y="332" text-anchor="middle">at the next checkpoint &mdash; the WAL wrote first</text></g>
+            <path id="f1-sp0" class="flow" d="M330 76 V 94" marker-end="url(#arrow)"/>
+            <path id="f1-sp1" class="flow" d="M330 148 V 162" marker-end="url(#arrow)"/>
+            <path id="f1-sp2" class="flow" d="M330 206 V 224" marker-end="url(#arrow)"/>
+            <path id="f1-sp3" class="flow-d" d="M330 278 V 292" marker-end="url(#arrow-s)"/>
+            <text id="f1-read" class="lbl-sm" x="330" y="368" text-anchor="middle" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: the WAL is forced to disk at COMMIT; the data page is written back only later</figcaption>
+      </figure>
+
+      <p>Two subtleties reward a second look. First, the WAL record is small: it does not copy the whole page (usually), only the change and where it applies, tagged with an <strong>LSN</strong> (log sequence number) — a monotonically increasing address into the log. Every data page also stores the LSN of the last WAL record that modified it, which is precisely how recovery and replication know whether a page is up to date. Second, the only synchronous, latency-adding step is the <strong>fsync of the WAL at commit</strong>. The dirty data page never blocks your commit; it drifts out to disk later. That single deferral is why Postgres can commit tens of thousands of transactions per second on ordinary hardware.</p>
+      <div class="callout note">
+        <span class="k">The WAL is the source of truth on a crash</span>
+        <p>After a crash, the data files may be stale — they only hold what the last checkpoint flushed. The WAL holds everything committed since. That's the mental inversion to keep: the durable record of your data is the <em>log</em>, and the data files are a lazily-updated projection of it. Recovery rebuilds the files <em>from</em> the log.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Checkpoints</div>
+      <h2>Checkpoints: paying down the dirty pages &#9656;</h2>
+      <p>If the WAL kept growing and the dirty pages never went to disk, two things would break. The WAL would fill the disk forever, because you can never delete a log record whose change hasn't reached the data files. And recovery would have to replay the log from the beginning of time, taking longer the longer the server has run. The <strong>checkpoint</strong> fixes both at once: periodically, the <em>checkpointer</em> process flushes <strong>all</strong> currently-dirty pages to the data files, then writes a checkpoint record and a <em>redo pointer</em> marking how far the log has been made permanent.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-ckpt">
+          <svg viewBox="0 0 680 310" role="img" aria-label="Interactive: a checkpoint flushes all dirty pages to the data files, records a redo pointer, and lets older WAL be recycled">
+            <text class="lbl-sm" x="340" y="20" text-anchor="middle">checkpoints: flush all dirty pages, then bound recovery</text>
+            <g class="st" id="f2-dirty">
+              <rect class="node-b" x="48" y="42" width="238" height="74" rx="8"/>
+              <text class="lbl" x="167" y="62" text-anchor="middle">shared_buffers (RAM)</text>
+              <rect class="node-r" id="f2-p1" x="62" y="76" width="46" height="28" rx="4"/>
+              <rect class="node-r" id="f2-p2" x="116" y="76" width="46" height="28" rx="4"/>
+              <rect class="node-r" id="f2-p3" x="170" y="76" width="46" height="28" rx="4"/>
+              <rect class="node-r" id="f2-p4" x="224" y="76" width="46" height="28" rx="4"/>
+            </g>
+            <g class="st" id="f2-flush">
+              <text class="lbl-sm" x="340" y="72" text-anchor="middle">flush dirty pages</text>
+              <path id="f2-fp" class="flow" d="M290 90 H 390" marker-end="url(#arrow)"/>
+            </g>
+            <g class="st" id="f2-data">
+              <rect class="node-b" x="394" y="42" width="238" height="74" rx="8"/>
+              <text class="lbl" x="513" y="62" text-anchor="middle">data files (disk)</text>
+              <rect class="node" id="f2-d1" x="408" y="76" width="46" height="28" rx="4"/>
+              <rect class="node" id="f2-d2" x="462" y="76" width="46" height="28" rx="4"/>
+              <rect class="node" id="f2-d3" x="516" y="76" width="46" height="28" rx="4"/>
+              <rect class="node" id="f2-d4" x="570" y="76" width="46" height="28" rx="4"/>
+            </g>
+            <g class="st" id="f2-wal">
+              <text class="lbl-sm" x="48" y="184" text-anchor="start">WAL &mdash; pg_wal (append-only, sequential)</text>
+              <rect x="48" y="192" width="584" height="46" rx="6" fill="#FDFBF6" stroke="#D2C7B0" stroke-width="1.4"/>
+              <rect class="chip cA" x="66" y="200" width="16" height="30" rx="3"/>
+              <rect class="chip cA" x="108" y="200" width="16" height="30" rx="3"/>
+              <rect class="chip cA" x="150" y="200" width="16" height="30" rx="3"/>
+              <rect class="chip cA" x="192" y="200" width="16" height="30" rx="3"/>
+              <rect class="chip cA" x="234" y="200" width="16" height="30" rx="3"/>
+              <rect class="chip cA" x="276" y="200" width="16" height="30" rx="3"/>
+            </g>
+            <g class="st" id="f2-ckpt">
+              <rect class="node-t" x="330" y="150" width="76" height="26" rx="6"/>
+              <text class="lbl-sm" x="368" y="167" text-anchor="middle" fill="#7a2c43">CHECKPOINT</text>
+              <line x1="368" y1="176" x2="368" y2="242" stroke="#A23A5B" stroke-width="2" stroke-dasharray="4 3"/>
+              <rect class="node-t" id="f2-ckrec" x="360" y="200" width="16" height="30" rx="3"/>
+            </g>
+            <g class="st" id="f2-recycle">
+              <path d="M376 248 V 254 H 632 V 248" fill="none" stroke="#A23A5B" stroke-width="1.5"/>
+              <text class="lbl-sm" x="504" y="270" text-anchor="middle" fill="#A23A5B">replay from here on a crash</text>
+              <text class="lbl-sm" x="205" y="270" text-anchor="middle">&#8592; older WAL recyclable</text>
+            </g>
+            <line x1="48" y1="292" x2="632" y2="292" class="flow-d"/>
+            <text class="lbl-sm" x="632" y="286" text-anchor="end">time &#8594;</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: the checkpoint flushes dirty pages, drops a redo pointer, and bounds recovery to the tail of the log</figcaption>
+      </figure>
+
+      <p>Checkpoints are triggered by whichever of two limits arrives first. <code>checkpoint_timeout</code> (default 5&nbsp;minutes) caps how much <em>time</em> passes between checkpoints; <code>max_wal_size</code> (default 1&nbsp;GB) caps how much <em>WAL volume</em> accumulates. A write-heavy server will hit <code>max_wal_size</code> long before the timeout — and if you see very frequent, size-triggered checkpoints, that's usually the signal to raise <code>max_wal_size</code>. The flush itself is a spike of random I/O; <code>checkpoint_completion_target</code> (default 0.9) tells the checkpointer to smear those writes over ~90% of the interval instead of dumping them all at once, so the spike doesn't stall foreground queries.</p>
+      <div class="callout tip">
+        <span class="k">The checkpoint trade-off in one line</span>
+        <p><strong>Frequent checkpoints</strong> = shorter crash recovery (less WAL to replay) but more I/O and, because <code>full_page_writes</code> re-images each page on its first change after a checkpoint, more WAL volume. <strong>Infrequent checkpoints</strong> = less steady-state I/O but a longer recovery after a crash. Tuning checkpoints is choosing where on that line you want to sit. Watch it with <code>pg_stat_checkpointer</code> (PG&nbsp;17+): a high <code>num_requested</code> relative to <code>num_timed</code> means size-triggered churn.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The dials</div>
+      <h2>The durability dials you can actually turn</h2>
+      <p>Durability is not a single on/off switch — it's a set of knobs, each trading a little safety for a little speed (or vice-versa). Three matter most, plus one optimization that happens automatically. Here they are in the config file, then explained:</p>
+      <p class="codetag">postgresql.conf</p>
+      <pre class="code"><code>wal_level = <span class="lit">replica</span>                    <span class="cm"># minimal | replica (default) | logical</span>
+full_page_writes = <span class="lit">on</span>              <span class="cm"># torn-page protection — leave it on</span>
+synchronous_commit = <span class="lit">on</span>            <span class="cm"># off | local | remote_write | on | remote_apply</span>
+checkpoint_timeout = <span class="lit">5min</span>          <span class="cm"># time-based checkpoint trigger</span>
+max_wal_size = <span class="lit">1GB</span>                  <span class="cm"># size-based checkpoint trigger</span>
+checkpoint_completion_target = <span class="lit">0.9</span>  <span class="cm"># spread the flush to smooth the I/O spike</span></code></pre>
+      <div class="vs three">
+        <div class="col">
+          <h4>full_page_writes</h4>
+          <ul>
+            <li>Protects against <strong>torn pages</strong>: a crash mid-write leaving a page half-old, half-new.</li>
+            <li>On the <em>first</em> change to a page after each checkpoint, the <strong>whole page image</strong> is written to WAL, so recovery can restore it wholesale.</li>
+            <li>Cost: a WAL <strong>volume spike</strong> right after every checkpoint. <code>wal_compression</code> shrinks it. Keep it <strong>on</strong>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>synchronous_commit</h4>
+          <ul>
+            <li>The pure durability/latency dial: how long <code>COMMIT</code> waits before it returns.</li>
+            <li>Turning it <strong>off</strong> makes commits fast but risks losing the last fraction of a second on a crash.</li>
+            <li>It <strong>never corrupts</strong> — it only changes how many recent commits a crash may drop.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>wal_level</h4>
+          <ul>
+            <li><code>replica</code> (default): enough WAL to run standbys and physical backups.</li>
+            <li><code>logical</code>: adds row-level info for logical replication / CDC.</li>
+            <li><code>minimal</code>: least WAL, but blocks replication and PITR — rarely worth it.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The <code>synchronous_commit</code> ladder is worth memorizing, because it is exactly the tunable boundary between "fast" and "can't lose a byte." From least to most durable (and least to most latency):</p>
+      <ul>
+        <li><strong>off</strong> — don't wait for the WAL flush at all. The commit returns immediately; a background process fsyncs the WAL shortly after. A crash can lose the last few hundred milliseconds of commits, but the database stays consistent. Fastest.</li>
+        <li><strong>local</strong> — wait until the WAL is fsynced to the <em>local</em> disk before returning. Locally durable; doesn't wait for any replica.</li>
+        <li><strong>remote_write</strong> — also wait until a synchronous standby has <em>received</em> the WAL into its OS (not necessarily fsynced).</li>
+        <li><strong>on</strong> (default) — wait for the local flush and, if synchronous standbys are configured, for them to flush too.</li>
+        <li><strong>remote_apply</strong> — wait until a synchronous standby has <em>replayed</em> the change, so a read on that standby will see it. Strongest guarantee, highest latency.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Group commit — the free optimization</span>
+        <p>fsync is expensive, so Postgres amortizes it. When many transactions commit at nearly the same moment, their WAL flushes are batched into a <strong>single</strong> fsync that durably persists all of them at once — <em>group commit</em>. This is why commit throughput scales with concurrency instead of collapsing: a hundred concurrent commits can cost roughly one disk sync, not a hundred. <code>commit_delay</code>/<code>commit_siblings</code> can nudge the batching, but the default behavior already does the heavy lifting.</p>
+      </div>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- how often checkpoints happen and how much they wrote  (PG 17+)</span>
+<span class="kw">SELECT</span> num_timed, num_requested, buffers_written
+<span class="kw">FROM</span> pg_stat_checkpointer;
+
+<span class="cm">-- the live WAL position, and the redo point of the last checkpoint</span>
+<span class="kw">SELECT</span> <span class="fn">pg_current_wal_lsn</span>();
+<span class="kw">SELECT</span> redo_lsn, checkpoint_lsn <span class="kw">FROM</span> <span class="fn">pg_control_checkpoint</span>();
+
+<span class="cm">-- force a checkpoint right now (superuser, or a role granted pg_checkpoint since PG15)</span>
+<span class="kw">CHECKPOINT</span>;</code></pre>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Recovery</div>
+      <h2>Crash recovery: replaying the log &#9656;</h2>
+      <p>Now the payoff. The power cuts. When Postgres restarts, it does not trust the data files — it knows they may be stale — so it enters <strong>recovery</strong>. It reads <code>pg_control</code> to find the last checkpoint's <em>redo pointer</em>, then replays the WAL <strong>forward</strong> from there, re-applying every logged change to the pages in order (the <strong>REDO</strong> pass). Transactions that reached a <code>COMMIT</code> record are restored; transactions that didn't are simply never made visible. Watch it play out:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-recover">
+          <svg viewBox="0 0 660 320" role="img" aria-label="Interactive: after a crash, recovery replays the WAL from the last checkpoint, restoring committed transaction A and discarding uncommitted transaction B">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">crash recovery: REDO the WAL from the last checkpoint</text>
+            <text class="lbl-sm" x="330" y="42" text-anchor="middle">database state</text>
+            <rect id="f3-statebox" class="balbox" x="196" y="50" width="268" height="52" rx="9"/>
+            <text id="f3-state" x="330" y="82" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#20201D"></text>
+            <g id="f3-ckpt">
+              <line x1="92" y1="150" x2="92" y2="214" stroke="#A23A5B" stroke-width="2" stroke-dasharray="4 3"/>
+              <text class="lbl-sm" x="92" y="142" text-anchor="middle" fill="#7a2c43">last CKPT</text>
+              <text class="lbl-sm" x="92" y="230" text-anchor="middle" fill="#7a2c43">redo start</text>
+            </g>
+            <text class="lbl-sm" x="118" y="150" text-anchor="start">WAL on disk &mdash; survives the crash</text>
+            <rect x="112" y="158" width="436" height="48" rx="6" fill="#FDFBF6" stroke="#D2C7B0" stroke-width="1.4"/>
+            <rect class="chip cA" id="f3-r1" x="126" y="168" width="52" height="28" rx="4"/><text class="chiptext" x="152" y="187" text-anchor="middle">r1 A</text>
+            <rect class="chip cA" id="f3-r2" x="184" y="168" width="52" height="28" rx="4"/><text class="chiptext" x="210" y="187" text-anchor="middle">r2 A</text>
+            <rect class="chip cA" id="f3-cA" x="242" y="168" width="98" height="28" rx="4"/><text class="chiptext" x="291" y="187" text-anchor="middle">COMMIT A</text>
+            <rect class="chip cB" id="f3-r3" x="360" y="168" width="70" height="28" rx="4"/><text class="chiptext" x="395" y="187" text-anchor="middle">r3 B</text>
+            <g id="f3-crash">
+              <line x1="470" y1="150" x2="470" y2="214" stroke="#B0532F" stroke-width="2.5"/>
+              <text x="502" y="148" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#B0532F">&#9889; CRASH</text>
+            </g>
+            <line x1="48" y1="250" x2="612" y2="250" class="flow-d"/>
+            <text class="lbl-sm" x="612" y="244" text-anchor="end">time &#8594;</text>
+            <text id="f3-verdict" x="330" y="292" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: REDO restores every committed change; the uncommitted one leaves no visible trace</figcaption>
+      </figure>
+
+      <p>One detail sets Postgres apart from textbook recovery and is worth stating precisely. Postgres recovery is <strong>REDO-only</strong> — there is no separate undo pass. It replays all WAL forward, which may momentarily re-apply changes from the uncommitted transaction B too. But because Postgres uses <strong>MVCC</strong>, every row version carries the transaction id that created it; a transaction with no commit record is treated as <em>aborted</em>, so B's row versions are simply never visible and are later reclaimed by <code>VACUUM</code>. Consistency falls out of MVCC, not out of physically unwinding the changes.</p>
+      <div class="callout note">
+        <span class="k">Standbys do the same thing, forever</span>
+        <p>A replica is essentially a server stuck in permanent recovery: it streams the primary's WAL and replays it continuously. The checkpoint's cousin on a replica is a <strong>restartpoint</strong> — the same idea, bounding how much WAL a standby must re-read if it restarts. That the recovery machinery and the replication machinery are the <em>same</em> WAL replay is the bridge to Phase 8.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Why it matters</div>
+      <h2>Reason about it: the dial, and what the WAL feeds</h2>
+      <p>Put yourself on call. A service is bottlenecked on commit latency, and profiling shows time spent waiting on WAL fsync. You now have a precise lever: <code>synchronous_commit</code>. Walk the ladder deliberately. For a queue of low-value events where losing the last 200&nbsp;ms on a rare crash is acceptable, <code>off</code> can multiply throughput at essentially zero risk of <em>corruption</em> — only of a tiny, bounded loss of recent commits. For a payments table, you stay at <code>on</code>, or push to <code>remote_apply</code> so a committed charge is guaranteed present on a standby before you acknowledge it. The skill is not memorizing the settings; it's naming, per table or per transaction, <em>how much recent-commit loss is tolerable</em> — and Postgres even lets you set <code>synchronous_commit</code> per session or per transaction, so you can run most work fast and a few critical writes strict.</p>
+      <p>Step back and the WAL turns out to be the quiet foundation of the two biggest topics still ahead, because both are just "do something else with the same log":</p>
+      <ul>
+        <li><strong>Replication (Phase 8)</strong> ships the WAL byte-stream to standbys, which replay it — exactly the recovery loop you just watched, running live and forever. A standby is a crash-recovery machine that never finishes. Streaming replication, replication slots, and synchronous standbys are all built on top of this stream.</li>
+        <li><strong>Point-in-time recovery (next lesson, L37)</strong> <em>archives</em> the WAL segments and lets you replay them on top of a base backup up to any chosen moment — for example, to one second before a bad <code>DELETE</code>. Same log, replayed selectively, to travel in time.</li>
+      </ul>
+      <p>That is why this lesson comes before both. The WAL is not an operational footnote; it is the single artifact from which durability, replication, and recoverability all derive. If you understand that a committed transaction is <em>the log record that was fsynced</em> — and that data files, replicas, and backups are all just projections of that log — the rest of Phase 7 and Phase 8 stops being a list of features and becomes one idea seen from different angles.</p>
+      <div class="callout">
+        <span class="k">Where this shows up next</span>
+        <p><strong>L37 (Backup &amp; PITR)</strong> takes the very same WAL you saw fsynced here, archives it, and replays it to any point in time. <strong>Phase 8 (from L42)</strong> streams it to replicas. Carry one sentence forward: <em>Postgres doesn't primarily persist your tables — it persists the log of changes to them, and everything else is rebuilt from that log.</em></p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>durability is bought by writing a cheap, sequential log of changes and fsyncing it at commit — the data pages follow lazily at checkpoints, and after a crash the database is rebuilt by replaying that log forward.</em> Master that, and replication and PITR are the same trick reused.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Log, then pages</b><span>The WAL record for a change hits disk before the data page does. Committed = the WAL was fsynced, not that the table was written.</span></div>
+        <div class="tk"><span class="num">02</span><b>Sequential beats random</b><span>Appending to the WAL is a fast sequential write; the scattered data-page writes are deferred and batched at a checkpoint.</span></div>
+        <div class="tk"><span class="num">03</span><b>Commit forces only the WAL</b><span>Your commit waits on one WAL fsync. The dirty data page never blocks it — that deferral is the throughput.</span></div>
+        <div class="tk"><span class="num">04</span><b>Checkpoints pay the debt</b><span>Flush all dirty pages, drop a redo pointer, recycle older WAL. Triggered by checkpoint_timeout or max_wal_size.</span></div>
+        <div class="tk"><span class="num">05</span><b>Recovery is REDO</b><span>Replay WAL forward from the last checkpoint. MVCC makes uncommitted work invisible — no separate undo pass.</span></div>
+        <div class="tk"><span class="num">06</span><b>synchronous_commit is the dial</b><span>off &#8594; local &#8594; remote_write &#8594; on &#8594; remote_apply trades durability for latency. It never corrupts, only bounds recent loss.</span></div>
+        <div class="tk"><span class="num">07</span><b>full_page_writes stops tearing</b><span>First change to a page after a checkpoint logs the whole page image. Keep it on; it explains the post-checkpoint WAL spike.</span></div>
+        <div class="tk"><span class="num">08</span><b>The WAL feeds everything</b><span>Replication ships it (Phase 8); PITR archives and replays it (L37). One log, three superpowers.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Why not just fsync the changed data pages on every commit? Name the two problems the WAL solves and the access-pattern win.<br>
+        (2) Trace one committed <code>UPDATE</code>: what lives in RAM, what is forced to disk at <code>COMMIT</code>, and what is written only later?<br>
+        (3) What does a checkpoint do, what two settings trigger it, and why does a more frequent checkpoint speed up recovery but cost more?<br>
+        (4) Walk the <code>synchronous_commit</code> ladder from <code>off</code> to <code>remote_apply</code>. Which end can lose recent commits, and does any setting risk <em>corruption</em>?<br>
+        (5) After a crash, exactly how does Postgres decide what's real? Where does replay start, and what happens to a transaction with no <code>COMMIT</code> record?<br>
+        (6) In one sentence each, how do replication and PITR both reuse the WAL?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw the write path from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 36 &middot; DURABILITY &amp; THE WAL &middot; interactive edition<br>
+      Original study notes &middot; PostgreSQL 17/18 &middot; replay each diagram until the redo path is obvious.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the WAL write path */
+  makeStepper(_g('fig-wal'), [
+    {text:"A client sends one UPDATE. Its dedicated backend process is about to change a row — and we need that change to be durable the instant COMMIT returns.", active:["f1-n0"]},
+    {text:"The change happens in memory first: the backend edits the 8 KB page inside shared_buffers and marks it DIRTY. Nothing has touched the data file on disk yet.", active:["f1-n1"], path:"f1-sp0"},
+    {text:"A WAL record — a compact description of the change, enough to redo it — is appended to the WAL buffer. The rule: this log must reach disk BEFORE the data page does. That is write-ahead logging.", active:["f1-n2"], path:"f1-sp1"},
+    {text:"COMMIT flushes the WAL: one fsync forces the WAL records to durable storage in pg_wal. It is a cheap sequential write. The moment that fsync returns, the transaction is durable.", active:["f1-n3"], path:"f1-sp2"},
+    {text:"The dirty data page is still only in RAM. It is written back to the data file LATER, at a checkpoint — a random write we were happy to defer, because the WAL already guarantees the change.", active:["f1-n4"], path:"f1-sp3"}
+  ], function(idx){
+    var read=["a committed write must outlive a crash",
+              "shared_buffers page = dirty (RAM, volatile)",
+              "WAL record appended — log ahead of the data",
+              "fsync WAL → COMMIT is now durable ✓",
+              "data file catches up lazily at a checkpoint"];
+    _g('f1-read').textContent=read[idx]||'';
+  });
+
+  /* FIG 2 — checkpoints */
+  makeStepper(_g('fig-ckpt'), [
+    {text:"Between checkpoints, every commit appends a WAL record to pg_wal — cheap sequential writes — while the changed data pages pile up DIRTY in shared_buffers, still only in RAM.", active:["f2-dirty","f2-wal"]},
+    {text:"A checkpoint fires. It is triggered by checkpoint_timeout (every 5 minutes by default) OR when WAL written since the last one nears max_wal_size — whichever comes first.", active:["f2-ckpt","f2-wal"]},
+    {text:"The checkpointer writes ALL dirty pages out to the data files — a burst of random I/O, the 'checkpoint spike'. checkpoint_completion_target (0.9) spreads those writes over most of the interval to smooth it.", active:["f2-dirty","f2-flush","f2-data"], path:"f2-fp"},
+    {text:"It records a checkpoint in the WAL and stores the redo pointer in pg_control. The data files now reflect every change up to this point, and the pages are clean again.", active:["f2-ckpt","f2-data"]},
+    {text:"WAL before the checkpoint can now be recycled. On a crash, recovery replays only WAL AFTER the latest checkpoint — so frequent checkpoints shorten recovery but cost more I/O. That is the tuning trade-off.", active:["f2-recycle","f2-wal"]}
+  ], function(idx){
+    var dirtyCls = idx>=2 ? 'node' : 'node-r';
+    var dataCls  = idx>=2 ? 'node-b' : 'node';
+    ['f2-p1','f2-p2','f2-p3','f2-p4'].forEach(function(id){var e=_g(id); if(e) e.setAttribute('class',dirtyCls);});
+    ['f2-d1','f2-d2','f2-d3','f2-d4'].forEach(function(id){var e=_g(id); if(e) e.setAttribute('class',dataCls);});
+  });
+
+  /* FIG 3 — crash recovery REDO */
+  makeStepper(_g('fig-recover'), [
+    {text:"Baseline. The last checkpoint already wrote every page up to this point out to the data files. After it, committed transactions kept appending WAL records.",
+      state:"running · files current @ CKPT", boxc:'', crash:0, r3dim:false, r3bad:false, verdict:"the checkpoint marks where REDO will begin"},
+    {text:"Transaction A wrote r1, r2 and then a COMMIT record — all fsynced into the WAL. Transaction B wrote r3 but had not committed yet when disaster struck.",
+      state:"A committed · B in-flight", boxc:'', crash:0, r3dim:false, r3bad:false, verdict:"only A has a COMMIT record on disk"},
+    {text:"CRASH — the power cuts. shared_buffers (RAM) is gone, and the data files are stale (only current as of the checkpoint). But the WAL on disk is intact.",
+      state:"CRASH · RAM lost, files stale", boxc:'kbad', crash:1, r3dim:false, r3bad:false, verdict:"nothing committed is lost — it is in the WAL"},
+    {text:"Restart → recovery. Postgres reads pg_control, finds the checkpoint's redo pointer, and starts replaying the WAL forward from there.",
+      state:"REDO · replay WAL from CKPT →", boxc:'', crash:1, r3dim:false, r3bad:false, verdict:"reapply every logged change, in order"},
+    {text:"REDO reapplies each change that carries a COMMIT: A's r1 and r2 are written into the data pages again. Committed work is fully restored.",
+      state:"A restored · r1, r2 re-applied", boxc:'', crash:1, r3dim:true, r3bad:false, verdict:"committed = durable, exactly as promised"},
+    {text:"Transaction B never committed, so r3 leaves no visible effect — its row versions are treated as aborted and later reclaimed by VACUUM. The database is consistent again: exactly the committed transactions.",
+      state:"consistent · committed only", boxc:'kok', crash:1, r3dim:false, r3bad:true, verdict:"✓ A committed & durable · B rolled back"}
+  ], function(idx,s){
+    _g('f3-r1').setAttribute('class','chip cA');
+    _g('f3-r2').setAttribute('class','chip cA');
+    _g('f3-cA').setAttribute('class','chip cA');
+    _g('f3-r3').setAttribute('class', s.r3bad?'chip cBad':'chip cB');
+    _g('f3-r3').style.opacity = s.r3dim?0.3:1;
+    _g('f3-crash').style.opacity = s.crash?1:0;
+    _g('f3-statebox').setAttribute('class','balbox'+(s.boxc?' '+s.boxc:''));
+    _g('f3-state').textContent=s.state;
+    _g('f3-state').setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#20201D'));
+    var v=_g('f3-verdict'); v.textContent=s.verdict;
+    v.setAttribute('fill', s.boxc==='kbad'?'#B0532F':(s.boxc==='kok'?'#3f7a2e':'#5A574E'));
+  });
+</script>
+</body>
+</html>

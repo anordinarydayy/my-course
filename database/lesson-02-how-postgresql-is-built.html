@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 02 — How PostgreSQL Is Built (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">How PostgreSQL Is Built</div>
+    <h4>The machine</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Client/server, one process per connection</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The process &amp; memory map &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>How a table is stored</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The read path &amp; buffer cache &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The write path &amp; the WAL &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Parts you&#8217;ll meet again</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">02</span><span>Concept &middot; Databases &amp; SQL</span></div>
+      <h1>How PostgreSQL Is Built</h1>
+      <p class="lede">Lesson 00 showed a query's journey from text to rows at a glance. Now we open the case and look at the <em>machine</em> — the processes, the memory, and the files on disk that every later topic quietly assumes. Get this model right once and connection pooling, the buffer cache, MVCC, the WAL, and replication stop being separate mysteries; they become obvious consequences of a shape you can already picture.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers who want to reason about Postgres, not just query it. Targets <strong>PostgreSQL</strong> 17/18. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>): the process-and-memory map, a page read through the buffer cache, and a write through the WAL. This is a concept lesson — <strong>no SQL drill</strong>; it builds the mental model the operations and performance phases will lean on.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>Client/server, one process per connection</h2>
+      <p>PostgreSQL is a <strong>client/server</strong> system. The server is not one program you talk to directly — it's a small family of cooperating processes, and the head of that family is the <strong>postmaster</strong>: a supervisor that boots the database, opens a listening socket (TCP <code>5432</code> by default), and waits. When a client wants in — <code>psql</code>, your app's driver, a migration tool — it opens a connection, and the postmaster does something that shapes everything else: it <strong>forks a brand-new operating-system process</strong>, a <em>backend</em>, dedicated to that one connection for its entire life.</p>
+      <p>Read that twice, because the word is <strong>process</strong>, not thread. Every connection gets its own OS process with its own address space. That single design decision has consequences you will feel for the rest of the course:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>What processes buy you</h4>
+          <ul>
+            <li><strong>Isolation.</strong> One backend can't corrupt another's memory; a bug or crash in one session is contained.</li>
+            <li><strong>Robustness.</strong> If a backend dies badly, the postmaster notices, resets shared state, and keeps serving.</li>
+            <li><strong>Simplicity.</strong> Much of the engine can be written as straight-line, single-threaded code per connection.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>What they cost you</h4>
+          <ul>
+            <li><strong>Weight.</strong> A process is far heavier than a thread — memory and setup cost per connection.</li>
+            <li><strong>A ceiling.</strong> <code>max_connections</code> is finite; thousands of idle connections waste real resources.</li>
+            <li><strong>The fix later:</strong> a <strong>connection pooler</strong> in front (PgBouncer, or PG&nbsp;17's built-in improvements) that multiplexes many clients onto few backends &mdash; Phase&nbsp;7.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Whatever the client, it speaks one language on the wire: the PostgreSQL <strong>frontend/backend protocol</strong>. Your ORM, JDBC, <code>libpq</code>, and <code>psql</code> all frame their queries and results the same way. That uniformity is why any driver can talk to any Postgres, and why a pooler can sit transparently in the middle. You can even watch the backends: one row per live connection shows up in <code>pg_stat_activity</code>.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- one row per backend; client sessions AND the background processes</span>
+<span class="kw">SELECT</span> pid, backend_type, state, <span class="fn">left</span>(query, 30) <span class="kw">AS</span> q
+<span class="kw">FROM</span>   pg_stat_activity
+<span class="kw">ORDER</span> <span class="kw">BY</span> backend_type;</code></pre>
+      <div class="callout">
+        <span class="k">The one-line summary</span>
+        <p>Postgres is <strong>process-per-connection</strong>: a supervisor (the postmaster) forks a dedicated backend for each client. That gives you isolation and crash-resilience for free, but makes a raw connection <em>expensive</em> — which is the entire reason connection pooling exists. Every performance and scaling conversation later starts from this fact.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The layout</div>
+      <h2>The process &amp; memory map &#9656;</h2>
+      <p>So the server is many processes. Where do they keep their data, and how do they cooperate without stepping on each other? The answer is a deliberate split between <strong>shared memory</strong> that every process attaches to, and <strong>private memory</strong> that belongs to one backend alone. Add a set of always-on <strong>background processes</strong> doing the housekeeping, and the files on disk, and you have the whole machine. Step through the map:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-map">
+          <svg viewBox="0 0 680 470" role="img" aria-label="Interactive architecture map: postmaster forks backends, which attach to shared memory and have private memory; background processes and on-disk files">
+            <!-- client + postmaster -->
+            <g class="st" id="m-client"><rect class="node-b" x="60" y="26" width="180" height="44" rx="8"/><text class="lbl" x="150" y="53" text-anchor="middle">Client / psql</text></g>
+            <g class="st" id="m-post"><rect class="node" x="380" y="26" width="240" height="44" rx="8"/><text class="lbl" x="500" y="45" text-anchor="middle">postmaster (supervisor)</text><text class="lbl-sm" x="500" y="61" text-anchor="middle">listens on :5432 &middot; forks backends</text></g>
+            <path class="flow" d="M240,48 H374" marker-end="url(#arrow)"/>
+            <!-- backends -->
+            <g class="st" id="m-backends">
+              <rect class="node-b" x="60" y="112" width="155" height="46" rx="8"/><text class="lbl" x="137" y="140" text-anchor="middle">backend #1</text>
+              <rect class="node-b" x="232" y="112" width="155" height="46" rx="8"/><text class="lbl" x="309" y="140" text-anchor="middle">backend #2</text>
+              <rect class="node-b" x="404" y="112" width="155" height="46" rx="8"/><text class="lbl" x="481" y="140" text-anchor="middle">backend #3 (new)</text>
+              <text class="lbl-sm" x="309" y="180" text-anchor="middle">one OS process per connection (not threads)</text>
+            </g>
+            <!-- shared memory -->
+            <g class="st" id="m-shared">
+              <rect class="node" x="60" y="200" width="380" height="104" rx="8"/>
+              <text class="lbl" x="250" y="220" text-anchor="middle">shared memory &mdash; attached by every backend</text>
+              <rect class="node-b" x="76" y="230" width="348" height="30" rx="5"/><text class="lbl-sm" x="250" y="249" text-anchor="middle">shared_buffers &middot; the 8 KB page cache</text>
+              <rect class="node-b" x="76" y="266" width="348" height="30" rx="5"/><text class="lbl-sm" x="250" y="285" text-anchor="middle">WAL buffers</text>
+            </g>
+            <!-- private memory -->
+            <g class="st" id="m-private">
+              <rect class="node" x="460" y="200" width="160" height="104" rx="8"/>
+              <text class="lbl" x="540" y="224" text-anchor="middle">per-backend</text>
+              <text class="lbl" x="540" y="242" text-anchor="middle">private</text>
+              <text class="lbl-sm" x="540" y="266" text-anchor="middle">work_mem</text>
+              <text class="lbl-sm" x="540" y="284" text-anchor="middle">temp buffers</text>
+            </g>
+            <!-- background processes -->
+            <g class="st" id="m-bg">
+              <rect class="node-r" x="60" y="322" width="340" height="66" rx="8"/>
+              <text class="lbl" x="230" y="348" text-anchor="middle" fill="#B0532F">background processes</text>
+              <text class="lbl-sm" x="230" y="368" text-anchor="middle" fill="#B0532F">checkpointer &middot; bgwriter</text>
+              <text class="lbl-sm" x="230" y="382" text-anchor="middle" fill="#B0532F">WAL writer &middot; autovacuum</text>
+            </g>
+            <!-- disk -->
+            <g class="st" id="m-disk">
+              <rect class="node-t" x="440" y="322" width="180" height="118" rx="8"/>
+              <text class="lbl" x="530" y="346" text-anchor="middle" fill="#7a2c43">on disk &middot; $PGDATA</text>
+              <rect class="node" x="452" y="356" width="156" height="30" rx="5"/><text class="lbl-sm" x="530" y="375" text-anchor="middle">base/ &middot; heap + indexes</text>
+              <rect class="node" x="452" y="394" width="156" height="30" rx="5"/><text class="lbl-sm" x="530" y="413" text-anchor="middle">pg_wal/ &middot; the WAL</text>
+            </g>
+            <!-- decorative flows -->
+            <path class="flow-d" d="M137,158 V196"/>
+            <path class="flow-d" d="M309,158 V196"/>
+            <path class="flow-d" d="M470,158 C 470,178 430,182 412,196"/>
+            <path class="flow-d" d="M540,158 V196"/>
+            <path class="flow-d" d="M400,354 H436" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M424,281 C 470,292 500,300 505,320" marker-end="url(#arrow-s)"/>
+            <!-- connect packet path -->
+            <path id="mp-connect" d="M150,70 C 260,96 420,96 481,110" class="flow-d" style="opacity:0"/>
+            <text id="map-read" class="readout" x="340" y="462" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the postmaster forks a backend; shared memory is common ground, private memory is each backend's own</figcaption>
+      </figure>
+
+      <p>Two regions deserve a name you'll reuse constantly. <strong><code>shared_buffers</code></strong> is Postgres's own cache of 8&nbsp;KB data pages, living in shared memory so <em>every</em> backend reads and writes the same cached pages — that's how thousands of sessions see a consistent, hot cache instead of each re-reading disk. <strong><code>work_mem</code></strong>, by contrast, is <em>per-operation, per-backend</em> private scratch space for sorts and hash joins; set it too high and a busy server can multiply it by hundreds of backends and run out of RAM. The background processes are the quiet crew: the <strong>checkpointer</strong> and <strong>background writer</strong> push dirty pages to disk, the <strong>WAL writer</strong> flushes the log, and <strong>autovacuum</strong> cleans up dead row versions (Phase&nbsp;5).</p>
+      <div class="callout note">
+        <span class="k">Shared vs private — the split that explains the config</span>
+        <p>Almost every memory setting you'll ever tune falls on one side of this line. <code>shared_buffers</code> is set <em>once</em> for the whole server (commonly ~25% of RAM). <code>work_mem</code> is multiplied by <em>concurrency</em> — every sort in every backend can grab its own. Confusing the two is the classic way to accidentally configure a server into swapping. Keep the map in your head and the settings sort themselves.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> On disk</div>
+      <h2>How a table is stored</h2>
+      <p>Zoom into one table. On disk it is a <strong>heap</strong>: an unordered collection of <strong>pages</strong> (also called blocks), each exactly <strong>8&nbsp;KB</strong>. A big table is just many such pages, split across files of up to 1&nbsp;GB each. "Unordered" is literal — the heap makes no promise about row order; it's a pile, and finding a particular row without help means reading the whole pile (a <em>sequential scan</em>). That's precisely the problem indexes exist to solve, in Phase&nbsp;4.</p>
+      <p>Inside a page is a small layout worth knowing: a header, then an array of <strong>item pointers</strong> growing down from the top, and the actual <strong>tuples</strong> (row versions) growing up from the bottom, meeting in the middle as free space. Every tuple has a physical address, its <strong>ctid</strong> — a pair <code>(page number, item number)</code>. An index doesn't store rows; it stores keys pointing at ctids.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="fn">SHOW</span> block_size;            <span class="cm">-- 8192: the page size, compiled in</span>
+
+<span class="cm">-- ctid is the physical location: (page, item)</span>
+<span class="kw">SELECT</span> ctid, id, balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">1</span>;
+<span class="cm">--  ctid  | id | balance</span>
+<span class="cm">-- (0,1)  |  1 |     100</span></code></pre>
+      <p>Two more facts round out the storage picture. First, <strong>TOAST</strong>: a single tuple must fit in a page, so any value too big (roughly &gt;&nbsp;2&nbsp;KB — a long <code>text</code>, a <code>jsonb</code> blob) is compressed and, if still large, pushed <em>out of line</em> into a companion TOAST table, leaving a small pointer behind. It's automatic; you mostly notice it as "why is my wide row cheap to scan when I don't select the big column."</p>
+      <p>Second — and this is the one to file away — an <strong><code>UPDATE</code> does not overwrite a row in place.</strong> Postgres writes a <em>new</em> tuple version elsewhere and marks the old one as expired (watch the ctid change after an update). The old version lingers until <strong>vacuum</strong> reclaims it. That sounds wasteful, but it's the mechanism behind <strong>MVCC</strong> — how readers never block writers and each transaction sees a consistent snapshot. We only foreshadow it here; Phase&nbsp;5 makes it the main event.</p>
+      <div class="callout tip">
+        <span class="k">Why UPDATE writing a new version matters</span>
+        <p>Keep this pinned: <em>in Postgres, an update is really an insert-plus-expire.</em> It explains three things you'll meet later — why heavily-updated tables accumulate <strong>bloat</strong> and need vacuum, why an update can be as expensive as an insert, and how the same row can have several live versions so different transactions each see the right one. The physical model here is the seed of the whole concurrency story.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Reading</div>
+      <h2>The read path &amp; the buffer cache &#9656;</h2>
+      <p>The executor never touches the disk directly. When it needs the page holding a row, it asks the <strong>buffer manager</strong> for that page, and the buffer manager either has it cached in <code>shared_buffers</code> or fetches it. The difference between those two outcomes — a <strong>hit</strong> versus a <strong>miss</strong> — is the single biggest lever on how fast a read feels. Trace one page request:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-read">
+          <svg viewBox="0 0 660 450" role="img" aria-label="Interactive read path: executor asks the buffer manager for a page, which is a cache hit from RAM or a miss read from disk">
+            <g class="st" id="stk-r0"><rect class="node-b" x="170" y="28" width="320" height="46" rx="8"/><text class="lbl" x="330" y="56" text-anchor="middle">Executor needs page 42</text></g>
+            <g class="st" id="stk-r1"><rect class="node-b" x="170" y="104" width="320" height="54" rx="8"/><text class="lbl" x="330" y="127" text-anchor="middle">Buffer manager</text><text class="lbl-sm" x="330" y="145" text-anchor="middle">is page 42 in shared_buffers?</text></g>
+            <!-- HIT branch -->
+            <g class="st" id="stk-r2"><rect class="node" x="48" y="216" width="250" height="76" rx="8"/><text class="lbl" x="173" y="242" text-anchor="middle">HIT</text><text class="lbl-sm" x="173" y="262" text-anchor="middle">page already in RAM</text><text class="lbl-sm" x="173" y="278" text-anchor="middle">return it &mdash; no disk I/O</text></g>
+            <!-- MISS branch -->
+            <g class="st" id="stk-r3"><rect class="node-r" x="362" y="216" width="250" height="54" rx="8"/><text class="lbl" x="487" y="240" text-anchor="middle" fill="#B0532F">MISS</text><text class="lbl-sm" x="487" y="258" text-anchor="middle" fill="#B0532F">page 42 not cached</text></g>
+            <g class="st" id="stk-r4"><rect class="node-t" x="362" y="306" width="250" height="64" rx="8"/><text class="lbl" x="487" y="332" text-anchor="middle" fill="#7a2c43">read from disk into a buffer</text><text class="lbl-sm" x="487" y="352" text-anchor="middle" fill="#7a2c43">evict a page if the pool is full</text></g>
+            <g class="st" id="stk-r5"><rect class="node" x="362" y="384" width="250" height="48" rx="8"/><text class="lbl-sm" x="487" y="404" text-anchor="middle">OS page cache sits underneath</text><text class="lbl-sm" x="487" y="420" text-anchor="middle">a &ldquo;disk&rdquo; read may hit it</text></g>
+            <path id="sp-r0" class="flow" d="M330,74 V102" marker-end="url(#arrow)"/>
+            <path id="sp-r1a" class="flow" d="M300,158 C 210,182 190,198 178,214" marker-end="url(#arrow)"/>
+            <path id="sp-r1b" class="flow-r" d="M360,158 C 450,182 470,198 487,214" marker-end="url(#arrow-r)"/>
+            <path id="sp-r2" class="flow-r" d="M487,270 V304" marker-end="url(#arrow-r)"/>
+            <path id="sp-r3" class="flow-r" d="M487,370 V382" marker-end="url(#arrow-r)"/>
+            <text id="rd-note" class="readout" x="330" y="444" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: a hit is served from RAM; a miss reads from storage into a buffer (and may evict a page first)</figcaption>
+      </figure>
+
+      <p>This is why the same query can feel instant or sluggish for reasons that have nothing to do with the SQL. On a <strong>warm cache</strong> the pages are already in <code>shared_buffers</code> and everything is hits; on a <strong>cold cache</strong> the first run pays miss after miss. It's also why <code>shared_buffers</code> sizing matters, and why a page can be <strong>dirty</strong> — modified in the cache but not yet written back. When the pool fills, the buffer manager <strong>evicts</strong> a page to make room; if the victim is dirty, its changes must be written out first (which is exactly the write path in the next section). You can see hits and misses per query with <code>BUFFERS</code>:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">EXPLAIN</span> (<span class="kw">ANALYZE</span>, BUFFERS) <span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> id = <span class="lit">1</span>;
+<span class="cm">--  Buffers: shared hit=3            <- all cached (fast)</span>
+<span class="cm">--  Buffers: shared read=3          <- had to hit disk (a miss)</span></code></pre>
+      <div class="callout">
+        <span class="k">Two caches, stacked</span>
+        <p>There isn't one cache — there are two. <code>shared_buffers</code> is Postgres's own; beneath it sits the <strong>operating system's page cache</strong>. A miss in <code>shared_buffers</code> often still finds the page in the OS cache, so a "disk read" is frequently a memory read in disguise. This layering is why cold-vs-warm timings differ so wildly, and why PG&nbsp;18's new asynchronous I/O (more in Phase&nbsp;7's neighborhood) speeds up exactly the miss-heavy paths like large sequential and bitmap scans.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Writing</div>
+      <h2>The write path &amp; the WAL &#9656;</h2>
+      <p>Reads were half the story; writes are where durability is earned. Here's the puzzle Postgres has to solve: a <code>COMMIT</code> must survive a crash <em>immediately</em>, yet writing the actual data page to its scattered location on disk on every commit would be brutally slow (random I/O). The resolution is the <strong>Write-Ahead Log (WAL)</strong>, and its rule is in the name: <em>log the intent before you touch the data</em>. Step through an <code>UPDATE</code>:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-wal">
+          <svg viewBox="0 0 660 430" role="img" aria-label="Interactive write path: an update dirties a page in shared_buffers, logs a WAL record, fsyncs the WAL at commit, and the checkpointer writes the page later">
+            <g class="st" id="stk-w0"><rect class="node-b" x="180" y="26" width="300" height="46" rx="8"/><text class="lbl" x="330" y="54" text-anchor="middle">UPDATE accounts SET balance=120</text></g>
+            <!-- central page state box (not a .st group; always visible, recolored) -->
+            <text class="lbl-sm" x="180" y="142" text-anchor="middle">data page 42 in shared_buffers</text>
+            <rect id="wal-page" class="balbox" x="70" y="150" width="220" height="80" rx="9"/>
+            <text id="wal-page-t" x="180" y="196" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="17" font-weight="700" fill="#20201D">page 42 &middot; clean</text>
+            <!-- WAL buffer -->
+            <g class="st" id="wal-buf"><rect class="node" x="380" y="150" width="210" height="80" rx="8"/><text class="lbl" x="485" y="178" text-anchor="middle">WAL buffer</text><text id="wal-rec" class="lbl-sm" x="485" y="200" text-anchor="middle" style="opacity:0">+ change record: page 42</text></g>
+            <!-- data file on disk -->
+            <g class="st" id="wal-datafile"><rect class="node-t" x="70" y="300" width="220" height="70" rx="8"/><text class="lbl" x="180" y="328" text-anchor="middle" fill="#7a2c43">data file (base/&hellip;)</text><text class="lbl-sm" x="180" y="348" text-anchor="middle" fill="#7a2c43">written at checkpoint</text></g>
+            <!-- pg_wal on disk -->
+            <g class="st" id="wal-disk"><rect class="node-t" x="380" y="300" width="210" height="70" rx="8"/><text class="lbl" x="485" y="328" text-anchor="middle" fill="#7a2c43">pg_wal/ on disk</text><text class="lbl-sm" x="485" y="348" text-anchor="middle" fill="#7a2c43">fsync&#8217;d at COMMIT</text></g>
+            <path id="sp-w0" class="flow" d="M300,72 C 240,110 200,122 180,148" marker-end="url(#arrow)"/>
+            <path id="sp-w1" class="flow" d="M292,190 H376" marker-end="url(#arrow)"/>
+            <path id="sp-w2" class="flow" d="M485,232 V298" marker-end="url(#arrow)"/>
+            <path id="sp-w3" class="flow-d" d="M180,232 V298" marker-end="url(#arrow-s)"/>
+            <text id="wal-verdict" x="330" y="414" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the change is logged to the WAL and fsync&#8217;d at commit; the dirty data page is written back later</figcaption>
+      </figure>
+
+      <p>The keystone is step 4. At <code>COMMIT</code>, the <em>only</em> thing that must reach disk is the WAL — a compact, <strong>sequential</strong> append. The data page it describes can stay dirty in RAM for a while longer; if the server crashes one millisecond after commit, recovery <strong>replays</strong> the WAL and reconstructs the change. So durability comes from the log, not from the data page being written. And because WAL writes are sequential — appending to the end of a file — they're dramatically cheaper than the random writes you'd pay to update scattered data pages on every commit. One <code>fsync</code> to a log, instead of many seeks.</p>
+      <p>The dirty pages are reconciled later. The <strong>checkpointer</strong> periodically writes all dirty pages out to their data files and records a <em>checkpoint</em> — a known-good point past which the older WAL is no longer needed for crash recovery. The <strong>background writer</strong> trickles some dirty pages out between checkpoints to keep clean buffers available for eviction. This is the same durability guarantee (the "D" in ACID from Lesson 00) — now you can see the machinery that delivers it, and it's the foundation replication is built on: ship that WAL stream to another server and it can replay your every change (Phase&nbsp;8).</p>
+      <div class="callout note">
+        <span class="k">WAL-first is why crashes are safe <em>and</em> commits are fast</span>
+        <p>The write-ahead rule pulls double duty. <strong>Safety:</strong> the intent is always on disk before the data page, so any crash is recoverable by replay. <strong>Speed:</strong> a commit pays one sequential log flush, not a storm of random page writes. The tunables you'll meet in Phase&nbsp;7 — <code>synchronous_commit</code>, <code>wal_level</code>, checkpoint pacing — are all dials on <em>this</em> mechanism. Lesson 03 goes deeper on exactly what durability promises and what you can trade away for throughput.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The through-line</div>
+      <h2>The moving parts you&#8217;ll meet again</h2>
+      <p>Let's run the whole machine once, end to end, and pin each part to the phase where it becomes the subject. A client connects; the <strong>postmaster forks a backend</strong> that will serve it for the session. You send SQL; the backend <strong>parses</strong> it, the <strong>planner</strong> chooses a plan, and the <strong>executor</strong> runs it. To read, the executor asks the <strong>buffer manager</strong> for pages — hits from <code>shared_buffers</code>, misses from disk (under which the OS cache waits). To write, it dirties a page and logs a <strong>WAL</strong> record; at <code>COMMIT</code> the WAL is <code>fsync</code>'d for durability, and the <strong>checkpointer</strong> writes the dirty page back later. Meanwhile <strong>autovacuum</strong> cleans up the old row versions that <code>UPDATE</code>s and <code>DELETE</code>s leave behind. That paragraph is the course.</p>
+      <p>Now the map from parts to phases — this is the payoff of learning the machine before the features:</p>
+      <ul>
+        <li><strong>The planner &rarr; Phase&nbsp;4.</strong> Because you state <em>what</em>, it chooses <em>how</em>; reading and steering its decisions with <code>EXPLAIN</code> is the heart of performance work. The heap and ctids you saw here are exactly what indexes point into.</li>
+        <li><strong>Tuple versions &amp; vacuum &rarr; Phase&nbsp;5.</strong> The "an <code>UPDATE</code> writes a new version" fact from &sect;02 <em>is</em> MVCC. Isolation levels, snapshots, and bloat all grow from that one seed.</li>
+        <li><strong>WAL &amp; durability &rarr; Lesson 03 &amp; Phase&nbsp;7.</strong> The write path here becomes a full treatment of what "committed" guarantees and which durability knobs trade safety for speed.</li>
+        <li><strong>Shipping the WAL &rarr; Phase&nbsp;8.</strong> Replication is just streaming the WAL to a second server and replaying it. The log you met as a durability trick is also the backbone of high availability.</li>
+        <li><strong>Heavyweight connections &rarr; Phase&nbsp;7.</strong> Process-per-connection is why pooling exists; now you know precisely what a backend costs.</li>
+      </ul>
+      <p>One modern note to carry forward: <strong>PostgreSQL 18</strong> (GA September&nbsp;2025) introduced an <strong>asynchronous I/O subsystem</strong> that lets a backend issue many read requests before the data comes back, rather than blocking on each one. On the read path you just traced, that turns a long line of serial misses into overlapping fetches — up to roughly 3&times; faster on large sequential and bitmap-heap scans. It's a change to the exact box in FIG.&nbsp;2 where a miss goes to disk. You don't need the details yet; you need to recognize <em>where in the machine</em> it plugs in, which you now can.</p>
+      <div class="callout">
+        <span class="k">Where this shows up next</span>
+        <p>Every later lesson is a zoom-in on one region of this map. When Phase&nbsp;4 says "the index scan avoided reading the heap," you'll picture the buffer manager and pages. When Phase&nbsp;5 says "the reader saw an older snapshot," you'll picture tuple versions. When Phase&nbsp;8 says "the replica is 200ms behind," you'll picture the WAL stream. Hold the whole machine in your head — supervisor, backends, shared and private memory, the log, the disk — and the rest of the course stops being a list of features and becomes a tour of a system you already understand.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one picture: <em>Postgres is a supervisor that forks one process per connection; those processes share a page cache and a write-ahead log, keep private scratch memory, and lean on background workers to move dirty pages and old row versions to disk — reads come from the buffer cache, and every write is logged before the data page it changes ever lands.</em> Everything the course does later is a zoom-in on one of those parts.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Process per connection</b><span>The postmaster forks a dedicated backend process (not a thread) per client. Isolation and resilience, but heavyweight — hence pooling.</span></div>
+        <div class="tk"><span class="num">02</span><b>Shared vs private memory</b><span><code>shared_buffers</code> is the one cache every backend attaches to; <code>work_mem</code> is per-operation, per-backend. Don't confuse the two when tuning.</span></div>
+        <div class="tk"><span class="num">03</span><b>Tables are heaps of pages</b><span>A heap is unordered 8&nbsp;KB pages of tuples; each tuple has a ctid (page, item). Big values are TOAST-ed out of line.</span></div>
+        <div class="tk"><span class="num">04</span><b>UPDATE writes a new version</b><span>It doesn't overwrite in place — it inserts a new tuple and expires the old. That's the seed of MVCC and the reason for vacuum.</span></div>
+        <div class="tk"><span class="num">05</span><b>Reads go through the cache</b><span>The buffer manager returns a hit from <code>shared_buffers</code> or reads a miss from disk into a buffer — under which the OS page cache also sits.</span></div>
+        <div class="tk"><span class="num">06</span><b>WAL before data</b><span>An update dirties a page and logs the change; at commit only the WAL is fsync'd. Durability comes from the log, not the data page.</span></div>
+        <div class="tk"><span class="num">07</span><b>Sequential beats random</b><span>Committing a sequential WAL append is far cheaper than random data-page writes. The checkpointer writes dirty pages back later.</span></div>
+        <div class="tk"><span class="num">08</span><b>The map predicts the course</b><span>Planner&rarr;P4, tuple versions&rarr;P5, WAL&rarr;L03/P7, replication&rarr;P8. Learn the machine and the features follow.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) A client connects. What does the postmaster do, and why does "process, not thread" lead directly to connection pooling?<br>
+        (2) Draw the memory split. What is <code>shared_buffers</code>, what is <code>work_mem</code>, and why does one scale with concurrency and the other not?<br>
+        (3) What is a heap, a page, and a ctid? What happens physically when you run an <code>UPDATE</code> — and which future topic does that seed?<br>
+        (4) Walk a page read. Define hit vs miss, what "dirty" and "eviction" mean, and where the OS page cache fits.<br>
+        (5) Walk an <code>UPDATE</code> to commit. What is written to disk at <code>COMMIT</code>, what isn't, and why is WAL-first both safe and fast?<br>
+        (6) Name three parts of the machine and the phase each becomes the subject of. Where does PG&nbsp;18's async I/O plug in?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw the machine from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 02 &middot; HOW POSTGRESQL IS BUILT &middot; interactive edition<br>
+      Original study notes for engineers &middot; trace a connection, a read, and a write through the engine.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the process & memory map */
+  makeStepper(_g('fig-map'), [
+    {text:"A client connects. The postmaster accepts it and forks one dedicated backend process — backend #3 here — to serve that connection for its whole life.", active:["m-client","m-post","m-backends"], path:"mp-connect", r:"one connection → the postmaster forks one dedicated backend process"},
+    {text:"That backend attaches to shared memory — the region every backend shares, holding shared_buffers, the 8 KB page cache they all read and write.", active:["m-backends","m-shared"], r:"every backend attaches to the same shared_buffers page cache"},
+    {text:"Each backend also owns private memory: work_mem for sorts and hash joins, plus temp buffers — scratch space no other backend can see.", active:["m-backends","m-private"], r:"each backend has private memory: work_mem for sorts & hashes"},
+    {text:"Always-on background processes do the housekeeping: the checkpointer and bgwriter flush dirty pages, the WAL writer flushes the log, autovacuum reclaims dead rows.", active:["m-bg"], r:"background processes: checkpoints, WAL flushing, autovacuum"},
+    {text:"It all lives on disk under $PGDATA: the data directory (base/) holds the heap and indexes; pg_wal/ holds the write-ahead log.", active:["m-disk"], r:"on disk: the data directory (heap + indexes) and the pg_wal log"}
+  ], function(idx,s){ _g('map-read').textContent = s.r||''; });
+
+  /* FIG 2 — the read path & buffer cache */
+  makeStepper(_g('fig-read'), [
+    {text:"The executor needs the data page that holds its row — say page 42. It never reads disk itself; it asks the buffer manager.", active:["stk-r0"], path:"sp-r0", note:"a read = ask the buffer manager for a page, never the disk directly"},
+    {text:"The buffer manager checks shared_buffers — Postgres's own pool of 8 KB pages in RAM — to see if page 42 is already there.", active:["stk-r1"], note:"lookup: is page 42 already in the shared_buffers pool?"},
+    {text:"HIT: the page is already in RAM. It's handed back with zero disk I/O — the fast, overwhelmingly common case on a warm cache.", active:["stk-r2"], path:"sp-r1a", note:"cache HIT → served straight from RAM, no disk touched"},
+    {text:"MISS: page 42 isn't cached. Now Postgres must go to storage — this is the slow path.", active:["stk-r3"], path:"sp-r1b", reject:true, note:"cache MISS → the page has to be fetched from storage"},
+    {text:"It reads the page from disk into a free buffer; if the pool is full it first evicts another page — and if that victim is dirty, its changes are written out first.", active:["stk-r4"], path:"sp-r2", reject:true, note:"read into a buffer; evicting a dirty page writes it out first"},
+    {text:"Underneath sits the OS page cache. A 'disk' read is often really an OS-cache read — which is why cold vs warm cache changes timings so much.", active:["stk-r5"], path:"sp-r3", reject:true, note:"the OS page cache is a second cache beneath shared_buffers"}
+  ], function(idx,s){ _g('rd-note').textContent = s.note||''; });
+
+  /* FIG 3 — the write path & the WAL */
+  makeStepper(_g('fig-wal'), [
+    {text:"An UPDATE arrives to change a row on data page 42. Crucially, Postgres will not write that page straight to disk.", active:["stk-w0"], path:"sp-w0", pt:"page 42 · clean", pc:"", rec:false, v:"nothing is durable yet — the change exists only in RAM"},
+    {text:"It edits the page in place inside shared_buffers and marks it DIRTY: changed in memory, out of sync with disk.", active:[], pt:"page 42 · DIRTY", pc:"kbad", rec:false, v:"dirty = modified in RAM, not yet written to disk"},
+    {text:"It also appends a small change record to the WAL buffer — a compact 'here is exactly what I changed', the write-ahead intent.", active:["wal-buf"], path:"sp-w1", pt:"page 42 · DIRTY", pc:"kbad", rec:true, v:"the intent is logged before the data page is ever flushed"},
+    {text:"At COMMIT the WAL up to this point is flushed to pg_wal with fsync. The commit is durable now — even though the data page is still dirty in RAM.", active:["wal-disk"], path:"sp-w2", pt:"COMMIT · DURABLE", pc:"kok", rec:true, v:"✓ WAL on disk → a crash can replay the change"},
+    {text:"Later a checkpoint writes the dirty page back to its data file. WAL-first, page-whenever: sequential log writes are far cheaper than a random page write on every commit.", active:["wal-datafile"], path:"sp-w3", pt:"page 42 · flushed", pc:"kok", rec:true, v:"data file caught up — sequential WAL beat random writes"}
+  ], function(idx,s){
+    var t=_g('wal-page-t'); t.textContent=s.pt;
+    _g('wal-page').setAttribute('class','balbox'+(s.pc?' '+s.pc:''));
+    t.setAttribute('fill', s.pc==='kbad'?'#B0532F':(s.pc==='kok'?'#3f7a2e':'#20201D'));
+    _g('wal-rec').style.opacity = s.rec?1:0;
+    var vd=_g('wal-verdict'); vd.textContent=s.v;
+    vd.setAttribute('fill', s.pc==='kok'?'#3f7a2e':(s.pc==='kbad'?'#B0532F':'#5A574E'));
+  });
+</script>
+</body>
+</html>

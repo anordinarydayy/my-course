@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice 15 — Common Table Expressions (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --garnet:#A23A5B; --garnet-wash:#F4E5EA;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--garnet);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--garnet);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--garnet-wash);color:var(--ink);}
+  .toc a.active{background:var(--garnet);color:#fff;} .toc a.active .n{color:#e6cdd5;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--garnet);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--garnet);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-t{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  /* table cells (relational-model figure) */
+  .tcell{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.4;transition:fill .25s,stroke .25s;}
+  .thead{fill:var(--blueprint-wash);stroke:var(--blueprint-soft);stroke-width:1.4;}
+  .tcell.kb{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .tcell.kt{fill:var(--garnet-wash);stroke:var(--garnet);stroke-width:2.4;}
+  .tcell.kg{fill:#E6F1DF;stroke:var(--green);stroke-width:2.4;}
+  .tval{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);}
+  .tcap{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink);}
+  .gdim{transition:opacity .3s ease;}
+  /* transaction-race figure */
+  .chip{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;}
+  .chip.cA{fill:var(--blueprint-wash);stroke:var(--blueprint);}
+  .chip.cB{fill:var(--garnet-wash);stroke:var(--garnet);}
+  .chip.cBad{fill:var(--rust-wash);stroke:var(--rust);}
+  .chiptext{font-family:"JetBrains Mono",monospace;font-size:12.5px;fill:var(--ink);}
+  .balbox{fill:#fff;stroke:var(--blueprint);stroke-width:2.2;transition:stroke .25s;}
+  .balbox.kbad{stroke:var(--rust);} .balbox.kok{stroke:var(--green);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--garnet);background:var(--garnet-wash);} .callout.note .k{color:var(--garnet);}
+  .callout p:last-child{margin-bottom:0;}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 18px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13.5px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:#6E59A5;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#A23A5B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">Databases &middot; PostgreSQL</div>
+    <div class="brandtitle">Common Table Expressions</div>
+    <h4>Reading queries top-down</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>WITH: name a subquery</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Composing with CTEs &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>CTE vs subquery &amp; the PG12 change</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Recursive CTEs &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Worked: the full subtree &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Graded drills &amp; traps</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--garnet);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">15</span><span>Practice &middot; Databases &amp; SQL</span></div>
+      <h1>Common Table Expressions</h1>
+      <p class="lede">A <code>WITH</code> clause gives a subquery a name, so a query you once had to read inside-out becomes a pipeline you read top-to-bottom. <code>WITH RECURSIVE</code> goes further and lets a query call <em>itself</em> — the one clean way to walk a tree, a graph, or a generated sequence in pure SQL. And the 2019 change that made a CTE stop being an optimization fence is one of the most reliable Postgres interview gotchas there is. This lesson drills all three.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written for engineers who want SQL depth that pays off in interviews and in production. Everything runs on <strong>PostgreSQL 17/18</strong> and every query is meant to be copy-paste runnable. Contains <strong>three interactive diagrams</strong> (press <em>Play</em> or step with <em>Next</em>), and — because this is a practice lesson — it <strong>ends in a worked SQL problem and a set of graded drills</strong> you should attempt before reading the solutions.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The idea</div>
+      <h2>WITH: give a subquery a name</h2>
+      <p>A <strong>Common Table Expression</strong> (CTE) is a named, temporary result set that exists only for the single statement it is attached to. You write it with the <code>WITH</code> keyword, hand it a name, and then <code>SELECT</code> from that name in the main query as if it were a table. That is the whole mechanism — and its payoff is <strong>readability</strong>. A nested subquery forces you to read from the innermost parentheses outward; a CTE lets you read the same logic as a top-down list of named steps.</p>
+      <p>Watch the identical query written both ways. First the nested form, which you parse inside-out:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- read this from the inside out</span>
+<span class="kw">SELECT</span> region, avg_spend
+<span class="kw">FROM</span> (
+  <span class="kw">SELECT</span> region, <span class="fn">avg</span>(total) <span class="kw">AS</span> avg_spend
+  <span class="kw">FROM</span> orders
+  <span class="kw">GROUP BY</span> region
+) r
+<span class="kw">WHERE</span> avg_spend &gt; <span class="lit">100</span>;</code></pre>
+      <p>Now the same thing with a CTE — read it straight down:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH</span> by_region <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> region, <span class="fn">avg</span>(total) <span class="kw">AS</span> avg_spend
+  <span class="kw">FROM</span> orders
+  <span class="kw">GROUP BY</span> region
+)
+<span class="kw">SELECT</span> region, avg_spend
+<span class="kw">FROM</span> by_region
+<span class="kw">WHERE</span> avg_spend &gt; <span class="lit">100</span>;</code></pre>
+      <p>Same result, same performance in modern Postgres (more on that in <a href="#s2">section 02</a>) — but the second version <em>names its intermediate step</em>, and names are how humans manage complexity. You can also chain several CTEs, comma-separated, and each may reference any CTE defined <strong>before</strong> it:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH</span> a <span class="kw">AS</span> (<span class="kw">SELECT</span> ...),          <span class="cm">-- step 1</span>
+     b <span class="kw">AS</span> (<span class="kw">SELECT</span> ... <span class="kw">FROM</span> a),  <span class="cm">-- step 2 reads step 1</span>
+     c <span class="kw">AS</span> (<span class="kw">SELECT</span> ... <span class="kw">FROM</span> b)   <span class="cm">-- step 3 reads step 2</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> c;                       <span class="cm">-- main query reads the last</span></code></pre>
+      <p>Three rules to keep straight from the start. A CTE is <strong>query-scoped</strong>: it vanishes the instant the statement finishes — it is not a temp table you can reuse later. References only go <strong>backward</strong>: <code>a</code> cannot see <code>b</code> (the one exception is a recursive CTE, which is allowed to reference itself). And a CTE is not restricted to <code>SELECT</code> — you can also put <code>INSERT</code>, <code>UPDATE</code>, or <code>DELETE ... RETURNING</code> inside <code>WITH</code> to build multi-step data pipelines in a single statement.</p>
+      <div class="callout">
+        <span class="k">The mental model</span>
+        <p>Think of <code>WITH</code> as a <strong>&ldquo;let&rdquo; binding for SQL</strong>: <code>WITH name AS (query)</code> is <em>let name = query in &hellip;</em>. You are naming a value so the rest of the expression can refer to it by name instead of by copy-pasting its definition. Everything else in this lesson is what you can do once your steps have names — including having a step refer to <em>itself</em>.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Composition</div>
+      <h2>Composing a report as a chain of named steps &#9656;</h2>
+      <p>Where CTEs earn their keep is a report that is really a <strong>pipeline</strong>: filter the raw rows, aggregate them, rank the aggregates, then pick the top few. Written as one nested query it is a wall of parentheses; written as a chain of CTEs it reads like the four sentences you'd use to describe it. Here is &ldquo;the top&nbsp;3 customers by spend over the last 30 days&rdquo;:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH</span> recent <span class="kw">AS</span> (                         <span class="cm">-- 1. filter</span>
+  <span class="kw">SELECT</span> * <span class="kw">FROM</span> orders
+  <span class="kw">WHERE</span> created_at &gt;= <span class="fn">now</span>() - <span class="kw">interval</span> <span class="lit">'30 days'</span>
+),
+per_cust <span class="kw">AS</span> (                            <span class="cm">-- 2. aggregate</span>
+  <span class="kw">SELECT</span> customer_id, <span class="fn">sum</span>(total) <span class="kw">AS</span> spend
+  <span class="kw">FROM</span> recent
+  <span class="kw">GROUP BY</span> customer_id
+),
+ranked <span class="kw">AS</span> (                              <span class="cm">-- 3. rank</span>
+  <span class="kw">SELECT</span> customer_id, spend,
+         <span class="fn">rank</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> spend <span class="kw">DESC</span>) <span class="kw">AS</span> rnk
+  <span class="kw">FROM</span> per_cust
+)
+<span class="kw">SELECT</span> customer_id, spend                <span class="cm">-- 4. pick</span>
+<span class="kw">FROM</span> ranked
+<span class="kw">WHERE</span> rnk &lt;= <span class="lit">3</span>
+<span class="kw">ORDER BY</span> spend <span class="kw">DESC</span>;</code></pre>
+      <p>Step through the pipeline and notice how each named step narrows the data for the next — a million raw rows become three at the end:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-cte-pipe">
+          <svg viewBox="0 0 640 404" role="img" aria-label="A four-stage CTE pipeline narrowing a million rows down to three: filter, aggregate, rank, pick">
+            <text class="lbl-sm" x="200" y="22" text-anchor="middle">one readable top-down pipeline</text>
+            <text class="lbl-sm" x="570" y="22" text-anchor="middle">est. rows</text>
+            <g class="st" id="pa0">
+              <rect class="node-b" x="140" y="36" width="360" height="46" rx="8"/>
+              <text class="lbl" x="320" y="64" text-anchor="middle">orders &middot; source table</text>
+              <text class="lbl-sm" x="570" y="64" text-anchor="middle">1,000,000</text>
+            </g>
+            <g class="st" id="pa1">
+              <rect class="node-b" x="140" y="104" width="360" height="46" rx="8"/>
+              <text class="lbl" x="320" y="126" text-anchor="middle">recent</text>
+              <text class="lbl-sm" x="320" y="142" text-anchor="middle">WHERE created_at &ge; now() - 30d</text>
+              <text class="lbl-sm" x="570" y="132" text-anchor="middle">8,400</text>
+            </g>
+            <g class="st" id="pa2">
+              <rect class="node-b" x="140" y="172" width="360" height="46" rx="8"/>
+              <text class="lbl" x="320" y="194" text-anchor="middle">per_cust</text>
+              <text class="lbl-sm" x="320" y="210" text-anchor="middle">GROUP BY customer_id &rarr; sum(total)</text>
+              <text class="lbl-sm" x="570" y="200" text-anchor="middle">620</text>
+            </g>
+            <g class="st" id="pa3">
+              <rect class="node-b" x="140" y="240" width="360" height="46" rx="8"/>
+              <text class="lbl" x="320" y="262" text-anchor="middle">ranked</text>
+              <text class="lbl-sm" x="320" y="278" text-anchor="middle">rank() OVER (ORDER BY spend DESC)</text>
+              <text class="lbl-sm" x="570" y="268" text-anchor="middle">620</text>
+            </g>
+            <g class="st" id="pa4">
+              <rect class="node-t" x="140" y="308" width="360" height="52" rx="8"/>
+              <text class="lbl" x="320" y="330" text-anchor="middle" fill="#7a2c43">top &middot; final SELECT</text>
+              <text class="lbl-sm" x="320" y="347" text-anchor="middle" fill="#7a2c43">WHERE rnk &le; 3</text>
+              <text class="lbl-sm" x="570" y="337" text-anchor="middle">3</text>
+            </g>
+            <path id="pl0" class="flow" d="M320 20 V 34" marker-end="url(#arrow)"/>
+            <path id="pl1" class="flow" d="M320 82 V 102" marker-end="url(#arrow)"/>
+            <path id="pl2" class="flow" d="M320 150 V 170" marker-end="url(#arrow)"/>
+            <path id="pl3" class="flow" d="M320 218 V 238" marker-end="url(#arrow)"/>
+            <path id="pl4" class="flow" d="M320 286 V 306" marker-end="url(#arrow)"/>
+            <text id="pipe-read" class="readout" x="320" y="392" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: each named CTE reads from the one above and narrows the row-set for the one below</figcaption>
+      </figure>
+
+      <p>The <code>ranked</code> step is doing more than tidying up: it exists <em>because you cannot</em> filter on a window function in <code>WHERE</code>. Window functions run <strong>after</strong> <code>WHERE</code> and <code>GROUP BY</code>, so <code>WHERE rank() OVER (...) &lt;= 3</code> is rejected outright &mdash; <code>ERROR: window functions are not allowed in WHERE</code> &mdash; because the rank simply doesn't exist yet when <code>WHERE</code> runs. Computing the rank in its own CTE and filtering it in the <em>outer</em> query is the idiomatic fix, and it's a pattern you'll reach for constantly.</p>
+      <div class="callout note">
+        <span class="k">Why the extra CTE isn't wasteful</span>
+        <p>You might worry that four named steps means four full passes over the data. In modern Postgres it usually doesn't: because these CTEs are singly-referenced and side-effect-free, the planner <strong>inlines</strong> them and builds one fused plan — the same plan it would build from the equivalent nested query. You get the readability for free. The next section is exactly about when that inlining happens and when it doesn't.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The gotcha</div>
+      <h2>CTE vs subquery, and the PG12 inlining change</h2>
+      <p>Here is the fact that trips people in interviews, because the answer <em>changed</em>. For years the rule was: <strong>a CTE is an optimization fence.</strong> Before PostgreSQL&nbsp;12, whatever you put in a <code>WITH</code> clause was always <strong>materialized</strong> — computed in full into a temporary work area first, then read back. The planner could not push an outer <code>WHERE</code> into the CTE, could not reorder it, could not use an index inside it based on how you filtered outside it. Developers even <em>exploited</em> this as a hint, wrapping a subquery in a pointless CTE to force materialization.</p>
+      <p><strong>Since PostgreSQL&nbsp;12</strong> the default flipped. A CTE that is (1) <strong>not recursive</strong>, (2) <strong>side-effect-free</strong> (no <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>, no volatile functions), and (3) <strong>referenced exactly once</strong> is <strong>inlined by default</strong> — it plans just like a subquery, with filters pushed in and joins reordered freely. You now control it explicitly:</p>
+      <div class="vs">
+        <div class="col">
+          <h4><code>AS MATERIALIZED</code></h4>
+          <ul>
+            <li>Forces the old behavior: compute once, into a worktable.</li>
+            <li>Shows up as a <strong><code>CTE Scan</code></strong> node in the plan.</li>
+            <li>Use it to compute an expensive thing <em>once</em>, or to pin a plan you like.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4><code>AS NOT MATERIALIZED</code></h4>
+          <ul>
+            <li>Forces inlining even when Postgres would otherwise materialize.</li>
+            <li>Plans exactly as if you'd written a subquery.</li>
+            <li>Use it to un-fence a CTE the planner is being conservative about.</li>
+          </ul>
+        </div>
+      </div>
+      <p>See it in a plan. Imagine <code>events</code> has 50&nbsp;million rows and an index on <code>user_id</code>. This CTE is singly-referenced, so it inlines and the outer filter is pushed all the way to the index:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH</span> big <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> * <span class="kw">FROM</span> events
+)
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> big <span class="kw">WHERE</span> user_id = <span class="lit">42</span>;</code></pre>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>Index Scan using events_user_id_idx on events  (cost=0.44..38.60 rows=9 width=72)
+  Index Cond: (user_id = 42)</code></pre>
+      <p>Nine rows, a millisecond. Now force the pre-12 behavior with a single keyword and watch it fall apart — Postgres must build the <em>entire</em> 50-million-row CTE before it can even look at your filter:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH</span> big <span class="kw">AS</span> <span class="kw">MATERIALIZED</span> (
+  <span class="kw">SELECT</span> * <span class="kw">FROM</span> events
+)
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> big <span class="kw">WHERE</span> user_id = <span class="lit">42</span>;</code></pre>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>CTE Scan on big  (cost=0.00..1500000.00 rows=250000 width=72) (actual rows=9)
+  Filter: (user_id = 42)
+  Rows Removed by Filter: 49999991
+  CTE big
+    ->  Seq Scan on events  (cost=0.00..1000000.00 rows=50000000 width=72)</code></pre>
+      <p>The <code>CTE Scan</code> node and the &ldquo;Rows Removed by Filter: 49,999,991&rdquo; line are the smoking gun: the whole table was materialized, then filtered. So <em>when</em> should you deliberately reach for <code>MATERIALIZED</code>? Three good reasons: a CTE that is <strong>expensive and referenced many times</strong> (compute once, reuse the worktable); a CTE whose <strong>result you want to pin</strong> against a planner that keeps re-deriving a worse plan; or a CTE that <strong>must run exactly once</strong> for correctness (a data-modifying CTE, or one wrapping a side-effecting or volatile function). Note the flip side of the default: recursive CTEs, and CTEs referenced <strong>more than once</strong>, are still materialized automatically — you don't have to ask.</p>
+      <div class="callout tip">
+        <span class="k">The interview answer, memorized</span>
+        <p>&ldquo;Is a CTE an optimization fence in PostgreSQL?&rdquo; &rarr; <strong>&ldquo;Not since version 12.</strong> A non-recursive, side-effect-free CTE referenced exactly once is inlined by default and plans like a subquery. It's only a fence if it's recursive, referenced multiple times, has side effects, or I explicitly write <code>MATERIALIZED</code>.&rdquo; Saying that one sentence cleanly signals you know current Postgres, not a decade-old blog post.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Recursion</div>
+      <h2>WITH RECURSIVE: a query that calls itself &#9656;</h2>
+      <p>SQL has no loops — and yet trees, graphs, hierarchies, and generated sequences all need something loop-shaped. <code>WITH RECURSIVE</code> is that something. Its shape is fixed and worth memorizing: a <strong>base term</strong> (the starting rows) <code>UNION ALL</code> a <strong>recursive term</strong> that references the CTE by name.</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH RECURSIVE</span> t(n) <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> <span class="lit">1</span>                 <span class="cm">-- base term: the anchor row</span>
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> n + <span class="lit">1</span> <span class="kw">FROM</span> t      <span class="cm">-- recursive term: references t</span>
+  <span class="kw">WHERE</span> n &lt; <span class="lit">5</span>              <span class="cm">-- termination guard</span>
+)
+<span class="kw">SELECT</span> n <span class="kw">FROM</span> t;              <span class="cm">-- &rarr; 1, 2, 3, 4, 5</span></code></pre>
+      <p>The execution model is a precise little loop, and understanding it is the difference between writing recursive CTEs confidently and fearing them. The engine keeps a <strong>working table</strong>. It runs the base term once, and its rows become both the first output and the initial working table. Then it repeats: run the recursive term with the CTE name bound to <em>the current working table</em>, emit whatever comes back, and make <em>those</em> rows the new working table. It stops the instant an iteration produces zero rows. Step through it:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-rec">
+          <svg viewBox="0 0 660 400" role="img" aria-label="A recursive CTE walking a tree by id and parent_id: the working table advances level by level while the result accumulates until an iteration returns no rows">
+            <text class="lbl-sm" x="196" y="20" text-anchor="middle">rows keyed by id / parent_id</text>
+            <!-- tree edges -->
+            <path class="flow-d" d="M196 70 L 112 120"/>
+            <path class="flow-d" d="M196 70 L 280 120"/>
+            <path class="flow-d" d="M106 156 L 62 210"/>
+            <path class="flow-d" d="M106 156 L 130 210"/>
+            <path class="flow-d" d="M286 156 L 282 210"/>
+            <!-- tree nodes -->
+            <rect id="rc-n0" class="node" x="160" y="34" width="72" height="36" rx="7"/><text class="lbl" x="196" y="57" text-anchor="middle">id 1</text>
+            <rect id="rc-n1a" class="node" x="70" y="120" width="72" height="36" rx="7"/><text class="lbl" x="106" y="143" text-anchor="middle">id 2</text>
+            <rect id="rc-n1b" class="node" x="250" y="120" width="72" height="36" rx="7"/><text class="lbl" x="286" y="143" text-anchor="middle">id 3</text>
+            <rect id="rc-n2a" class="node" x="30" y="210" width="64" height="34" rx="7"/><text class="lbl" x="62" y="232" text-anchor="middle">id 4</text>
+            <rect id="rc-n2b" class="node" x="104" y="210" width="64" height="34" rx="7"/><text class="lbl" x="136" y="232" text-anchor="middle">id 5</text>
+            <rect id="rc-n2c" class="node" x="250" y="210" width="64" height="34" rx="7"/><text class="lbl" x="282" y="232" text-anchor="middle">id 6</text>
+            <!-- right panel -->
+            <text class="lbl-sm" x="520" y="44" text-anchor="middle">WORKING TABLE (this iteration)</text>
+            <rect class="node-r" x="410" y="52" width="220" height="52" rx="8"/>
+            <text id="rc-wt" x="520" y="84" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#20201D"></text>
+            <text class="lbl-sm" x="520" y="134" text-anchor="middle">RESULT (accumulated)</text>
+            <rect class="node-t" x="410" y="142" width="220" height="52" rx="8"/>
+            <text id="rc-res" x="520" y="174" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#20201D"></text>
+            <text id="rc-iter" class="lbl-sm" x="520" y="228" text-anchor="middle" fill="#B0532F"></text>
+            <path d="M40 268 H 620" class="flow-d"/>
+            <text id="rc-verdict" x="330" y="300" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <text class="lbl-sm" x="330" y="330" text-anchor="middle">the recursive term runs against the working table, not the whole result</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: base term, then iterate — the working table advances one level per pass and the result accumulates until an iteration returns nothing</figcaption>
+      </figure>
+
+      <p>Two knobs control safety and shape. <code>UNION ALL</code> keeps every row the recursion emits; plain <code>UNION</code> de-duplicates each pass, which both trims duplicates and gives you a crude cycle guard — if a graph loops back to a row you've already produced, <code>UNION</code> discards it and the loop can die out. A pure tree can't cycle, so <code>UNION ALL</code> is fine there; a graph with back-edges needs real cycle protection, which we build in the worked problem next.</p>
+      <div class="callout note">
+        <span class="k">The two ways a recursive CTE goes wrong</span>
+        <p>Both failure modes are &ldquo;it never stops.&rdquo; Either there's <strong>no termination guard</strong> — nothing shrinks the frontier, like forgetting the <code>WHERE n &lt; 5</code> above — or the data has a <strong>cycle</strong> and each pass keeps finding &ldquo;new&rdquo; rows. The engine won't save you; it will happily run until it exhausts memory or disk. Every recursive CTE you write needs an answer to &ldquo;what makes the recursive term eventually return zero rows?&rdquo;</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE + WORKED -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Worked problem</div>
+      <h2>Worked: every descendant of a category &#9656;</h2>
+      <p>This is the canonical recursive-CTE interview question, and it's worth doing end to end. Start with the schema — a classic <strong>adjacency-list</strong> tree, where each row points at its parent:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">CREATE TABLE</span> categories (
+  id        <span class="kw">int</span> <span class="kw">GENERATED ALWAYS AS IDENTITY</span> <span class="kw">PRIMARY KEY</span>,
+  name      <span class="kw">text</span> <span class="kw">NOT NULL</span>,
+  parent_id <span class="kw">int</span> <span class="kw">REFERENCES</span> categories(id)   <span class="cm">-- NULL at the roots</span>
+);
+<span class="kw">CREATE INDEX</span> <span class="kw">ON</span> categories(parent_id);</code></pre>
+      <p><strong>The task, in one sentence:</strong> given a category <code>:root</code>, return every category in its subtree — all descendants, to any depth.</p>
+
+      <h3>The naive attempt, and why it's wrong</h3>
+      <p>The instinct without recursion is to self-join a fixed number of times:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="cm">-- WRONG: hard-codes the depth</span>
+<span class="kw">SELECT</span> c2.*
+<span class="kw">FROM</span> categories c1
+<span class="kw">JOIN</span> categories c2 <span class="kw">ON</span> c2.parent_id = c1.id
+<span class="kw">WHERE</span> c1.parent_id = :root <span class="kw">OR</span> c1.id = :root;</code></pre>
+      <p>Each <code>JOIN</code> reaches exactly one level deeper, so <em>N</em> joins reach exactly <em>N</em> levels. A real category tree is arbitrarily deep, so any fixed query silently <strong>misses everything below its last join</strong> — and you can't add &ldquo;enough&rdquo; joins because you don't know the depth. This is precisely the problem recursion exists to solve: repeat the &ldquo;find my children&rdquo; step until there are no more children.</p>
+
+      <h3>The correct query</h3>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH RECURSIVE</span> subtree <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> id, name, parent_id
+  <span class="kw">FROM</span> categories
+  <span class="kw">WHERE</span> id = :root                       <span class="cm">-- base: the root itself</span>
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> c.id, c.name, c.parent_id
+  <span class="kw">FROM</span> categories c
+  <span class="kw">JOIN</span> subtree s <span class="kw">ON</span> c.parent_id = s.id   <span class="cm">-- recurse: children of found rows</span>
+)
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> subtree;</code></pre>
+      <p>Follow the recursion levels expanding — the base grabs the root, then each pass grabs the children of the rows found in the previous pass, until a pass finds none:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-sub">
+          <svg viewBox="0 0 660 400" role="img" aria-label="The subtree recursion expanding level by level under a root category, with the matching Postgres plan node named at each step">
+            <text class="lbl-sm" x="330" y="20" text-anchor="middle">each iteration descends one level: categories.parent_id &larr; subtree.id</text>
+            <!-- tree edges -->
+            <path class="flow-d" d="M325 72 L 185 126"/>
+            <path class="flow-d" d="M325 72 L 435 126"/>
+            <path class="flow-d" d="M180 164 L 130 224"/>
+            <path class="flow-d" d="M440 164 L 392 224"/>
+            <path class="flow-d" d="M440 164 L 522 224"/>
+            <!-- tree nodes -->
+            <rect id="sb-n0" class="node" x="250" y="34" width="150" height="38" rx="7"/><text class="lbl" x="325" y="58" text-anchor="middle">Electronics</text>
+            <rect id="sb-n1a" class="node" x="120" y="126" width="120" height="38" rx="7"/><text class="lbl" x="180" y="150" text-anchor="middle">Phones</text>
+            <rect id="sb-n1b" class="node" x="380" y="126" width="120" height="38" rx="7"/><text class="lbl" x="440" y="150" text-anchor="middle">Laptops</text>
+            <rect id="sb-n2a" class="node" x="70" y="224" width="112" height="36" rx="7"/><text class="lbl" x="126" y="246" text-anchor="middle">iPhone</text>
+            <rect id="sb-n2b" class="node" x="330" y="224" width="122" height="36" rx="7"/><text class="lbl" x="391" y="246" text-anchor="middle">Ultrabooks</text>
+            <rect id="sb-n2c" class="node" x="470" y="224" width="110" height="36" rx="7"/><text class="lbl" x="525" y="246" text-anchor="middle">Gaming</text>
+            <!-- readouts -->
+            <text id="sb-depth" class="lbl-sm" x="330" y="288" text-anchor="middle" fill="#B0532F"></text>
+            <rect class="node" x="70" y="298" width="520" height="42" rx="8"/>
+            <text id="sb-plan" x="330" y="323" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#1F4E79"></text>
+            <text id="sb-verdict" x="330" y="366" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 — interactive: the base row, then one level of descendants per iteration, each mapping to a real plan node</figcaption>
+      </figure>
+
+      <h3>The plan, and the index that makes it fast</h3>
+      <p>The <code>CREATE INDEX ON categories(parent_id)</code> is the whole performance story. Without it, every single iteration re-scans the entire table to find children; with it, each iteration is a cheap index lookup keyed by the ids currently in the working table. That's exactly what the plan shows:</p>
+      <p class="codetag">illustrative</p>
+      <pre class="code"><code>CTE Scan on subtree  (cost=8.72..9.34 rows=31 width=40) (actual rows=6 loops=1)
+  CTE subtree
+    ->  Recursive Union  (cost=0.28..8.72 rows=31 width=40) (actual rows=6)
+          ->  Index Scan using categories_pkey on categories  (cost=0.28..8.30 rows=1 width=40)
+                Index Cond: (id = 42)
+          ->  Nested Loop  (cost=0.28..0.80 rows=3 width=40) (actual rows=2 loops=3)
+                ->  WorkTable Scan on subtree s  (cost=0.00..0.20 rows=10 width=4)
+                ->  Index Scan using categories_parent_id_idx on categories c  (cost=0.28..0.56 rows=2 width=40)
+                      Index Cond: (parent_id = s.id)
+Planning Time: 0.14 ms
+Execution Time: 0.09 ms</code></pre>
+      <p>Read it top-down: the <strong><code>Recursive Union</code></strong> is the loop. Its first child, the base term, is an <strong><code>Index Scan</code></strong> on the primary key for <code>id = 42</code>. Its second child, the recursive term, is a <strong><code>Nested Loop</code></strong> joining a <strong><code>WorkTable Scan</code></strong> (the rows found last iteration) against an <strong><code>Index Scan</code> on <code>categories_parent_id_idx</code></strong> — so each known row's children are fetched by index, not by scanning the table. The <code>loops=3</code> on the nested loop tells you the recursion ran three passes before drying up.</p>
+
+      <h3>Adding depth and a cycle guard</h3>
+      <p>Two production upgrades. Carry a <strong>depth</strong> counter and a <strong>path array</strong>; the path both records ancestry and lets you refuse to revisit a node — the safe way to survive a mis-entered cycle in what should be a tree:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH RECURSIVE</span> subtree <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> id, name, parent_id,
+         <span class="lit">1</span> <span class="kw">AS</span> depth,
+         <span class="kw">ARRAY</span>[id] <span class="kw">AS</span> path
+  <span class="kw">FROM</span> categories
+  <span class="kw">WHERE</span> id = :root
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> c.id, c.name, c.parent_id,
+         s.depth + <span class="lit">1</span>,
+         s.path || c.id
+  <span class="kw">FROM</span> categories c
+  <span class="kw">JOIN</span> subtree s <span class="kw">ON</span> c.parent_id = s.id
+  <span class="kw">WHERE</span> <span class="kw">NOT</span> c.id = <span class="kw">ANY</span>(s.path)          <span class="cm">-- don't revisit a node</span>
+)
+<span class="kw">SELECT</span> id, name, depth, path <span class="kw">FROM</span> subtree <span class="kw">ORDER BY</span> path;</code></pre>
+      <p>Since PostgreSQL&nbsp;14 you can let the engine track cycles for you with the <code>CYCLE</code> clause instead of hand-rolling the path check — it auto-adds a boolean marker column and a path column:</p>
+      <p class="codetag">sql</p>
+      <pre class="code"><code><span class="kw">WITH RECURSIVE</span> subtree <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> id, name, parent_id <span class="kw">FROM</span> categories <span class="kw">WHERE</span> id = :root
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> c.id, c.name, c.parent_id
+  <span class="kw">FROM</span> categories c <span class="kw">JOIN</span> subtree s <span class="kw">ON</span> c.parent_id = s.id
+) <span class="kw">CYCLE</span> id <span class="kw">SET</span> is_cycle <span class="kw">USING</span> path
+<span class="kw">SELECT</span> id, name <span class="kw">FROM</span> subtree <span class="kw">WHERE NOT</span> is_cycle;</code></pre>
+
+      <h3>Narrate it</h3>
+      <p>If an interviewer asks you to talk through this: &ldquo;It's an adjacency-list tree, so I walk it with a recursive CTE. The base term selects the root by primary key. The recursive term joins the table to the working set on <code>child.parent_id = found.id</code>, which descends exactly one level per iteration; <code>UNION ALL</code> accumulates them and the recursion stops when a level has no children. The index on <code>parent_id</code> turns each iteration into an index lookup, so the plan is a <code>Recursive Union</code> over a <code>WorkTable Scan</code> joined to an index scan. If the data might contain cycles rather than being a strict tree, I carry a path array and add <code>WHERE NOT id = ANY(path)</code>, or use the <code>CYCLE</code> clause on PG14+.&rdquo; That answer hits the model, the plan, and the failure mode — everything the question is probing.</p>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Drills &amp; traps</div>
+      <h2>Graded drills, then the traps</h2>
+      <p>Attempt each before opening its solution. They rise in difficulty from &ldquo;readability&rdquo; to &ldquo;bend the planner to your will.&rdquo;</p>
+
+      <h3>Drill 1 &mdash; a three-step chained report</h3>
+      <p>From <code>sales(id, product_id, sold_at, amount)</code> and <code>products(id, category)</code>, produce each category's revenue <em>and its share of total revenue</em>, using a chain of CTEs so the logic reads top-down.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag" style="margin-top:2px">sql</p>
+        <pre class="code"><code><span class="kw">WITH</span> per_cat <span class="kw">AS</span> (                    <span class="cm">-- 1. revenue per category</span>
+  <span class="kw">SELECT</span> p.category, <span class="fn">sum</span>(s.amount) <span class="kw">AS</span> revenue
+  <span class="kw">FROM</span> sales s
+  <span class="kw">JOIN</span> products p <span class="kw">ON</span> p.id = s.product_id
+  <span class="kw">GROUP BY</span> p.category
+),
+grand <span class="kw">AS</span> (                             <span class="cm">-- 2. the grand total</span>
+  <span class="kw">SELECT</span> <span class="fn">sum</span>(revenue) <span class="kw">AS</span> total <span class="kw">FROM</span> per_cat
+)
+<span class="kw">SELECT</span> c.category, c.revenue,        <span class="cm">-- 3. combine into a share</span>
+       <span class="fn">round</span>(<span class="lit">100.0</span> * c.revenue / g.total, <span class="lit">1</span>) <span class="kw">AS</span> pct
+<span class="kw">FROM</span> per_cat c <span class="kw">CROSS JOIN</span> grand g
+<span class="kw">ORDER BY</span> c.revenue <span class="kw">DESC</span>;</code></pre>
+        <p style="margin-bottom:0"><strong>Why:</strong> <code>grand</code> is referenced once so it inlines to a scalar; the <code>CROSS JOIN</code> to a one-row CTE is the clean way to divide every category by the same total.</p>
+      </div>
+
+      <h3>Drill 2 &mdash; generate a series recursively</h3>
+      <p>Produce the first day of every month in 2026 (Jan through Dec) with a recursive CTE — no <code>generate_series</code>.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag" style="margin-top:2px">sql</p>
+        <pre class="code"><code><span class="kw">WITH RECURSIVE</span> months(m) <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> <span class="kw">date</span> <span class="lit">'2026-01-01'</span>
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> (m + <span class="kw">interval</span> <span class="lit">'1 month'</span>)::<span class="kw">date</span>
+  <span class="kw">FROM</span> months
+  <span class="kw">WHERE</span> m &lt; <span class="kw">date</span> <span class="lit">'2026-12-01'</span>
+)
+<span class="kw">SELECT</span> m <span class="kw">FROM</span> months;</code></pre>
+        <p style="margin-bottom:0"><strong>Why:</strong> the base fixes the column type to <code>date</code>, so the recursive term casts <code>m + interval</code> back to <code>date</code> to match; the <code>WHERE m &lt; '2026-12-01'</code> is the termination guard. In real code you'd write <code>generate_series('2026-01-01'::date, '2026-12-01', '1 month')</code> — but knowing the recursive form proves you understand the mechanism.</p>
+      </div>
+
+      <h3>Drill 3 &mdash; a tree with depth and a breadcrumb path</h3>
+      <p>From the <code>categories</code> table, list every category with its <code>depth</code> and a human breadcrumb like <code>Electronics &gt; Laptops &gt; Gaming</code>, ordered so children sit under their parents.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag" style="margin-top:2px">sql</p>
+        <pre class="code"><code><span class="kw">WITH RECURSIVE</span> tree <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> id, name, parent_id,
+         <span class="lit">1</span> <span class="kw">AS</span> depth,
+         name <span class="kw">AS</span> path
+  <span class="kw">FROM</span> categories
+  <span class="kw">WHERE</span> parent_id <span class="kw">IS NULL</span>                 <span class="cm">-- start at every root</span>
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> c.id, c.name, c.parent_id,
+         t.depth + <span class="lit">1</span>,
+         t.path || <span class="lit">' > '</span> || c.name
+  <span class="kw">FROM</span> categories c
+  <span class="kw">JOIN</span> tree t <span class="kw">ON</span> c.parent_id = t.id
+)
+<span class="kw">SELECT</span> depth, path <span class="kw">FROM</span> tree <span class="kw">ORDER BY</span> path;</code></pre>
+        <p style="margin-bottom:0"><strong>Why:</strong> the base starts at roots (<code>parent_id IS NULL</code>); each level concatenates the child's name onto the parent's path, and <code>ORDER BY path</code> gives a stable, indented-looking pre-order listing.</p>
+      </div>
+
+      <h3>Drill 4 &mdash; force MATERIALIZED to stop recomputation</h3>
+      <p>A CTE computes an expensive per-row score with a slow function. Because it's referenced only once, Postgres inlines it — and can end up evaluating <code>slow_score()</code> more times than you intend (once to join, again in the outer filter). Make it compute exactly once.</p>
+      <div class="callout tip">
+        <span class="k">Try it first, then read</span>
+        <p class="codetag" style="margin-top:2px">sql</p>
+        <pre class="code"><code><span class="kw">WITH</span> scored <span class="kw">AS</span> <span class="kw">MATERIALIZED</span> (        <span class="cm">-- compute once, into a worktable</span>
+  <span class="kw">SELECT</span> id, <span class="fn">slow_score</span>(id) <span class="kw">AS</span> score
+  <span class="kw">FROM</span> candidates
+  <span class="kw">WHERE</span> active
+)
+<span class="kw">SELECT</span> s.id, s.score
+<span class="kw">FROM</span> scored s
+<span class="kw">JOIN</span> other o <span class="kw">ON</span> o.cand_id = s.id
+<span class="kw">WHERE</span> s.score &gt; <span class="lit">0.9</span>;</code></pre>
+        <p style="margin-bottom:0"><strong>Why:</strong> <code>MATERIALIZED</code> pins <code>scored</code> as a single <code>CTE Scan</code>, so <code>slow_score()</code> runs once per candidate instead of being re-derived wherever the planner inlines it. This is the modern, legitimate use of the keyword — a deliberate choice, not a reflex.</p>
+      </div>
+
+      <h3>Traps to sidestep</h3>
+      <ul>
+        <li><strong>Assuming &ldquo;CTE = fence.&rdquo;</strong> False since PostgreSQL&nbsp;12 for a non-recursive, side-effect-free, singly-referenced CTE — it inlines. Don't wrap a subquery in a CTE expecting to force materialization; write <code>MATERIALIZED</code> if you actually mean it.</li>
+        <li><strong>Infinite recursion.</strong> No termination guard, or a cyclic graph, and the query runs until it exhausts resources. Always give the recursive term a reason to eventually return zero rows: a bound, <code>UNION</code> instead of <code>UNION ALL</code>, a path-array check, or the <code>CYCLE</code> clause.</li>
+        <li><strong>Forward-referencing a CTE.</strong> A CTE can only see CTEs defined <em>before</em> it (a recursive CTE seeing itself is the sole exception). If <code>a</code> needs <code>b</code>, define <code>b</code> first.</li>
+        <li><strong>A huge <code>MATERIALIZED</code> CTE that kills a good plan.</strong> Forcing materialization blocks filter push-down and index use inside the CTE — occasionally you turn a fast index scan into a full materialize-then-filter, exactly the 50-million-row disaster from section 02. Reach for <code>MATERIALIZED</code> deliberately, then re-check the plan.</li>
+      </ul>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>One idea holds the lesson together: <em>a CTE names a step. Naming steps makes a complex query readable top-down; letting a step name itself (<code>WITH RECURSIVE</code>) is how SQL walks trees and sequences; and since PostgreSQL&nbsp;12 a plain CTE plans like a subquery unless you say otherwise.</em></p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>WITH names a subquery</b><span>A query-scoped, temporary result you SELECT from by name — turning inside-out nesting into a top-down pipeline.</span></div>
+        <div class="tk"><span class="num">02</span><b>Chain, backward-only</b><span>Comma-separate multiple CTEs; each may reference those defined before it. No forward references (except a recursive CTE to itself).</span></div>
+        <div class="tk"><span class="num">03</span><b>Not a fence since PG12</b><span>A non-recursive, side-effect-free, singly-referenced CTE inlines by default and plans like a subquery.</span></div>
+        <div class="tk"><span class="num">04</span><b>MATERIALIZED / NOT</b><span>Force compute-once (a CTE Scan) or force inlining. Recursive and multiply-referenced CTEs materialize automatically.</span></div>
+        <div class="tk"><span class="num">05</span><b>Windows need their own CTE</b><span>You can't filter a window result in WHERE; compute rank() in a CTE and filter it in the outer query.</span></div>
+        <div class="tk"><span class="num">06</span><b>RECURSIVE = base ∪ self</b><span>Base term UNION ALL a recursive term referencing the CTE; iterate the working table until a pass returns zero rows.</span></div>
+        <div class="tk"><span class="num">07</span><b>Guard the recursion</b><span>Terminate with a bound, UNION dedup, a path-array check, or the PG14 CYCLE clause — or it runs forever.</span></div>
+        <div class="tk"><span class="num">08</span><b>Index the recurse key</b><span>Indexing categories(parent_id) turns each iteration into an index lookup — a Recursive Union over a WorkTable Scan + Index Scan.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Rewrite a two-level nested subquery as a chain of CTEs. What can a later CTE reference, and what can't it?<br>
+        (2) &ldquo;Is a CTE an optimization fence in PostgreSQL?&rdquo; Give the current, correct answer in one sentence, with the three conditions for inlining.<br>
+        (3) Name a case where you'd deliberately write <code>MATERIALIZED</code>, and a case where it would wreck a plan.<br>
+        (4) Why can't you filter <code>WHERE rank() OVER (...) &lt;= 3</code>, and what's the idiomatic fix?<br>
+        (5) Write the skeleton of a <code>WITH RECURSIVE</code>. Describe the working-table loop and name the two ways it fails to terminate.<br>
+        (6) For the subtree query, which index matters and which plan nodes does it produce? Add depth + a cycle guard.<br>
+        Any fuzzy answer &#8594; re-read that section, replay its diagram, and re-derive the query from the plan on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      PRACTICE 15 &middot; COMMON TABLE EXPRESSIONS &middot; interactive edition<br>
+      Original study notes &middot; PostgreSQL 17/18 &middot; read top-down, recurse with a guard, and remember the PG12 fence rule.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the CTE composition pipeline */
+  makeStepper(_g('fig-cte-pipe'), [
+    {text:"Start with the raw orders table — about a million rows. We narrow it in named stages, each reading from the one above.", active:["pa0"], path:"pl0", read:"orders → ~1,000,000 rows"},
+    {text:"CTE #1 recent: keep only the last 30 days. WHERE runs first, so the pipeline begins by shrinking the input.", active:["pa1"], path:"pl1", read:"recent = filter → ~8,400 rows"},
+    {text:"CTE #2 per_cust: read from recent and aggregate — sum(total) per customer. GROUP BY collapses many rows into one per customer.", active:["pa2"], path:"pl2", read:"per_cust = aggregate → ~620 rows"},
+    {text:"CTE #3 ranked: read per_cust and add rank() OVER (ORDER BY spend DESC). A window can't live in WHERE, so it gets its own step.", active:["pa3"], path:"pl3", read:"ranked = rank() → 620 rows + rnk"},
+    {text:"Final query: pick rnk ≤ 3. Four readable stages replace one deeply-nested query — and Postgres fuses them into a single plan.", active:["pa4"], path:"pl4", read:"top = WHERE rnk ≤ 3 → 3 rows"}
+  ], function(idx,s){
+    _g('pipe-read').textContent=s.read||'';
+  });
+
+  /* FIG 2 — recursive tree-walk: working table advances, result accumulates */
+  var recNodes=['rc-n0','rc-n1a','rc-n1b','rc-n2a','rc-n2b','rc-n2c'];
+  makeStepper(_g('fig-rec'), [
+    {text:"Base term runs once: it selects the starting row (id 1) into the working table. That row is also the first row of the result.",
+      front:["rc-n0"], done:[], wt:"{ id 1 }", res:"{ 1 }  ·  1 row", iter:"base term", v:"working table = the anchor row"},
+    {text:"Iteration 1: the recursive term joins the working table (id 1) to find rows whose parent is 1 — ids 2 and 3. They become the new working table and are appended to the result.",
+      front:["rc-n1a","rc-n1b"], done:["rc-n0"], wt:"{ id 2, id 3 }", res:"{ 1, 2, 3 }  ·  3 rows", iter:"iteration 1", v:"found children of { 1 }"},
+    {text:"Iteration 2: recurse again — children of { 2, 3 } are ids 4, 5 (parent 2) and id 6 (parent 3). New working table; appended to the result.",
+      front:["rc-n2a","rc-n2b","rc-n2c"], done:["rc-n0","rc-n1a","rc-n1b"], wt:"{ id 4, id 5, id 6 }", res:"{ 1..6 }  ·  6 rows", iter:"iteration 2", v:"found children of { 2, 3 }"},
+    {text:"Iteration 3: do ids 4, 5, 6 have children? None. The recursive term returns zero rows, so the working table is now empty.",
+      front:[], done:recNodes.slice(), wt:"{ }  (empty)", res:"{ 1..6 }  ·  6 rows", iter:"iteration 3 → empty", v:"working table empty → stop"},
+    {text:"UNION ALL has gathered every row each pass produced: the whole subtree, { 1, 2, 3, 4, 5, 6 }. The recursion is complete.",
+      front:[], done:recNodes.slice(), wt:"{ }  (loop ended)", res:"{ 1..6 }  ·  6 rows", iter:"done", v:"✓ recursion complete — 6 rows"}
+  ], function(idx,s){
+    recNodes.forEach(function(id){var e=_g(id); if(e){e.setAttribute('class','node'); e.style.opacity=0.22;}});
+    (s.done||[]).forEach(function(id){var e=_g(id); if(e){e.setAttribute('class','node-t'); e.style.opacity=1;}});
+    (s.front||[]).forEach(function(id){var e=_g(id); if(e){e.setAttribute('class','node-r'); e.style.opacity=1;}});
+    _g('rc-wt').textContent=s.wt||'';
+    _g('rc-res').textContent=s.res||'';
+    _g('rc-iter').textContent=s.iter||'';
+    var vd=_g('rc-verdict'); vd.textContent=s.v||'';
+    vd.setAttribute('fill', idx>=4?'#3f7a2e':'#5A574E');
+  });
+
+  /* FIG 3 — the worked subtree: recursion levels + matching plan node */
+  var subNodes=['sb-n0','sb-n1a','sb-n1b','sb-n2a','sb-n2b','sb-n2c'];
+  makeStepper(_g('fig-sub'), [
+    {text:"Base term: WHERE id = :root selects Electronics itself. In the plan this is an Index Scan on the primary key.",
+      front:["sb-n0"], done:[], depth:"RECURSION DEPTH · 1", plan:"base → Index Scan using categories_pkey  (id = :root)", v:"1 row: Electronics"},
+    {text:"Iteration 1 (depth 2): the recursive term joins categories.parent_id = subtree.id, finding Phones and Laptops via the parent_id index.",
+      front:["sb-n1a","sb-n1b"], done:["sb-n0"], depth:"RECURSION DEPTH · 2", plan:"recurse → Index Scan on categories(parent_id)", v:"+2 rows: Phones, Laptops"},
+    {text:"Iteration 2 (depth 3): children of { Phones, Laptops } — iPhone under Phones; Ultrabooks and Gaming under Laptops.",
+      front:["sb-n2a","sb-n2b","sb-n2c"], done:["sb-n0","sb-n1a","sb-n1b"], depth:"RECURSION DEPTH · 3", plan:"recurse → WorkTable Scan ⋈ Index Scan(parent_id)", v:"+3 rows: iPhone, Ultrabooks, Gaming"},
+    {text:"Iteration 3: the leaf rows have no children, so the recursive term returns zero rows — the WorkTable is empty and the loop stops.",
+      front:[], done:subNodes.slice(), depth:"RECURSION DEPTH · 4 → empty", plan:"recurse → 0 rows → WorkTable empty → stop", v:"no more descendants"},
+    {text:"SELECT * FROM subtree reads the accumulated worktable — a CTE Scan returning all six categories in the subtree.",
+      front:[], done:subNodes.slice(), depth:"RECURSION COMPLETE", plan:"CTE Scan on subtree → returns 6 rows", v:"✓ full subtree = 6 categories"}
+  ], function(idx,s){
+    subNodes.forEach(function(id){var e=_g(id); if(e){e.setAttribute('class','node'); e.style.opacity=0.22;}});
+    (s.done||[]).forEach(function(id){var e=_g(id); if(e){e.setAttribute('class','node-t'); e.style.opacity=1;}});
+    (s.front||[]).forEach(function(id){var e=_g(id); if(e){e.setAttribute('class','node-r'); e.style.opacity=1;}});
+    _g('sb-depth').textContent=s.depth||'';
+    _g('sb-plan').textContent=s.plan||'';
+    var vd=_g('sb-verdict'); vd.textContent=s.v||'';
+    vd.setAttribute('fill', idx>=4?'#3f7a2e':'#5A574E');
+  });
+</script>
+</body>
+</html>
