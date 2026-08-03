@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 02 — Messaging Patterns: Work Queues, Pub/Sub &amp; RPC (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- area / layer boxes ---- */
+  .areagrid-box{transition:opacity .3s ease;}
+  /* ---- code + worked example ---- */
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 14px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-v" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6E59A5"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">RabbitMQ &middot; Study Notes</div>
+    <div class="brandtitle">Messaging Patterns:<br>Work Queues, Pub/Sub &amp; RPC</div>
+    <h4>The four shapes</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Four shapes, one machine</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Work queue: competing consumers &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Publish / subscribe fan-out</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Direct &amp; topic routing &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Request / reply (RPC)</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Worked: durable thumbnailer</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Choosing the primitive</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>What breaks in production</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">02</span><span>Concept &middot; RabbitMQ</span></div>
+      <h1>Messaging Patterns: Work Queues, Pub/Sub &amp; RPC</h1>
+      <p class="lede">Newcomers picture a broker as &ldquo;a queue you push into and pull out of.&rdquo; That model shatters the first time you need <em>more than one</em> consumer, <em>selective</em> delivery, or a <em>reply</em>. The real question every messaging design answers isn&rsquo;t &ldquo;which queue?&rdquo; but <strong>&ldquo;what routing shape do I need?&rdquo;</strong> This lesson shows that work queues, publish/subscribe, routing, and RPC are not four things to memorize — they are one machine with a different dial setting.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers prepping backend and system-design interviews. Terms like <em>exchange</em>, <em>binding</em>, and <em>routing key</em> are used as plain identifiers; every sentence, diagram, and line of code here is our own, tracking RabbitMQ <strong>4.x</strong> (mid-2026). Contains <strong>two interactive diagrams</strong> (press <em>Play</em>, or step with <em>Next</em>) and one static reference schematic, plus one end-to-end worked example.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The frame</div>
+      <h2>Four shapes, one machine</h2>
+      <p>Essentially every messaging problem collapses onto three yes/no questions. Once you can ask them in order, the &ldquo;patterns&rdquo; stop being a catalogue and become a decision tree:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Cardinality</h4>
+          <ul>
+            <li>Handled by <strong>exactly one</strong> of N interchangeable workers?</li>
+            <li>&#8594; <strong>work queue</strong> (competing consumers).</li>
+            <li>Or by <strong>every</strong> interested party? &#8594; <strong>fan-out</strong>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Selectivity</h4>
+          <ul>
+            <li>Do all consumers want <strong>everything</strong>? &#8594; fanout.</li>
+            <li>Or a <strong>filtered subset</strong> by key or pattern?</li>
+            <li>&#8594; <strong>direct</strong> / <strong>topic</strong> routing.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Directionality</h4>
+          <ul>
+            <li><strong>Fire-and-forget</strong> — the sender moves on?</li>
+            <li>Or <strong>request/reply</strong>, where it waits for a correlated answer?</li>
+            <li>&#8594; <strong>RPC</strong>.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Now the one load-bearing insight that makes all of this cohere. <strong>Producers in RabbitMQ never publish to a queue.</strong> They publish to an <strong>exchange</strong>; the exchange plus its <strong>bindings</strong> decide which queues — zero, one, or many — receive a copy. All four patterns run the <em>same</em> machinery, <code>publish &#8594; exchange &#8594; binding &#8594; queue &#8594; consumer</code>, differing only in the <strong>exchange type</strong> and the <strong>binding rule</strong>. RabbitMQ ships a small toolkit of exchange types — <code>default</code>, <code>direct</code>, <code>fanout</code>, <code>topic</code> (and <code>headers</code>) — and each &ldquo;shape&rdquo; is just a choice of type plus binding.</p>
+      <div class="callout">
+        <span class="k">The rule to memorize</span>
+        <p>The case that looks like &ldquo;publishing straight to a queue&rdquo; — the plain work queue — is really the <strong>default (nameless) exchange</strong> doing <em>direct</em> routing on the queue&rsquo;s own name. There is no exception to the rule; the default exchange just hides it. Get this one sentence wrong and you will never be able to explain fan-out.</p>
+      </div>
+      <div class="callout note">
+        <span class="k">Common misconception</span>
+        <p>&ldquo;Producers publish to queues.&rdquo; They don&rsquo;t — they publish to <strong>exchanges</strong>. The default exchange is a built-in <em>direct</em> exchange with an implicit binding of every queue to its own name, which makes point-to-point <em>look</em> direct. You can&rsquo;t bind to it manually, and its behavior (route <code>routing_key</code> &#8594; same-named queue) is fixed.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Point-to-point</div>
+      <h2>The work queue: competing consumers &#9656;</h2>
+      <p>Start with the most useful shape. You have one queue, many <em>identical</em> workers, and each message must go to <strong>exactly one</strong> worker — this is horizontal scaling of a task. The producer publishes to the default exchange with <code>routing_key = queue_name</code>, and the broker load-balances deliveries across whichever consumers are currently attached. Add workers, go faster; the producer never changes.</p>
+      <p>Two settings decide whether this works or falls apart. First, <strong>prefetch</strong> (<code>basic_qos</code>) controls <em>fair dispatch</em>: without it, a busy worker still gets round-robined more messages while an idle one waits. Set <code>prefetch_count=1</code> and the broker won&rsquo;t hand a worker a new message until it acks the current one — so fast workers naturally pull more and slow ones pull less. Second, <strong>manual acks</strong> are what make redelivery safe: an un-acknowledged message from a crashed worker is requeued and given to someone else. Watch both in motion:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-workq">
+          <svg viewBox="0 0 640 340" role="img" aria-label="Interactive work queue: a producer publishes four tasks through the default exchange into task_queue, two workers compete for them with prefetch=1, one worker crashes before acking and its message is redelivered">
+            <!-- static schematic -->
+            <g class="st" id="f1-prod"><rect class="node-b" x="18" y="145" width="104" height="52" rx="9"/><text class="lbl" x="70" y="169" text-anchor="middle">Producer</text><text class="lbl-sm" x="70" y="185" text-anchor="middle">web tier</text></g>
+            <g class="st" id="f1-exch"><rect class="node-v" x="150" y="132" width="34" height="78" rx="6"/><text class="lbl-sm" x="167" y="224" text-anchor="middle" fill="#6E59A5">(default)</text></g>
+            <g class="st" id="f1-queue"><rect class="node" x="225" y="126" width="180" height="94" rx="9"/><text class="lbl" x="315" y="146" text-anchor="middle">task_queue</text><text class="lbl-sm" x="315" y="212" text-anchor="middle">FIFO &middot; quorum</text></g>
+            <g class="st" id="f1-wa"><rect class="node" x="470" y="68" width="150" height="52" rx="9"/><text class="lbl" x="545" y="90" text-anchor="middle">Worker A</text><text class="lbl-sm" x="545" y="107" text-anchor="middle">fast &middot; prefetch=1</text></g>
+            <g class="st" id="f1-wb"><rect class="node" x="470" y="214" width="150" height="52" rx="9"/><text class="lbl" x="545" y="236" text-anchor="middle">Worker B</text><text class="lbl-sm" x="545" y="253" text-anchor="middle">slow &middot; prefetch=1</text></g>
+            <!-- completed tray -->
+            <rect x="225" y="266" width="180" height="52" rx="8" fill="none" stroke="#D2C7B0" stroke-width="1.4" stroke-dasharray="4 4"/>
+            <text class="lbl-sm" x="315" y="262" text-anchor="middle">completed &#10003;</text>
+            <!-- connectors -->
+            <path id="f1-p-pe" class="flow" d="M122 171 H 150" marker-end="url(#arrow)"/>
+            <path id="f1-p-eq" class="flow" d="M184 171 H 223" marker-end="url(#arrow)"/>
+            <path id="f1-p-qa" class="flow" d="M405 160 C 440 120, 448 108, 470 94" marker-end="url(#arrow)"/>
+            <path id="f1-p-qb" class="flow" d="M405 186 C 440 214, 448 226, 470 240" marker-end="url(#arrow)"/>
+            <path id="f1-p-bq" class="flow-r" d="M470 250 C 380 305, 320 300, 288 216" marker-end="url(#arrow-r)"/>
+            <!-- crash marker -->
+            <text id="f1-bx" x="545" y="243" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" fill="#B0532F" style="opacity:0">&#10007; crashed &middot; no ack</text>
+            <!-- message tokens (never dimmed) -->
+            <g id="f1-tokens">
+              <rect id="f1-t1" x="238" y="160" width="22" height="22" rx="3" fill="#E9EFF5" stroke="#4A7BA6" stroke-width="1.6"/>
+              <rect id="f1-t2" x="266" y="160" width="22" height="22" rx="3" fill="#E9EFF5" stroke="#4A7BA6" stroke-width="1.6"/>
+              <rect id="f1-t3" x="294" y="160" width="22" height="22" rx="3" fill="#E9EFF5" stroke="#4A7BA6" stroke-width="1.6"/>
+              <rect id="f1-t4" x="322" y="160" width="22" height="22" rx="3" fill="#E9EFF5" stroke="#4A7BA6" stroke-width="1.6"/>
+              <text id="f1-badge" x="0" y="0" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#B0532F" style="opacity:0">&#8635;</text>
+            </g>
+            <text id="f1-read" class="readout" x="320" y="332" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 8</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: prefetch makes dispatch fair; a manual ack makes a crashed worker&rsquo;s message survive and redeliver &#8212; at-least-once</figcaption>
+      </figure>
+
+      <p>The colour tells the story: grey is <strong>queued</strong>, amber is <strong>in-flight/unacknowledged</strong> (delivered but the broker still holds its copy), and green is <strong>acked/done</strong>. Notice the crash in step 6 — Worker B dies mid-task, and because it never acked, the broker returns the message to the queue head with a redelivery mark rather than losing it. This is <strong>at-least-once delivery</strong>. The queue type here is a <strong>quorum queue</strong> (<code>x-queue-type: quorum</code>), the durable, Raft-replicated default in 4.x that survives a broker restart or node loss.</p>
+      <div class="callout tip">
+        <span class="k">prefetch = fairness &middot; ack = safety</span>
+        <p>Keep these two knobs separate in your head. <code>basic_qos(prefetch_count=n)</code> is a <em>throughput/fairness</em> knob — it caps how many un-acked messages a consumer may hold, so load follows capacity. The <strong>ack</strong> is a <em>safety</em> knob — ack only <em>after</em> the work succeeds, and a crash becomes a redelivery instead of a lost message. Myth to debunk: RabbitMQ does <em>not</em> automatically send work to the least-busy consumer; that only happens once you set prefetch.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Broadcast</div>
+      <h2>Publish/subscribe: fan-out to everyone</h2>
+      <p>Now flip the cardinality. Sometimes every consumer needs its <strong>own copy</strong> of the same message — cache invalidation, live dashboards, an audit trail, notification fan-out. Contrast this sharply with the work queue: the work queue gives one message <em>one</em> delivery; pub/sub gives one message <em>N</em> deliveries, one per subscriber.</p>
+      <p>The mechanism is a <strong>fanout exchange</strong> plus <strong>one queue per consumer</strong>, each queue bound to the exchange. A fanout exchange ignores the routing key entirely — it copies every message into every bound queue. The important structural detail: each subscriber typically declares its <em>own</em> <strong>server-named, exclusive, auto-delete</strong> queue (<code>queue_declare(queue="", exclusive=True, auto_delete=True)</code>), so subscribers can come and go without leaving debris behind. Those throwaway queues are <strong>classic transient</strong> queues, and that is correct — quorum queues cannot be exclusive, and you don&rsquo;t want a replicated queue for a dashboard that vanishes on disconnect.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Fan-out <em>duplicates</em></h4>
+          <ul>
+            <li>3 consumers, 1 message &#8594; <strong>3 deliveries</strong> (a copy each).</li>
+            <li>Adding a consumer adds another <strong>recipient</strong>.</li>
+            <li>Mental tag: &ldquo;<strong>tell everyone</strong>.&rdquo;</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Work queue <em>distributes</em></h4>
+          <ul>
+            <li>3 consumers, 1 message &#8594; <strong>1 delivery</strong> (one worker).</li>
+            <li>Adding a consumer adds another <strong>unit of capacity</strong>.</li>
+            <li>Mental tag: &ldquo;<strong>get it done once</strong>.&rdquo;</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout tip">
+        <span class="k">The interviewer&rsquo;s next question</span>
+        <p>&ldquo;You have a work queue and add a second consumer — does that double throughput or duplicate the work?&rdquo; It <strong>distributes</strong>: each message still goes to exactly one worker, so you get more capacity, not redundancy. Follow-up: &ldquo;Now every service needs its own copy — what changes?&rdquo; You move from a shared queue to a <strong>fanout</strong> (or topic) exchange with <strong>one queue per subscriber</strong>. Fan-out never balances load — flag that aloud, because expecting it to is the single most common conceptual error in interviews.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Selective routing</div>
+      <h2>Direct &amp; topic exchanges &#9656;</h2>
+      <p>Fan-out is often too much — a consumer wants <em>some</em> messages, not all of them. Two exchange types add a filter. A <strong>direct</strong> exchange matches the routing key <em>exactly</em> (bind <code>error</code>, bind <code>warning</code>, and only those keys arrive). A <strong>topic</strong> exchange matches dotted keys against wildcard patterns: <code>*</code> matches <strong>exactly one</strong> word, and <code>#</code> matches <strong>zero or more</strong> words. A common myth is that <code>*</code> means &ldquo;anything&rdquo; — it matches <em>one word only</em>.</p>
+      <p>Here is the unifying move: <strong>fanout is just the degenerate case of topic</strong>. A queue bound with <code>#</code> matches every key, so it receives everything — that <em>is</em> subscribe-to-all pub/sub. So routing is the general pattern, and pub/sub is a special case of it. One publish can land in 0, 1, or many queues depending on how the bindings overlap. Step the topic exchange through three different publishes:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-topic">
+          <svg viewBox="0 0 680 330" role="img" aria-label="Interactive topic exchange: a producer publishes routing keys to an events exchange bound to three queues by hash, star-dot-error, and payments-hash; bindings glow green when the key matches and a copy drops into each matching queue">
+            <!-- bindings (never dimmed; glow controlled by JS) -->
+            <path id="f2-b-all" d="M288 150 C 350 110, 385 82, 430 68" fill="none" stroke="#B9AE97" stroke-width="1.6"/>
+            <path id="f2-b-err" d="M288 166 C 350 166, 385 165, 430 165" fill="none" stroke="#B9AE97" stroke-width="1.6"/>
+            <path id="f2-b-pay" d="M288 182 C 350 222, 385 250, 430 262" fill="none" stroke="#B9AE97" stroke-width="1.6"/>
+            <text class="lbl-sm" x="360" y="96" text-anchor="middle">#</text>
+            <text class="lbl-sm" x="360" y="152" text-anchor="middle">*.error</text>
+            <text class="lbl-sm" x="360" y="238" text-anchor="middle">payments.#</text>
+            <!-- nodes -->
+            <g class="st" id="f2-prod"><rect class="node-b" x="20" y="138" width="104" height="52" rx="9"/><text class="lbl" x="72" y="168" text-anchor="middle">Producer</text></g>
+            <g class="st" id="f2-exch"><rect class="node-v" x="170" y="96" width="118" height="140" rx="10"/><text class="lbl" x="229" y="158" text-anchor="middle" fill="#6E59A5">events</text><text class="lbl-sm" x="229" y="176" text-anchor="middle" fill="#6E59A5">(topic)</text></g>
+            <g class="st" id="f2-qall"><rect class="node" x="430" y="40" width="150" height="54" rx="9"/><text class="lbl" x="500" y="63" text-anchor="middle">Q_all</text><text class="lbl-sm" x="500" y="80" text-anchor="middle">bind #</text>
+              <rect class="node" x="600" y="52" width="58" height="30" rx="7"/><text class="lbl-sm" x="629" y="71" text-anchor="middle">cons</text></g>
+            <g class="st" id="f2-qerr"><rect class="node" x="430" y="138" width="150" height="54" rx="9"/><text class="lbl" x="500" y="161" text-anchor="middle">Q_errors</text><text class="lbl-sm" x="500" y="178" text-anchor="middle">bind *.error</text>
+              <rect class="node" x="600" y="150" width="58" height="30" rx="7"/><text class="lbl-sm" x="629" y="169" text-anchor="middle">cons</text></g>
+            <g class="st" id="f2-qpay"><rect class="node" x="430" y="236" width="150" height="54" rx="9"/><text class="lbl" x="500" y="259" text-anchor="middle">Q_pay</text><text class="lbl-sm" x="500" y="276" text-anchor="middle">bind payments.#</text>
+              <rect class="node" x="600" y="248" width="58" height="30" rx="7"/><text class="lbl-sm" x="629" y="267" text-anchor="middle">cons</text></g>
+            <!-- copy tokens (never dimmed) -->
+            <rect id="f2-tok-all" x="548" y="54" width="20" height="26" rx="3" fill="#E6F1DF" stroke="#69B34C" stroke-width="1.8" style="opacity:0"/>
+            <rect id="f2-tok-err" x="548" y="152" width="20" height="26" rx="3" fill="#E6F1DF" stroke="#69B34C" stroke-width="1.8" style="opacity:0"/>
+            <rect id="f2-tok-pay" x="548" y="250" width="20" height="26" rx="3" fill="#E6F1DF" stroke="#69B34C" stroke-width="1.8" style="opacity:0"/>
+            <!-- routing-key chip -->
+            <path id="f2-p-pe" class="flow" d="M124 164 H 168" marker-end="url(#arrow-v)"/>
+            <g id="f2-chip" style="opacity:0"><rect x="150" y="60" width="150" height="26" rx="13" fill="#FDFBF6" stroke="#6E59A5" stroke-width="1.6"/><text id="f2-rk" x="225" y="77" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" fill="#6E59A5">rk</text></g>
+            <text id="f2-read" class="readout" x="330" y="320" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 8</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: one topic exchange, three bindings; the same dial gives fan-out (<code>#</code>) and selective routing (patterns)</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="k">Wildcards, precisely</span>
+        <p><code>*</code> = exactly one dot-delimited word; <code>#</code> = zero or more words. So <code>payments.#</code> matches <code>payments.error</code>, <code>payments.captured</code>, and <code>payments</code> itself, but <code>*.error</code> matches <code>payments.error</code> yet <em>not</em> <code>auth.failed.error</code> (that&rsquo;s two words before <code>error</code>). And <code>#</code> alone matches every key — which is exactly why fanout is the <code>#</code> special case of topic.</p>
+      </div>
+    </section>
+
+    <!-- 04 STATIC -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Request / reply</div>
+      <h2>RPC over messaging</h2>
+      <p>Sometimes the producer needs an answer back. The pattern layers a reply channel on top of the same publish machinery. The client sends a request carrying two message properties — <strong><code>reply_to</code></strong> (where to send the answer) and <strong><code>correlation_id</code></strong> (a unique token) — then blocks until a reply carrying the <em>matching</em> <code>correlation_id</code> arrives. RPC is really just <em>two async sends stitched together by an id</em>.</p>
+      <p>Why is <code>correlation_id</code> mandatory? Because one client channel may have <strong>many requests in flight at once</strong>, and replies can arrive out of order. Without the token, the client cannot tell which reply answers which request — it would hand request A&rsquo;s caller request B&rsquo;s result. The modern, cheap way to receive replies is <strong>direct reply-to</strong>: consume from the pseudo-queue <code>amq.rabbitmq.reply-to</code> with no manual ack, and the broker routes replies straight back to your channel without you ever declaring a real reply queue.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 700 340" role="img" aria-label="Static RPC schematic: an RPC client publishes a request through the default exchange into rpc_queue with correlation_id and reply_to; the server computes a result and replies through the default exchange, which routes it back to the client via the direct reply-to pseudo-queue">
+            <!-- envelope note for request -->
+            <rect x="150" y="56" width="270" height="42" rx="8" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.4"/>
+            <text class="lbl-sm" x="285" y="74" text-anchor="middle" fill="#1F4E79">correlation_id = abc123</text>
+            <text class="lbl-sm" x="285" y="90" text-anchor="middle" fill="#1F4E79">reply_to = amq.rabbitmq.reply-to</text>
+            <!-- nodes -->
+            <rect class="node" x="24" y="118" width="156" height="104" rx="10"/><text class="lbl" x="102" y="150" text-anchor="middle">RPC Client</text><text class="lbl-sm" x="102" y="170" text-anchor="middle">consumes</text><text class="lbl-sm" x="102" y="186" text-anchor="middle">amq.rabbitmq.reply-to</text><text class="lbl-sm" x="102" y="202" text-anchor="middle">(pseudo-queue)</text>
+            <rect class="node-v" x="250" y="120" width="40" height="100" rx="6"/><text class="lbl-sm" x="270" y="236" text-anchor="middle" fill="#6E59A5">(default)</text>
+            <rect class="node" x="360" y="132" width="130" height="76" rx="9"/><text class="lbl" x="425" y="160" text-anchor="middle">rpc_queue</text>
+            <rect x="410" y="170" width="30" height="26" rx="3" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.8"/>
+            <rect class="node" x="545" y="118" width="130" height="104" rx="10"/><text class="lbl" x="610" y="150" text-anchor="middle">RPC Server</text><text class="lbl-sm" x="610" y="170" text-anchor="middle">prefetch=1</text><text class="lbl-sm" x="610" y="188" text-anchor="middle">computes result</text>
+            <!-- request lane -->
+            <path class="flow" d="M180 150 H 250" marker-end="url(#arrow)"/>
+            <path class="flow" d="M290 150 H 360" marker-end="url(#arrow)"/>
+            <path class="flow" d="M490 158 H 545" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="205" y="142" text-anchor="middle" fill="#1F4E79">&#9312; publish</text>
+            <text class="lbl-sm" x="325" y="142" text-anchor="middle">rk=rpc_queue</text>
+            <text class="lbl-sm" x="516" y="150" text-anchor="middle" fill="#1F4E79">&#9313;</text>
+            <!-- reply lane (server -> exchange, curved below) -->
+            <path class="flow" d="M600 222 C 540 292, 335 292, 272 222" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="435" y="288" text-anchor="middle" fill="#1F4E79">&#9314; reply &middot; rk = props.reply_to &middot; correlation_id = abc123</text>
+            <!-- direct reply-to (dashed violet) -->
+            <path class="flow-d" style="stroke:#6E59A5" d="M250 200 C 190 250, 130 238, 102 222" marker-end="url(#arrow-v)"/>
+            <text class="lbl-sm" x="150" y="252" text-anchor="middle" fill="#6E59A5">&#9315; direct reply-to</text>
+            <text class="lbl-sm" x="150" y="268" text-anchor="middle" fill="#6E59A5">no real queue created</text>
+            <!-- unblock -->
+            <text class="lbl-sm" x="102" y="240" text-anchor="middle" fill="#B0532F">&#9316; corr_id == abc123 &#8594; unblock call()</text>
+            <!-- side notes -->
+            <text class="lbl-sm" x="350" y="314" text-anchor="middle">correlation_id matches replies to requests when many are in flight</text>
+            <text class="lbl-sm" x="350" y="330" text-anchor="middle">direct reply-to = no per-request reply queue to declare or clean up</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — static: request/reply with <code>correlation_id</code> and the <code>amq.rabbitmq.reply-to</code> pseudo-queue</figcaption>
+      </figure>
+
+      <p>Trace the loop: the client publishes to the default exchange with <code>routing_key = "rpc_queue"</code>, tagging the envelope with <code>correlation_id</code> and <code>reply_to</code> (step 1). The server consumes with <code>prefetch=1</code>, computes the result (step 2), and publishes the reply to the default exchange with <code>routing_key = props.reply_to</code>, copying the same <code>correlation_id</code> straight back (step 3). The broker routes that reply directly to the originating client&rsquo;s channel through the <code>amq.rabbitmq.reply-to</code> pseudo-queue — <em>no real queue is ever created</em> (step 4). The client&rsquo;s handler checks <code>props.correlation_id == abc123</code>, matches, and unblocks the waiting <code>call()</code> (step 5).</p>
+      <div class="callout tip">
+        <span class="k">The edge you must design for</span>
+        <p>If the server dies <em>before</em> step 3, no reply ever comes — and a blocking <code>call()</code> would hang forever. RPC over a broker always needs a <strong>client-side timeout</strong> (and a plan for what a timeout means: retry, fail, or degrade). A broker gives you decoupling, not a free liveness guarantee on the far end.</p>
+      </div>
+    </section>
+
+    <!-- 05 WORKED -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Worked example</div>
+      <h2>A durable work queue for thumbnails</h2>
+      <p>Let&rsquo;s take the canonical shape end-to-end. An upload service receives images and must generate thumbnails. Thumbnailing is CPU-bound and bursty, so we decouple it: the web tier publishes a task per image, and a pool of interchangeable workers competes for the tasks. We want (a) no task lost if a worker crashes mid-resize, (b) load to follow worker capacity, and (c) durability across a broker restart. This is the point-to-point work queue from section 01, made concrete.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">Python / pika &middot; quorum queue</span></div>
+        <div class="wbody">
+          <div class="wname">Thumbnailer: decouple the resize from the upload</div>
+          <p class="wprompt">Uploads must return fast, but generating thumbnails is slow and bursty. Distribute the work across a pool of identical workers so that <strong>no task is lost if a worker crashes mid-resize</strong>, load follows capacity, and nothing is dropped on a broker restart.</p>
+
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Cardinality</span><p>Each image needs thumbnailing <b>once</b>, by <b>any</b> free worker &#8594; competing consumers, not fan-out &#8594; <b>one queue, many workers</b>.</p></div>
+            <div class="ws"><span class="wsk">Reaching the queue</span><p>Producers publish via the <b>default exchange</b>, whose built-in rule routes <code>routing_key</code> to the same-named queue. No exchange or binding to declare — that&rsquo;s why it <em>looks</em> like &ldquo;publishing to a queue.&rdquo;</p></div>
+            <div class="ws"><span class="wsk">Fair dispatch</span><p>Set <code>basic_qos(prefetch_count=1)</code> so the broker won&rsquo;t hand a worker a new task until it acks the current one &#8212; a fast worker naturally pulls more, a slow one less.</p></div>
+            <div class="ws"><span class="wsk">Crash safety</span><p>Keep <b>manual acks</b> and ack only <em>after</em> the thumbnail succeeds. A worker that dies mid-task leaves the message un-acked, so the broker requeues and redelivers it &#8212; at-least-once.</p></div>
+            <div class="ws"><span class="wsk">Restart safety</span><p>Declare a <b>quorum queue</b> (<code>x-queue-type: quorum</code>): durable and Raft-replicated across nodes, so messages survive a broker restart and node loss.</p></div>
+          </div>
+
+          <h4 class="wh">Producer &middot; the web tier</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="kw">import</span> pika
+
+conn = pika.<span class="fn">BlockingConnection</span>(pika.<span class="fn">ConnectionParameters</span>(<span class="lit">"localhost"</span>))
+ch = conn.<span class="fn">channel</span>()
+
+<span class="cm"># Quorum queue: replicated + durable by default in RabbitMQ 4.x.</span>
+ch.<span class="fn">queue_declare</span>(queue=<span class="lit">"thumbnails"</span>, durable=<span class="lit">True</span>,
+                 arguments={<span class="lit">"x-queue-type"</span>: <span class="lit">"quorum"</span>})
+
+<span class="kw">def</span> <span class="fn">enqueue</span>(image_id: str) -&gt; <span class="lit">None</span>:
+    ch.<span class="fn">basic_publish</span>(
+        exchange=<span class="lit">""</span>,                 <span class="cm"># default (nameless) exchange</span>
+        routing_key=<span class="lit">"thumbnails"</span>,    <span class="cm"># == queue name -&gt; direct routing by name</span>
+        body=image_id.<span class="fn">encode</span>(),
+        properties=pika.<span class="fn">BasicProperties</span>(
+            delivery_mode=pika.DeliveryMode.Persistent))  <span class="cm"># quorum treats all as persistent</span>
+
+<span class="kw">for</span> img <span class="kw">in</span> (<span class="lit">"img-1001"</span>, <span class="lit">"img-1002"</span>, <span class="lit">"img-1003"</span>, <span class="lit">"img-1004"</span>):
+    <span class="fn">enqueue</span>(img)
+conn.<span class="fn">close</span>()</code></pre>
+
+          <h4 class="wh">Consumer &middot; run N copies</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="kw">import</span> pika, time
+
+conn = pika.<span class="fn">BlockingConnection</span>(pika.<span class="fn">ConnectionParameters</span>(<span class="lit">"localhost"</span>))
+ch = conn.<span class="fn">channel</span>()
+ch.<span class="fn">queue_declare</span>(queue=<span class="lit">"thumbnails"</span>, durable=<span class="lit">True</span>,
+                 arguments={<span class="lit">"x-queue-type"</span>: <span class="lit">"quorum"</span>})
+
+<span class="kw">def</span> <span class="fn">on_task</span>(ch, method, properties, body):
+    image_id = body.<span class="fn">decode</span>()
+    <span class="fn">make_thumbnail</span>(image_id)                       <span class="cm"># the real (slow) work</span>
+    ch.<span class="fn">basic_ack</span>(delivery_tag=method.delivery_tag) <span class="cm"># ack ONLY after success</span>
+
+ch.<span class="fn">basic_qos</span>(prefetch_count=<span class="lit">1</span>)     <span class="cm"># fair dispatch: one un-acked task at a time</span>
+ch.<span class="fn">basic_consume</span>(queue=<span class="lit">"thumbnails"</span>, on_message_callback=on_task)  <span class="cm"># manual ack (default)</span>
+ch.<span class="fn">start_consuming</span>()</code></pre>
+
+          <div class="say">
+            <span class="k">Narrate it to the interviewer</span>
+            <p>&ldquo;It&rsquo;s a work queue on the default exchange &#8212; the producer publishes with <code>routing_key="thumbnails"</code>, which the default exchange routes to the same-named queue, so there&rsquo;s no binding to set up. I set <code>prefetch=1</code> for fair dispatch, so load follows capacity instead of turn order, and I keep manual acks and ack only after the resize succeeds, so a worker that dies mid-task gets its message redelivered &#8212; at-least-once, nothing lost. I declare it as a quorum queue so the backlog survives a broker restart or a node failure. To scale, I just run more worker processes against the same queue.&rdquo;</p>
+            <p class="plain">Edge cases to raise aloud: <strong>at-least-once, not exactly-once</strong> — a worker can crash <em>after</em> the resize but <em>before</em> the ack, so make handlers <strong>idempotent</strong> (key the output by <code>image_id</code>); <strong>poison messages</strong> — a task that always crashes the worker requeues forever, so cap it with a <strong>dead-letter exchange</strong> / delivery-count limit (quorum queues expose <code>x-delivery-count</code>); <strong><code>prefetch=1</code> caps throughput</strong> for short tasks — tune it up when work is quick; and <strong>publisher confirms</strong> if the <em>producer</em> must know the broker actually accepted the task.</p>
+          </div>
+
+          <h4 class="wh">Variation B &middot; when the caller needs the answer (RPC)</h4>
+          <p>Keep the same default-exchange plumbing, but add <code>reply_to</code> and <code>correlation_id</code> so the request becomes a synchronous call, using direct reply-to to avoid a per-call reply queue:</p>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="cm"># client, per call:</span>
+corr = <span class="fn">str</span>(uuid.<span class="fn">uuid4</span>())
+ch.<span class="fn">basic_consume</span>(<span class="lit">"amq.rabbitmq.reply-to"</span>, on_response, auto_ack=<span class="lit">True</span>)  <span class="cm"># pseudo-queue, no ack</span>
+ch.<span class="fn">basic_publish</span>(exchange=<span class="lit">""</span>, routing_key=<span class="lit">"rpc_queue"</span>,
+                 properties=pika.<span class="fn">BasicProperties</span>(
+                     reply_to=<span class="lit">"amq.rabbitmq.reply-to"</span>, correlation_id=corr),
+                 body=<span class="fn">str</span>(n).<span class="fn">encode</span>())
+
+<span class="cm"># server, on request:</span>
+ch.<span class="fn">basic_publish</span>(exchange=<span class="lit">""</span>, routing_key=props.reply_to,
+                 properties=pika.<span class="fn">BasicProperties</span>(correlation_id=props.correlation_id),
+                 body=<span class="fn">str</span>(result).<span class="fn">encode</span>())</code></pre>
+          <div class="say">
+            <span class="k">Narrate the variation</span>
+            <p>&ldquo;RPC is just two async sends stitched together by a <code>correlation_id</code>. The client publishes the request with <code>reply_to = amq.rabbitmq.reply-to</code>, the server copies the <code>correlation_id</code> back onto its reply, and direct reply-to gives me a return path without declaring or cleaning up a queue per call. I still need a client-side timeout in case the server never answers.&rdquo;</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Judgment</div>
+      <h2>Choosing the primitive — and the queue type</h2>
+      <p>Turn the three axes into a walkthrough. <strong>One-of-N or all-of-N?</strong> &#8594; work queue vs pub/sub. <strong>Everyone or a filtered subset?</strong> &#8594; fanout vs direct/topic. <strong>Do I need a reply?</strong> &#8594; RPC. That picks the <em>routing shape</em>, which is entirely a matter of <strong>exchange type + binding</strong>. Here are the four shapes side by side:</p>
+      <div class="vs" style="grid-template-columns:repeat(4,1fr)">
+        <div class="col">
+          <h4>Work queue</h4>
+          <ul>
+            <li><strong>Exchange:</strong> default / direct.</li>
+            <li><strong>Who:</strong> one of N workers.</li>
+            <li><strong>Binding:</strong> queue name.</li>
+            <li><strong>Use:</strong> task distribution, scaling.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Pub / sub</h4>
+          <ul>
+            <li><strong>Exchange:</strong> fanout.</li>
+            <li><strong>Who:</strong> every bound queue.</li>
+            <li><strong>Binding:</strong> bind queue, key ignored.</li>
+            <li><strong>Use:</strong> cache bust, notify, audit.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Routing</h4>
+          <ul>
+            <li><strong>Exchange:</strong> direct / topic.</li>
+            <li><strong>Who:</strong> queues that match.</li>
+            <li><strong>Binding:</strong> exact key / pattern.</li>
+            <li><strong>Use:</strong> logs by severity, by domain.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>RPC</h4>
+          <ul>
+            <li><strong>Exchange:</strong> default (both ways).</li>
+            <li><strong>Who:</strong> one server &#8594; one client.</li>
+            <li><strong>Binding:</strong> queue name + <code>reply_to</code>.</li>
+            <li><strong>Use:</strong> sync lookups, command+result.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Then a <em>second, orthogonal</em> choice: the <strong>queue type</strong>, which controls durability and HA — not routing. These are independent knobs. You pick the exchange for <em>where messages go</em> and the queue type for <em>how safe they are</em>:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Quorum</h4>
+          <ul>
+            <li>The <strong>default</strong> for durable work in 4.x.</li>
+            <li>Raft-replicated across nodes; always durable; all messages persistent.</li>
+            <li>Can&rsquo;t be <code>exclusive</code>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Classic transient</h4>
+          <ul>
+            <li>The throwaway per-subscriber pub/sub queue.</li>
+            <li><code>exclusive=True, auto_delete=True</code> — vanishes on disconnect.</li>
+            <li>Correct for dashboards, not for durable work.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Streams</h4>
+          <ul>
+            <li>Append-only log with offset-based <strong>replay</strong>.</li>
+            <li>For large fan-out / high throughput.</li>
+            <li>Forward-reference — a later phase.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Outdated answer to avoid</span>
+        <p>If the interviewer says &ldquo;make the work queue highly available,&rdquo; do <strong>not</strong> say &ldquo;mirror the queue&rdquo; or &ldquo;set an <code>ha-mode</code> policy.&rdquo; <strong>Classic mirrored (HA) queues were removed in RabbitMQ 4.0.</strong> The current answer is <strong>quorum queues</strong> (Raft-replicated) for durable work, and <strong>streams</strong> for replayable, high-throughput fan-out. Name the removed feature only to say it&rsquo;s gone.</p>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Failure modes</div>
+      <h2>What breaks in production</h2>
+      <p>Every one of these traces back to the same spine: <strong>the exchange decides routing; the ack decides safety.</strong> Get one of those two wrong and here is what you see on-call:</p>
+      <ul>
+        <li><strong>Publishing &ldquo;to a queue&rdquo; and being surprised by fan-out.</strong> The mental model that skips the exchange works right up until a second service needs its own copy — then you can&rsquo;t express it, because you never had an exchange to bind more queues to. Fix: always reason in <code>exchange &#8594; binding &#8594; queue</code>.</li>
+        <li><strong>Forgetting <code>basic_qos</code>.</strong> Without prefetch, RabbitMQ round-robins messages regardless of load, so one worker sits on a pile while others idle. Fix: set <code>prefetch_count</code> and get capacity-following dispatch.</li>
+        <li><strong>Using <code>auto_ack</code>.</strong> Auto-ack deletes the broker&rsquo;s copy on <em>delivery</em>, so a crash mid-work loses the message. Fix: manual ack, only after the work succeeds.</li>
+        <li><strong>A fresh reply queue per RPC call.</strong> Declaring and tearing down a real queue for every request leaks resources and adds latency. Fix: <code>amq.rabbitmq.reply-to</code> direct reply-to — a pseudo-queue you never declare.</li>
+        <li><strong>Expecting fan-out to <em>balance</em> load.</strong> A fanout exchange <em>duplicates</em> a message to every bound queue; it never distributes. If you want distribution, that&rsquo;s a shared queue with competing consumers. Confusing the two is the classic interview miss.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">The spine to carry forward</span>
+        <p>Two questions settle almost every messaging design. <em>Where should this message go?</em> — answered by the <strong>exchange type and its bindings</strong>. <em>What happens if a consumer dies holding it?</em> — answered by the <strong>ack mode</strong> (and, for restarts, the queue type). Routing shape and durability are independent dials; keep them independent in your head and the four patterns fall out for free.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>a producer publishes to an exchange, and the exchange plus its bindings decide which queues get a copy — so work queue, pub/sub, routing, and RPC are one machine with four dial settings.</em> Cardinality, selectivity, and directionality pick the shape; the queue type is a separate choice about safety.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Publish to an exchange</b><span>Never to a queue. The exchange + bindings decide routing; that one indirection is the whole system.</span></div>
+        <div class="tk"><span class="num">02</span><b>Three axes pick the shape</b><span>One-of-N vs all-of-N, everything vs a subset, fire-and-forget vs reply.</span></div>
+        <div class="tk"><span class="num">03</span><b>Work queue = competing consumers</b><span>One shared queue, one message &#8594; exactly one worker. Scale by adding workers.</span></div>
+        <div class="tk"><span class="num">04</span><b>Pub/sub = fanout + a queue each</b><span>Fan-out duplicates a message to every subscriber; it never balances load.</span></div>
+        <div class="tk"><span class="num">05</span><b>Routing = direct or topic</b><span>Exact key, or <code>*</code>/<code>#</code> patterns. Fanout is just the <code>#</code> special case of topic.</span></div>
+        <div class="tk"><span class="num">06</span><b>prefetch = fair, ack = safe</b><span>Set <code>basic_qos</code> for capacity-following dispatch; manual-ack-after-success for at-least-once.</span></div>
+        <div class="tk"><span class="num">07</span><b>RPC = two sends + an id</b><span>Match replies with <code>correlation_id</code>; use <code>amq.rabbitmq.reply-to</code> to skip a per-request reply queue.</span></div>
+        <div class="tk"><span class="num">08</span><b>Shape &#8800; durability</b><span>Exchange picks <em>where</em> messages go; queue type (quorum/classic/stream) picks <em>how safe</em> they are.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) A producer wants a message; a queue receives it — but producers publish to <em>exchanges</em>. Reconcile that for a basic work queue.<br>
+        (2) You add a second consumer to a work queue expecting to <em>duplicate</em> processing for redundancy — why is that the wrong structure, and what would you build instead?<br>
+        (3) Why does fan-out to three subscribers require three queues rather than three consumers on one queue? What actually differs in delivery?<br>
+        (4) Explain <code>*</code> vs <code>#</code> in a topic binding, and give a routing key that matches <code>payments.#</code> but not <code>*.error</code>.<br>
+        (5) In RPC, what breaks if you drop the <code>correlation_id</code>? Give a concrete failure with two concurrent requests on one client.<br>
+        (6) The interviewer says &ldquo;make the work queue highly available.&rdquo; Which 4.x feature do you name, and which now-removed feature must you <em>not</em>?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 02 &middot; MESSAGING PATTERNS: WORK QUEUES, PUB/SUB &amp; RPC &middot; interactive edition<br>
+      Original study notes for backend &amp; system-design interviews &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — work queue: competing consumers, prefetch & ack */
+  makeStepper(_g('fig-workq'), [
+    {text:"The web tier publishes four tasks — T1–T4 — to the default (nameless) exchange with routing_key=\"task_queue\". The default exchange routes each straight to the same-named queue, which fills grey.", active:["f1-prod","f1-exch","f1-queue"], path:"f1-p-eq", read:"publish T1–T4 → (default) → task_queue (route by name)", t1:["q0","q"],t2:["q1","q"],t3:["q2","q"],t4:["q3","q"]},
+    {text:"Both workers set prefetch=1. The broker hands T1 to Worker A and T2 to Worker B — each now holds one in-flight, unacknowledged message (amber). T3 and T4 wait.", active:["f1-queue","f1-wa","f1-wb"], path:"f1-p-qa", read:"prefetch=1 · T1→A, T2→B · in-flight/unacked", t1:["A","a"],t2:["B","a"],t3:["q0","q"],t4:["q1","q"]},
+    {text:"Fast Worker A finishes and sends basic_ack(T1). T1 turns green and leaves. Because A is now free, the broker immediately delivers T3 to A.", active:["f1-queue","f1-wa"], path:"f1-p-qa", read:"A acks T1 ✓ · broker sends T3 → A", t1:["d0","d"],t2:["B","a"],t3:["A","a"],t4:["q0","q"]},
+    {text:"Worker B is still grinding on T2, so the broker sends it nothing new — its prefetch cap of 1 is reached. Fair dispatch means load follows capacity, not turn order.", active:["f1-wa","f1-wb"], read:"B still on T2 → no new msg to B (prefetch cap)", t1:["d0","d"],t2:["B","a"],t3:["A","a"],t4:["q0","q"]},
+    {text:"A acks T3 and receives the last message, T4. The queue is now empty; B is still busy with its single task.", active:["f1-queue","f1-wa"], path:"f1-p-qa", read:"A acks T3 ✓ · receives T4 · queue empty", t1:["d0","d"],t2:["B","a"],t3:["d1","d"],t4:["A","a"]},
+    {text:"Now Worker B crashes before it can ack T2. The broker sees the connection drop with T2 still unacknowledged, so T2 returns to the queue head with a redelivery mark — nothing is lost.", active:["f1-queue","f1-wb"], path:"f1-p-bq", reject:true, read:"Worker B crashes · T2 unacked → requeued ↻", t1:["d0","d"],t2:["q0","q"],t3:["d1","d"],t4:["A","a"], badge:"q0", crashB:true},
+    {text:"First, Worker A finishes T4 and sends basic_ack(T4), freeing its single prefetch slot. Only now — with A holding nothing unacknowledged — does the broker redeliver T2 (still carrying its redelivery mark) to A, which begins processing it. Under prefetch=1 the broker could not have handed A the redelivered T2 while T4 was still un-acked.", active:["f1-queue","f1-wa"], path:"f1-p-qa", read:"A acks T4 ✓ (slot freed) · broker redelivers T2 → A ↻", t1:["d0","d"],t2:["A","a"],t3:["d1","d"],t4:["d3","d"], badge:"A", crashB:true},
+    {text:"Worker A finishes the redelivered T2 and sends basic_ack(T2). All four tasks are green and the queue is empty — each message was handled by exactly one successful worker, even through a crash. That is at-least-once delivery.", active:["f1-queue","f1-wa"], read:"T2 acked ✓ · all four done · one message → exactly one successful worker (at-least-once)", t1:["d0","d"],t2:["d2","d"],t3:["d1","d"],t4:["d3","d"], crashB:true}
+  ], function(idx,s){
+    var POS={q0:[238,160],q1:[266,160],q2:[294,160],q3:[322,160],
+             A:[512,84],B:[512,229],
+             d0:[238,282],d1:[266,282],d2:[294,282],d3:[322,282]};
+    var COL={q:["#E9EFF5","#4A7BA6"],a:["#F7E9CE","#C98A2B"],d:["#E6F1DF","#69B34C"]};
+    ["t1","t2","t3","t4"].forEach(function(k){
+      var spec=s[k], el=_g("f1-"+k);
+      if(!spec){el.style.opacity=0;return;}
+      el.style.opacity=1;
+      var p=POS[spec[0]], c=COL[spec[1]];
+      el.setAttribute("x",p[0]); el.setAttribute("y",p[1]);
+      el.setAttribute("fill",c[0]); el.setAttribute("stroke",c[1]);
+    });
+    var bd=_g("f1-badge");
+    if(s.badge){var bp=POS[s.badge]; bd.setAttribute("x",bp[0]+15); bd.setAttribute("y",bp[1]+8); bd.style.opacity=1;}
+    else{bd.style.opacity=0;}
+    _g("f1-bx").style.opacity=s.crashB?1:0;
+    _g("f1-read").textContent=s.read||"";
+  });
+
+  /* FIG 2 — topic exchange: fan-out and routing on one dial */
+  function f2setB(id,on){var e=_g(id);
+    if(on){e.setAttribute("stroke","#69B34C"); e.setAttribute("stroke-width","3.2");}
+    else{e.setAttribute("stroke","#B9AE97"); e.setAttribute("stroke-width","1.6");}}
+
+  makeStepper(_g('fig-topic'), [
+    {text:"Three queues bind to the topic exchange 'events': Q_all with #, Q_errors with *.error, Q_pay with payments.#. Remember: * matches exactly one word, # matches zero or more.", active:["f2-exch","f2-qall","f2-qerr","f2-qpay"], read:"bindings: # (all) · *.error · payments.#", mAll:false,mErr:false,mPay:false},
+    {text:"The producer publishes with routing_key = \"payments.error\". The key travels to the exchange as a chip.", active:["f2-prod","f2-exch"], path:"f2-p-pe", rk:"payments.error", read:"publish · routing_key = payments.error"},
+    {text:"The exchange tests each binding against the key. # matches everything, *.error matches (one word + error), payments.# matches (payments + anything) — all three glow green.", active:["f2-exch","f2-qall","f2-qerr","f2-qpay"], rk:"payments.error", mAll:true,mErr:true,mPay:true, read:"# ✓  *.error ✓  payments.# ✓ — all match"},
+    {text:"A copy drops into all three queues at once. One publish, three deliveries — this is fan-out by pattern.", active:["f2-exch","f2-qall","f2-qerr","f2-qpay"], path:"f2-b-all", rk:"payments.error", mAll:true,mErr:true,mPay:true, tAll:true,tErr:true,tPay:true, read:"one publish → 3 queues (fan-out by pattern)"},
+    {text:"Now publish routing_key = \"auth.login\". Only # matches; *.error and payments.# stay dark.", active:["f2-prod","f2-exch"], path:"f2-p-pe", rk:"auth.login", mAll:true,mErr:false,mPay:false, read:"publish auth.login · only # matches"},
+    {text:"The copy lands only in Q_all; the other two queues stay empty. Selective routing did its job — the filter kept them out.", active:["f2-exch","f2-qall"], path:"f2-b-all", rk:"auth.login", mAll:true, tAll:true, read:"→ Q_all only · the filter did its job"},
+    {text:"Publish routing_key = \"payments.captured\". # matches and payments.# matches, but *.error does not — so copies go to Q_all and Q_pay only.", active:["f2-exch","f2-qall","f2-qpay"], path:"f2-b-all", rk:"payments.captured", mAll:true,mErr:false,mPay:true, tAll:true,tErr:false,tPay:true, read:"payments.captured → Q_all + Q_pay (not Q_errors)"},
+    {text:"Step back: Q_all's # binding IS publish/subscribe — subscribe to everything — while the other two are routing. Fanout is the # special case; routing is the general shape. One publish can hit 0, 1, or many queues.", active:["f2-exch","f2-qall","f2-qerr","f2-qpay"], mAll:true,mErr:false,mPay:false, read:"# = fanout special case · patterns = the general shape"}
+  ], function(idx,s){
+    _g("f2-read").textContent=s.read||"";
+    f2setB("f2-b-all", !!s.mAll);
+    f2setB("f2-b-err", !!s.mErr);
+    f2setB("f2-b-pay", !!s.mPay);
+    _g("f2-tok-all").style.opacity=s.tAll?1:0;
+    _g("f2-tok-err").style.opacity=s.tErr?1:0;
+    _g("f2-tok-pay").style.opacity=s.tPay?1:0;
+    if(s.rk){_g("f2-rk").textContent=s.rk; _g("f2-chip").style.opacity=1;}
+    else{_g("f2-chip").style.opacity=0;}
+  });
+</script>
+</body>
+</html>

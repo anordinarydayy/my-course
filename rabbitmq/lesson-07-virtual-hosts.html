@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 07 — Virtual Hosts, Users &amp; Multi-Tenancy (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- area / layer boxes ---- */
+  .areagrid-box{transition:opacity .3s ease;}
+  /* ---- code + worked example ---- */
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 14px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-v" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6E59A5"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">RabbitMQ &middot; Study Notes</div>
+    <div class="brandtitle">Virtual Hosts,<br>Users &amp; Multi-Tenancy</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>One broker isn't one namespace</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>What lives inside a vhost &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Users authenticate to the broker</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>configure / write / read &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Tags &amp; the management plane</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Worked: onboard a tenant</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Tenancy boundary &amp; topology</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">07</span><span>Concept &middot; RabbitMQ</span></div>
+      <h1>Virtual Hosts, Users &amp; Multi-Tenancy</h1>
+      <p class="lede">You almost never have just one app. You have <code>payments</code>, <code>notifications</code>, and <code>analytics</code>, plus a staging copy of each, plus three teams who all named a queue <code>orders</code>. A single flat broker lets their names collide and their messages mix; a broker each is wasteful. RabbitMQ splits the difference with the <strong>virtual host</strong> — a fully isolated logical broker living inside one physical broker — and layers <strong>users</strong>, <strong>permissions</strong>, and <strong>tags</strong> on top as the access-control story. This lesson builds the mental model of that boundary and shows exactly where it stops.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers prepping backend and system-design interviews — and the real work behind them. Facts track <strong>RabbitMQ 4.x</strong> (mid-2026) and are treated as illustrative. Names like <em>vhost</em>, <em>configure/write/read</em>, and <em>Khepri</em> are used as plain identifiers; every sentence, diagram, and line of code is our own. Contains <strong>two interactive diagrams</strong> (press <em>Play</em>, or step with <em>Next</em>) plus a static topology reference, and one worked provisioning example taken end-to-end.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Orientation</div>
+      <h2>One broker is not one namespace</h2>
+      <p>Here is the tension every multi-tenant broker is an answer to. Standing up a RabbitMQ cluster — and keeping it highly available — is expensive to operate. So you're tempted to run <em>one</em> and put everything on it. But the moment three teams share a single flat broker, three problems arrive together. Their resource <strong>names collide</strong>: everyone wants a queue called <code>orders</code>, and the second team to declare it either fails or, worse, silently binds to the first team's queue. There's no <strong>access boundary</strong>: any connection that can read one queue can, by default, read them all. And there's no <strong>blast-radius control</strong>: a runaway app can open every connection or declare a million queues and starve the rest.</p>
+      <p>Spinning up a separate broker per app fixes all three but wastes hardware and multiplies the operational burden. The <strong>virtual host</strong> — usually shortened to <strong>vhost</strong> — resolves the tension: it partitions the single physical broker into independent <em>logical</em> brokers, so each app behaves as if it owns the whole thing. Crucially this is a <em>logical, administrative</em> boundary. A vhost is not a separate OS process, a separate port, or a separate node; creating one costs almost nothing and takes milliseconds. It is a namespace and a runtime scope drawn inside the broker you already run.</p>
+      <div class="callout">
+        <span class="k">The one sentence to leave with</span>
+        <p>A vhost is a <strong>namespace boundary</strong> and a <strong>runtime boundary</strong>; a user is a <strong>broker-wide identity</strong> whose reach inside each vhost is defined by <strong>permissions</strong> and <strong>tags</strong>. Multi-tenancy in RabbitMQ is exactly that pairing: vhosts for isolation, users and permissions and tags for the access-control layer on top.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The boundary</div>
+      <h2>What actually lives inside a vhost &#9656;</h2>
+      <p>To reason about isolation you need to know precisely what a vhost <em>contains</em> and what it does not. Everything on the messaging path is <strong>vhost-scoped</strong>: exchanges, queues, bindings, and all the runtime objects that hang off them — connections, channels, consumers, and the messages flowing through. Two queues with the same name in two different vhosts share <em>nothing</em>: not messages, not bindings, not consumers, not even a byte of state. <code>orders</code> in <code>/payments</code> and <code>orders</code> in <code>/analytics</code> are two unrelated queues that never see each other.</p>
+      <p>What is <strong>broker-global</strong> and therefore <em>not</em> vhost-scoped is just as important: <strong>users</strong>, the <strong>metadata store</strong>, the cluster's <strong>nodes</strong>, the network <strong>listeners and ports</strong>, and the Erlang runtime itself. Those are shared by every vhost. The default vhost created at install is a single forward slash, <code>/</code> — you'll want your apps off it, but it's always there. Step through two identically-named queues to see that a name only has to be unique <em>within</em> a vhost, and that a connection is pinned to exactly one vhost for its whole life:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-vhost">
+          <svg viewBox="0 0 640 384" role="img" aria-label="Interactive: one broker holding two vhosts, /payments and /analytics, each with its own exchange and a queue named orders; a producer connects to one vhost, publishes and is consumed there, while the other vhost's identically-named queue is untouched, and a cross-vhost reference is blocked">
+            <rect x="150" y="30" width="340" height="322" rx="12" fill="none" stroke="#1F4E79" stroke-width="2"/>
+            <text class="lbl-sm" x="320" y="24" text-anchor="middle">BROKER (one physical cluster)</text>
+            <line id="f1-divider" x1="166" y1="190" x2="474" y2="190" stroke="#B0532F" stroke-width="2" stroke-dasharray="6 4" style="opacity:0"/>
+            <text id="f1-nocross" class="lbl-sm" x="320" y="186" text-anchor="middle" fill="#B0532F" style="opacity:0">no crossing</text>
+
+            <!-- producers -->
+            <g class="st" id="f1-p1"><rect class="node-b" x="12" y="98" width="80" height="44" rx="9"/><text class="lbl" x="52" y="125" text-anchor="middle">P1</text></g>
+            <g class="st" id="f1-p2"><rect class="node-b" x="12" y="238" width="80" height="44" rx="9"/><text class="lbl" x="52" y="265" text-anchor="middle">P2</text></g>
+            <!-- consumers -->
+            <g class="st" id="f1-c1"><rect class="node" x="548" y="98" width="80" height="44" rx="9"/><text class="lbl" x="588" y="125" text-anchor="middle">C1</text></g>
+            <g class="st" id="f1-c2"><rect class="node" x="548" y="238" width="80" height="44" rx="9"/><text class="lbl" x="588" y="265" text-anchor="middle">C2</text></g>
+
+            <!-- /payments panel -->
+            <g class="st" id="f1-payments">
+              <rect class="node-b" x="166" y="60" width="308" height="120" rx="9"/>
+              <text class="lbl" x="180" y="80" fill="#1F4E79">/payments</text>
+              <rect class="node" x="196" y="98" width="78" height="44" rx="7"/><text class="lbl-sm" x="235" y="124" text-anchor="middle">ex</text>
+              <rect class="node" x="330" y="96" width="126" height="64" rx="7"/><text class="lbl" x="393" y="118" text-anchor="middle">orders</text>
+            </g>
+            <!-- /analytics panel -->
+            <g class="st" id="f1-analytics">
+              <rect class="node-b" x="166" y="200" width="308" height="120" rx="9"/>
+              <text class="lbl" x="180" y="220" fill="#1F4E79">/analytics</text>
+              <rect class="node" x="196" y="238" width="78" height="44" rx="7"/><text class="lbl-sm" x="235" y="264" text-anchor="middle">ex</text>
+              <rect class="node" x="330" y="236" width="126" height="64" rx="7"/><text class="lbl" x="393" y="258" text-anchor="middle">orders</text>
+            </g>
+
+            <!-- dynamic payload tokens -->
+            <rect id="f1-pay-msg" x="358" y="126" width="22" height="24" rx="3" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2" style="opacity:0"/>
+            <rect id="f1-ana-msg" x="358" y="266" width="22" height="24" rx="3" fill="#ECE7F4" stroke="#6E59A5" stroke-width="2" style="opacity:0"/>
+            <!-- same-name highlights -->
+            <rect id="f1-hl1" x="326" y="92" width="134" height="72" rx="9" fill="none" stroke="#B0532F" stroke-width="2.5" style="opacity:0"/>
+            <rect id="f1-hl2" x="326" y="232" width="134" height="72" rx="9" fill="none" stroke="#B0532F" stroke-width="2.5" style="opacity:0"/>
+
+            <!-- flows -->
+            <path id="f1-conn1" class="flow" d="M92 120 H 194" marker-end="url(#arrow)"/>
+            <path id="f1-pub1" class="flow" d="M274 120 H 328" marker-end="url(#arrow)"/>
+            <path id="f1-deliver1" class="flow" d="M456 120 H 546" marker-end="url(#arrow)"/>
+            <path id="f1-conn2" class="flow" d="M92 260 H 194" marker-end="url(#arrow)"/>
+            <path id="f1-pub2" class="flow" d="M274 260 H 328" marker-end="url(#arrow)"/>
+            <path id="f1-cross" class="flow-r" d="M92 132 C 250 150, 262 262, 328 266" marker-end="url(#arrow-r)" style="opacity:0"/>
+            <text id="f1-block" class="lbl" x="196" y="322" text-anchor="middle" fill="#B0532F" style="opacity:0">&#10007; cross-vhost blocked</text>
+
+            <text id="f1-read" class="readout" x="320" y="374" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: two vhosts, two queues both named <code>orders</code>, zero shared state; a connection is bound to one vhost for life</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="k">Namespace and runtime, in one boundary</span>
+        <p>A vhost isolates <em>names</em> (so <code>orders</code> can exist twice) <strong>and</strong> <em>runtime</em> (so the connections, channels, and consumers in one vhost are invisible to another). There is <strong>no cross-vhost routing, ever</strong> — an exchange in <code>/payments</code> cannot deliver to a queue in <code>/analytics</code>. If you need a message to travel between vhosts, you move it explicitly with a tool like the shovel or federation plugin; the core routing engine will never do it for you.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Identity</div>
+      <h2>Users authenticate to the broker, not to a vhost</h2>
+      <p>Here is the split that trips almost everyone up the first time. A <strong>user</strong> is a <em>broker-wide</em> credential — a username plus a password hash, or an x509 certificate or OAuth 2.0 identity. <strong>Authentication</strong> — the &ldquo;who are you?&rdquo; question — happens exactly once, at connection time, against the broker as a whole. You do not log in to a vhost; you log in to the broker and then <em>select</em> a vhost for that connection. So the rule to memorize is: <strong>authentication is global; authorization is per-vhost.</strong> One identity, many possible reaches.</p>
+      <p>Every fresh install ships one user, <code>guest</code> with password <code>guest</code>, and this is where the classic &ldquo;why can't I connect?&rdquo; gotcha lives. By default <code>guest</code> is restricted to <strong>loopback</strong> connections — it works from <code>localhost</code> and is refused from any remote host — a deliberate safety default so a freshly-exposed broker isn't wide open. You must never ship <code>guest</code> as a production credential, and you'll usually want your apps off the default <code>/</code> vhost entirely, each with its own dedicated user.</p>
+      <div class="callout tip">
+        <span class="k">Why the two-word split matters</span>
+        <p>Because a user is global, one service account can be granted access to several vhosts, or none. Authenticating tells the broker <em>you are <code>svc-orders</code></em>; it tells the broker nothing about what <code>svc-orders</code> may do. That second question — may this identity publish here, consume there, alter topology anywhere — is <strong>authorization</strong>, and it is answered entirely by per-vhost <strong>permissions</strong>, which is the next section.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Authorization</div>
+      <h2>configure / write / read — regexes, per vhost &#9656;</h2>
+      <p>For each <strong>(user, vhost)</strong> pair you grant exactly three permissions, and each one is a <strong>regular expression matched against resource names</strong>. <code>configure</code> covers altering topology — creating or deleting a queue or exchange. <code>write</code> covers publishing to an exchange (and binding a queue to it). <code>read</code> covers consuming from a queue, and is the permission checked on the exchange that acts as a binding's routing source. Two special values do most of the work in practice: the empty string <code>""</code> matches nothing and so grants <em>no</em> access, while <code>.*</code> matches everything. A user with <strong>no permission entry at all</strong> for a vhost cannot even open a connection to it — the refusal happens during connection, not later on a declare.</p>
+      <p>There is a finer, separate layer called <strong>topic permissions</strong> that authorizes individual routing keys on a topic exchange — reach for it when name-level control isn't precise enough. But the canonical payoff of the three basic permissions is the least-privilege split: a pure <em>publisher</em> gets <code>write</code> (and <code>read</code> only if it consumes replies) with <code>configure</code> left empty, so it can send but never reshape the topology; a pure <em>consumer</em> gets <code>read</code>. Watch one user, <code>svc-orders</code>, pass through all three gates — authentication, then per-vhost permissions, then the management plane:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-auth">
+          <svg viewBox="0 0 640 392" role="img" aria-label="Interactive: a client authenticates once at the broker gate, then per-vhost permission lookups allow a connection to /prod but refuse /staging, a configure regex allows declaring orders but denies audit-log, and the management UI is denied because the user carries no tag">
+            <!-- client -->
+            <g class="st" id="f2-client"><rect class="node-b" x="14" y="150" width="104" height="60" rx="9"/><text class="lbl" x="66" y="176" text-anchor="middle">Client</text><text class="lbl-sm" x="66" y="194" text-anchor="middle">svc-orders</text></g>
+            <!-- broker gate -->
+            <g class="st" id="f2-gate"><rect id="f2-gate-rect" x="158" y="150" width="120" height="60" rx="9" fill="#FDFBF6" stroke="#1F4E79" stroke-width="2"/><text class="lbl" x="218" y="176" text-anchor="middle">Broker gate</text><text class="lbl-sm" x="218" y="194" text-anchor="middle">authentication</text></g>
+            <!-- permissions table -->
+            <g class="st" id="f2-perm">
+              <rect class="node" x="158" y="250" width="180" height="112" rx="9"/>
+              <text class="lbl" x="248" y="272" text-anchor="middle">Permissions</text>
+              <rect id="f2-row" x="164" y="284" width="168" height="22" rx="4" fill="#F6E7DE" stroke="#B0532F" stroke-width="1.4" style="opacity:0"/>
+              <text class="lbl-sm" x="170" y="299">(svc-orders,/prod) &#10003;</text>
+              <text class="lbl-sm" x="170" y="322">cfg=^orders$ w=. r=.</text>
+              <text class="lbl-sm" x="170" y="345">(svc-orders,/staging) &mdash;</text>
+            </g>
+            <!-- vhosts -->
+            <g class="st" id="f2-prod"><rect id="f2-prod-rect" x="456" y="44" width="168" height="58" rx="9" fill="#FDFBF6" stroke="#1F4E79" stroke-width="2"/><text class="lbl" x="540" y="70" text-anchor="middle">/prod</text><text class="lbl-sm" x="540" y="88" text-anchor="middle">cfg/write/read set</text></g>
+            <g class="st" id="f2-staging"><rect id="f2-staging-rect" x="456" y="116" width="168" height="58" rx="9" fill="#FDFBF6" stroke="#1F4E79" stroke-width="2"/><text class="lbl" x="540" y="142" text-anchor="middle">/staging</text><text class="lbl-sm" x="540" y="160" text-anchor="middle">no permission row</text></g>
+            <g class="st" id="f2-analytics"><rect class="node" x="456" y="188" width="168" height="58" rx="9"/><text class="lbl" x="540" y="214" text-anchor="middle">/analytics</text><text class="lbl-sm" x="540" y="232" text-anchor="middle">other tenant</text></g>
+            <g class="st" id="f2-mgmt"><rect class="node" x="456" y="290" width="168" height="62" rx="9"/><text class="lbl" x="540" y="316" text-anchor="middle">Management UI</text><text class="lbl-sm" x="540" y="334" text-anchor="middle">HTTP API / UI</text><text id="f2-lock" class="lbl-sm" x="540" y="352" text-anchor="middle" fill="#B0532F" style="opacity:0">&#10007; no tag &rarr; denied</text></g>
+
+            <!-- flows -->
+            <path id="f2-p-auth" class="flow" d="M118 180 H 156" marker-end="url(#arrow)"/>
+            <path id="f2-p-prod" class="flow" d="M278 168 C 360 120, 380 90, 454 73" marker-end="url(#arrow)"/>
+            <path id="f2-p-staging" class="flow" d="M278 182 C 360 168, 380 150, 454 145" marker-end="url(#arrow)"/>
+            <path id="f2-p-mgmt" class="flow-d" d="M66 210 C 66 340, 250 344, 454 322" marker-end="url(#arrow-s)"/>
+
+            <!-- recap overlay -->
+            <g id="f2-recap" style="opacity:0">
+              <rect x="40" y="120" width="560" height="150" rx="12" fill="#FDFBF6" stroke="#1F4E79" stroke-width="2" opacity="0.97"/>
+              <text class="lbl" x="320" y="150" text-anchor="middle" fill="#1F4E79">Three independent gates, in order</text>
+              <text class="lbl-sm" x="320" y="182" text-anchor="middle">1 &middot; Authentication &mdash; global (one broker-wide identity)</text>
+              <text class="lbl-sm" x="320" y="210" text-anchor="middle">2 &middot; Permissions &mdash; per-vhost, per-resource-name regex</text>
+              <text class="lbl-sm" x="320" y="238" text-anchor="middle">3 &middot; Tags &mdash; the management plane (a separate axis)</text>
+            </g>
+
+            <text id="f2-status" class="readout" x="320" y="386" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: authentication (global) &#8594; permissions (per-vhost, per-resource regex) &#8594; tags (management plane)</figcaption>
+      </figure>
+
+      <p>Read the diagram as three <em>independent</em> checks in sequence. The user cleared authentication once, yet <code>/staging</code> still refused the connection — because authorization is a per-vhost question with its own answer. And even inside a vhost the permission is per-<em>name</em>: declaring <code>orders</code> passed the <code>configure</code> regex <code>^orders$</code>, while <code>audit-log</code> failed the same regex and was denied. Default-deny is the spirit throughout: no matching entry means no access.</p>
+      <div class="callout">
+        <span class="k">Least privilege as a naming convention</span>
+        <p>Because permissions are regexes over names, a naming convention becomes a security boundary. Give a publisher <code>write</code> of <code>^pay\..*</code> and it can only publish to exchanges whose names start with <code>pay.</code>; the convention and the authorization rule are the same string. Anchor your regexes — <code>^pay\..*</code>, not the unanchored <code>pay\..*</code>, which would also match <code>xpay.foo</code>.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Management plane</div>
+      <h2>Tags gate the management plane</h2>
+      <p>Permissions govern the <strong>messaging</strong> path — the AMQP operations of declaring, publishing, and consuming. A completely separate axis, <strong>user tags</strong>, governs the <strong>management</strong> path — the HTTP Management API and the web UI. The two are orthogonal, and conflating them is one of the most common mistakes in interviews. The standard tags are <code>management</code> (log in to the UI and see your own permitted vhosts), <code>monitoring</code> (see <em>all</em> vhosts and cluster-wide metrics), <code>policymaker</code> (manage policies and runtime parameters in your permitted vhosts), and <code>administrator</code> (everything, including creating users and vhosts). There's also a rarely-used <code>impersonator</code> and support for custom tags.</p>
+      <p>The key consequence: a user can hold <em>full messaging permissions and no tag at all</em>. That user is a perfectly functional AMQP client — it publishes and consumes fine — and is completely invisible in the management UI. That is the normal, correct shape for a <strong>service account</strong>. It also demolishes the myth that you need the <code>administrator</code> tag to send or receive messages: administrators <em>manage the broker</em>; messaging is governed entirely by per-vhost permissions, so a well-designed client carries no tag.</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Permissions &mdash; the messaging door</h4>
+          <ul>
+            <li>Govern the <strong>AMQP path</strong>: declare, publish, consume.</li>
+            <li>Scoped <strong>per (user, vhost)</strong>, per-resource-name regex.</li>
+            <li>Values: three regexes <code>configure</code>/<code>write</code>/<code>read</code> (plus optional topic permissions).</li>
+            <li>A service account has <strong>full messaging perms</strong> in its own vhost.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Tags &mdash; the management door</h4>
+          <ul>
+            <li>Govern the <strong>HTTP API / UI</strong> path only.</li>
+            <li>A <strong>broker-wide</strong> capability level, not per-vhost.</li>
+            <li>Values: <code>management</code>, <code>monitoring</code>, <code>policymaker</code>, <code>administrator</code>.</li>
+            <li>A service account typically has <strong>no tag at all</strong>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout note">
+        <span class="k">Interviewer asks next</span>
+        <p>&ldquo;How do you give a monitoring tool read-only visibility into every vhost without letting it publish or consume?&rdquo; Answer: give it the <code>monitoring</code> tag — which sees every vhost's metrics cluster-wide — and grant it <strong>no messaging permissions</strong> at all. Because tags and permissions are independent axes, it can observe the whole broker while being unable to touch a single message. That independence is the whole point.</p>
+      </div>
+    </section>
+
+    <!-- 05 WORKED -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Worked example</div>
+      <h2>Blast radius: limits, defaults, and onboarding a tenant</h2>
+      <p>Isolating <em>names</em> is tidy; isolating <em>resources</em> is what makes multi-tenancy safe. Two per-vhost knobs do that. <code>max-connections</code> and <code>max-queues</code> (set with <code>rabbitmqctl set_vhost_limits</code>, where <code>-1</code> means unlimited) cap how much of the broker a single tenant can consume, so a noisy neighbor can't exhaust the cluster's connections or flood it with queues. A per-vhost <strong>default queue type</strong> — <code>classic</code>, <code>quorum</code>, or <code>stream</code> — decides what kind of queue the team gets when they declare one without specifying; set it to <code>quorum</code> and every queue is replicated and durable by default. You can also attach vhost metadata (a description and tags) and pre-seed limits in <code>rabbitmq.conf</code> for vhosts that get created dynamically. Now put every idea in this lesson together and onboard a team.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">rabbitmqctl / CLI &middot; pika</span></div>
+        <div class="wbody">
+          <div class="wname">Onboarding the <code>payments</code> team onto the shared broker</div>
+          <p class="wprompt">The platform team runs one 3-node cluster. <code>payments</code> needs its own isolated space, a service account that can <strong>only publish and consume its own resources</strong> (least privilege, never creating topology), a human lead who can manage policies and see the UI, sane resource caps so payments can't starve other tenants, and quorum queues by default. No app should ever touch <code>guest</code> or the <code>/</code> vhost.</p>
+
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Isolation first</span><p>A vhost costs nothing and gives payments its own namespace and runtime. <b>Create it before any user</b>, with quorum as the default queue type so durability is the default, not an opt-in.</p></div>
+            <div class="ws"><span class="wsk">Authenticate globally, authorize locally</span><p><code>add_user</code> mints an <b>identity</b>; it grants no power. <code>set_permissions -p payments</code> is the line that actually lets that identity do anything &mdash; and only in this vhost.</p></div>
+            <div class="ws"><span class="wsk">Least privilege via regex</span><p>The publisher gets <code>write</code>/<code>read</code> pinned to <code>^pay\..*</code> and <code>configure</code> of <code>^$</code> (matches nothing) &mdash; so it can send and receive on its own names but <b>can never alter topology</b>. Ops pre-declares queues.</p></div>
+            <div class="ws"><span class="wsk">Tags are a different door</span><p><code>svc-payments</code> gets <b>no tag</b> (invisible to the UI). <code>alice</code> gets <code>management</code>+<code>policymaker</code>, not <code>administrator</code> &mdash; she manages <em>payments</em>, not the broker.</p></div>
+            <div class="ws"><span class="wsk">Cap the blast radius</span><p><code>set_vhost_limits</code> converts logical isolation into <b>resource protection</b>: at most 500 connections and 200 queues, so one tenant can't exhaust the cluster.</p></div>
+          </div>
+
+          <h4 class="wh">Provision it &middot; rabbitmqctl (run on any node; changes replicate)</h4>
+          <p class="codetag">bash</p>
+          <pre class="code"><code><span class="cm"># 1) Isolated vhost — its own namespace, quorum queues by default</span>
+<span class="fn">rabbitmqctl</span> add_vhost payments \
+  --description <span class="lit">"Payments team - prod"</span> \
+  --default-queue-type quorum \
+  --tags <span class="lit">"team-payments,prod"</span>
+
+<span class="cm"># 2) Cap the blast radius: at most 500 connections, 200 queues (-1 = unlimited)</span>
+<span class="fn">rabbitmqctl</span> set_vhost_limits -p payments <span class="lit">'{"max-connections": 500, "max-queues": 200}'</span>
+
+<span class="cm"># 3) Service account — authenticates to the BROKER, scoped only to `payments`</span>
+<span class="fn">rabbitmqctl</span> add_user svc-payments <span class="lit">'s3cr3t-rotate-me'</span>
+<span class="cm"># no set_user_tags  →  this account cannot touch the management UI/API at all</span>
+
+<span class="cm"># 4) Least privilege, as regexes over RESOURCE NAMES:</span>
+<span class="cm">#    configure ^$   → may NOT create/delete topology (ops pre-declares it)</span>
+<span class="cm">#    write / read   → only names starting with "pay." (its own objects)</span>
+<span class="fn">rabbitmqctl</span> set_permissions -p payments svc-payments \
+  <span class="lit">'^$'</span> <span class="lit">'^pay\..*'</span> <span class="lit">'^pay\..*'</span>
+<span class="cm">#      configure    write         read</span>
+
+<span class="cm"># 5) A human lead — manages policies + sees the UI, but is NOT a broker admin</span>
+<span class="fn">rabbitmqctl</span> add_user alice <span class="lit">'change-me'</span>
+<span class="fn">rabbitmqctl</span> set_user_tags alice management policymaker
+<span class="fn">rabbitmqctl</span> set_permissions -p payments alice <span class="lit">'.*'</span> <span class="lit">'.*'</span> <span class="lit">'.*'</span>
+
+<span class="cm"># 6) Verify</span>
+<span class="fn">rabbitmqctl</span> list_permissions -p payments
+<span class="fn">rabbitmqctl</span> list_vhost_limits -p payments</code></pre>
+
+          <h4 class="wh">Same thing over the HTTP API &middot; handy in CI</h4>
+          <p class="codetag">bash</p>
+          <pre class="code"><code><span class="cm"># rabbitmqadmin v2 (RabbitMQ 4.x) — flag syntax, not the legacy key=value form</span>
+<span class="fn">rabbitmqadmin</span> declare vhost --name payments --default-queue-type quorum \
+  --description <span class="lit">"Payments team - prod"</span>
+
+<span class="fn">rabbitmqadmin</span> declare permission --vhost payments --user svc-payments \
+  --configure <span class="lit">'^$'</span> --write <span class="lit">'^pay\..*'</span> --read <span class="lit">'^pay\..*'</span></code></pre>
+
+          <h4 class="wh">Client side &middot; the vhost is chosen at CONNECT time</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="kw">import</span> pika
+
+<span class="cm"># The vhost is part of the connection parameters — not switchable later.</span>
+params = pika.<span class="fn">ConnectionParameters</span>(
+    host=<span class="lit">"broker.internal"</span>,
+    virtual_host=<span class="lit">"payments"</span>,                    <span class="cm"># pinned for this connection's life</span>
+    credentials=pika.<span class="fn">PlainCredentials</span>(<span class="lit">"svc-payments"</span>, <span class="lit">"s3cr3t-rotate-me"</span>),
+)
+conn = pika.<span class="fn">BlockingConnection</span>(params)
+ch = conn.<span class="fn">channel</span>()
+
+<span class="cm"># Works: name matches the write/read regex ^pay\..*</span>
+ch.<span class="fn">basic_publish</span>(exchange=<span class="lit">"pay.events"</span>, routing_key=<span class="lit">"charge.created"</span>, body=<span class="lit">b"..."</span>)
+
+<span class="cm"># Fails at declare: configure is ^$ (empty) → ACCESS_REFUSED, channel closed by broker.</span>
+<span class="cm"># ch.queue_declare(queue="pay.charges")   # raises ChannelClosedByBroker (403)</span></code></pre>
+
+          <div class="say">
+            <span class="k">Narrate it to the interviewer</span>
+            <p>&ldquo;I create a vhost per tenant, because it costs nothing and gives payments its own namespace and runtime. I set its default queue type to quorum so every queue the team declares is replicated and durable without them thinking about it. Then I mint a service user — it authenticates to the broker, but I scope it with per-vhost permissions: <code>write</code> and <code>read</code> regexes pinned to a <code>pay.</code> prefix, and <code>configure</code> empty so it can send and consume but never reshape topology. I give it <em>no</em> management tag, so it's a pure client, invisible in the UI. The human lead gets <code>management</code>+<code>policymaker</code>, not <code>administrator</code>, because she runs payments, not the broker. Finally I cap <code>max-connections</code> and <code>max-queues</code> so a noisy payments deploy can't starve other tenants — and I never let anything near <code>guest</code> or the <code>/</code> vhost.&rdquo;</p>
+            <p class="plain">Edge cases to raise aloud: <strong>deleting a vhost is irreversible</strong> — it drops every queue, exchange, binding, and message in it, so it's a big hammer; <strong>zero permissions means no connection</strong> — the refusal happens at connect, not on the first declare; <strong>changing permissions doesn't retroactively close</strong> existing channels or consumers, so force-close connections if you need immediate revocation; <strong>topic exchanges need topic permissions</strong> if you want to authorize by routing key rather than by name.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Judgment</div>
+      <h2>Choosing your tenancy boundary &mdash; and where it stops</h2>
+      <p>In practice you draw the vhost boundary along one of three lines: by <strong>environment</strong> (<code>/prod</code>, <code>/staging</code>), by <strong>team or app</strong>, or by <strong>customer</strong>. All three are cheap and all three give you full name isolation and per-vhost access control. But you must know exactly what the boundary does <em>not</em> give you, because that's the interview trap. A vhost is <strong>not</strong> a network, CPU, or OS sandbox. Every vhost shares the same nodes, the same Erlang schedulers, the same memory, and the same disk. A quorum queue in <code>/payments</code> competes for the very same Raft and I/O budget as one in <code>/analytics</code>. Per-vhost limits cap <em>counts</em>; they do not partition <em>hardware</em>.</p>
+      <p>So when you need genuine physical isolation — hard resource guarantees, an independent failure domain, independent upgrade windows, or a compliance boundary — the answer is not more vhosts but <strong>separate clusters</strong>. The static map below is the reference to keep in your head: vhost columns on shared nodes, a metadata ribbon underneath, users fanning in by permission.</p>
+
+      <figure>
+        <div class="blueprint" id="fig-tenancy">
+          <svg viewBox="0 0 640 432" role="img" aria-label="Static reference: one cluster of three shared nodes; a Khepri metadata ribbon replicating vhost, user and permission definitions to every node; four vhost columns each with its own queues and a limits chip; a users panel fanning permissions into the vhosts they reach">
+            <rect x="10" y="16" width="620" height="404" rx="12" fill="none" stroke="#1F4E79" stroke-width="2"/>
+            <text class="lbl-sm" x="26" y="36" fill="#1F4E79">CLUSTER</text>
+
+            <!-- vhost columns -->
+            <g>
+              <rect class="node-b" x="28" y="50" width="96" height="212" rx="9"/>
+              <text class="lbl" x="76" y="72" text-anchor="middle" fill="#1F4E79">/prod</text>
+              <rect x="44" y="88" width="64" height="20" rx="3" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.4"/>
+              <rect x="44" y="114" width="64" height="20" rx="3" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.4"/>
+              <rect x="40" y="206" width="72" height="46" rx="6" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.4"/>
+              <text class="lbl-sm" x="76" y="223" text-anchor="middle">c&#8804;1k q&#8804;500</text>
+              <text class="lbl-sm" x="76" y="242" text-anchor="middle">dqt=quorum</text>
+            </g>
+            <g>
+              <rect class="node" x="130" y="50" width="96" height="212" rx="9"/>
+              <text class="lbl" x="178" y="72" text-anchor="middle">/staging</text>
+              <rect x="146" y="88" width="64" height="20" rx="3" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.4"/>
+              <rect x="142" y="206" width="72" height="46" rx="6" fill="#FDFBF6" stroke="#1F4E79" stroke-width="1.4"/>
+              <text class="lbl-sm" x="178" y="223" text-anchor="middle">c&#8804;200 q&#8804;100</text>
+              <text class="lbl-sm" x="178" y="242" text-anchor="middle">dqt=classic</text>
+            </g>
+            <g>
+              <rect class="node-r" x="232" y="50" width="96" height="212" rx="9"/>
+              <text class="lbl" x="280" y="72" text-anchor="middle" fill="#B0532F">/payments</text>
+              <rect x="248" y="88" width="64" height="20" rx="3" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.4"/>
+              <rect x="248" y="114" width="64" height="20" rx="3" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.4"/>
+              <rect x="244" y="206" width="72" height="46" rx="6" fill="#FDFBF6" stroke="#B0532F" stroke-width="1.4"/>
+              <text class="lbl-sm" x="280" y="223" text-anchor="middle">c&#8804;500 q&#8804;200</text>
+              <text class="lbl-sm" x="280" y="242" text-anchor="middle">dqt=quorum</text>
+            </g>
+            <g>
+              <rect class="node-v" x="334" y="50" width="96" height="212" rx="9"/>
+              <text class="lbl" x="382" y="72" text-anchor="middle" fill="#6E59A5">/analytics</text>
+              <rect x="350" y="88" width="64" height="20" rx="3" fill="#FDFBF6" stroke="#6E59A5" stroke-width="1.4"/>
+              <rect x="350" y="114" width="64" height="20" rx="3" fill="#FDFBF6" stroke="#6E59A5" stroke-width="1.4"/>
+              <rect x="346" y="206" width="72" height="46" rx="6" fill="#FDFBF6" stroke="#6E59A5" stroke-width="1.4"/>
+              <text class="lbl-sm" x="382" y="223" text-anchor="middle">c&#8804;300 q&#8804;-1</text>
+              <text class="lbl-sm" x="382" y="242" text-anchor="middle">dqt=stream</text>
+            </g>
+
+            <!-- users panel -->
+            <rect class="node" x="452" y="50" width="166" height="212" rx="9"/>
+            <text class="lbl-sm" x="460" y="70" fill="#1F4E79">USERS &middot; broker-global</text>
+            <text class="lbl" x="462" y="98">admin</text><text class="lbl-sm" x="462" y="114">administrator &rarr; all</text>
+            <text class="lbl" x="462" y="146">alice</text><text class="lbl-sm" x="462" y="162">mgmt, policymaker /prod</text>
+            <text class="lbl" x="462" y="196">svc-orders</text><text class="lbl-sm" x="462" y="212">no tag &middot; rw on /prod</text>
+            <text class="lbl-sm" x="462" y="244">svc-pay</text><text class="lbl-sm" x="516" y="244">no tag &middot; rw /payments</text>
+
+            <!-- permission fan-in (dotted) -->
+            <path class="flow-d" d="M452 150 C 320 150, 200 108, 126 96" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M452 200 C 320 200, 200 132, 126 122" marker-end="url(#arrow-s)"/>
+            <path class="flow-d" d="M452 240 C 380 250, 330 150, 314 118" marker-end="url(#arrow-s)"/>
+
+            <!-- khepri ribbon -->
+            <rect x="28" y="286" width="590" height="34" rx="8" fill="#ECE7F4" stroke="#6E59A5" stroke-width="1.6"/>
+            <text class="lbl-sm" x="323" y="307" text-anchor="middle" fill="#6E59A5">Khepri metadata store &mdash; vhosts + users + permissions replicated to every node</text>
+
+            <!-- shared nodes floor -->
+            <rect class="node" x="28" y="332" width="188" height="40" rx="8"/><text class="lbl-sm" x="122" y="357" text-anchor="middle">node-1</text>
+            <rect class="node" x="222" y="332" width="188" height="40" rx="8"/><text class="lbl-sm" x="316" y="357" text-anchor="middle">node-2</text>
+            <rect class="node" x="416" y="332" width="202" height="40" rx="8"/><text class="lbl-sm" x="517" y="357" text-anchor="middle">node-3</text>
+            <text class="lbl-sm" x="323" y="392" text-anchor="middle">shared CPU &middot; memory &middot; disk &middot; schedulers</text>
+
+            <text class="lbl-sm" x="323" y="412" text-anchor="middle" fill="#B0532F">Shared nodes = logical isolation, not physical. Need hard isolation? Separate clusters.</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — static reference: vhosts partition names and access on <em>shared</em> nodes; Khepri replicates all vhost/user/permission metadata cluster-wide</figcaption>
+      </figure>
+
+      <p>That ribbon is the last piece of the model. In RabbitMQ 4.x all vhost, user, and permission definitions live in the <strong>Khepri</strong> metadata store — a Raft-based store that replicates them to every node — so your topology of tenants exists identically across the cluster and survives a node loss. (Khepri has been fully supported since 4.0, and over the 4.x line it becomes the default and eventually the only metadata store — so on a current 4.x cluster it holds and replicates every vhost, user, and permission.) Here are the three isolation strengths side by side:</p>
+      <div class="vs three">
+        <div class="col">
+          <h4>Shared vhost &middot; naming only</h4>
+          <ul>
+            <li>Name safety: <strong>none</strong> — manual prefixes.</li>
+            <li>Access control: regexes within one vhost.</li>
+            <li>Resource isolation: none.</li>
+            <li>Cost: lowest. Use only for one trusted, tidy team.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Separate vhosts &middot; one cluster</h4>
+          <ul>
+            <li>Name safety: <strong>full</strong> — unique per vhost.</li>
+            <li>Access control: per-vhost users, permissions, tags.</li>
+            <li>Resource isolation: <strong>logical only</strong> — limits cap counts, nodes shared.</li>
+            <li>Cost: very low. The <strong>default</strong> multi-tenant choice.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Separate clusters</h4>
+          <ul>
+            <li>Name safety: full; independent auth per cluster.</li>
+            <li>Resource isolation: <strong>physical</strong> — dedicated hardware.</li>
+            <li>Failure domain &amp; upgrades: <strong>independent</strong>.</li>
+            <li>Cost: highest. Use for compliance / hard SLA / noisy-neighbor guarantees.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout tip">
+        <span class="k">The blast-radius rule</span>
+        <p>Vhosts isolate <strong>names and access</strong>, not <strong>hardware</strong>. Set <code>max-connections</code> and <code>max-queues</code> to stop one tenant from exhausting the broker, treat the default queue type as your durability default, and reach for <strong>separate clusters</strong> — not more vhosts — the day you need a true physical or failure boundary. Everything above that line is logical, and logical isolation is shared substrate wearing many name tags.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one idea: <em>a vhost is a fully isolated logical broker inside one physical broker — its own exchanges, queues, bindings, and runtime — while a user is a broker-wide identity whose reach in each vhost is set by permissions and tags. You authenticate once to the broker, you're authorized per vhost, and the isolation stops at the hardware.</em> Everything else is where you draw the boundary and how tightly you cap it.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>A vhost is a logical broker</b><span>Inside one physical broker, with its own exchanges, queues, bindings, and runtime state — connections, channels, consumers.</span></div>
+        <div class="tk"><span class="num">02</span><b>Names are local</b><span>Uniqueness is only required <em>within</em> a vhost. Identical names in different vhosts share nothing — not messages, bindings, or consumers.</span></div>
+        <div class="tk"><span class="num">03</span><b>Auth global, authz local</b><span>You authenticate once to the broker as a global identity; permissions decide, per vhost, what that identity may do.</span></div>
+        <div class="tk"><span class="num">04</span><b>Three regexes, default-deny</b><span><code>configure</code> (topology), <code>write</code> (publish/bind), <code>read</code> (consume) — each a name regex; empty denies, no entry blocks the connection.</span></div>
+        <div class="tk"><span class="num">05</span><b>One vhost per connection</b><span>A connection is pinned to exactly one vhost for its lifetime. There is no cross-vhost routing, ever.</span></div>
+        <div class="tk"><span class="num">06</span><b>Tags are a separate axis</b><span>Tags gate the management HTTP/UI plane, orthogonal to messaging permissions. Service accounts usually have none.</span></div>
+        <div class="tk"><span class="num">07</span><b>Keep off guest and /</b><span><code>guest</code>/<code>guest</code> is loopback-only by design; never ship it, and give each app its own user off the default <code>/</code> vhost.</span></div>
+        <div class="tk"><span class="num">08</span><b>Limits, then clusters</b><span>Per-vhost <code>max-connections</code>/<code>max-queues</code> cap the blast radius; hardware is shared, so use separate clusters for physical isolation.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) Two teams both declare a queue named <code>orders</code> on one broker. What must be true for their messages never to mix, and what does that boundary <em>not</em> protect against?<br>
+        (2) A service should publish and consume but never create or delete queues. Which of <code>configure</code>/<code>write</code>/<code>read</code> do you grant, and what do you set the others to?<br>
+        (3) Why can a user authenticate successfully yet still be unable to connect to a particular vhost?<br>
+        (4) A monitoring agent must see metrics for every vhost but publish or consume nowhere. How do you configure it, and why does that prove tags and permissions are independent?<br>
+        (5) A teammate insists their app needs the <code>administrator</code> tag &ldquo;so it can send messages.&rdquo; What's wrong, and what should it have instead?<br>
+        (6) When do you reach for separate vhosts, and when is that not enough — forcing separate clusters?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw it from memory on paper.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 07 &middot; VIRTUAL HOSTS, USERS &amp; MULTI-TENANCY &middot; interactive edition<br>
+      Original study notes for backend &amp; system-design interviews &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — vhost namespace isolation */
+  makeStepper(_g('fig-vhost'), [
+    {text:"One broker, two vhosts. /payments and /analytics each hold their own exchange and a queue named `orders` — identical name, different box.", active:["f1-payments","f1-analytics","f1-p1","f1-p2","f1-c1","f1-c2"], read:"same name · two unrelated queues", same:true},
+    {text:"P1 opens a connection and selects the vhost /payments. From here on this connection can see nothing but /payments.", active:["f1-p1","f1-payments"], path:"f1-conn1", read:"P1 connects · virtual_host=/payments"},
+    {text:"P1 publishes. The message lands in the /payments `orders` queue only — the /analytics `orders` queue does not move.", active:["f1-p1","f1-payments"], path:"f1-pub1", read:"publish → /payments · orders", payMsg:true, divider:true},
+    {text:"C1 connects to /payments and consumes the message from /payments `orders`. Delivered — one vhost, end to end.", active:["f1-payments","f1-c1"], path:"f1-deliver1", read:"C1 consumes /payments · orders"},
+    {text:"Separately, P2 connects to /analytics and publishes to ITS `orders`. The token fills the /analytics queue; /payments is untouched.", active:["f1-p2","f1-analytics"], path:"f1-pub2", read:"publish → /analytics · orders", anaMsg:true},
+    {text:"Two queues, same name, zero shared state — no shared messages, no shared bindings, no shared consumers.", active:["f1-payments","f1-analytics"], read:"same name, zero shared state", same:true, anaMsg:true},
+    {text:"Finally, P1 tries to reach /analytics over its /payments connection. Blocked. A connection is bound to one vhost for life — there is no cross-vhost routing, ever.", active:["f1-p1","f1-analytics"], read:"blocked · one vhost per connection, for life", cross:true, anaMsg:true, reject:true}
+  ], function(idx,s){
+    _g('f1-read').textContent = s.read || '';
+    _g('f1-pay-msg').style.opacity = s.payMsg ? 1 : 0;
+    _g('f1-ana-msg').style.opacity = s.anaMsg ? 1 : 0;
+    _g('f1-divider').style.opacity = s.divider ? 1 : 0;
+    _g('f1-nocross').style.opacity = s.divider ? 1 : 0;
+    _g('f1-cross').style.opacity = s.cross ? 1 : 0;
+    _g('f1-block').style.opacity = s.cross ? 1 : 0;
+    _g('f1-hl1').style.opacity = s.same ? 1 : 0;
+    _g('f1-hl2').style.opacity = s.same ? 1 : 0;
+  });
+
+  /* FIG 2 — authentication vs authorization vs tags */
+  makeStepper(_g('fig-auth'), [
+    {text:"The client presents credentials for svc-orders at the broker gate. They check out: the user is authenticated — a broker-wide identity.", active:["f2-client","f2-gate"], path:"f2-p-auth", read:"authenticated · svc-orders (broker-wide)", authed:true},
+    {text:"The client asks to connect to /prod. The broker looks up the row (svc-orders, /prod), finds configure/write/read set, and lets the connection in.", active:["f2-gate","f2-perm","f2-prod"], path:"f2-p-prod", read:"(svc-orders,/prod) found → allowed", authed:true, lookup:true, prodOk:true},
+    {text:"The client also tries /staging. There is NO permission row for (svc-orders, /staging), so the connection is refused before it even opens.", active:["f2-gate","f2-perm","f2-staging"], path:"f2-p-staging", read:"no row for /staging → access refused", authed:true, lookup:true, stagingBad:true, reject:true},
+    {text:"Inside /prod the client declares queue `orders`. The configure regex ^orders$ matches the name, so the declare is allowed.", active:["f2-prod","f2-perm"], read:"declare orders · configure ^orders$ matches → ok", authed:true, prodOk:true, declareOk:true},
+    {text:"Next it declares `audit-log`. The configure regex does not match that name — authorization is denied on configure.", active:["f2-prod","f2-perm"], read:"declare audit-log · configure denied", authed:true, declareBad:true},
+    {text:"The client opens the management UI. svc-orders carries no tag, so the management plane is closed to it — even though its messaging works fine.", active:["f2-client","f2-mgmt"], path:"f2-p-mgmt", read:"no tag → management denied (messaging still works)", authed:true, mgmtDenied:true, reject:true},
+    {text:"Three independent gates, in order: authentication is global, permissions are per-vhost and per-resource regex, and tags are a separate management-plane axis.", active:["f2-client","f2-gate","f2-perm","f2-prod","f2-staging","f2-analytics","f2-mgmt"], read:"auth (global) → permissions (per-vhost) → tags (mgmt)", authed:true, recap:true}
+  ], function(idx,s){
+    _g('f2-status').textContent = s.read || '';
+    var gate=_g('f2-gate-rect');
+    if(s.authed){gate.setAttribute('fill','#E6F1DF');gate.setAttribute('stroke','#69B34C');}
+    else{gate.setAttribute('fill','#FDFBF6');gate.setAttribute('stroke','#1F4E79');}
+    var prod=_g('f2-prod-rect');
+    if(s.prodOk||s.declareOk){prod.setAttribute('fill','#E6F1DF');prod.setAttribute('stroke','#69B34C');}
+    else if(s.declareBad){prod.setAttribute('fill','#F6E7DE');prod.setAttribute('stroke','#B0532F');}
+    else{prod.setAttribute('fill','#FDFBF6');prod.setAttribute('stroke','#1F4E79');}
+    var stg=_g('f2-staging-rect');
+    if(s.stagingBad){stg.setAttribute('fill','#F6E7DE');stg.setAttribute('stroke','#B0532F');}
+    else{stg.setAttribute('fill','#FDFBF6');stg.setAttribute('stroke','#1F4E79');}
+    _g('f2-row').style.opacity = s.lookup ? 1 : 0;
+    _g('f2-lock').style.opacity = s.mgmtDenied ? 1 : 0;
+    _g('f2-recap').style.opacity = s.recap ? 1 : 0;
+  });
+</script>
+</body>
+</html>

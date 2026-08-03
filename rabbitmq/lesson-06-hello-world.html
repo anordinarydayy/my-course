@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build 06 — Hello World: A Producer and a Consumer (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- area / layer boxes ---- */
+  .areagrid-box{transition:opacity .3s ease;}
+  /* ---- code + worked example ---- */
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 14px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-v" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6E59A5"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">RabbitMQ &middot; Study Notes</div>
+    <div class="brandtitle">Hello World — a Producer<br>and a Consumer</div>
+    <h4>The build</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>What connects to what &#9656;</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Declare the topology</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Publish the message</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Receive &amp; acknowledge</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The idempotent rule &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The default-exchange shortcut</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Worked: orders heartbeat</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Run it in any order</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">06</span><span>Build &middot; RabbitMQ</span></div>
+      <h1>Hello World: a Producer and a Consumer</h1>
+      <p class="lede">Five lessons of vocabulary — connection, channel, exchange, queue, binding, routing key. Now we make the nouns cooperate. A byte string leaves <code>publish()</code> on one machine and arrives at a callback on another, and the whole round trip is a dozen lines because the broker does the hard part. The one idea to walk away with: a message never goes <em>producer&nbsp;&#8594;&nbsp;queue</em>. It goes <strong>producer &#8594; exchange &#8594; binding &#8594; queue &#8594; consumer</strong> — and every client, on startup, simply <em>asserts</em> the topology it needs.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers prepping backend and system-design interviews — and the real work behind them. Names like <em>AMQP</em>, <em>exchange</em>, and <em>queue</em> are used as plain identifiers; every sentence, diagram, and line of code here is our own. This is a <strong>build</strong> lesson on RabbitMQ 4.x over AMQP&nbsp;0-9-1 with <code>pika</code>. Contains <strong>two interactive diagrams</strong> (press <em>Play</em>, or step with <em>Next</em>) plus a static side-by-side, and one end-to-end worked build.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 INTERACTIVE -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The shape</div>
+      <h2>What actually connects to what &#9656;</h2>
+      <p>Before a single line of code, fix the shape in your head, because two of its rules are exactly the ones beginners get wrong. A <strong>producer</strong> publishes to an <strong>exchange</strong> and names a <strong>routing key</strong>; a <strong>binding</strong> decides which <strong>queue</strong>(s) that key lands in; a <strong>consumer</strong> subscribes to a queue. The producer <em>never</em> names a queue when it publishes, and the consumer <em>never</em> names an exchange when it consumes. The exchange is a <em>router</em>, not a mailbox — it holds nothing; the queue is the buffer that actually stores messages.</p>
+      <p>There is invisible plumbing underneath all of it. A single TCP <strong>connection</strong> carries one or more lightweight <strong>channels</strong>, and every AMQP operation — declaring, publishing, consuming, acking — happens <em>on a channel</em>. Below is the entire round trip: the producer sets up the topology, sends one message, and the consumer receives and acks it. Step through it once now; the next four sections zoom into each leg.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-round">
+          <svg viewBox="0 0 640 330" role="img" aria-label="Interactive full round trip: a producer opens a channel, declares an exchange, queue and binding, publishes a message that the exchange routes into the queue, and a consumer receives and acknowledges it">
+            <!-- broker boundary -->
+            <rect x="170" y="54" width="320" height="212" rx="14" fill="none" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 5"/>
+            <text class="lbl-sm" x="184" y="74">BROKER</text>
+            <!-- channel ribbons -->
+            <path id="f1-ribL" class="flow-d" d="M120 168 H 194"/>
+            <path id="f1-ribR" class="flow" d="M470 168 H 518" marker-end="url(#arrow-s)" style="opacity:.35"/>
+            <!-- producer -->
+            <g class="st" id="f1-prod"><rect class="node-b" x="16" y="140" width="104" height="56" rx="9"/><text class="lbl" x="68" y="173" text-anchor="middle">Producer</text></g>
+            <!-- exchange -->
+            <g class="st" id="f1-exch" style="opacity:0"><rect class="node-v" x="196" y="138" width="112" height="60" rx="9"/><text class="lbl" x="252" y="164" text-anchor="middle" fill="#6E59A5">hello-x</text><text class="lbl-sm" x="252" y="182" text-anchor="middle" fill="#6E59A5">direct</text></g>
+            <!-- binding -->
+            <path id="f1-bind" class="flow" d="M308 168 H 352" marker-end="url(#arrow)" style="opacity:0"/>
+            <text id="f1-bindlbl" class="lbl-sm" x="330" y="150" text-anchor="middle" style="opacity:0">key: hello</text>
+            <!-- queue -->
+            <g class="st" id="f1-queue" style="opacity:0"><rect class="node" x="352" y="132" width="118" height="72" rx="9"/><text class="lbl" x="411" y="151" text-anchor="middle">hello-q</text>
+              <rect id="f1-qmsg" x="398" y="160" width="26" height="22" rx="3" fill="#E9EFF5" stroke="#1F4E79" stroke-width="2" style="display:none"/>
+              <text id="f1-depth" class="lbl-sm" x="411" y="197" text-anchor="middle"></text>
+            </g>
+            <!-- consumer -->
+            <g class="st" id="f1-cons"><rect class="node" x="520" y="140" width="104" height="56" rx="9"/><text class="lbl" x="572" y="173" text-anchor="middle">Consumer</text></g>
+            <!-- ack return -->
+            <path id="f1-p-ack" class="flow-d" d="M518 184 C 470 214, 430 210, 412 198" marker-end="url(#arrow-s)"/>
+            <text id="f1-read" class="readout" x="320" y="314" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 8</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: the full round trip — connect, declare, bind, publish, route, deliver, ack</figcaption>
+      </figure>
+
+      <p>Watch the token in steps 5&ndash;8: it flies producer&nbsp;&#8594;&nbsp;<strong>exchange</strong> (not queue), then the exchange copies it across the binding into <code>hello-q</code>, then it goes to the consumer, and only the final <code>basic.ack</code> removes it. Between delivery and ack the message is held <strong>unacknowledged</strong> — reserved, not deleted. That reservation is the whole reliability story, and we build up to it below.</p>
+      <div class="callout">
+        <span class="k">The two rules newcomers break</span>
+        <p><strong>Producers address exchanges; consumers subscribe to queues.</strong> Neither reaches across the middle. If you ever find yourself passing a queue name to <code>basic_publish</code>, you are using the <em>default exchange</em> shortcut (section 05) — a real thing, but a convenience that hides the router. This lesson builds the explicit version first so the machinery is visible.</p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Declare</div>
+      <h2>Assert the exchange, queue, and binding</h2>
+      <p>Here is the first surprise, and it is load-bearing: <strong>topology is declared, not configured.</strong> There is no admin step you must run before your app works. Every client — producer <em>and</em> consumer — issues the same three calls on connect, and the broker creates whatever doesn't yet exist. Those calls are <em>client-side assertions of desired state</em>, run at startup, not a separate provisioning phase.</p>
+      <p class="codetag">python</p>
+      <pre class="code"><code><span class="fn">ch</span>.exchange_declare(exchange=<span class="lit">"hello-x"</span>, exchange_type=<span class="lit">"direct"</span>, durable=<span class="lit">True</span>)
+<span class="fn">ch</span>.queue_declare(queue=<span class="lit">"hello-q"</span>, durable=<span class="lit">True</span>)
+<span class="fn">ch</span>.queue_bind(queue=<span class="lit">"hello-q"</span>, exchange=<span class="lit">"hello-x"</span>, routing_key=<span class="lit">"hello"</span>)</code></pre>
+      <p>Read them top to bottom. <code>exchange_declare</code> asserts &ldquo;I need a <code>direct</code> exchange named <code>hello-x</code>.&rdquo; <code>queue_declare</code> asserts &ldquo;I need a durable queue named <code>hello-q</code>.&rdquo; <code>queue_bind</code> wires them: &ldquo;deliver to <code>hello-q</code> anything published to <code>hello-x</code> whose routing key is exactly <code>hello</code>.&rdquo; Order <em>within a client</em> matters only in one respect — you must bind <em>after</em> both endpoints exist, because a binding references two things that have to be there. Across clients, order doesn't matter at all, and section 04 explains why.</p>
+      <p>The <code>durable=True</code> flag means &ldquo;survive a broker restart.&rdquo; File that away with a warning we'll cash in later: durability of the <em>queue</em> and persistence of the <em>message</em> are <strong>two separate switches</strong>. A durable queue that holds a non-persistent message still loses that message on restart. We turn the second switch in section 02.</p>
+      <div class="callout note">
+        <span class="k">Outdated answer to retire</span>
+        <p>Older tutorials say &ldquo;make the queue highly available by <strong>mirroring</strong> it.&rdquo; Don't repeat that in an interview: classic <strong>mirrored queues were removed in RabbitMQ&nbsp;4.0</strong>. The replicated-queue answer now is a <strong>quorum queue</strong> — <code>queue_declare(..., arguments={"x-queue-type": "quorum"})</code> — which is always durable and stores messages persistently. A single-node Hello World doesn't need it; a classic durable queue is exactly right here and keeps the whole thing to a dozen lines.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Publish</div>
+      <h2>Send the message</h2>
+      <p>Now send one byte string. The single most important detail is the first argument: the producer addresses the <strong>exchange</strong>, and the routing key is a <em>hint the exchange uses to match bindings</em> — for a <code>direct</code> exchange, &ldquo;match the binding key exactly.&rdquo;</p>
+      <p class="codetag">python</p>
+      <pre class="code"><code><span class="fn">ch</span>.basic_publish(
+    exchange=<span class="lit">"hello-x"</span>,            <span class="cm"># the ROUTER, never a queue name</span>
+    routing_key=<span class="lit">"hello"</span>,           <span class="cm"># must match the binding key</span>
+    body=<span class="lit">b"Hello World!"</span>,
+    properties=pika.BasicProperties(delivery_mode=<span class="lit">2</span>))   <span class="cm"># 2 = persistent</span></code></pre>
+      <p>The <code>delivery_mode=2</code> property marks the message <strong>persistent</strong>, so the broker writes it to disk. Recall the pairing rule: persistence needs <em>both</em> switches — a persistent message <strong>and</strong> a durable queue. Set only one and a broker restart still loses the message. (Quorum queues sidestep the question by being persistent by design, but on our classic durable queue you own both flags.)</p>
+      <p>Now the honest caveat. Plain <code>basic_publish</code> is <strong>fire-and-forget</strong>: it returns immediately with <em>no</em> broker acknowledgement. If your routing key matches no binding, the message is <strong>silently dropped</strong> by default — no exception, no error. To be told about an unroutable message, add <code>mandatory=True</code>, which makes the broker <em>return</em> the message so you can catch it. To know the broker <em>accepted</em> the message at all, you need <strong>publisher confirms</strong>, a reliability feature we cover in a later phase. Name the gap out loud; don't pretend plain publish is reliable.</p>
+      <div class="callout tip">
+        <span class="k">Common misconception</span>
+        <p>&ldquo;<code>basic_publish</code> throws if the message can't be delivered.&rdquo; It does <strong>not</strong>. Plain publish is asynchronous and unconfirmed; unroutable messages are dropped silently unless you set <code>mandatory=True</code> (to get a <code>basic.return</code>) and/or enable <strong>publisher confirms</strong> to learn the broker took responsibility. A typo'd routing key on a fire-and-forget publish is the classic &ldquo;my message vanished&rdquo; bug.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Consume</div>
+      <h2>Receive and acknowledge</h2>
+      <p>The consumer is the other half. Notice what it re-declares: the <em>same</em> queue, not the exchange. It doesn't need to know the exchange name to read from a queue — and re-declaring the queue means it doesn't depend on the producer having run first (that is the idempotency rule of section 04 paying off).</p>
+      <p class="codetag">python</p>
+      <pre class="code"><code><span class="fn">ch</span>.queue_declare(queue=<span class="lit">"hello-q"</span>, durable=<span class="lit">True</span>)   <span class="cm"># re-assert; safe if it already exists</span>
+
+<span class="kw">def</span> <span class="fn">on_message</span>(channel, method, properties, body):
+    <span class="fn">handle</span>(body)                              <span class="cm"># do the real work first...</span>
+    channel.basic_ack(delivery_tag=method.delivery_tag)   <span class="cm"># ...then ack, AFTER success</span>
+
+<span class="fn">ch</span>.basic_qos(prefetch_count=<span class="lit">1</span>)                 <span class="cm"># at most 1 unacked message at a time</span>
+<span class="fn">ch</span>.basic_consume(queue=<span class="lit">"hello-q"</span>, on_message_callback=on_message)
+<span class="fn">ch</span>.start_consuming()</code></pre>
+      <p><code>basic_qos(prefetch_count=1)</code> tells the broker &ldquo;don't hand me a new message until I've acked my current one,&rdquo; which keeps a slow worker from being flooded. <code>basic_consume</code> registers the callback and <code>start_consuming</code> blocks, dispatching deliveries as they arrive. The heart of it is the last line of the callback: <code>basic_ack</code> runs <em>after</em> the work, so the message is deleted only once processing has actually succeeded. The whole choice comes down to acknowledgement mode:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>auto_ack=True</h4>
+          <ul>
+            <li>Message removed <strong>on delivery</strong>, before your code runs.</li>
+            <li>Crash mid-work &#8594; message <strong>lost</strong>.</li>
+            <li>Slightly higher throughput.</li>
+            <li>Only when loss is acceptable — metrics, logs.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Manual basic_ack</h4>
+          <ul>
+            <li>Message removed <strong>after</strong> your callback acks.</li>
+            <li>Crash mid-work &#8594; <strong>requeued</strong> and redelivered.</li>
+            <li>Slightly lower throughput, far safer.</li>
+            <li>Almost always, in any real system.</li>
+          </ul>
+        </div>
+      </div>
+      <p>Put in one breath: auto-ack means &ldquo;delete on delivery, lose on crash&rdquo;; manual ack means &ldquo;delete only after my code succeeded.&rdquo; That difference is the answer to the follow-up interviewers reach for immediately.</p>
+      <div class="callout">
+        <span class="k">Interviewer asks next</span>
+        <p><em>&ldquo;Your consumer crashes right after receiving but before finishing — what happens to the message?&rdquo;</em> With manual ack it's still <strong>unacked</strong>, so the broker redelivers it (to another consumer, or the same one on reconnect) and nothing is lost. With <code>auto_ack=True</code> it's already gone. This is the single most common thing asked after a Hello World answer — have it ready.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The rule</div>
+      <h2>Why every client can assert its own topology &#9656;</h2>
+      <p>This is the centerpiece — the property that lets a producer and a consumer written by two different teams, started in any order, converge on the same working pipe. Re-declaring an exchange or queue with <strong>identical</strong> arguments is a successful <strong>no-op</strong>: the broker returns <code>declare-ok</code> and changes nothing. That is what makes it safe to run every <code>declare</code> on every startup without first checking &ldquo;does this already exist?&rdquo;</p>
+      <p>The one exception is the guardrail that makes the whole scheme trustworthy. Re-declaring with <strong>different</strong> arguments — say <code>durable=False</code> against an existing <code>durable=True</code> queue — raises <strong>406 PRECONDITION_FAILED</strong> and <em>closes the channel</em>. The broker refuses to silently overwrite; it forces the disagreement into the open. Step through both halves:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-idem">
+          <svg viewBox="0 0 640 320" role="img" aria-label="Interactive idempotent declares: Client A creates a queue, re-declares it as a no-op, Client B matches it, then Client B declares mismatched arguments and its channel is closed with 406 while the queue is unchanged">
+            <!-- broker boundary -->
+            <rect x="372" y="52" width="244" height="214" rx="14" fill="none" stroke="#D2C7B0" stroke-width="1.5" stroke-dasharray="4 5"/>
+            <g class="st" id="f2-broker">
+              <text class="lbl-sm" x="388" y="74">BROKER</text>
+              <g id="f2-qgroup" style="opacity:0">
+                <rect class="node" x="410" y="118" width="176" height="92" rx="9"/>
+                <text class="lbl" x="498" y="150" text-anchor="middle">hello-q</text>
+                <rect x="436" y="164" width="124" height="26" rx="13" fill="#E9EFF5" stroke="#1F4E79" stroke-width="1.4"/>
+                <text id="f2-badge" x="498" y="182" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" fill="#1F4E79">durable=true</text>
+              </g>
+              <text id="f2-reply" x="498" y="246" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" fill="#1F4E79"></text>
+            </g>
+            <!-- client A -->
+            <g class="st" id="f2-cA"><rect class="node" x="24" y="58" width="150" height="64" rx="9"/><text class="lbl" x="99" y="85" text-anchor="middle">Client A</text><text class="lbl-sm" x="99" y="104" text-anchor="middle">channel 1</text></g>
+            <!-- client B (recolourable rect, no class) -->
+            <g class="st" id="f2-cB"><rect id="f2-bbox" x="24" y="196" width="150" height="64" rx="9" fill="#FDFBF6" stroke="#1F4E79" stroke-width="2"/><text class="lbl" x="99" y="223" text-anchor="middle">Client B</text><text class="lbl-sm" x="99" y="242" text-anchor="middle">channel 2</text></g>
+            <text id="f2-bclosed" x="99" y="284" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#B0532F" style="opacity:0">&#10007; channel closed</text>
+            <!-- declare paths -->
+            <path id="f2-pa" class="flow" d="M174 90 C 280 96, 320 128, 408 150" marker-end="url(#arrow)"/>
+            <path id="f2-pb" class="flow" d="M174 228 C 280 224, 320 192, 408 182" marker-end="url(#arrow)"/>
+            <text id="f2-read" class="readout" x="320" y="306" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: identical declares are idempotent no-ops; a mismatched declare is a hard 406, never a silent overwrite</figcaption>
+      </figure>
+
+      <p>The operational payoff is exactly what section 01 promised: startup code can <code>declare</code> everything it needs, unconditionally, and boot in any order relative to every other client. There is also a &ldquo;check, don't create&rdquo; variant — pass <code>passive=True</code> and the broker never creates anything; it just confirms the entity exists, raising <strong>404 NOT_FOUND</strong> if it's absent. Use it when a client should <em>depend on</em> a topology someone else owns rather than assert it.</p>
+      <div class="callout tip">
+        <span class="k">The whole rule in one line</span>
+        <p>Declarations are <strong>idempotent only when the arguments agree</strong>. Identical args &#8594; <code>declare-ok</code>, no change. Different args &#8594; <strong>406</strong>, channel closed, existing entity untouched. That combination — safe to repeat, loud on disagreement — is what makes &ldquo;every client asserts its own topology&rdquo; a sound design instead of a race condition.</p>
+      </div>
+    </section>
+
+    <!-- 05 STATIC -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The shortcut</div>
+      <h2>The default-exchange shortcut we skipped</h2>
+      <p>Time to reveal what the canonical tutorial actually does — because it skips the named exchange entirely. Publish to <code>exchange=""</code> (the <strong>default exchange</strong>) with <code>routing_key="hello-q"</code>, and the message lands in the queue named <code>hello-q</code>, no <code>exchange_declare</code> and no <code>queue_bind</code> in sight. It looks like publishing straight to a queue, which is why beginners come away believing that's how RabbitMQ works.</p>
+      <p>The magic is mundane. The default exchange is a built-in <code>direct</code> exchange with the empty-string name, to which <em>every queue is automatically bound using its own name as the routing key.</em> So <code>routing_key="hello-q"</code> matches the auto-binding of the queue <code>hello-q</code>. You cannot bind to, unbind from, or delete this exchange — it just exists. Here is the same destination reached two ways:</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 360" role="img" aria-label="Static comparison of two addressing schemes: lane A publishes to the empty default exchange with the queue name as routing key; lane B publishes to a named direct exchange hello-x with routing key hello and an explicit binding to the queue">
+            <!-- LANE A -->
+            <text class="lbl-sm" x="20" y="28">A &middot; DEFAULT EXCHANGE (the shortcut)</text>
+            <rect class="node-b" x="16" y="52" width="104" height="52" rx="9"/><text class="lbl" x="68" y="83" text-anchor="middle">Producer</text>
+            <rect x="184" y="48" width="140" height="60" rx="9" fill="#FDFBF6" stroke="#4A7BA6" stroke-width="1.6" stroke-dasharray="5 4"/>
+            <text class="lbl" x="254" y="74" text-anchor="middle" fill="#4A7BA6">exchange=""</text><text class="lbl-sm" x="254" y="92" text-anchor="middle" fill="#4A7BA6">built-in direct</text>
+            <rect class="node" x="486" y="52" width="132" height="52" rx="9"/><text class="lbl" x="552" y="83" text-anchor="middle">hello-q</text>
+            <path class="flow" d="M120 78 H 182" marker-end="url(#arrow)"/>
+            <path class="flow-d" d="M324 78 H 484" marker-end="url(#arrow-s)"/>
+            <text class="lbl-sm" x="404" y="66" text-anchor="middle">routing_key = "hello-q"</text>
+            <text class="lbl-sm" x="404" y="96" text-anchor="middle">auto-bound by name</text>
+            <text class="lbl-sm" x="20" y="140">Every queue is auto-bound to the default exchange by its own</text>
+            <text class="lbl-sm" x="20" y="156">name — no exchange_declare, no queue_bind needed.</text>
+            <!-- divider -->
+            <line x1="20" y1="184" x2="620" y2="184" stroke="#E3DBCB" stroke-width="1"/>
+            <!-- LANE B -->
+            <text class="lbl-sm" x="20" y="212">B &middot; NAMED EXCHANGE + BINDING (what we built)</text>
+            <rect class="node-b" x="16" y="236" width="104" height="52" rx="9"/><text class="lbl" x="68" y="267" text-anchor="middle">Producer</text>
+            <rect class="node-v" x="176" y="232" width="132" height="60" rx="9"/><text class="lbl" x="242" y="258" text-anchor="middle" fill="#6E59A5">hello-x</text><text class="lbl-sm" x="242" y="276" text-anchor="middle" fill="#6E59A5">direct</text>
+            <rect class="node" x="486" y="236" width="132" height="52" rx="9"/><text class="lbl" x="552" y="267" text-anchor="middle">hello-q</text>
+            <path class="flow" d="M120 262 H 174" marker-end="url(#arrow)"/>
+            <path class="flow" d="M308 262 H 484" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="216" y="224" text-anchor="middle">routing_key = "hello"</text>
+            <text class="lbl-sm" x="396" y="250" text-anchor="middle">binding key = "hello"</text>
+            <text class="lbl-sm" x="20" y="322">You declare the exchange and the binding yourself; the routing</text>
+            <text class="lbl-sm" x="20" y="338">key is decoupled from the queue name.</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — static: same destination, two addressing schemes — brevity vs. visible routing</figcaption>
+      </figure>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Default exchange ("")</h4>
+          <ul>
+            <li>Publish: <code>exchange="", routing_key="&lt;queue&gt;"</code>.</li>
+            <li>Binding is <strong>implicit</strong> — every queue auto-bound by name.</li>
+            <li>Routing key <em>is</em> the literal queue name.</li>
+            <li>Does <strong>not</strong> generalize to fanout / topic.</li>
+            <li>Best for quick point-to-point — the textbook Hello World.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Named exchange + binding</h4>
+          <ul>
+            <li>Publish: <code>exchange="hello-x", routing_key="hello"</code>.</li>
+            <li>Binding is <strong>explicit</strong> — you write <code>queue_bind</code>.</li>
+            <li>Routing key is a <em>logical</em> key, decoupled from queue names.</li>
+            <li><strong>Generalizes</strong> to fanout, topic, multi-queue routing.</li>
+            <li>Best for anything that will grow more than one consumer or route.</li>
+          </ul>
+        </div>
+      </div>
+      <p>So why did this lesson take the long road? Because teaching the explicit exchange and binding makes the <strong>routing model visible</strong> and generalizes cleanly to fanout and topic exchanges later, where one publish fans out to many queues. The default exchange trades that visibility for brevity — a fine convenience once you understand the machinery, a trap while you're still learning it.</p>
+    </section>
+
+    <!-- 06 WORKED -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Worked example</div>
+      <h2>The orders-service heartbeat</h2>
+      <p>Let's assemble the whole thing into a real pair of scripts you could run today. A tiny <code>orders</code> service emits an <code>order.created</code> notification; a separate <code>notifier</code> worker consumes it. We build the explicit topology — named <code>direct</code> exchange, durable queue, binding — so the routing stays visible, and we make <em>both</em> scripts declare the topology so they can start in any order.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">two scripts &middot; Python / pika</span></div>
+        <div class="wbody">
+          <div class="wname">Emit order.created, consume it in another process</div>
+          <p class="wprompt">The web service and the worker are <strong>separate processes started in unknown order</strong>, and no message may be dropped on a restart. Build a producer and a consumer that converge on one working pipe regardless of who boots first.</p>
+
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Who owns the topology?</span><p><b>Neither — both assert it.</b> Pick names (<code>orders-x</code>, <code>orders-q</code>, key <code>order.created</code>) and have every client declare them on startup. Idempotent declares make that safe.</p></div>
+            <div class="ws"><span class="wsk">Where does the producer send?</span><p>To the <b>exchange</b>, with a routing key. It must not reference the queue name — that would be the default-exchange shortcut we deliberately avoided.</p></div>
+            <div class="ws"><span class="wsk">What survives a crash?</span><p>Two independent switches: the <b>queue is durable</b> and the <b>message is <code>delivery_mode=2</code></b>. One without the other is a gap on a broker restart.</p></div>
+            <div class="ws"><span class="wsk">When is the message gone?</span><p>Only after <code>basic_ack</code>. Before that it sits <b>unacked</b>; if the consumer dies, the broker requeues it and redelivers.</p></div>
+            <div class="ws"><span class="wsk">Consumer boots first?</span><p>Fine — its <code>queue_declare</code> creates the queue; a message published later lands and <b>waits</b> until the consumer is ready. Decoupling in time is the queue's whole job.</p></div>
+          </div>
+
+          <h4 class="wh">Producer &middot; produce.py</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="kw">import</span> pika
+
+<span class="cm"># 1. Connection (TCP) + channel (the lightweight virtual session)</span>
+conn = pika.<span class="fn">BlockingConnection</span>(pika.<span class="fn">ConnectionParameters</span>(host=<span class="lit">"localhost"</span>))
+ch = conn.<span class="fn">channel</span>()
+
+<span class="cm"># 2. Assert topology — idempotent, safe to run on every startup</span>
+ch.<span class="fn">exchange_declare</span>(exchange=<span class="lit">"orders-x"</span>, exchange_type=<span class="lit">"direct"</span>, durable=<span class="lit">True</span>)
+ch.<span class="fn">queue_declare</span>(queue=<span class="lit">"orders-q"</span>, durable=<span class="lit">True</span>)
+ch.<span class="fn">queue_bind</span>(queue=<span class="lit">"orders-q"</span>, exchange=<span class="lit">"orders-x"</span>, routing_key=<span class="lit">"order.created"</span>)
+
+<span class="cm"># 3. Confirm mode makes an unroutable mandatory publish RAISE synchronously</span>
+ch.<span class="fn">confirm_delivery</span>()
+
+<span class="cm"># 4. Publish to the EXCHANGE, addressed by routing key (not by queue name)</span>
+<span class="kw">try</span>:
+    ch.<span class="fn">basic_publish</span>(
+        exchange=<span class="lit">"orders-x"</span>,
+        routing_key=<span class="lit">"order.created"</span>,
+        body=<span class="lit">b'{"id": 42, "total": 19.99}'</span>,
+        properties=pika.<span class="fn">BasicProperties</span>(
+            delivery_mode=<span class="lit">2</span>,          <span class="cm"># 2 = persistent (survives restart WITH a durable queue)</span>
+            content_type=<span class="lit">"application/json"</span>,
+        ),
+        mandatory=<span class="lit">True</span>,               <span class="cm"># RETURN the msg to us if it routes nowhere</span>
+    )
+    <span class="fn">print</span>(<span class="lit">" [x] Sent order.created"</span>)
+<span class="kw">except</span> pika.exceptions.<span class="fn">UnroutableError</span>:
+    <span class="fn">print</span>(<span class="lit">" [!] order.created was unroutable — no binding matched"</span>)
+
+conn.<span class="fn">close</span>()</code></pre>
+
+          <h4 class="wh">Consumer &middot; consume.py</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="kw">import</span> pika
+
+conn = pika.<span class="fn">BlockingConnection</span>(pika.<span class="fn">ConnectionParameters</span>(host=<span class="lit">"localhost"</span>))
+ch = conn.<span class="fn">channel</span>()
+
+<span class="cm"># Re-assert the SAME queue — this is why the consumer can boot before the producer</span>
+ch.<span class="fn">queue_declare</span>(queue=<span class="lit">"orders-q"</span>, durable=<span class="lit">True</span>)
+
+<span class="kw">def</span> <span class="fn">on_message</span>(channel, method, properties, body):
+    <span class="fn">print</span>(<span class="lit">f" [x] Received {body!r}"</span>)
+    <span class="cm"># ... do real work here ...</span>
+    channel.<span class="fn">basic_ack</span>(delivery_tag=method.delivery_tag)   <span class="cm"># ack AFTER success</span>
+
+ch.<span class="fn">basic_qos</span>(prefetch_count=<span class="lit">1</span>)          <span class="cm"># at most 1 unacked message at a time</span>
+ch.<span class="fn">basic_consume</span>(queue=<span class="lit">"orders-q"</span>, on_message_callback=on_message)
+
+<span class="fn">print</span>(<span class="lit">" [*] Waiting for messages. CTRL+C to exit."</span>)
+ch.<span class="fn">start_consuming</span>()</code></pre>
+
+          <div class="say">
+            <span class="k">Narrate it to the interviewer</span>
+            <p>&ldquo;A producer publishes to an exchange with a routing key; a binding turns that key into a queue; the consumer acks only after it's done — and because every declare is idempotent, both sides assert the same topology and start in any order. I declare <code>orders-x</code>, <code>orders-q</code>, and the binding in <em>both</em> scripts, so whichever boots first creates the pipe and the other harmlessly re-asserts it. The producer addresses the <em>exchange</em>, never the queue. For durability I use two switches together — a durable queue and <code>delivery_mode=2</code> — because either alone loses the message on a broker restart. The worker acks <em>after</em> the work succeeds, so a crash mid-work requeues rather than drops, and <code>prefetch=1</code> keeps a slow worker from being flooded. I set <code>mandatory=True</code> so a mistyped routing key surfaces as a return instead of a silent drop.&rdquo;</p>
+            <p class="plain">Edge cases to raise aloud: <strong>unroutable publish</strong> — without <code>mandatory=True</code> a bad routing key is dropped silently; with it you must register <code>add_on_return_callback</code> or the return is lost. <strong>Argument mismatch on redeclare</strong> — if <code>consume.py</code> declared <code>orders-q</code> as <code>durable=False</code> it hits 406 and its channel closes; the queue is not modified. <strong>auto-ack footgun</strong> — <code>auto_ack=True</code> deletes on delivery, so a crash mid-processing loses the message. <strong>Empty queue name</strong> — <code>queue_declare(queue="")</code> makes the broker generate a random name, used for temporary/exclusive reply queues, not here. <strong>No consumer running</strong> — messages accumulate in <code>orders-q</code> until a length limit kicks in; they aren't lost just because nobody is listening. <em>Any</em> queue buffers across a consumer gap while the broker stays up; making it durable is what additionally carries the backlog across a <em>broker</em> restart.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Run it</div>
+      <h2>Two terminals, in any order</h2>
+      <p>The operational close proves the queue is a <strong>buffer that decouples the two sides in time</strong>. Start the consumer in one terminal and the producer in another; watch the message arrive. Then kill the consumer, publish three messages into the void, restart the consumer, and watch it drain the backlog — nothing was lost, because the queue buffered them in time while no consumer was attached (and being durable, those same messages would also survive a broker restart, not just this consumer restart).</p>
+      <p class="codetag">bash</p>
+      <pre class="code"><code><span class="cm"># terminal 1 — start the consumer (its queue_declare creates orders-q if absent)</span>
+python consume.py
+
+<span class="cm"># terminal 2 — stop the consumer first, then publish 3 orders into the queue</span>
+python produce.py ; python produce.py ; python produce.py
+
+<span class="cm"># how many messages are waiting? check depth from the CLI</span>
+rabbitmqctl list_queues name messages consumers
+<span class="cm">#  -&gt; orders-q   3   0    (buffered, waiting for a consumer)</span></code></pre>
+      <p>Restart <code>consume.py</code> and the three buffered messages drain immediately, each acked one at a time. You have just watched the single fact that makes a broker worth running: the <strong>queue absorbs the difference in time and rate</strong> between producer and consumer, so neither has to be alive, ready, or fast at the same instant as the other. Everything in the rest of the course — exchange types, quorum queues, publisher confirms, dead-lettering — is a refinement on this dozen-line pipe.</p>
+      <div class="callout note">
+        <span class="k">Same in the management UI</span>
+        <p>The web console at <code>http://localhost:15672</code> shows the same thing visually: the <em>Queues</em> tab lists <code>orders-q</code> with a live <strong>Ready</strong> count that ticks up as you publish and down as the consumer drains it. Watching that number rise with the consumer stopped, then fall when it restarts, is the fastest way to <em>feel</em> what buffering and decoupling mean.</p>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole build compresses to one sentence: <em>a message travels producer&nbsp;&#8594;&nbsp;exchange&nbsp;&#8594;&nbsp;binding&nbsp;&#8594;&nbsp;queue&nbsp;&#8594;&nbsp;consumer; every client asserts the same idempotent topology on startup, so the two sides boot in any order; and the consumer acks only after the work, so a crash requeues instead of drops.</em> A dozen lines, because the broker does the hard part.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Through the exchange, always</b><span>A message goes producer &#8594; exchange &#8594; binding &#8594; queue &#8594; consumer — never producer straight to a queue.</span></div>
+        <div class="tk"><span class="num">02</span><b>Address vs. subscribe</b><span>Producers address exchanges with a routing key; consumers subscribe to queues. Neither reaches across the middle.</span></div>
+        <div class="tk"><span class="num">03</span><b>Declared, not provisioned</b><span>No admin step first. Every client issues the same declare/bind calls on startup and the broker creates what's missing.</span></div>
+        <div class="tk"><span class="num">04</span><b>Idempotent — until mismatch</b><span>Identical args &#8594; declare-ok, no change. Different args &#8594; 406 PRECONDITION_FAILED and a closed channel.</span></div>
+        <div class="tk"><span class="num">05</span><b>Any order works</b><span>Idempotency is precisely why producer and consumer can start in either order and still converge on one pipe.</span></div>
+        <div class="tk"><span class="num">06</span><b>Two durability switches</b><span>A durable queue and a persistent message (<code>delivery_mode=2</code>) are separate — you need both to survive a restart.</span></div>
+        <div class="tk"><span class="num">07</span><b>Ack after work</b><span>Manual ack turns a crash into a redelivery instead of a loss. Auto-ack deletes on delivery and can lose messages.</span></div>
+        <div class="tk"><span class="num">08</span><b>Default exchange trades visibility</b><span>Publish to <code>""</code> with the queue name routes for free; named exchanges make routing visible and scale.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) A producer wants a message in <code>orders-q</code>. What does it actually name in <code>basic_publish</code>, and why isn't it the queue?<br>
+        (2) Two services declare <code>orders-q</code> — one <code>durable=True</code>, the other <code>durable=False</code>. What does the broker do, and what's the queue's state afterward?<br>
+        (3) You start the consumer before the producer exists. Does it error out? Why or why not?<br>
+        (4) You published with <code>delivery_mode=2</code> but the queue was <code>durable=False</code>, and the broker restarts. Is your message still there? Name both switches.<br>
+        (5) Your consumer uses <code>auto_ack=True</code> and crashes mid-processing. Where's the message? How would manual ack change it?<br>
+        (6) You typo the routing key so it matches no binding. With default settings, how do you find out the message was lost — and what flag or feature would tell you sooner?<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and rebuild the topology from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      BUILD 06 &middot; HELLO WORLD: A PRODUCER AND A CONSUMER &middot; interactive edition<br>
+      Original study notes for backend &amp; system-design interviews &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — the full round trip */
+  makeStepper(_g('fig-round'), [
+    {text:"The producer opens one TCP connection and a lightweight channel to the broker. Every operation from here happens on that channel.", connOn:true, read:"channel open · producer connected to the broker"},
+    {text:"It declares the exchange hello-x (a direct exchange). The broker creates it and replies exchange.declare-ok.", connOn:true, showExch:true, read:"exchange.declare-ok · hello-x (direct) exists"},
+    {text:"It declares the durable queue hello-q. The queue appears, holding zero messages.", connOn:true, showExch:true, showQueue:true, depth:"depth: 0", read:"queue.declare-ok · hello-q created, depth 0"},
+    {text:"It binds hello-q to hello-x with routing key 'hello'. The binding snaps into place — now anything published to hello-x keyed 'hello' reaches hello-q.", connOn:true, showExch:true, showQueue:true, showBind:true, depth:"depth: 0", read:"queue.bind-ok · hello-q <- hello-x on key 'hello'"},
+    {text:"The producer publishes body='Hello World!' with routing_key='hello'. Watch the token fly to the EXCHANGE — never straight to the queue.", connOn:true, showExch:true, showQueue:true, showBind:true, depth:"depth: 0", path:"f1-ribL", read:"basic_publish -> exchange='hello-x', routing_key='hello'"},
+    {text:"The exchange matches 'hello' against the binding and routes a copy across it into hello-q. The queue depth ticks 0 -> 1.", connOn:true, showExch:true, showQueue:true, showBind:true, depth:"depth: 1", qstate:"ready", path:"f1-bind", read:"exchange matches 'hello' -> copy into hello-q · depth 0->1"},
+    {text:"A subscribed consumer receives the delivery. The broker keeps its copy, marked unacknowledged — the message is reserved, not yet deleted.", connOn:true, showExch:true, showQueue:true, showBind:true, depth:"depth: 1", qstate:"unacked", path:"f1-ribR", read:"basic.deliver -> consumer · held unacked (still reserved)"},
+    {text:"The consumer finishes and sends basic.ack. Only now does the broker drop its copy; depth ticks 1 -> 0. The round trip is complete.", connOn:true, showExch:true, showQueue:true, showBind:true, depth:"depth: 0", qstate:"none", path:"f1-p-ack", read:"basic_ack -> broker discards its copy · depth 1->0"}
+  ], function(idx,s){
+    _g('f1-read').textContent = s.read || '';
+    _g('f1-exch').style.opacity = s.showExch ? 1 : 0;
+    _g('f1-queue').style.opacity = s.showQueue ? 1 : 0;
+    _g('f1-bind').style.opacity = s.showBind ? 1 : 0;
+    _g('f1-bindlbl').style.opacity = s.showBind ? 1 : 0;
+    _g('f1-ribL').setAttribute('class', s.connOn ? 'flow' : 'flow-d');
+    _g('f1-depth').textContent = s.depth || '';
+    var qm = _g('f1-qmsg');
+    if(s.qstate === 'ready'){ qm.style.display=''; qm.setAttribute('fill','#E9EFF5'); qm.setAttribute('stroke','#1F4E79'); }
+    else if(s.qstate === 'unacked'){ qm.style.display=''; qm.setAttribute('fill','#F6E7DE'); qm.setAttribute('stroke','#B0532F'); }
+    else { qm.style.display='none'; }
+  });
+
+  /* FIG 2 — declarations are idempotent, until they aren't */
+  makeStepper(_g('fig-idem'), [
+    {text:"The broker starts empty — no queue named hello-q exists yet.", active:["f2-broker"], read:"broker is empty — no queue exists yet"},
+    {text:"Client A declares hello-q with durable=true. There is nothing there, so the broker CREATES it and replies queue.declare-ok.", active:["f2-cA","f2-broker"], path:"f2-pa", showQ:true, reply:"queue.declare-ok · created", read:"Client A: queue_declare(hello-q, durable=true) -> created"},
+    {text:"Client A declares the SAME hello-q {durable=true} again. Identical arguments, so the broker changes nothing and still replies queue.declare-ok.", active:["f2-cA","f2-broker"], path:"f2-pa", showQ:true, reply:"queue.declare-ok · no change", read:"Identical args -> idempotent no-op"},
+    {text:"Client B, on a different connection, declares hello-q {durable=true}. It matches the existing queue, so again: queue.declare-ok. Any client can assert the topology it needs.", active:["f2-cB","f2-broker"], path:"f2-pb", showQ:true, reply:"queue.declare-ok · matches", read:"Any client can assert the same topology — order doesn't matter"},
+    {text:"Now Client B declares hello-q {durable=FALSE}. That disagrees with the existing durable=true. The broker replies 406 PRECONDITION_FAILED and CLOSES Client B's channel.", active:["f2-cB","f2-broker"], path:"f2-pb", reject:true, showQ:true, reply:"406 PRECONDITION_FAILED", err:true, bClosed:true, bColor:"rust", read:"durable=false != existing durable=true -> channel closed"},
+    {text:"The result: the queue badge STILL reads durable=true — untouched. The broker never silently overwrote it. Client B must open a fresh channel to continue.", active:["f2-broker"], showQ:true, reply:"queue unchanged: durable=true", bClosed:true, bColor:"rust", read:"Disagreement is a hard error, never a silent overwrite"}
+  ], function(idx,s){
+    _g('f2-read').textContent = s.read || '';
+    _g('f2-reply').textContent = s.reply || '';
+    _g('f2-reply').setAttribute('fill', s.err ? '#B0532F' : '#1F4E79');
+    _g('f2-qgroup').style.opacity = s.showQ ? 1 : 0;
+    _g('f2-bclosed').style.opacity = s.bClosed ? 1 : 0;
+    var bb = _g('f2-bbox');
+    if(s.bColor === 'rust'){ bb.setAttribute('fill','#F6E7DE'); bb.setAttribute('stroke','#B0532F'); }
+    else { bb.setAttribute('fill','#FDFBF6'); bb.setAttribute('stroke','#1F4E79'); }
+  });
+</script>
+</body>
+</html>

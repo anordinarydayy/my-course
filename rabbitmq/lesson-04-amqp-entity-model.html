@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 04 — The AMQP Entity Model (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14.5px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line-strong);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- area / layer boxes ---- */
+  .areagrid-box{transition:opacity .3s ease;}
+  /* ---- code + worked example ---- */
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 14px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);
+    border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-v" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6E59A5"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <div class="brandmark">RabbitMQ &middot; Study Notes</div>
+    <div class="brandtitle">The AMQP<br>Entity Model</div>
+    <h4>Exchange &rarr; Binding &rarr; Queue</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>You don't send to a queue</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The exchange: a router &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The binding: a wire + rule</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The routing key &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Queue &amp; consumer</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>The default exchange</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>The silent drop</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Worked: an events fabric</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Summary &amp; self-test</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">04</span><span>Concept &middot; RabbitMQ</span></div>
+      <h1>The AMQP Entity Model</h1>
+      <p class="lede">Nearly everyone starts with the same wrong picture: the producer drops a message <em>onto a queue</em>. In AMQP 0-9-1 &mdash; RabbitMQ's native model &mdash; that is <strong>not</strong> what happens, and the gap is the single most common source of &ldquo;my messages vanished&rdquo; confusion. A producer publishes to an <strong>exchange</strong> with a <strong>routing key</strong>; the exchange consults its <strong>bindings</strong> to decide which queues, if any, get a copy; consumers only ever read from queues. Four boxes and one wire &mdash; every pattern later in the course is this picture rearranged.</p>
+      <div class="disclaimer">
+        <strong>Original study notes.</strong> Written from scratch for engineers prepping backend and system-design interviews. Terms like <em>exchange</em>, <em>binding</em>, and <em>routing key</em> are used as plain identifiers; every sentence, diagram, and line of code is our own, tracking RabbitMQ 4.x as of mid-2026. Contains <strong>two interactive diagrams</strong> (press <em>Play</em>, or step with <em>Next</em>) plus one static schematic, and a full worked example that wires a real event fabric end to end.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The reframe</div>
+      <h2>You don't send to a queue</h2>
+      <p>Let's name the wrong model out loud, because you almost certainly hold it. Coming from job queues, Redis lists, or Kafka topics, you picture a producer that <em>puts a message on a queue</em> &mdash; one hop, sender to mailbox. In RabbitMQ's native protocol that call does not exist. When you publish, you name an <strong>exchange</strong> and attach a <strong>routing key</strong>, and the exchange &mdash; not you &mdash; decides where the message goes. The producer never names a queue.</p>
+      <p>The whole lesson has a cast of exactly five things, and once you can place each one you can read any RabbitMQ topology on sight:</p>
+      <ul>
+        <li>A <strong>producer</strong> publishes. It names an exchange and a routing key. It is a sender, nothing more.</li>
+        <li>An <strong>exchange</strong> is a stateless <em>router</em>. It holds no messages; it only decides destinations.</li>
+        <li>A <strong>binding</strong> is a <em>rule</em> attaching one exchange to one queue: &ldquo;messages matching this key belong here.&rdquo;</li>
+        <li>A <strong>queue</strong> is the buffer that actually <em>stores</em> messages until they're consumed.</li>
+        <li>A <strong>consumer</strong> reads from a queue. It never sees the exchange or the routing key.</li>
+      </ul>
+      <p>So the path is always <strong>producer &rarr; exchange &rarr; (binding, matched by routing key) &rarr; queue &rarr; consumer</strong> &mdash; two hops of indirection, not one. That indirection is the feature. It turns &ldquo;who sends&rdquo; and &ldquo;who receives&rdquo; into a <strong>publish/subscribe fabric</strong>: producers describe <em>what kind of message this is</em>, consumers declare <em>what they care about</em>, and the broker matches them at runtime. Add, remove, or re-wire a consumer with zero producer changes.</p>
+      <div class="callout">
+        <span class="k">The mental model to leave with</span>
+        <p>The exchange is a <strong>routing table, not a mailbox</strong> &mdash; it stores nothing. The queue is the <em>only</em> thing that holds messages. A binding is a rule that says which arriving messages belong in which queue. And the punchline that dissolves the biggest misconception: <strong>there is no such thing as &ldquo;publishing directly to a queue.&rdquo;</strong> When a tutorial makes it look like you did, you actually published to a nameless <em>default exchange</em> keyed by the queue's name. The indirection is always there &mdash; sometimes just hidden.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The router</div>
+      <h2>The exchange: a stateless router, not a mailbox &#9656;</h2>
+      <p>Define it precisely. An <strong>exchange</strong> receives every published message and immediately routes it to <strong>zero or more</strong> queues based on its rules. It never stores anything. Hold onto <em>zero or more</em>, because it is the source of half the surprises in this course: routing to nothing is perfectly legal and, by default, completely silent. There is no error, no bounce &mdash; the message simply evaporates unless you asked to be told.</p>
+      <p>RabbitMQ ships four built-in exchange types &mdash; <code>direct</code>, <code>fanout</code>, <code>topic</code>, and <code>headers</code>. Think of them not as four different things but as <strong>four matching algorithms over the same binding table</strong>; the mechanics are the next lesson's job. What matters here is that the <em>type</em> is the only thing that changes how routing is computed. Everything else &mdash; the boxes, the wires, the queues &mdash; is identical.</p>
+      <p>&ldquo;Stateless&rdquo; is concrete, not hand-wavy. An exchange being <code>durable</code> means only that its <em>definition</em> survives a broker restart &mdash; the type, the name, the bindings. It says nothing about messages, because the exchange never had any. Message persistence (<code>delivery_mode=2</code>), queue durability, restart survival &mdash; all of that lives on the <em>queue</em> side. Watch one publish fan out across three bindings:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-publish">
+          <svg viewBox="0 0 680 360" role="img" aria-label="Interactive publish path: a producer publishes a routing key to a topic exchange, which evaluates three bindings and delivers a copy to each matching queue, where consumers read">
+            <!-- routing key badge -->
+            <g id="f1-rk" style="opacity:0">
+              <rect x="6" y="112" width="120" height="26" rx="13" fill="#F6E7DE" stroke="#B0532F" stroke-width="1.4"/>
+              <text class="lbl-sm" x="66" y="129" text-anchor="middle" fill="#B0532F">order.eu.created</text>
+            </g>
+            <!-- producer -->
+            <g class="st" id="f1-prod">
+              <rect class="node-b" x="14" y="150" width="104" height="58" rx="9"/>
+              <text class="lbl" x="66" y="176" text-anchor="middle">Producer</text>
+              <text class="lbl-sm" x="66" y="194" text-anchor="middle">publisher</text>
+            </g>
+            <!-- exchange -->
+            <g class="st" id="f1-exch">
+              <rect class="node-v" x="178" y="140" width="132" height="78" rx="10"/>
+              <text class="lbl" x="244" y="172" text-anchor="middle" fill="#6E59A5">orders</text>
+              <text class="lbl-sm" x="244" y="192" text-anchor="middle" fill="#6E59A5">topic exchange</text>
+            </g>
+            <!-- queues -->
+            <g class="st" id="f1-qa">
+              <rect class="node" x="398" y="34" width="150" height="56" rx="9"/>
+              <text class="lbl-sm" x="450" y="66" text-anchor="middle">q.audit</text>
+              <rect id="f1-fill-audit" x="518" y="52" width="20" height="20" rx="3" fill="#E6F1DF" stroke="#69B34C" stroke-width="1.6" style="opacity:0"/>
+            </g>
+            <g class="st" id="f1-qe">
+              <rect class="node" x="398" y="151" width="150" height="56" rx="9"/>
+              <text class="lbl-sm" x="450" y="183" text-anchor="middle">q.eu-fulfillment</text>
+              <rect id="f1-fill-eu" x="518" y="169" width="20" height="20" rx="3" fill="#E6F1DF" stroke="#69B34C" stroke-width="1.6" style="opacity:0"/>
+            </g>
+            <g class="st" id="f1-qp">
+              <rect class="node" x="398" y="268" width="150" height="56" rx="9"/>
+              <text class="lbl-sm" x="450" y="300" text-anchor="middle">q.paid-notify</text>
+            </g>
+            <text id="f1-nomatch" class="lbl-sm" x="473" y="258" text-anchor="middle" fill="#B0532F" style="opacity:0">&#10007; no matching binding</text>
+            <!-- consumers -->
+            <g class="st" id="f1-consa"><rect class="node" x="584" y="40" width="82" height="44" rx="8"/><text class="lbl-sm" x="625" y="66" text-anchor="middle">consumer</text></g>
+            <g class="st" id="f1-conse"><rect class="node" x="584" y="157" width="82" height="44" rx="8"/><text class="lbl-sm" x="625" y="183" text-anchor="middle">consumer</text></g>
+            <g class="st" id="f1-consp"><rect class="node" x="584" y="274" width="82" height="44" rx="8"/><text class="lbl-sm" x="625" y="300" text-anchor="middle">consumer</text></g>
+            <!-- flows -->
+            <path id="f1-p-pe" class="flow" d="M118 179 H 176" marker-end="url(#arrow)"/>
+            <path id="f1-b-audit" class="flow" d="M310 160 C 348 110, 360 78, 398 62"/>
+            <path id="f1-b-eu" class="flow" d="M310 179 H 398"/>
+            <path id="f1-b-paid" class="flow" d="M310 198 C 348 250, 360 282, 398 296"/>
+            <path id="f1-qc-audit" class="flow" d="M548 62 H 584" marker-end="url(#arrow)"/>
+            <path id="f1-qc-eu" class="flow" d="M548 179 H 584" marker-end="url(#arrow)"/>
+            <path id="f1-qc-paid" class="flow" d="M548 296 H 584" marker-end="url(#arrow)"/>
+            <!-- binding key labels -->
+            <text class="lbl-sm" x="352" y="112" text-anchor="middle">key: #</text>
+            <text class="lbl-sm" x="356" y="172" text-anchor="middle">key: order.eu.*</text>
+            <text class="lbl-sm" x="352" y="246" text-anchor="middle">key: order.*.paid</text>
+            <text id="f1-read" class="readout" x="340" y="350" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 — interactive: one publish &#8594; the exchange evaluates every binding &#8594; each matching queue gets its own copy</figcaption>
+      </figure>
+
+      <p>Two things to take from the play-through. First, the exchange touched every binding but stored nothing &mdash; the moment routing was computed, its job was done. Second, a single publish produced <em>two</em> deliveries, one per matching queue, with no error for the queue that matched nothing. That &ldquo;fan to a subset, silently&rdquo; behaviour is normal and intentional; it is the mechanism behind pub/sub, and also the trap we defuse in section 06.</p>
+      <div class="callout note">
+        <span class="k">Outdated answer to flag</span>
+        <p>Two things you'll hear from people who last touched RabbitMQ years ago, both wrong: &ldquo;the exchange stores messages until they're routed&rdquo; and &ldquo;you can publish directly to a queue, bypassing exchanges.&rdquo; Exchanges are <strong>stateless routers that hold nothing</strong>, and the &ldquo;direct to queue&rdquo; path is just the <em>default exchange</em> doing a name-based binding (section 05). Also flag Kafka-brain: RabbitMQ bindings are <strong>not retroactive</strong> and a classic queue is <strong>not a replayable log</strong> &mdash; replay is what <em>streams</em> (a separate queue type in 4.x) are for.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> The wire</div>
+      <h2>The binding: the wire with a rule on it</h2>
+      <p>A <strong>binding</strong> connects one exchange to one queue and carries a <strong>binding key</strong> (plus optional arguments, used by headers exchanges). It is the join between the producer's world and the consumer's world &mdash; and here is the detail that reorganises how you think about ownership: <strong>the binding is created by the consuming side, not the producer.</strong> The team that wants the messages declares its own queue and binds it. The producer neither knows nor needs to know.</p>
+      <p>Draw one distinction sharply and you've internalised the whole model. The <strong>binding key</strong> is fixed at bind time; it is part of the <em>topology</em>, set once by whoever owns the queue. The <strong>routing key</strong> is set <em>per message</em> by the producer. They are different strings, set by different people, at different times, and they meet only inside the exchange's matching algorithm. Conflating them is the surest tell that someone hasn't yet built the model in their head.</p>
+      <p>The relationships are deliberately <strong>many-to-many</strong>. One exchange can bind to many queues (fan-out). One queue can be bound by many exchanges (aggregation). RabbitMQ even supports <strong>exchange-to-exchange bindings</strong> as an extension, so you can chain routers &mdash; useful, but don't reach for it early. And a subtle rule worth banking now: if the <em>same</em> exchange is bound to the <em>same</em> queue by two different keys that both match a message, the queue still receives <strong>one</strong> copy. RabbitMQ deduplicates multiple matching bindings between the same exchange&ndash;queue pair down to a single delivery. Copies happen across <em>different</em> queues, never across duplicate bindings to one queue.</p>
+      <div class="callout tip">
+        <span class="k">Misconception buster: routing key vs binding key</span>
+        <p>Producers set the <strong>routing key</strong>, per message. Consumers set the <strong>binding key</strong>, once, at bind time. Saying &ldquo;the routing key of the binding&rdquo; or &ldquo;I'll publish to the binding key&rdquo; is the tell of someone who hasn't split the two apart yet. In an interview, name the split explicitly &mdash; <em>who sets it</em> and <em>when</em> &mdash; and you've already answered the follow-up before it's asked.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The label</div>
+      <h2>The routing key: what the producer says, not where it goes &#9656;</h2>
+      <p>Reframe the routing key completely: it is a <strong>label describing the message</strong>, not an address for it. <code>order.eu.created</code> is a <em>statement of fact</em> &mdash; &ldquo;this is an order, from the EU, that was just created.&rdquo; It is not a destination. Whether that message reaches any queue depends entirely on what bindings exist <em>right now</em>. The same publish call can reach zero queues today and three tomorrow, if bindings change &mdash; and the producer is none the wiser, needing no redeploy. That is the decoupling payoff made tangible.</p>
+      <p>How a routing key is <em>interpreted</em> depends on the exchange type. Direct wants an exact string match. Fanout ignores the key entirely. Topic treats it as dot-delimited words and matches against wildcard patterns &mdash; <code>*</code> matches exactly one word, <code>#</code> matches zero or more. Headers ignores the routing key altogether and matches on message headers instead. Same publish, four routers &mdash; step through the identical <code>order.eu.created</code> hitting each:</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-types">
+          <svg viewBox="0 0 640 320" role="img" aria-label="Interactive: the same routing key order.eu.created published into a direct, fanout, topic, and headers exchange in turn, showing which of two queues receives a copy under each type">
+            <!-- routing key badge -->
+            <g id="f2-rk">
+              <rect x="12" y="94" width="126" height="24" rx="12" fill="#F6E7DE" stroke="#B0532F" stroke-width="1.4"/>
+              <text class="lbl-sm" x="75" y="110" text-anchor="middle" fill="#B0532F">rk order.eu.created</text>
+            </g>
+            <!-- producer -->
+            <g class="st" id="f2-prod">
+              <rect class="node-b" x="18" y="124" width="104" height="56" rx="9"/>
+              <text class="lbl" x="70" y="157" text-anchor="middle">Producer</text>
+            </g>
+            <!-- exchange (type changes) -->
+            <g class="st" id="f2-xch">
+              <rect class="node-v" x="210" y="110" width="150" height="84" rx="10"/>
+              <text id="f2-xtype" x="285" y="150" text-anchor="middle" fill="#6E59A5" font-family="Fraunces, serif" font-size="20" font-weight="600">direct</text>
+              <text class="lbl-sm" x="285" y="172" text-anchor="middle" fill="#6E59A5">exchange type</text>
+            </g>
+            <!-- headers panel -->
+            <g id="f2-hpanel" style="opacity:0">
+              <rect x="214" y="206" width="142" height="26" rx="6" fill="#ECE7F4" stroke="#6E59A5" stroke-width="1.4"/>
+              <text class="lbl-sm" x="285" y="223" text-anchor="middle" fill="#6E59A5">headers {region: eu}</text>
+            </g>
+            <!-- queues -->
+            <g class="st" id="f2-qa">
+              <rect class="node" x="452" y="52" width="170" height="60" rx="9"/>
+              <text class="lbl" x="468" y="82" text-anchor="start">qA</text>
+              <text id="f2-ka" class="lbl-sm" x="500" y="82" text-anchor="start">order.eu.created</text>
+              <rect id="f2-fill-a" x="596" y="72" width="18" height="18" rx="3" fill="#E6F1DF" stroke="#69B34C" stroke-width="1.6" style="opacity:0"/>
+            </g>
+            <g class="st" id="f2-qb">
+              <rect class="node" x="452" y="196" width="170" height="60" rx="9"/>
+              <text class="lbl" x="468" y="226" text-anchor="start">qB</text>
+              <text id="f2-kb" class="lbl-sm" x="500" y="226" text-anchor="start">order.eu.paid</text>
+              <rect id="f2-fill-b" x="596" y="216" width="18" height="18" rx="3" fill="#E6F1DF" stroke="#69B34C" stroke-width="1.6" style="opacity:0"/>
+            </g>
+            <!-- flows -->
+            <path id="f2-pe" class="flow" d="M122 152 H 208" marker-end="url(#arrow)"/>
+            <path id="f2-ea" class="flow" d="M360 140 C 405 100, 420 88, 452 82" marker-end="url(#arrow)"/>
+            <path id="f2-eb" class="flow" d="M360 164 C 405 200, 420 216, 452 224" marker-end="url(#arrow)"/>
+            <text id="f2-read" class="readout" x="320" y="308" text-anchor="middle" font-size="13" fill="#5A574E"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 — interactive: one routing key, four exchange types &#8212; the type is the matching algorithm, nothing else changes</figcaption>
+      </figure>
+
+      <p>The precise wildcard rules are worth reciting, because they're a classic interview trip-wire. Words are dot-delimited. <code>*</code> matches <em>exactly one</em> word; <code>#</code> matches <em>zero or more</em> words. So <code>order.*</code> matches <code>order.created</code> but <strong>not</strong> <code>order.eu.created</code> &mdash; that's two words after <code>order</code>, and a single <code>*</code> can't cover two. <code>order.#</code> matches both. Get <code>*</code> versus <code>#</code> wrong and you either silently drop events or flood a queue with everything.</p>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Where messages live</div>
+      <h2>The queue and the consumer: where messages actually live</h2>
+      <p>The <strong>queue</strong> is the only entity in the model that stores anything. It is the unit of buffering, of <em>storage</em>, of <em>competition</em>, and of <em>delivery</em>. A <strong>consumer</strong> subscribes to a queue and receives its messages; it never addresses the exchange and never sees the routing key that got the message here. By the time a consumer holds a message, all the routing is ancient history.</p>
+      <p>One distinction sits at the mechanical heart of both work-queue and pub/sub patterns, and it's entirely about <em>how many queues</em>, not how many consumers:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Same queue &rarr; share the work</h4>
+          <ul>
+            <li>Attach several consumers to <strong>one</strong> queue.</li>
+            <li>Each message goes to <strong>exactly one</strong> of them (round-robin, shaped by <code>basic.qos</code> prefetch).</li>
+            <li>They <em>compete</em>; adding consumers drains a backlog faster.</li>
+            <li>This is the <strong>work queue</strong> / competing-consumers pattern.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Different queues &rarr; everyone gets a copy</h4>
+          <ul>
+            <li>Bind <strong>several</strong> queues to one exchange.</li>
+            <li>Each matching queue gets its <strong>own copy</strong> of the message.</li>
+            <li>Consumers on different queues don't compete; they each see everything routed to them.</li>
+            <li>This is <strong>publish/subscribe</strong> &mdash; fan-out to independent subscribers.</li>
+          </ul>
+        </div>
+      </div>
+      <p>&ldquo;Same queue shares, different queues copy&rdquo; is the whole thing in one sentence. If EU-fulfilment later needs five workers, you don't touch routing at all &mdash; you add five consumers to the <em>same</em> queue and they compete. If a brand-new team wants the same events, you add one <em>queue</em> with its own binding and it gets its own copies.</p>
+      <p>A last point that saves confusion: the queue <strong>type</strong> &mdash; classic, quorum, or stream &mdash; is <strong>orthogonal to routing</strong>. The exchange&rarr;binding&rarr;queue picture is identical no matter which you pick. In RabbitMQ 4.x classic mirrored queues were removed and <strong>quorum queues</strong> are the recommended replicated type, but that's a durability-and-HA decision for its own lesson; it changes nothing about how a message is routed <em>into</em> the queue. Routing behaves identically across all three types.</p>
+    </section>
+
+    <!-- 05 STATIC FIG -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> The illusion</div>
+      <h2>The default exchange: why &ldquo;direct to queue&rdquo; is an illusion</h2>
+      <p>Now we can close the loop opened in section 00. There is a nameless <strong>default exchange</strong>, written as the empty string <code>""</code>. It is a <code>direct</code> exchange, and it has one special property the broker maintains for you: <strong>every queue you declare is automatically bound to it, using the queue's own name as the binding key.</strong> You didn't create that binding; declaring the queue created it.</p>
+      <p>So when tutorial code calls <code>basic_publish(exchange="", routing_key="tasks")</code>, the message lands in the queue named <code>tasks</code> &mdash; not because you addressed the queue, but because the default exchange holds an implicit binding whose key is <code>"tasks"</code>. The routing key equalling the queue name is <em>convention</em>, provided automatically, not magic and not a special &ldquo;send to queue&rdquo; verb. The two-hop indirection never actually left; it was just pre-wired for you.</p>
+
+      <figure>
+        <div class="blueprint">
+          <svg viewBox="0 0 640 360" role="img" aria-label="Static schematic: publishing with an empty exchange name looks like sending straight to a queue, but actually routes through the nameless default direct exchange, which auto-binds every queue by its own name">
+            <text class="lbl-sm" x="24" y="26" text-anchor="start">WHAT YOU WRITE</text>
+            <rect class="node-b" x="30" y="46" width="120" height="54" rx="9"/>
+            <text class="lbl" x="90" y="78" text-anchor="middle">Producer</text>
+            <path class="flow" d="M150 73 H 418" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="284" y="62" text-anchor="middle">publish(exchange="", routing_key="tasks")</text>
+            <text class="lbl-sm" x="284" y="92" text-anchor="middle" fill="#B0532F">looks direct &mdash; one hop</text>
+            <rect class="node" x="430" y="46" width="150" height="58" rx="9"/>
+            <text class="lbl" x="505" y="80" text-anchor="middle">Queue "tasks"</text>
+
+            <path class="flow-d" d="M20 138 H 620"/>
+
+            <text class="lbl-sm" x="24" y="170" text-anchor="start">WHAT ACTUALLY HAPPENS</text>
+            <rect class="node-b" x="24" y="208" width="110" height="54" rx="9"/>
+            <text class="lbl" x="79" y="240" text-anchor="middle">Producer</text>
+            <path class="flow" d="M134 235 H 208" marker-end="url(#arrow)"/>
+            <text class="lbl-sm" x="171" y="226" text-anchor="middle">exchange=""</text>
+            <rect class="node-v" x="210" y="202" width="160" height="66" rx="10"/>
+            <text class="lbl" x="290" y="230" text-anchor="middle" fill="#6E59A5">Default exchange ""</text>
+            <text class="lbl-sm" x="290" y="248" text-anchor="middle" fill="#6E59A5">type = direct</text>
+            <path class="flow-d" d="M370 235 H 456"/>
+            <text class="lbl-sm" x="413" y="226" text-anchor="middle">binding key = "tasks"</text>
+            <text class="lbl-sm" x="413" y="260" text-anchor="middle" fill="#8a8577">auto-created with the queue</text>
+            <rect class="node" x="458" y="208" width="150" height="58" rx="9"/>
+            <text class="lbl" x="533" y="242" text-anchor="middle">Queue "tasks"</text>
+
+            <text class="lbl-sm" x="320" y="306" text-anchor="middle" fill="#1F4E79">Every queue is auto-bound to the default exchange by its own name.</text>
+            <text class="lbl-sm" x="320" y="330" text-anchor="middle" fill="#8a8577">routing_key "tasks" == queue name "tasks" &mdash; equal by convention, not magic.</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 — static: the &ldquo;direct to queue&rdquo; illusion &#8212; an implicit auto-binding on the default exchange does the work</figcaption>
+      </figure>
+
+      <p>This convenience is exactly why quickstarts look the way they do, but it does not scale, and knowing when to leave it behind is a judgment interviewers probe:</p>
+      <div class="vs">
+        <div class="col">
+          <h4>Default exchange (<code>""</code>)</h4>
+          <ul>
+            <li><strong>Coupling:</strong> the producer hard-codes the queue name &mdash; tight.</li>
+            <li><strong>Fan-out:</strong> impossible &mdash; one name maps to one queue.</li>
+            <li><strong>Re-wire without redeploy:</strong> no.</li>
+            <li><strong>Best for:</strong> quickstarts, one producer &rarr; one work queue.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Named exchange + bindings</h4>
+          <ul>
+            <li><strong>Coupling:</strong> the producer knows only the exchange and a key convention.</li>
+            <li><strong>Fan-out:</strong> trivial &mdash; bind N queues.</li>
+            <li><strong>Re-wire without redeploy:</strong> yes &mdash; change bindings only.</li>
+            <li><strong>Best for:</strong> any real pub/sub or evented system.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The moment you need a second consumer to also see those messages, the default exchange has painted you into a corner: there is no way to fan a name-addressed queue out to two subscribers. Real systems declare their own exchanges so routing is <em>explicit</em> and <em>re-wireable</em>.</p>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The gotcha</div>
+      <h2>When nothing matches: the silent drop</h2>
+      <p>Because routing to zero queues is legal, an exchange with no matching binding <strong>discards the message silently by default.</strong> The <code>basic.publish</code> call &ldquo;succeeds,&rdquo; you get no exception, and the message is simply gone. This is the single fact that separates people who have <em>operated</em> RabbitMQ from those who have only read about it &mdash; and it's why the honest answer to &ldquo;the publish returned success but nobody got the message&rdquo; starts with the routing layer, not the network.</p>
+      <p>There are three ways to see or salvage an unroutable message, and keeping them distinct is the whole skill:</p>
+      <ul>
+        <li>The <strong><code>mandatory</code> flag</strong> &mdash; set it on publish and, <em>when no queue matched</em>, the broker returns the message to the publisher via <code>basic.return</code>. You register a handler and can log or alert instead of losing it. It fires <em>only</em> on a routing failure.</li>
+        <li>An <strong>alternate exchange</strong> (AE) &mdash; configured on the exchange itself, it catches anything that would otherwise be unroutable and re-routes it (typically to a fanout feeding a catch-all queue). Salvage without touching the producer.</li>
+        <li><strong>Publisher confirms</strong> &mdash; tell you the broker <em>accepted</em> the publish. Crucially, that is <strong>not</strong> the same as &ldquo;it was routed to a queue.&rdquo; A confirm can come back positive for a message that matched nothing and was dropped.</li>
+      </ul>
+      <p>Do not conflate <code>mandatory</code> (a routing-failure signal) with publisher confirms (a broker-accepted-the-publish signal). They answer different questions: <em>&ldquo;did any queue want this?&rdquo;</em> versus <em>&ldquo;did the broker take responsibility for it?&rdquo;</em> You can get a positive confirm and a <code>basic.return</code> for the very same message. We turn both knobs properly in the reliability phase; here, just hold that &ldquo;accepted&rdquo; and &ldquo;routed&rdquo; are two different promises.</p>
+      <div class="callout tip">
+        <span class="k">Interviewer asks next</span>
+        <p><em>&ldquo;You published a message, the API returned success, but no consumer ever got it. Walk me through everywhere it could have vanished.&rdquo;</em> The strong answer names the routing layer first: (1) it routed to <strong>zero queues</strong> &mdash; no matching binding &mdash; and was dropped silently; (2) it routed to a queue nobody is consuming, so it's sitting there full; (3) publisher confirms weren't on, so &ldquo;success&rdquo; meant only &ldquo;written to the socket.&rdquo; Naming the exchange&rarr;binding step <em>before</em> reaching for network or consumer bugs is the tell of someone who has run this in production.</p>
+      </div>
+    </section>
+
+    <!-- 07 WORKED -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Worked example</div>
+      <h2>An order-events fabric three teams can subscribe to</h2>
+      <p>Let's put every entity to work at once. A checkout service emits one event per order state change. Three independent teams each want a slice of that stream &mdash; and we must add or remove them without ever touching the checkout code. A <strong>topic exchange plus per-consumer bindings</strong> is exactly the tool.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Worked example</span><span class="lc">topic exchange &middot; Python / pika</span></div>
+        <div class="wbody">
+          <div class="wname">One stream, three overlapping subscriptions</div>
+          <p class="wprompt">The checkout service publishes <code>order.&lt;region&gt;.&lt;state&gt;</code> events. Compliance wants <em>every</em> event; EU fulfilment wants only EU orders; notifications wants only <code>paid</code> events, any region. The hard constraint: <strong>onboard or remove any of these consumers with zero changes to the checkout service.</strong></p>
+
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">Restate</span><p>The checkout service should describe <b>what happened</b> (a routing key) and forget. Each team decides <b>what it wants</b> by owning a queue and a binding. That split is the entire point.</p></div>
+            <div class="ws"><span class="wsk">Who owns what</span><p>The producer owns the exchange and the routing-key <b>convention</b>. Each consumer owns its own <b>queue and binding</b>. Nobody's queue is named in the publish call, so teams deploy independently.</p></div>
+            <div class="ws"><span class="wsk">Why a topic exchange</span><p>One stream, several overlapping-but-different slices. Topic wildcards express &ldquo;everything&rdquo; (<code>#</code>), &ldquo;one dimension&rdquo; (<code>order.eu.*</code>), and a &ldquo;cross-cutting slice&rdquo; (<code>order.*.paid</code>) over a <b>single</b> exchange. Direct or fanout couldn't cover all three at once.</p></div>
+            <div class="ws"><span class="wsk">Copy vs share</span><p>Three <b>queues</b> means three independent copies of each matching event. If EU fulfilment later needs five workers, they add five consumers to the <b>same</b> <code>q.eu-fulfillment</code> and compete &mdash; copies across queues, sharing within a queue.</p></div>
+            <div class="ws"><span class="wsk">The caveat</span><p>Bindings are <b>not retroactive</b>: a queue bound after a message was published does not get it. And an event no binding matches (say <code>order.jp.refunded</code>) is dropped &mdash; unless <code>mandatory=True</code> surfaces it. This is not a replayable log; that's what streams are for.</p></div>
+          </div>
+
+          <h4 class="wh">Producer &middot; the checkout service</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="kw">import</span> pika, json
+
+conn = pika.<span class="fn">BlockingConnection</span>(pika.<span class="fn">ConnectionParameters</span>(<span class="lit">"localhost"</span>))
+ch = conn.<span class="fn">channel</span>()
+
+<span class="cm"># Declare the exchange ONCE (idempotent). durable = its DEFINITION survives a restart.</span>
+ch.<span class="fn">exchange_declare</span>(exchange=<span class="lit">"orders"</span>, exchange_type=<span class="lit">"topic"</span>, durable=<span class="lit">True</span>)
+
+<span class="kw">def</span> <span class="fn">emit</span>(region, state, order):
+    routing_key = <span class="lit">f"order.{region}.{state}"</span>          <span class="cm"># a LABEL, not an address</span>
+    ch.<span class="fn">basic_publish</span>(
+        exchange=<span class="lit">"orders"</span>,                        <span class="cm"># publish to the exchange...</span>
+        routing_key=routing_key,                  <span class="cm"># ...never to a queue</span>
+        body=json.<span class="fn">dumps</span>(order),
+        properties=pika.<span class="fn">BasicProperties</span>(
+            delivery_mode=<span class="lit">2</span>,                      <span class="cm"># persist the MESSAGE (a queue-side concern)</span>
+            content_type=<span class="lit">"application/json"</span>),
+        mandatory=<span class="lit">True</span>)                          <span class="cm"># ask the broker to RETURN an unroutable publish (observe it via a basic.return handler / confirm_delivery)</span>
+
+<span class="cm"># The producer knows NOTHING about audit / fulfillment / notify queues.</span>
+<span class="fn">emit</span>(<span class="lit">"eu"</span>, <span class="lit">"created"</span>, {<span class="lit">"id"</span>: <span class="lit">1001</span>, <span class="lit">"total"</span>: <span class="lit">42.00</span>})
+<span class="fn">emit</span>(<span class="lit">"us"</span>, <span class="lit">"paid"</span>,    {<span class="lit">"id"</span>: <span class="lit">1002</span>, <span class="lit">"total"</span>: <span class="lit">88.50</span>})
+conn.<span class="fn">close</span>()</code></pre>
+
+          <h4 class="wh">Consumers &middot; each team declares its own queue + binding</h4>
+          <p class="codetag">python</p>
+          <pre class="code"><code><span class="cm"># Compliance wants EVERYTHING.  '#' matches zero-or-more words.</span>
+ch.<span class="fn">queue_declare</span>(queue=<span class="lit">"q.audit"</span>, durable=<span class="lit">True</span>)
+ch.<span class="fn">queue_bind</span>(queue=<span class="lit">"q.audit"</span>, exchange=<span class="lit">"orders"</span>, routing_key=<span class="lit">"#"</span>)
+
+<span class="cm"># EU fulfillment: any EU event.  '*' matches exactly one word.</span>
+ch.<span class="fn">queue_declare</span>(queue=<span class="lit">"q.eu-fulfillment"</span>, durable=<span class="lit">True</span>)
+ch.<span class="fn">queue_bind</span>(queue=<span class="lit">"q.eu-fulfillment"</span>, exchange=<span class="lit">"orders"</span>, routing_key=<span class="lit">"order.eu.*"</span>)
+
+<span class="cm"># Notifications: paid events in any region.</span>
+ch.<span class="fn">queue_declare</span>(queue=<span class="lit">"q.paid-notify"</span>, durable=<span class="lit">True</span>)
+ch.<span class="fn">queue_bind</span>(queue=<span class="lit">"q.paid-notify"</span>, exchange=<span class="lit">"orders"</span>, routing_key=<span class="lit">"order.*.paid"</span>)</code></pre>
+
+          <p class="codetag">routing result &middot; two published events</p>
+          <pre class="code"><code><span class="cm">routing key         q.audit (#)   q.eu-fulfillment   q.paid-notify</span>
+<span class="cm">                                  (order.eu.*)       (order.*.paid)</span>
+order.eu.created        &#10003;             &#10003;                 &#10007;
+order.us.paid           &#10003;             &#10007;                 &#10003;</code></pre>
+
+          <h4 class="wh">Same topology, declared operationally &middot; no app code</h4>
+          <p class="codetag">bash</p>
+          <pre class="code"><code><span class="cm"># topology is data — declarable without touching the checkout service</span>
+rabbitmqadmin declare exchange --name orders --type topic
+rabbitmqadmin declare queue --name q.audit
+rabbitmqadmin declare binding --source orders --destination q.audit --routing-key <span class="lit">"#"</span>
+rabbitmqadmin declare queue --name q.eu-fulfillment
+rabbitmqadmin declare binding --source orders --destination q.eu-fulfillment --routing-key <span class="lit">"order.eu.*"</span></code></pre>
+
+          <div class="say">
+            <span class="k">Narrate it to the interviewer</span>
+            <p>&ldquo;The checkout service publishes <code>order.eu.created</code> to the <code>orders</code> topic exchange and forgets about it &mdash; it never names a queue. Three queues are bound with different keys, so audit and EU-fulfilment each get their own copy while notifications is skipped, because <code>order.*.paid</code> needs the last word to be <em>paid</em>. To onboard a fourth consumer tomorrow I add one queue and one binding &mdash; zero producer changes. If EU-fulfilment needs to go faster, I add workers to the <em>same</em> queue and they compete; copies across queues, sharing within a queue.&rdquo;</p>
+            <p class="plain">Edge cases to raise aloud: <strong>unroutable event</strong> (<code>order.jp.refunded</code> matches nothing) &#8594; dropped silently unless <code>mandatory=True</code> + a <code>basic.return</code> handler, or an alternate exchange catches it; <strong><code>mandatory</code> &ne; delivery guarantee</strong> &#8594; it only fires when no queue matched, and says nothing about a consumer ever processing the message; <strong>overlapping bindings</strong> &#8594; if <code>q.audit</code> were bound with both <code>#</code> and <code>order.eu.*</code>, a matching event still lands <em>once</em> (RabbitMQ dedupes multiple bindings between the same exchange and queue); <strong>not retroactive</strong> &#8594; a queue bound after publish gets no past events &mdash; that's a job for streams.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- summary -->
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Summary &amp; self-test</h2>
+      <p>The whole lesson compresses to one path: <em>producer &rarr; exchange &rarr; (binding, matched by routing key) &rarr; queue &rarr; consumer.</em> The exchange is a stateless routing table that stores nothing; the queue is the only thing that holds messages; a binding is a rule owned by the consuming side; and &ldquo;publishing to a queue&rdquo; is just the default exchange auto-binding every queue by its name. Every RabbitMQ pattern ahead is this five-entity picture rearranged.</p>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Publish to an exchange, not a queue</b><span>A producer names an <em>exchange</em> and a routing key &mdash; never a queue. The two-hop indirection is the feature, not overhead.</span></div>
+        <div class="tk"><span class="num">02</span><b>The exchange stores nothing</b><span>It's a stateless routing table. Only queues hold messages; exchange durability preserves its <em>definition</em>, not any data.</span></div>
+        <div class="tk"><span class="num">03</span><b>A binding is a rule</b><span>&ldquo;Messages matching this key belong in this queue.&rdquo; It's created by the consuming side, and relationships are many-to-many.</span></div>
+        <div class="tk"><span class="num">04</span><b>Routing key &ne; binding key</b><span>Routing key is per-message (producer); binding key is per-topology (consumer). They meet only inside the exchange.</span></div>
+        <div class="tk"><span class="num">05</span><b>Same queue shares, different queues copy</b><span>Many consumers on one queue compete; many queues on one exchange each get a copy. That's work-queue vs pub/sub in one line.</span></div>
+        <div class="tk"><span class="num">06</span><b>Zero matches is legal and silent</b><span>An unroutable message is dropped with no error. Use <code>mandatory</code> or an alternate exchange to catch the drop.</span></div>
+        <div class="tk"><span class="num">07</span><b>&ldquo;Direct to queue&rdquo; is the default exchange</b><span>The nameless <code>""</code> direct exchange auto-binds every queue by its own name. The indirection never actually leaves.</span></div>
+        <div class="tk"><span class="num">08</span><b>Routing is orthogonal to queue type</b><span>Classic, quorum, or stream &mdash; exchange&rarr;binding&rarr;queue is identical. The entity model is universal, even under AMQP 1.0.</span></div>
+      </div>
+      <div class="callout tip">
+        <span class="k">Self-test before you move on</span>
+        <p>Cover the notes and answer aloud:<br>
+        (1) When you call <code>basic.publish</code>, what two things do you specify, and which one is <em>not</em> a queue? Why does that matter for adding a consumer later?<br>
+        (2) A teammate says &ldquo;I published to the <code>tasks</code> queue directly.&rdquo; What really happened at the protocol level, and what breaks if they fan it out to a second consumer?<br>
+        (3) Explain routing key vs binding key: who sets each, and when?<br>
+        (4) You bind <code>q.audit</code> to a topic exchange with both <code>#</code> and <code>order.eu.*</code>, then publish <code>order.eu.created</code>. How many messages land in <code>q.audit</code>, and why?<br>
+        (5) You publish <code>order.jp.refunded</code> and no binding matches. Where does it go by default, and name two ways to stop it vanishing silently.<br>
+        (6) Three consumers on one queue vs. three consumers each on their own queue bound to the same exchange &mdash; describe the delivery difference and name each pattern.<br>
+        Any fuzzy answer &#8594; re-read that section, then replay its diagram and redraw the four-box path from memory.</p>
+      </div>
+    </section>
+
+    <footer>
+      CONCEPT 04 &middot; THE AMQP ENTITY MODEL &middot; interactive edition<br>
+      Original study notes for backend &amp; system-design interviews &middot; review, replay, annotate, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(l){l.classList.remove('active');});
+      if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(function(s){obs.observe(s);});
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine (identical to the DSA + System Design + AI courses) ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* recolor a binding wire by matching state */
+  function setBind(id, state){
+    var p=_g(id); if(!p) return;
+    if(state==='green'){ p.setAttribute('stroke','#69B34C'); p.setAttribute('stroke-opacity','1'); p.setAttribute('stroke-width','2.6'); p.setAttribute('stroke-dasharray',''); }
+    else if(state==='red'){ p.setAttribute('stroke','#B0532F'); p.setAttribute('stroke-opacity','.9'); p.setAttribute('stroke-width','2'); p.setAttribute('stroke-dasharray','5 4'); }
+    else if(state==='cand'){ p.setAttribute('stroke','#1F4E79'); p.setAttribute('stroke-opacity','.5'); p.setAttribute('stroke-width','2'); p.setAttribute('stroke-dasharray','2 5'); }
+    else { p.setAttribute('stroke','#1F4E79'); p.setAttribute('stroke-opacity','.22'); p.setAttribute('stroke-width','2'); p.setAttribute('stroke-dasharray','2 5'); }
+  }
+
+  /* FIG 1 — the publish path */
+  makeStepper(_g('fig-publish'), [
+    {text:"The producer publishes. It hands the message to the orders exchange and attaches a routing key — order.eu.created. It never names a queue.",
+      active:["f1-prod","f1-exch"], rk:1, b:{audit:'idle',eu:'idle',paid:'idle'},
+      read:"publish(exchange='orders', routing_key='order.eu.created')"},
+    {text:"The message arrives at the exchange, which holds nothing — it is a routing table whose only job is to pick destination queues.",
+      active:["f1-prod","f1-exch"], path:"f1-p-pe", rk:1, b:{audit:'idle',eu:'idle',paid:'idle'},
+      read:"message at 'orders' · the exchange stores no messages"},
+    {text:"The exchange evaluates every binding's key against the routing key. Three queues are bound; each binding is a candidate rule to test.",
+      active:["f1-exch","f1-qa","f1-qe","f1-qp"], rk:1, b:{audit:'cand',eu:'cand',paid:'cand'},
+      read:"evaluate bindings:  #   order.eu.*   order.*.paid"},
+    {text:"Matching is per-binding. '#' matches everything, so q.audit matches; 'order.eu.*' matches order.eu.created; but 'order.*.paid' needs the last word to be paid, so it does not.",
+      active:["f1-exch","f1-qa","f1-qe","f1-qp"], rk:1, b:{audit:'green',eu:'green',paid:'red'},
+      read:"q.audit ✓   q.eu-fulfillment ✓   q.paid-notify ✗"},
+    {text:"Each matching queue gets its OWN copy — one publish, two independent deliveries. The message is now stored in q.audit and q.eu-fulfillment.",
+      active:["f1-qa","f1-qe"], path:"f1-b-eu", rk:1, b:{audit:'green',eu:'green',paid:'red'}, fill:1,
+      read:"one publish → two copies enqueued"},
+    {text:"q.paid-notify receives nothing, and that is completely normal — routing to a subset (or to zero queues) is legal, and no error is raised.",
+      active:["f1-qa","f1-qe","f1-qp"], b:{audit:'green',eu:'green',paid:'red'}, fill:1, nomatch:1,
+      read:"q.paid-notify: no matching binding → no copy, no error"},
+    {text:"Consumers read only from queues — they never see the exchange or the routing key. Each consumer pulls its copy and the queue drains.",
+      active:["f1-qa","f1-qe","f1-consa","f1-conse"], path:"f1-qc-eu", b:{audit:'green',eu:'green',paid:'red'}, drain:1,
+      read:"queues → consumers · the exchange is already forgotten"}
+  ], function(idx,s){
+    _g('f1-read').textContent = s.read || '';
+    _g('f1-rk').style.opacity = s.rk ? 1 : 0;
+    var b = s.b || {audit:'idle',eu:'idle',paid:'idle'};
+    setBind('f1-b-audit', b.audit); setBind('f1-b-eu', b.eu); setBind('f1-b-paid', b.paid);
+    var showFill = s.fill && !s.drain;
+    _g('f1-fill-audit').style.opacity = showFill ? 1 : 0;
+    _g('f1-fill-eu').style.opacity = showFill ? 1 : 0;
+    _g('f1-nomatch').style.opacity = s.nomatch ? 1 : 0;
+  });
+
+  /* FIG 2 — one routing key, four exchange types */
+  makeStepper(_g('fig-types'), [
+    {text:"Direct exchange. The routing key must equal the binding key exactly. qA's key is order.eu.created — an exact match — so qA gets a copy; qB does not.",
+      active:["f2-prod","f2-xch","f2-qa"], path:"f2-ea", type:"direct", ka:"order.eu.created", kb:"order.eu.paid", fa:1,
+      read:"direct — exact string match: rk == binding key"},
+    {text:"Fanout exchange. It ignores the routing key entirely — every bound queue gets a copy. Both qA and qB fill regardless of any key.",
+      active:["f2-prod","f2-xch","f2-qa","f2-qb"], path:"f2-eb", type:"fanout", ka:"(any — ignored)", kb:"(any — ignored)", fa:1, fb:1, gray:1,
+      read:"fanout — routing key ignored: every bound queue gets a copy"},
+    {text:"Topic exchange, first binding. '*' matches exactly one word, so order.eu.* matches order.eu.created. qA gets a copy.",
+      active:["f2-xch","f2-qa"], path:"f2-ea", type:"topic", ka:"order.eu.*", kb:"order.*.paid", fa:1,
+      read:"topic — * matches exactly one word: order.eu.* ✓"},
+    {text:"Topic exchange, second binding. order.*.paid needs the third word to be 'paid', but the message's is 'created'. No match — qB stays empty.",
+      active:["f2-xch","f2-qb"], type:"topic", ka:"order.eu.*", kb:"order.*.paid", fa:1,
+      read:"topic — order.*.paid needs last word 'paid'; got 'created' ✗"},
+    {text:"Headers exchange. The routing key is ignored entirely; matching is on the message's headers. The binding x-match=all, region=eu matches, so qA fills.",
+      active:["f2-xch","f2-qa"], path:"f2-ea", type:"headers", ka:"x-match=all region=eu", kb:"x-match=all region=us", fa:1, gray:1, headers:1,
+      read:"headers — matches on message headers {region: eu}, not the routing key"},
+    {text:"Same publish, four routers. The exchange TYPE is the matching algorithm — direct is exact, fanout is all, topic is pattern, headers is attributes. Nothing else in the model changed.",
+      active:["f2-prod","f2-xch","f2-qa","f2-qb"], type:"4 types",
+      read:"direct=exact · fanout=all · topic=pattern · headers=attributes"}
+  ], function(idx,s){
+    _g('f2-read').textContent = s.read || '';
+    _g('f2-xtype').textContent = s.type || '';
+    _g('f2-ka').textContent = s.ka || '';
+    _g('f2-kb').textContent = s.kb || '';
+    _g('f2-fill-a').style.opacity = s.fa ? 1 : 0;
+    _g('f2-fill-b').style.opacity = s.fb ? 1 : 0;
+    _g('f2-rk').style.opacity = s.gray ? 0.28 : 1;
+    _g('f2-hpanel').style.opacity = s.headers ? 1 : 0;
+  });
+</script>
+</body>
+</html>
