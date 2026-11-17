@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 00 — Why Elasticsearch Exists (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --green:#69B34C; --green-wash:#EAF3E4;
+    --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --teal:#2E8B8B; --teal-soft:#3FA3A3; --teal-wash:#E0EEEE; --teal-deep:#246B6B;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--teal);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--teal);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--teal-wash);color:var(--ink);}
+  .toc a.active{background:var(--teal);color:#fff;} .toc a.active .n{color:#cfe9e9;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,5.5vw,60px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-deep);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--teal);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .node-g{fill:var(--green-wash);stroke:var(--green);stroke-width:2;}
+  .node-t{fill:var(--teal-wash);stroke:var(--teal);stroke-width:2;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .flow-t{stroke:var(--teal);stroke-width:2;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--teal);background:var(--teal-wash);} .callout.note .k{color:var(--teal-deep);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .tradeoff{margin:28px 0;overflow-x:auto;}
+  .tradeoff table{width:100%;border-collapse:collapse;background:var(--paper-2);font-size:15.5px;}
+  .tradeoff th,.tradeoff td{padding:12px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  .tradeoff th{background:var(--blueprint-wash);font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- scan / inverted index figure helpers ---- */
+  .sc-box{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;transition:fill .25s,stroke .25s,opacity .25s;}
+  .sc-box.hit{fill:var(--green-wash);stroke:var(--green);stroke-width:2.4;}
+  .sc-box.scan{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2.4;}
+  .sc-box.blue{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .sc-box.teal{fill:var(--teal-wash);stroke:var(--teal);stroke-width:2.4;}
+  .sc-box.dim{opacity:.35;}
+  /* ---- worked example + narration ---- */
+  .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.e{background:#E6F1DF;color:#3f7a2e;} .pill.m{background:#FBEEDB;color:#9a6515;} .pill.h{background:var(--rust-wash);color:var(--rust);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 4px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);} pre.code .st2{color:#3f7a2e;}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  /* ---- practice ladder, self-test, sources, course-nav ---- */
+  .ladder{display:grid;gap:13px;margin:24px 0;}
+  .rung{padding:17px 19px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);}
+  .rung b{display:block;margin-bottom:5px;color:var(--rust);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .self-test-question{margin:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);}
+  .self-test-question summary{padding:14px 17px;cursor:pointer;font-weight:600;}
+  .self-test-question p{padding:0 17px 15px;margin:0;color:var(--ink-soft);font-size:16px;}
+  .sources-section ol{padding-left:22px;}
+  .sources-section li{margin-bottom:10px;}
+  .course-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:58px;padding-top:24px;border-top:1px solid var(--line-strong);}
+  .course-nav a{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;text-decoration:none;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--blueprint);}
+  .course-nav a:hover{border-color:var(--teal);background:var(--teal-wash);color:var(--teal-deep);}
+  .course-nav span.done{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--ink-soft);opacity:.55;display:block;}
+  footer{margin-top:36px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--teal);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(46,139,139,.32);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+    .worked .lc{margin-left:0;} .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;}
+    .course-nav{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2E8B8B"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Lesson contents">
+    <div class="brandmark">Elasticsearch &middot; Phase 0</div>
+    <div class="brandtitle">Why Elasticsearch<br>Exists</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The SQL LIKE wall</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Flipping the index &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Three jobs &amp; Search AI</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Not a system of record &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Where it fits</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Build: first index &amp; search</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Course roadmap</span></a></li>
+      <li><a href="#practice"><span class="n">&#8599;</span><span>Practice ladder</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Takeaways</span></a></li>
+      <li><a href="#self-test"><span class="n">?</span><span>Self-test</span></a></li>
+      <li><a href="#sources"><span class="n">&#8599;</span><span>Primary sources</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal-deep);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">00</span><span>Concept &middot; Core &middot; Elasticsearch</span></div>
+      <h1>Why Elasticsearch Exists</h1>
+      <p class="lede">Your relational database handles transactions effortlessly &mdash; until users type two messy words into a search bar, expect ranked results and facet counts in thirty milliseconds, and a <code>LIKE '%...%'</code> query scans every row on disk. Elasticsearch exists for that moment. Built on Apache Lucene, it flips how data is indexed so search, analytics, and modern vector retrieval run in milliseconds &mdash; while asking you to respect what it is <em>not</em>.</p>
+      <div class="disclaimer">
+        <strong>Original study chapter.</strong> Written from scratch for backend, search, and platform interviews &mdash; and for the systems behind them. Behavior and examples target stable <strong>Elasticsearch 9.5</strong> (built on Apache Lucene&nbsp;10, tracking the 8.x&nbsp;&rarr;&nbsp;9.x line as of late 2026); runnable code uses Python&nbsp;3 and the official <code>elasticsearch</code> client (<code>9.x</code>). Contains <strong>four original figures, two interactive</strong> (press <em>Play</em>, or step with <em>Next</em>).
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The failure</div>
+      <h2>The search wall: why SQL <code>LIKE</code> and B-trees break</h2>
+      <p>Start with how search usually fails in production. An application keeps its product catalog or support tickets in PostgreSQL, adds a search box, and ships the obvious query: <code>WHERE description LIKE '%timeout%'</code>. On ten thousand rows in staging it returns in 4 milliseconds. Six months later, at fifty million rows, every keystroke locks CPU cores and stalls checkout traffic.</p>
+      <p>A standard database <strong>B-tree index</strong> cannot rescue that query. A B-tree sorts column values alphabetically from the <em>first character</em> left to right. If you ask for a prefix like <code>LIKE 'time%'</code>, the engine jumps straight to the <code>T</code> range in <code>O(log N)</code>. Put a wildcard at the front (<code>'%timeout%'</code>), and the prefix is unknown: the target word could appear at offset 0, offset 42, or offset 900. The B-tree has no entry point, so the planner falls back to a <strong>sequential scan</strong> &mdash; reading every row and checking every substring one by one.</p>
+      <p>And raw substring matching is only the first wall. Real search breaks a relational query on three more fronts at once:</p>
+      <ul>
+        <li><strong>Language mismatch</strong> &mdash; searching <code>timeout</code> misses <code>"timeouts"</code>, <code>"timed out"</code>, or a one-letter typo. Substring matching has no tokenization, stemming, synonyms, or fuzziness.</li>
+        <li><strong>No notion of relevance</strong> &mdash; SQL <code>LIKE</code> is boolean: a row matches or it does not. A search user expects the document where <code>"timeout"</code> appears in the title three times to outrank one where it appears once in a footnote, weighted by how rare the word is across the corpus.</li>
+        <li><strong>Faceted analytics at the same time</strong> &mdash; search pages do not just return ten hits; they compute live counts by category, brand, and price bucket across millions of matches, or combine keyword rules with semantic meaning.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Wait &mdash; can't Postgres full-text search do this?</span>
+        <p>Often, yes! PostgreSQL ships built-in <code>tsvector</code> / GIN indexes and <code>pg_trgm</code> trigram indexes, and if your dataset fits comfortably on one Postgres node and mainly needs basic text search joined cleanly against relational tables, keeping it in Postgres avoids a second datastore entirely. Elasticsearch earns its keep when search becomes a <strong>primary workload</strong>: multi-terabyte or multi-billion-document scale across shards, sub-second multi-level aggregations, tunable <strong>BM25</strong> ranking combined with dense/sparse vectors (hybrid search), or high-ingest log and telemetry streams.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The mechanism</div>
+      <h2>Flipping the index: document&rarr;words to word&rarr;documents &#9656;</h2>
+      <p>Relational tables are organized around rows: given row ID 42, here is all the text inside it (a <strong>forward index</strong>). Finding which rows contain a word forces you to open rows and look inside them. Elasticsearch, via its underlying <strong>Apache Lucene</strong> engine, pays a modest cost at write time to invert that map completely.</p>
+      <p>When a JSON document arrives, Elasticsearch runs its <code>text</code> fields through an <strong>analyzer</strong>: breaking sentences into tokens, normalizing case, and optionally stemming words (so <code>"timeouts"</code> indexes under <code>timeout</code>). It records each unique token once in a sorted <strong>term dictionary</strong> and attaches a <strong>postings list</strong> &mdash; the sorted document IDs (plus frequencies and positions) containing that term. Looking up <code>"timeout"</code> no longer touches unrelated rows; the engine jumps directly to one dictionary entry, reads its postings list, and scores matches with <strong>BM25</strong> (Okapi BM25).</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-scan">
+          <svg viewBox="0 0 680 340" role="img" aria-label="Interactive comparison: a SQL B-tree handles prefix queries like auth% in O(log N) but falls back to an O(N) full scan on %timeout%, whereas an inverted index maps normalized terms straight to document postings lists">
+            <!-- Left: SQL Table -->
+            <text class="lbl" x="20" y="28">SQL TABLE &middot; forward rows (B-tree on title)</text>
+            <text class="lbl-sm" x="20" y="45">sorted left-to-right by first character</text>
+
+            <rect id="sc-r1" class="sc-box" x="20" y="60" width="298" height="36" rx="7"/>
+            <text class="lbl" x="32" y="83">doc 1</text><text class="lbl-sm" x="86" y="83">"auth cache warm"</text>
+
+            <rect id="sc-r2" class="sc-box" x="20" y="104" width="298" height="36" rx="7"/>
+            <text class="lbl" x="32" y="127">doc 2</text><text class="lbl-sm" x="86" y="127">"gateway timeout retry"</text>
+
+            <rect id="sc-r3" class="sc-box" x="20" y="148" width="298" height="36" rx="7"/>
+            <text class="lbl" x="32" y="171">doc 3</text><text class="lbl-sm" x="86" y="171">"invoice paid pdf"</text>
+
+            <rect id="sc-r4" class="sc-box" x="20" y="192" width="298" height="36" rx="7"/>
+            <text class="lbl" x="32" y="215">doc 4</text><text class="lbl-sm" x="86" y="215">"upstream timeouts fixed"</text>
+
+            <rect id="sc-sql-st" class="sc-box" x="20" y="240" width="298" height="44" rx="8"/>
+            <text id="sc-sql-txt" class="lbl-sm" x="169" y="267" text-anchor="middle">LIKE 'auth%' &rarr; B-tree range OK</text>
+
+            <line x1="340" y1="20" x2="340" y2="290" class="flow-d"/>
+
+            <!-- Right: Inverted Index -->
+            <text class="lbl" x="362" y="28">ELASTICSEARCH &middot; Inverted Index</text>
+            <text class="lbl-sm" x="362" y="45">term dictionary &#8594; postings list</text>
+
+            <rect id="sc-t1" class="sc-box" x="362" y="60" width="128" height="36" rx="7"/>
+            <text class="lbl" x="426" y="83" text-anchor="middle">auth</text>
+            <rect id="sc-p1" class="sc-box" x="526" y="60" width="134" height="36" rx="7"/>
+            <text class="lbl" x="593" y="83" text-anchor="middle">[ 1 ]</text>
+            <path d="M490 78 H 524" class="flow-d" marker-end="url(#arrow-s)"/>
+
+            <rect id="sc-t2" class="sc-box" x="362" y="104" width="128" height="36" rx="7"/>
+            <text class="lbl" x="426" y="127" text-anchor="middle">fixed</text>
+            <rect id="sc-p2" class="sc-box" x="526" y="104" width="134" height="36" rx="7"/>
+            <text class="lbl" x="593" y="127" text-anchor="middle">[ 4 ]</text>
+            <path d="M490 122 H 524" class="flow-d" marker-end="url(#arrow-s)"/>
+
+            <rect id="sc-t3" class="sc-box" x="362" y="148" width="128" height="36" rx="7"/>
+            <text class="lbl" x="426" y="171" text-anchor="middle">gateway</text>
+            <rect id="sc-p3" class="sc-box" x="526" y="148" width="134" height="36" rx="7"/>
+            <text class="lbl" x="593" y="171" text-anchor="middle">[ 2 ]</text>
+            <path d="M490 166 H 524" class="flow-d" marker-end="url(#arrow-s)"/>
+
+            <rect id="sc-t4" class="sc-box" x="362" y="192" width="128" height="36" rx="7"/>
+            <text class="lbl" x="426" y="215" text-anchor="middle">timeout</text>
+            <rect id="sc-p4" class="sc-box" x="526" y="192" width="134" height="36" rx="7"/>
+            <text class="lbl" x="593" y="215" text-anchor="middle">[ 2, 4 ]</text>
+            <path id="sc-lookup" d="M490 210 H 524" class="flow-t" marker-end="url(#arrow-t)"/>
+
+            <rect id="sc-es-st" class="sc-box" x="362" y="240" width="298" height="44" rx="8"/>
+            <text id="sc-es-txt" class="lbl-sm" x="511" y="267" text-anchor="middle">indexed once at write time</text>
+
+            <text id="sc-read" class="readout" x="340" y="322" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: a B-tree stops at a leading wildcard; an inverted index turns substring scans into dictionary lookups.</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="k">The core invariant: front-load work at write time</span>
+        <p>Every search-engine trade-off starts right here. Elasticsearch does <strong>more work on write</strong> &mdash; running analyzers, building inverted postings lists, writing columnar <strong>doc values</strong> for sorting and aggregations, and optionally building HNSW vector graphs &mdash; so that <strong>reads stay proportional to the matching postings</strong>, not the size of the whole table. That extra write work and disk/memory footprint is the price you pay for sub-second search and analytics.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> One engine, three jobs</div>
+      <h2>Search, observability, security &mdash; the Search AI Platform</h2>
+      <p>People meet Elasticsearch as the engine behind a product search bar, then are surprised to find the exact same engine running company-wide log analytics and security detection. That convergence is not marketing accident; all three workloads stress the exact same three primitives inside Lucene:</p>
+      <ul>
+        <li><strong>Search &amp; GenAI</strong> &mdash; full-text inverted indexes, BM25 ranking, typo tolerance, exact <code>keyword</code> filters, and <strong>dense / sparse vector search</strong> (<code>dense_vector</code> over HNSW with quantization like Better Binary Quantization, plus sparse models like ELSER) to power hybrid retrieval and Retrieval-Augmented Generation (RAG).</li>
+        <li><strong>Observability</strong> &mdash; ingesting massive append-only streams of application logs, metrics, and OpenTelemetry traces; filtering by service/status in milliseconds; and slicing billions of events by time histogram via columnar doc values and modern <code>logsdb</code> / Columnar Mode storage.</li>
+        <li><strong>Security</strong> &mdash; SIEM, endpoint detection, and threat hunting across high-cardinality telemetry where an analyst correlates IP addresses, process hashes, and alert rules in real time using Query DSL, Event Query Language (EQL), or piped <strong>ES|QL</strong>.</li>
+      </ul>
+      <p>That is why Elastic frames Elasticsearch 8.x and 9.x as a <strong>Search AI Platform</strong>: instead of wiring a separate keyword engine, a separate log store, and a separate vector database together with brittle glue code, one distributed engine handles lexical matching, structured aggregations, and semantic vector retrieval inside a single query plan.</p>
+
+      <figure>
+        <div class="blueprint" id="fig-three-jobs">
+          <svg viewBox="0 0 680 315" role="img" aria-label="Static architecture diagram showing Elasticsearch on Apache Lucene 10 at the center — inverted index, doc values, vector HNSW, Query DSL and ES|QL — feeding three solutions: Search and GenAI, Observability, and Security, flanked by ingest tools and Kibana">
+            <!-- Top: Three Solutions -->
+            <rect class="node-b" x="22" y="20" width="198" height="62" rx="9"/>
+            <text class="lbl" x="121" y="45" text-anchor="middle">Search &amp; GenAI</text>
+            <text class="lbl-sm" x="121" y="65" text-anchor="middle">BM25 + hybrid + RAG</text>
+
+            <rect class="node-t" x="241" y="20" width="198" height="62" rx="9"/>
+            <text class="lbl" x="340" y="45" text-anchor="middle">Observability</text>
+            <text class="lbl-sm" x="340" y="65" text-anchor="middle">logs, metrics, OTel traces</text>
+
+            <rect class="node-r" x="460" y="20" width="198" height="62" rx="9"/>
+            <text class="lbl" x="559" y="45" text-anchor="middle" fill="#B0532F">Security</text>
+            <text class="lbl-sm" x="559" y="65" text-anchor="middle">SIEM, endpoint, threats</text>
+
+            <path d="M121 114 V 84" class="flow" marker-end="url(#arrow)"/>
+            <path d="M340 114 V 84" class="flow-t" marker-end="url(#arrow-t)"/>
+            <path d="M559 114 V 84" class="flow-r" marker-end="url(#arrow-r)"/>
+
+            <!-- Middle: Core Engine -->
+            <rect class="node" x="22" y="116" width="636" height="110" rx="11"/>
+            <text class="lbl" x="340" y="140" text-anchor="middle">ELASTICSEARCH &middot; Distributed Search &amp; Analytics Engine (Apache Lucene 10)</text>
+
+            <rect class="node-b" x="36" y="156" width="142" height="54" rx="7"/>
+            <text class="lbl" x="107" y="179" text-anchor="middle">Inverted Index</text>
+            <text class="lbl-sm" x="107" y="198" text-anchor="middle">text &amp; exact filters</text>
+
+            <rect class="node-t" x="190" y="156" width="146" height="54" rx="7"/>
+            <text class="lbl" x="263" y="179" text-anchor="middle">Doc Values</text>
+            <text class="lbl-sm" x="263" y="198" text-anchor="middle">sort, aggs, columnar</text>
+
+            <rect class="node-v" x="348" y="156" width="146" height="54" rx="7"/>
+            <text class="lbl" x="421" y="179" text-anchor="middle">Vector Engine</text>
+            <text class="lbl-sm" x="421" y="198" text-anchor="middle">HNSW, BBQ, ELSER</text>
+
+            <rect class="node" x="506" y="156" width="138" height="54" rx="7"/>
+            <text class="lbl" x="575" y="179" text-anchor="middle">Query Layer</text>
+            <text class="lbl-sm" x="575" y="198" text-anchor="middle">Query DSL &amp; ES|QL</text>
+
+            <!-- Bottom: Ingest + Kibana -->
+            <path d="M174 252 V 228" class="flow" marker-end="url(#arrow)"/>
+            <path d="M506 228 V 252" class="flow-d" marker-end="url(#arrow-s)"/>
+
+            <rect class="node" x="22" y="254" width="304" height="44" rx="8"/>
+            <text class="lbl" x="174" y="274" text-anchor="middle">Ingest &amp; Collect</text>
+            <text class="lbl-sm" x="174" y="290" text-anchor="middle">REST / Bulk &middot; Elastic Agent &middot; Logstash &middot; OTel</text>
+
+            <rect class="node" x="354" y="254" width="304" height="44" rx="8"/>
+            <text class="lbl" x="506" y="274" text-anchor="middle">Explore &amp; Visualize</text>
+            <text class="lbl-sm" x="506" y="290" text-anchor="middle">Kibana &middot; Dev Tools &middot; Dashboards &middot; Alerts</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 &mdash; one distributed storage and query engine underneath; three domain solutions on top.</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p>&ldquo;If embeddings capture meaning, why not replace Elasticsearch with a pure vector database?&rdquo; Because real queries almost always carry hard constraints alongside semantics: <em>exact</em> product SKUs, error codes like <code>ECONNRESET</code>, tenant permissions, date ranges, and live facet counts. Pure vector similarity scores everything smoothly &mdash; even documents that violate an exact filter or miss a literal identifier. Combining lexical BM25, structured filters, and vectors in one pass (<strong>hybrid search</strong>) beats either alone.</p>
+      </div>
+    </section>
+
+    <!-- 03 INTERACTIVE -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> The boundary</div>
+      <h2>Why Elasticsearch is not your system of record &#9656;</h2>
+      <p>Here is the trap that costs teams real data: someone builds a fast prototype storing orders or user accounts straight in Elasticsearch and skips the relational database. It works right up until concurrent updates collide, a bulk write fails halfway through, or a user saves a profile and refreshes the page 100&nbsp;ms later only to see the old value.</p>
+      <p>Be precise about the boundary. For append-only telemetry like logs and metrics, Elasticsearch routinely <em>is</em> the primary store. For mutable, multi-entity business state (orders, balances, inventory), Elasticsearch is a <strong>derived search and analytics engine</strong> paired behind an authoritative <strong>system of record</strong> (like PostgreSQL). Four concrete mechanics enforce that line:</p>
+      <ul>
+        <li><strong>Single-document atomicity only</strong> &mdash; indexing or updating one JSON document is atomic, and Elasticsearch protects concurrent updates to that single document with optimistic concurrency control (<code>_seq_no</code> and <code>_primary_term</code>). There are <em>no multi-document ACID transactions</em>: a bulk call spanning ten documents can commit seven and reject three, with no rollback across them.</li>
+        <li><strong>Near-real-time (NRT) visibility</strong> &mdash; newly indexed documents sit in an in-memory buffer (backed by a translog for durability) and become searchable only after a periodic <strong>refresh</strong> opens a new Lucene segment &mdash; by default every <strong>1 second</strong> on indices actively receiving search requests. A write is not instantaneously visible to searches unless you explicitly ask to wait (<code>?refresh=wait_for</code>) or force a costly immediate refresh.</li>
+        <li><strong>Denormalized documents, not relational joins</strong> &mdash; distributed search scales by embedding related attributes inside each JSON document rather than running arbitrary foreign-key joins across nodes at read time.</li>
+        <li><strong>Reindex on schema evolution</strong> &mdash; changing how an existing field is analyzed or typed generally requires building a new index and reindexing from the authoritative source.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-sor">
+          <svg viewBox="0 0 680 346" role="img" aria-label="Interactive write-model versus read-model flow: an app commits ACID state to PostgreSQL, a CDC or outbox worker syncs documents to Elasticsearch's indexing buffer, a periodic near-real-time refresh makes them searchable, and skipping Postgres risks partial multi-doc failures">
+            <g class="st" id="sor-app">
+              <rect class="node" x="20" y="122" width="126" height="74" rx="9"/>
+              <text class="lbl" x="83" y="154" text-anchor="middle">App / API</text>
+              <text class="lbl-sm" x="83" y="174" text-anchor="middle">reads &amp; writes</text>
+            </g>
+
+            <g class="st" id="sor-pg">
+              <rect class="node-b" x="218" y="24" width="206" height="80" rx="9"/>
+              <text class="lbl" x="321" y="54" text-anchor="middle">PostgreSQL (SoR)</text>
+              <text class="lbl-sm" x="321" y="74" text-anchor="middle">ACID multi-row commit</text>
+              <text class="lbl-sm" x="321" y="90" text-anchor="middle">source of truth</text>
+            </g>
+
+            <g class="st" id="sor-cdc">
+              <rect class="node-v" x="218" y="216" width="206" height="70" rx="9"/>
+              <text class="lbl" x="321" y="245" text-anchor="middle">Outbox / CDC Worker</text>
+              <text class="lbl-sm" x="321" y="266" text-anchor="middle">async sync + retries</text>
+            </g>
+
+            <g class="st" id="sor-es">
+              <rect class="node-t" x="486" y="72" width="174" height="178" rx="10"/>
+              <text class="lbl" x="573" y="96" text-anchor="middle">Elasticsearch</text>
+              <g id="es-buf">
+                <rect class="sc-box" x="500" y="110" width="146" height="48" rx="7"/>
+                <text class="lbl-sm" x="573" y="130" text-anchor="middle">Indexing Buffer</text>
+                <text id="sor-buf-txt" class="lbl-sm" x="573" y="146" text-anchor="middle">not searchable yet</text>
+              </g>
+              <g id="es-seg">
+                <rect class="sc-box" x="500" y="186" width="146" height="50" rx="7"/>
+                <text class="lbl-sm" x="573" y="207" text-anchor="middle">Search Segment</text>
+                <text id="sor-seg-txt" class="lbl-sm" x="573" y="223" text-anchor="middle">price: $49</text>
+              </g>
+            </g>
+
+            <!-- Paths -->
+            <path id="p-pg-write" class="flow" style="opacity:.16" d="M146 138 C 176 102, 192 74, 216 68" marker-end="url(#arrow)"/>
+            <path id="p-pg-cdc" class="flow" style="opacity:.16" d="M321 104 V 214" marker-end="url(#arrow)"/>
+            <path id="p-cdc-es" class="flow-t" style="opacity:.16" d="M424 248 C 456 228, 468 158, 498 136" marker-end="url(#arrow-t)"/>
+            <path id="p-es-ref" class="flow-t" style="opacity:.16" d="M573 158 V 184" marker-end="url(#arrow-t)"/>
+            <path id="p-search" class="flow" style="opacity:.16" d="M146 176 C 280 186, 396 202, 498 212" marker-end="url(#arrow)"/>
+            <path id="p-bad" class="flow-r" style="opacity:.16" d="M146 154 H 498" marker-end="url(#arrow-r)"/>
+
+            <text id="sor-read" class="readout" x="340" y="324" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: PostgreSQL owns ACID state; an outbox/CDC worker keeps Elasticsearch in step across the NRT refresh boundary.</figcaption>
+      </figure>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>PostgreSQL (System of Record)</th>
+              <th>Elasticsearch (Search &amp; Analytics)</th>
+              <th>Redis (In-Memory Store)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Primary job</strong></td>
+              <td>Authoritative business state, relational integrity, transactions</td>
+              <td>Full-text, hybrid vector retrieval, facets, log/metric analytics</td>
+              <td>Sub-millisecond hot cache, counters, rate limits, queues</td>
+            </tr>
+            <tr>
+              <td><strong>Core structure</strong></td>
+              <td>Row pages + B-tree / GIN indexes on disk</td>
+              <td>Inverted index + columnar doc values + HNSW graphs</td>
+              <td>In-RAM data structures (strings, hashes, sorted sets)</td>
+            </tr>
+            <tr>
+              <td><strong>Transactions</strong></td>
+              <td>Full multi-row ACID commit and rollback</td>
+              <td>Single-doc atomic (OCC via <code>_seq_no</code>); no multi-doc ACID</td>
+              <td>Single-command atomic; Lua / <code>MULTI</code> on one shard</td>
+            </tr>
+            <tr>
+              <td><strong>Write visibility</strong></td>
+              <td>Immediate upon commit (subject to replica lag)</td>
+              <td>Near-real-time (~1s default <code>refresh_interval</code> when searched)</td>
+              <td>Immediate in RAM after command executes</td>
+            </tr>
+            <tr>
+              <td><strong>If misused</strong></td>
+              <td><code>LIKE '%...%'</code> melts CPUs in full table scans</td>
+              <td>No multi-row rollback or stale read-after-write surprises</td>
+              <td>RAM capacity exhaustion if treated as a multi-TB log archive</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Judgment</div>
+      <h2>Where Elasticsearch fits &mdash; and when to skip it</h2>
+      <p>The mark of an experienced engineer is knowing when <em>not</em> to add another distributed cluster. Running Elasticsearch means owning shard counts, JVM memory + OS filesystem cache sizing, mappings, and an ingestion pipeline from your source of truth. Never pay that operational tax when a simpler tool already solves the problem.</p>
+
+      <figure>
+        <div class="blueprint" id="fig-spectrum">
+          <svg viewBox="0 0 680 264" role="img" aria-label="Static four-column comparison showing when to keep search in PostgreSQL alone, when to introduce Elasticsearch, when to use Redis, and when a pure vector store fits">
+            <rect class="node-b" x="20" y="20" width="150" height="224" rx="10"/>
+            <text class="lbl" x="95" y="48" text-anchor="middle">Postgres alone</text>
+            <text class="lbl-sm" x="95" y="74" text-anchor="middle">Use when:</text>
+            <text class="lbl-sm" x="95" y="94" text-anchor="middle">&lt; ~10M rows, exact</text>
+            <text class="lbl-sm" x="95" y="110" text-anchor="middle">joins, modest FTS</text>
+            <text class="lbl-sm" x="95" y="126" text-anchor="middle">(tsvector / pg_trgm)</text>
+            <line x1="34" y1="148" x2="156" y2="148" class="flow-d"/>
+            <text class="lbl-sm" x="95" y="170" text-anchor="middle" fill="#B0532F">Breaks at:</text>
+            <text class="lbl-sm" x="95" y="190" text-anchor="middle">heavy facets, multi-TB</text>
+            <text class="lbl-sm" x="95" y="206" text-anchor="middle">logs, horizontal shards,</text>
+            <text class="lbl-sm" x="95" y="222" text-anchor="middle">BM25 + vector hybrid</text>
+
+            <rect class="node-t" x="184" y="20" width="150" height="224" rx="10"/>
+            <text class="lbl" x="259" y="48" text-anchor="middle">Elasticsearch</text>
+            <text class="lbl-sm" x="259" y="74" text-anchor="middle">Use when:</text>
+            <text class="lbl-sm" x="259" y="94" text-anchor="middle">relevance search, live</text>
+            <text class="lbl-sm" x="259" y="110" text-anchor="middle">facets, logs/traces, or</text>
+            <text class="lbl-sm" x="259" y="126" text-anchor="middle">hybrid BM25 + vector</text>
+            <line x1="198" y1="148" x2="320" y2="148" class="flow-d"/>
+            <text class="lbl-sm" x="259" y="170" text-anchor="middle" fill="#B0532F">Not for:</text>
+            <text class="lbl-sm" x="259" y="190" text-anchor="middle">multi-row ACID ledgers,</text>
+            <text class="lbl-sm" x="259" y="206" text-anchor="middle">sub-ms KV lookup,</text>
+            <text class="lbl-sm" x="259" y="222" text-anchor="middle">arbitrary SQL joins</text>
+
+            <rect class="node-r" x="348" y="20" width="150" height="224" rx="10"/>
+            <text class="lbl" x="423" y="48" text-anchor="middle" fill="#B0532F">Redis</text>
+            <text class="lbl-sm" x="423" y="74" text-anchor="middle">Use when:</text>
+            <text class="lbl-sm" x="423" y="94" text-anchor="middle">sub-ms hot cache,</text>
+            <text class="lbl-sm" x="423" y="110" text-anchor="middle">sessions, counters,</text>
+            <text class="lbl-sm" x="423" y="126" text-anchor="middle">leaderboards, locks</text>
+            <line x1="362" y1="148" x2="484" y2="148" class="flow-d"/>
+            <text class="lbl-sm" x="423" y="170" text-anchor="middle" fill="#B0532F">Not for:</text>
+            <text class="lbl-sm" x="423" y="190" text-anchor="middle">multi-TB disk archives,</text>
+            <text class="lbl-sm" x="423" y="206" text-anchor="middle">linguistic analysis,</text>
+            <text class="lbl-sm" x="423" y="222" text-anchor="middle">ad-hoc log querying</text>
+
+            <rect class="node-v" x="512" y="20" width="148" height="224" rx="10"/>
+            <text class="lbl" x="586" y="48" text-anchor="middle">Pure Vector DB</text>
+            <text class="lbl-sm" x="586" y="74" text-anchor="middle">Use when:</text>
+            <text class="lbl-sm" x="586" y="94" text-anchor="middle">pure semantic kNN</text>
+            <text class="lbl-sm" x="586" y="110" text-anchor="middle">with light metadata</text>
+            <text class="lbl-sm" x="586" y="126" text-anchor="middle">filters only</text>
+            <line x1="526" y1="148" x2="646" y2="148" class="flow-d"/>
+            <text class="lbl-sm" x="586" y="170" text-anchor="middle" fill="#B0532F">Gaps vs ES:</text>
+            <text class="lbl-sm" x="586" y="190" text-anchor="middle">no rich analyzers/BM25,</text>
+            <text class="lbl-sm" x="586" y="206" text-anchor="middle">weaker aggregations,</text>
+            <text class="lbl-sm" x="586" y="222" text-anchor="middle">separate ops stack</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 &mdash; choose Elasticsearch when you need inverted-index retrieval, aggregations, or hybrid AI search at scale &mdash; skip it for simple exact lookups.</figcaption>
+      </figure>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Reach for Elasticsearch when</h4>
+          <ul>
+            <li>Users search natural language with typos, synonyms, multi-field boosts, and live facet counts.</li>
+            <li>You combine <strong>keyword precision + semantic vectors</strong> (hybrid search / RAG) with document-level security.</li>
+            <li>You ingest high-volume time-series logs, metrics, or traces and slice them with sub-second aggregations.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Skip Elasticsearch when</h4>
+          <ul>
+            <li>Queries only look up exact primary keys or prefixes like <code>user_id = 42</code> or <code>email LIKE 'ada%'</code>.</li>
+            <li>You require multi-row ACID transactions, foreign-key constraints, and normalized joins.</li>
+            <li>A single Postgres table with <code>tsvector</code> or <code>pg_trgm</code> already answers your search SLA in &lt;20&nbsp;ms.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 WORKED BUILD -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Worked example</div>
+      <h2>First taste: inverted search &amp; concurrency boundaries</h2>
+      <p>Put the whole lesson in runnable code. The script below uses the official <code>elasticsearch</code> Python client (<code>9.x</code> line, targeting <strong>Elasticsearch 9.5</strong>) to create a small catalog index, insert JSON documents with <code>refresh="wait_for"</code>, run a <code>bool</code> query that scores analyzed full-text matches (<code>match</code>) inside a non-scoring structured <code>filter</code>, and then trigger Optimistic Concurrency Control (<code>ConflictError</code>) to prove single-document safety without multi-document transactions.</p>
+
+      <div class="worked">
+        <div class="whead">
+          <span class="wk">Worked build</span>
+          <span class="pill m">Derived catalog index</span>
+          <span class="lc">Elasticsearch 9.5 &middot; elasticsearch==9.5.1</span>
+        </div>
+        <div class="wbody">
+          <div class="wname">Search vs. SQL <code>LIKE</code>, NRT visibility, and single-doc OCC</div>
+          <p class="wprompt">Index three catalog items (where the user query is <strong>"mechanical keyboard"</strong>, one title uses the plural <strong>"keyboards"</strong>, and a strict budget requires <strong>price &le; 150</strong>). Return ranked hits, then reject a stale concurrent update using <code>_seq_no</code> and <code>_primary_term</code>.</p>
+
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">1 &middot; Mapping</span><p>Store <code>sku</code> as <code>keyword</code> (exact match, no tokenization) and <code>title</code> as <code>text</code> (analyzed into inverted-index tokens).</p></div>
+            <div class="ws"><span class="wsk">2 &middot; NRT visibility</span><p>Pass <code>refresh="wait_for"</code> on the final index call so the write waits for the periodic refresh before searching, without forcing an expensive immediate segment flush on every write.</p></div>
+            <div class="ws"><span class="wsk">3 &middot; Query vs filter</span><p>Put <code>match</code> in <code>must</code> (computes BM25 <code>_score</code>) and <code>range</code> in <code>filter</code> (exact yes/no gate, cache-eligible, no score distortion).</p></div>
+            <div class="ws"><span class="wsk">4 &middot; Single-doc OCC</span><p>Pass <code>if_seq_no</code> and <code>if_primary_term</code> on an update; a concurrent edit bumps <code>_seq_no</code> and forces a safe <code>409 ConflictError</code>.</p></div>
+          </div>
+
+          <h4 class="wh">The code</h4>
+          <p class="codetag">python 3 &middot; pip install elasticsearch==9.5.1 &middot; local node on http://localhost:9200</p>
+          <pre class="code"><code><span class="kw">import</span> uuid
+<span class="kw">from</span> elasticsearch <span class="kw">import</span> Elasticsearch, ConflictError
+
+<span class="cm"># Local dev node (ES 8+/9+ defaults to HTTPS + auth in production setups)</span>
+client = Elasticsearch(<span class="st2">"http://localhost:9200"</span>)
+INDEX = <span class="st2">f"lab-catalog-{uuid.uuid4().hex[:8]}"</span>
+
+<span class="kw">try</span>:
+    client.indices.create(
+        index=INDEX,
+        mappings={
+            <span class="st2">"properties"</span>: {
+                <span class="st2">"sku"</span>: {<span class="st2">"type"</span>: <span class="st2">"keyword"</span>},     <span class="cm"># exact ID: never split into words</span>
+                <span class="st2">"title"</span>: {<span class="st2">"type"</span>: <span class="st2">"text"</span>},      <span class="cm"># analyzed into the inverted index</span>
+                <span class="st2">"price"</span>: {<span class="st2">"type"</span>: <span class="st2">"float"</span>},
+            }
+        },
+    )
+
+    docs = [
+        (<span class="st2">"1"</span>, {<span class="st2">"sku"</span>: <span class="st2">"KB-75"</span>, <span class="st2">"title"</span>: <span class="st2">"Compact mechanical keyboard 75%"</span>, <span class="st2">"price"</span>: <span class="lit">129.0</span>}),
+        (<span class="st2">"2"</span>, {<span class="st2">"sku"</span>: <span class="st2">"KB-PRO"</span>, <span class="st2">"title"</span>: <span class="st2">"Custom mechanical keyboards kit"</span>, <span class="st2">"price"</span>: <span class="lit">240.0</span>}),
+        (<span class="st2">"3"</span>, {<span class="st2">"sku"</span>: <span class="st2">"MS-10"</span>, <span class="st2">"title"</span>: <span class="st2">"Ergonomic wireless mouse"</span>, <span class="st2">"price"</span>: <span class="lit">79.0</span>}),
+    ]
+    <span class="kw">for</span> i, (doc_id, body) <span class="kw">in</span> enumerate(docs):
+        wait = <span class="st2">"wait_for"</span> <span class="kw">if</span> i == len(docs) - <span class="lit">1</span> <span class="kw">else</span> <span class="st2">"false"</span>
+        client.index(index=INDEX, id=doc_id, document=body, refresh=wait)
+
+    <span class="cm"># Query context scores text relevance; filter context gates price without scoring</span>
+    resp = client.search(
+        index=INDEX,
+        query={
+            <span class="st2">"bool"</span>: {
+                <span class="st2">"must"</span>: [{<span class="st2">"match"</span>: {<span class="st2">"title"</span>: <span class="st2">"mechanical keyboard"</span>}}],
+                <span class="st2">"filter"</span>: [{<span class="st2">"range"</span>: {<span class="st2">"price"</span>: {<span class="st2">"lte"</span>: <span class="lit">150</span>}}}],
+            }
+        },
+    )
+    hits = resp[<span class="st2">"hits"</span>][<span class="st2">"hits"</span>]
+    <span class="kw">assert</span> [h[<span class="st2">"_id"</span>] <span class="kw">for</span> h <span class="kw">in</span> hits] == [<span class="st2">"1"</span>]  <span class="cm"># doc 2 filtered by price; doc 3 misses text</span>
+
+    <span class="cm"># Optimistic Concurrency Control: capture _seq_no &amp; _primary_term, then race</span>
+    cur = client.get(index=INDEX, id=<span class="st2">"1"</span>)
+    stale_seq, stale_term = cur[<span class="st2">"_seq_no"</span>], cur[<span class="st2">"_primary_term"</span>]
+
+    <span class="cm"># Winner updates price cleanly</span>
+    client.index(
+        index=INDEX, id=<span class="st2">"1"</span>,
+        document={**cur[<span class="st2">"_source"</span>], <span class="st2">"price"</span>: <span class="lit">119.0</span>},
+        if_seq_no=stale_seq, if_primary_term=stale_term,
+    )
+
+    <span class="cm"># Stale writer using the old _seq_no is rejected with HTTP 409 ConflictError</span>
+    conflict_caught = <span class="lit">False</span>
+    <span class="kw">try</span>:
+        client.index(
+            index=INDEX, id=<span class="st2">"1"</span>,
+            document={**cur[<span class="st2">"_source"</span>], <span class="st2">"price"</span>: <span class="lit">99.0</span>},
+            if_seq_no=stale_seq, if_primary_term=stale_term,
+        )
+    <span class="kw">except</span> ConflictError:
+        conflict_caught = <span class="lit">True</span>
+
+    <span class="kw">assert</span> conflict_caught
+    print({<span class="st2">"matched_id"</span>: hits[<span class="st2">0</span>][<span class="st2">"_id"</span>], <span class="st2">"score"</span>: round(hits[<span class="st2">0</span>][<span class="st2">"_score"</span>], <span class="lit">3</span>), <span class="st2">"occ_protected"</span>: conflict_caught})
+<span class="kw">finally</span>:
+    client.indices.delete(index=INDEX, ignore_unavailable=<span class="lit">True</span>)</code></pre>
+
+          <div class="say">
+            <span class="k">Explain it aloud in an interview</span>
+            <p>&ldquo;I keep Postgres as the system of record for catalog mutations and treat Elasticsearch as a derived search read model. Writes invert text at index time so queries like <code>mechanical keyboard</code> jump straight to postings lists instead of scanning rows with <code>LIKE '%...%'</code>, while numeric constraints go in a non-scoring <code>filter</code>. Because Elasticsearch only gives single-document atomicity &mdash; protected here with <code>_seq_no</code> and <code>_primary_term</code> &mdash; and near-real-time 1-second refresh visibility, multi-entity commits still belong in the relational database and sync asynchronously via CDC or an outbox.&rdquo;</p>
+            <p class="plain">Follow-ups to anticipate: why <code>sku</code> uses <code>keyword</code> instead of <code>text</code> (so hyphens aren't split), why <code>refresh=true</code> on every write hurts throughput (creates tiny segments constantly), and how you handle an out-of-order CDC retry (pass the upstream version or <code>external</code> versioning so stale events don't overwrite newer state).</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> The map ahead</div>
+      <h2>Where this course goes next</h2>
+      <p>This lesson is <strong>Phase 0</strong> &mdash; establishing <em>why</em> the engine exists and where its boundaries lie. From here, each phase adds one concrete layer only after you know what problem demands it:</p>
+      <ul>
+        <li><strong>P0 &middot; Foundations (L01&ndash;L03)</strong> &mdash; cluster &rarr; node &rarr; index &rarr; shard &rarr; segment, the JSON document model and data streams, and driving the cluster with REST, <code>_cat</code>, and Bulk.</li>
+        <li><strong>P1 &middot; Engine internals (L04&ndash;L08)</strong> &mdash; the inverted index up close, immutable Lucene segments and columnar doc values, text analysis pipelines, the refresh/translog/flush write path, and modern <code>logsdb</code> / synthetic <code>_source</code>.</li>
+        <li><strong>P2 &middot; Data modeling &amp; mapping (L09&ndash;L12)</strong> &mdash; <code>text</code> vs <code>keyword</code>, multi-fields, <code>nested</code> vs <code>object</code> vs <code>flattened</code>, and schema-on-read runtime fields.</li>
+        <li><strong>P3&ndash;P4 &middot; Querying, relevance &amp; aggregations (L13&ndash;L21)</strong> &mdash; Query DSL, <code>match</code> vs <code>term</code>, BM25 math, deep pagination with <code>search_after</code> + PIT, piped <code>ES|QL</code>, and bucket/metric aggregations.</li>
+        <li><strong>P5 &middot; Distribution &amp; scale (L22&ndash;L25)</strong> &mdash; primary/replica shards, scatter-gather query-then-fetch, oversharding sizing rules, node roles, and hot/warm/cold/frozen tiers.</li>
+        <li><strong>P6 &middot; Vector, semantic &amp; hybrid AI search (L26&ndash;L31)</strong> &mdash; <code>dense_vector</code> + HNSW, int8/int4/BBQ/DiskBBQ quantization, sparse ELSER &amp; <code>semantic_text</code>, Reciprocal Rank Fusion, reranking, and RAG.</li>
+        <li><strong>P7&ndash;P9 &middot; ELK, production ops &amp; interviews (L32&ndash;L44)</strong> &mdash; Elastic Agent/Logstash/OpenTelemetry, ILM, snapshots, cluster health triage, security, and full search/ELK system-design walkthroughs.</li>
+      </ul>
+    </section>
+
+    <section id="practice">
+      <div class="steptag"><b>&#8599;</b> Practice</div>
+      <h2>Configure &rarr; Diagnose &rarr; Design</h2>
+      <div class="ladder">
+        <div class="rung"><b>Configure</b>Move a product search endpoint off PostgreSQL <code>WHERE description LIKE '%query%'</code> onto a derived Elasticsearch index. Decide which fields map as <code>text</code> vs <code>keyword</code>, where the authoritative write still commits, and whether the indexing pipeline should use default 1s refresh or <code>?refresh=wait_for</code>.</div>
+        <div class="rung"><b>Diagnose</b>An engineer updates a product price in Postgres and in Elasticsearch via two separate HTTP calls inside one request handler. During traffic spikes, search intermittently shows old prices for deleted or repriced items, and occasionally an item vanishes from search even though Postgres still has it. Name both bugs (dual-write non-atomicity without an outbox/CDC, plus the NRT refresh window).</div>
+        <div class="rung"><b>Design</b>Evaluate three workloads: (a) an e-commerce search bar with 40M SKUs, facet counts, and semantic fallback; (b) a 30&nbsp;TB/month Kubernetes log pipeline; and (c) an admin lookup fetching user profiles strictly by exact <code>user_id</code>. State for each whether Elasticsearch belongs in the architecture, what role it plays (derived read model vs primary telemetry store vs skip it), and why.</div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Seven takeaways</h2>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b><code>LIKE '%...%'</code> scans O(N)</b><span>B-trees only help prefixes (<code>'foo%'</code>); leading wildcards force full row scans and lack relevance scoring.</span></div>
+        <div class="tk"><span class="num">02</span><b>Invert at write time</b><span>Analyzers tokenize text into a dictionary &rarr; postings list so reads scale with matches, not table size.</span></div>
+        <div class="tk"><span class="num">03</span><b>Check Postgres FTS first</b><span>Small datasets already in Postgres may do fine with <code>tsvector</code> / <code>pg_trgm</code> &mdash; earn the second cluster.</span></div>
+        <div class="tk"><span class="num">04</span><b>One engine, three jobs</b><span>Inverted indexes, doc values, and vectors power Search &amp; AI, Observability, and Security on one platform.</span></div>
+        <div class="tk"><span class="num">05</span><b>Hybrid beats either alone</b><span>Pair exact <code>keyword</code> filters and BM25 lexical matching with semantic vectors to handle both SKUs and intent.</span></div>
+        <div class="tk"><span class="num">06</span><b>Not an OLTP source of truth</b><span>Single-doc atomicity (<code>_seq_no</code>/<code>_primary_term</code>) and ~1s NRT refresh mean transactional state stays in your RDBMS.</span></div>
+        <div class="tk"><span class="num">07</span><b>Sync via outbox or CDC</b><span>Avoid fragile dual writes; stream committed changes asynchronously from the system of record into ES.</span></div>
+      </div>
+    </section>
+
+    <section id="self-test" class="self-test">
+      <div class="steptag"><b>?</b> Active recall</div>
+      <h2>Self-test</h2>
+      <details class="self-test-question"><summary>1. Why does a relational B-tree speed up <code>LIKE 'err%'</code> but fail on <code>LIKE '%err%'</code>?</summary><p>A B-tree sorts strings strictly from the first character left-to-right. A trailing wildcard narrows a contiguous prefix range in <code>O(log N)</code>, whereas a leading wildcard leaves the prefix unknown, forcing an <code>O(N)</code> sequential scan over every row&rsquo;s string.</p></details>
+      <details class="self-test-question"><summary>2. What fundamental trade-off does an inverted index make?</summary><p>It moves CPU and storage work to <strong>write time</strong> (analyzing fields, maintaining sorted term dictionaries, postings lists, and doc values) so query time looks up terms directly and intersects postings lists in proportion to matches rather than total rows.</p></details>
+      <details class="self-test-question"><summary>3. When is PostgreSQL full-text search enough without adding Elasticsearch?</summary><p>When the corpus fits comfortably on your existing Postgres node, queries mainly need modest text matching joined against relational tables, and you do not yet need horizontal sharding, sub-second multi-level aggregations, or combined BM25 + vector hybrid retrieval.</p></details>
+      <details class="self-test-question"><summary>4. Why do Search, Observability, and Security all run on the same Elasticsearch engine?</summary><p>All three need fast arbitrary filtering (inverted index), fast grouping/time-bucket math (columnar doc values / Columnar Mode), and increasingly vector similarity + piped analytics (<code>ES|QL</code>) at multi-terabyte scale.</p></details>
+      <details class="self-test-question"><summary>5. Name two concrete reasons Elasticsearch is not a drop-in relational system of record.</summary><p>First, operations are atomic at the <strong>single-document</strong> level only &mdash; there are no multi-document ACID transactions or cross-document rollbacks. Second, newly indexed documents follow <strong>near-real-time</strong> visibility (~1&nbsp;second default <code>refresh_interval</code> when searched) rather than immediate transactional read-your-own-writes.</p></details>
+      <details class="self-test-question"><summary>6. Why is hybrid search often stronger than a pure vector database in production?</summary><p>Embeddings capture semantic intent but blur exact tokens. Production queries frequently depend on literal product codes, error strings, tenant RBAC filters, date ranges, and faceted counts alongside semantic similarity &mdash; which hybrid retrieval executes together.</p></details>
+    </section>
+
+    <section id="sources" class="sources-section">
+      <div class="steptag"><b>&#8599;</b> Primary sources</div>
+      <h2>Official sources &amp; further reading</h2>
+      <ol>
+        <li><a href="https://www.elastic.co/docs/get-started">Elastic Documentation — Fundamentals &amp; Getting Started</a></li>
+        <li><a href="https://www.elastic.co/docs/get-started/the-elastic-stack">Elastic Documentation — The Elastic Stack Overview</a></li>
+        <li><a href="https://www.elastic.co/docs/explore-analyze/query-filter">Elastic Documentation — Querying and Filtering (Query DSL &amp; ES|QL)</a></li>
+        <li><a href="https://www.elastic.co/docs/solutions/search">Elastic Documentation — Search Solutions (Full-Text, Vector &amp; Hybrid)</a></li>
+        <li><a href="https://www.elastic.co/docs/release-notes/elasticsearch">Elastic Documentation — Elasticsearch Release Notes (9.x)</a></li>
+        <li><a href="https://github.com/elastic/elasticsearch/releases">Elasticsearch — Official GitHub Releases</a></li>
+      </ol>
+    </section>
+
+    <nav class="course-nav" aria-label="Course navigation">
+      <span class="done">Course start</span>
+      <a data-nav="index" href="index.html">Course index</a>
+      <span class="done">Next: Lesson 01 &mdash; soon</span>
+    </nav>
+
+    <footer>
+      LESSON 00 &middot; WHY ELASTICSEARCH EXISTS &middot; ORIGINAL INTERACTIVE STUDY CHAPTER<br>
+      Elasticsearch 9.5 &middot; targets the 8.x&ndash;9.x Search AI Platform &middot; review, replay, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        if(map[e.target.id])map[e.target.id].classList.add('active');}});
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — SQL B-tree scan vs Inverted Index lookup */
+  makeStepper(_g('fig-scan'), [
+    {text:"A B-tree sorts titles left-to-right by first character. A prefix query like LIKE 'auth%' jumps straight to row 1 in O(log N).",
+     r1:"blue", r2:"", r3:"", r4:"", sqlSt:"blue", sqlTxt:"LIKE 'auth%' -> B-tree prefix OK",
+     t1:"", t2:"", t3:"", t4:"", p1:"", p2:"", p3:"", p4:"", esSt:"", esTxt:"inverted index ready",
+     read:"prefix query: B-tree narrows the start key cleanly"},
+    {text:"Now search anywhere inside the text: WHERE title LIKE '%timeout%'. Because of the leading wildcard, the B-tree cannot narrow a starting range.",
+     r1:"scan", r2:"scan", r3:"", r4:"", sqlSt:"scan", sqlTxt:"LIKE '%timeout%' -> no prefix!",
+     t1:"", t2:"", t3:"", t4:"", p1:"", p2:"", p3:"", p4:"", esSt:"", esTxt:"waiting for query",
+     read:"leading '%' defeats B-tree ordering -> full table scan begins"},
+    {text:"SQL must inspect every row one by one (O(N)): 1 misses, 2 matches 'timeout', 3 misses, and 4 has 'timeouts' (missed by strict 'timeout' or scanned slowly).",
+     r1:"scan", r2:"hit", r3:"scan", r4:"scan", sqlSt:"scan", sqlTxt:"scanned all N rows (O(N))",
+     t1:"", t2:"", t3:"", t4:"", p1:"", p2:"", p3:"", p4:"", esSt:"", esTxt:"meanwhile in Elasticsearch...",
+     read:"cost scales linearly with table size and row width"},
+    {text:"Elasticsearch paid its indexing cost at write time: analyzing text (lowercasing, stemming 'timeouts' -> 'timeout') and inverting words -> doc IDs.",
+     r1:"dim", r2:"dim", r3:"dim", r4:"dim", sqlSt:"dim", sqlTxt:"forward map: doc -> words",
+     t1:"blue", t2:"blue", t3:"blue", t4:"teal", p1:"blue", p2:"blue", p3:"blue", p4:"teal", esSt:"teal", esTxt:"word -> [postings list]",
+     read:"write-time work builds the sorted term dictionary"},
+    {text:"Query 'timeout' arrives. Jump directly to 'timeout' in the sorted term dictionary — rows for 'auth', 'fixed', and 'gateway' are never even read.",
+     r1:"dim", r2:"dim", r3:"dim", r4:"dim", sqlSt:"dim", sqlTxt:"skipped entirely",
+     t1:"dim", t2:"dim", t3:"dim", t4:"teal", p1:"dim", p2:"dim", p3:"dim", p4:"hit", esSt:"teal", esTxt:"lookup 'timeout' -> [2, 4]",
+     path:"sc-lookup", read:"dictionary lookup -> jump straight to postings [2, 4]"},
+    {text:"Postings list [2, 4] returns both matching documents immediately and scores them by BM25 relevance — fast at 1,000 rows or 100 million.",
+     r1:"dim", r2:"hit", r3:"dim", r4:"hit", sqlSt:"", sqlTxt:"O(N) scan vs O(postings)",
+     t1:"dim", t2:"dim", t3:"dim", t4:"hit", p1:"dim", p2:"dim", p3:"dim", p4:"hit", esSt:"hit", esTxt:"docs [2, 4] scored via BM25",
+     read:"inverted index turns full scans into dictionary + postings lookups"}
+  ], function(idx,s){
+    var mapCls=['r1','r2','r3','r4','t1','t2','t3','t4','p1','p2','p3','p4'];
+    mapCls.forEach(function(k){
+      var el=_g('sc-'+k); if(el) el.setAttribute('class','sc-box'+(s[k]?' '+s[k]:''));
+    });
+    _g('sc-sql-st').setAttribute('class','sc-box'+(s.sqlSt?' '+s.sqlSt:''));
+    _g('sc-sql-txt').textContent=s.sqlTxt;
+    _g('sc-es-st').setAttribute('class','sc-box'+(s.esSt?' '+s.esSt:''));
+    _g('sc-es-txt').textContent=s.esTxt;
+    _g('sc-read').textContent=s.read;
+  });
+
+  /* FIG 3 — System of record vs derived search engine */
+  var sorPaths=['p-pg-write','p-pg-cdc','p-cdc-es','p-es-ref','p-search','p-bad'];
+  makeStepper(_g('fig-sor'), [
+    {text:"A price change ($49 -> $39) arrives. The app writes inside a multi-row ACID transaction in PostgreSQL — durable immediately upon commit.",
+     active:["sor-app","sor-pg"], path:"p-pg-write", buf:"empty", seg:"price: $49",
+     read:"step 1: PostgreSQL commits authoritative ACID state"},
+    {text:"An outbox or CDC worker reads the committed change log reliably — avoiding fragile dual writes from the app handler.",
+     active:["sor-pg","sor-cdc"], path:"p-pg-cdc", buf:"empty", seg:"price: $49",
+     read:"step 2: outbox/CDC relays change asynchronously"},
+    {text:"CDC sends PUT /products/_doc/42. Elasticsearch accepts it atomically (stamped with _seq_no) into its in-memory indexing buffer — NOT searchable yet.",
+     active:["sor-cdc","sor-es"], path:"p-cdc-es", buf:"$39 buffered!", seg:"price: $49 (still)",
+     read:"step 3: in indexing buffer + translog, invisible to search until refresh"},
+    {text:"Periodic refresh (~1s default when searched) opens a new searchable Lucene segment. Now $39 is visible to search queries.",
+     active:["sor-es"], path:"p-es-ref", buf:"flushed to segment", seg:"price: $39 (live)",
+     read:"step 4: near-real-time refresh makes $39 searchable (~1s window)"},
+    {text:"User search traffic hits Elasticsearch directly for full-text, facets, and vectors in milliseconds while PostgreSQL stays focused on OLTP.",
+     active:["sor-app","sor-es"], path:"p-search", buf:"idle", seg:"price: $39 (live)",
+     read:"step 5: search read model shields the system of record"},
+    {text:"The trap: drop Postgres and write multi-row business state straight to ES. No multi-doc rollback + NRT refresh lag = split state under failure.",
+     active:["sor-app","sor-es"], path:"p-bad", reject:true, buf:"partial bulk failure!", seg:"stale for ~1s",
+     read:"anti-pattern: ES has single-doc atomicity only, never multi-doc ACID"}
+  ], function(idx,s){
+    sorPaths.forEach(function(id){
+      var p=_g(id); if(p) p.style.opacity=(id===s.path)?'1':'.16';
+    });
+    _g('sor-buf-txt').textContent=s.buf;
+    _g('sor-seg-txt').textContent=s.seg;
+    _g('sor-read').textContent=s.read;
+  });
+</script>
+</body>
+</html>
