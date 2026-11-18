@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 01 — The Mental Model: Cluster &rarr; Index &rarr; Shard &rarr; Segment (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --amber-wash:#F6ECD8; --green:#69B34C; --green-wash:#EAF3E4;
+    --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --teal:#2E8B8B; --teal-soft:#3FA3A3; --teal-wash:#E0EEEE; --teal-deep:#246B6B;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--teal);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--teal);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--teal-wash);color:var(--ink);}
+  .toc a.active{background:var(--teal);color:#fff;} .toc a.active .n{color:#cfe9e9;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(36px,5.2vw,56px);line-height:1.04;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-deep);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--teal);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .node-g{fill:var(--green-wash);stroke:var(--green);stroke-width:2;}
+  .node-t{fill:var(--teal-wash);stroke:var(--teal);stroke-width:2;}
+  .node-a{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2;}
+  .node-dash{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .lbl-xs{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .flow-t{stroke:var(--teal);stroke-width:2;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--teal);background:var(--teal-wash);} .callout.note .k{color:var(--teal-deep);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .tradeoff{margin:28px 0;overflow-x:auto;}
+  .tradeoff table{width:100%;border-collapse:collapse;background:var(--paper-2);font-size:15.5px;}
+  .tradeoff th,.tradeoff td{padding:12px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  .tradeoff th{background:var(--blueprint-wash);font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- worked example + narration ---- */
+  .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.e{background:#E6F1DF;color:#3f7a2e;} .pill.m{background:#FBEEDB;color:#9a6515;} .pill.h{background:var(--rust-wash);color:var(--rust);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 4px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);} pre.code .st2{color:#3f7a2e;}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  /* ---- practice ladder, self-test, sources, course-nav ---- */
+  .ladder{display:grid;gap:13px;margin:24px 0;}
+  .rung{padding:17px 19px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);}
+  .rung b{display:block;margin-bottom:5px;color:var(--rust);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .self-test-question{margin:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);}
+  .self-test-question summary{padding:14px 17px;cursor:pointer;font-weight:600;}
+  .self-test-question p{padding:0 17px 15px;margin:0;color:var(--ink-soft);font-size:16px;}
+  .sources-section ol{padding-left:22px;}
+  .sources-section li{margin-bottom:10px;}
+  .course-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:58px;padding-top:24px;border-top:1px solid var(--line-strong);}
+  .course-nav a{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;text-decoration:none;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--blueprint);}
+  .course-nav a:hover{border-color:var(--teal);background:var(--teal-wash);color:var(--teal-deep);}
+  .course-nav span.done{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--ink-soft);opacity:.55;display:block;}
+  footer{margin-top:36px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--teal);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(46,139,139,.32);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+    .worked .lc{margin-left:0;} .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;}
+    .course-nav{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2E8B8B"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Lesson contents">
+    <div class="brandmark">Elasticsearch &middot; Phase 0</div>
+    <div class="brandtitle">The Mental Model:<br>Cluster &rarr; Segment</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>Why one big file breaks</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>The five-box hierarchy &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Logical vs. physical</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Inside a shard: segments</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>The JSON document</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Driving it over REST &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Build: inspect every layer</span></a></li>
+      <li><a href="#practice"><span class="n">&#8599;</span><span>Practice ladder</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Takeaways</span></a></li>
+      <li><a href="#self-test"><span class="n">?</span><span>Self-test</span></a></li>
+      <li><a href="#sources"><span class="n">&#8599;</span><span>Primary sources</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal-deep);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">01</span><span>Concept &middot; Phase 0 &middot; Elasticsearch</span></div>
+      <h1>The Mental Model: Cluster &rarr; Index &rarr; Shard &rarr; Segment</h1>
+      <p class="lede">Lesson 00 showed why you leave SQL <code>LIKE</code> behind for an inverted index. The very next question is structural: what happens when your dataset grows beyond one disk, one CPU, or one file? Elasticsearch answers with a five-layer architecture &mdash; <strong>Cluster &rarr; Node &rarr; Index &rarr; Shard &rarr; Segment</strong> &mdash; holding JSON documents underneath and driven by a plain HTTP+JSON REST API on top. Hang this map on the wall once and every mapping rule, sizing guideline, and operational alert snaps into place.</p>
+      <div class="disclaimer">
+        <strong>Original study chapter.</strong> Written from scratch for backend, search, and platform interviews &mdash; and for running real clusters. Behavior and defaults target stable <strong>Elasticsearch 9.5</strong> (built on <strong>Apache Lucene 10</strong>, tracking the 8.x&nbsp;&rarr;&nbsp;9.x line; latest 9.5.6 maintenance patch as of late 2026); runnable code uses Python&nbsp;3 and <code>elasticsearch==9.5.1</code> alongside raw HTTP REST endpoints. Contains <strong>four original figures, two interactive</strong> (press <em>Play</em>, or step with <em>Next</em>). Deep dives on metadata/data streams, <code>_cat</code>/Bulk, segment merging, shard routing, and node roles follow in L02, L03, L05, L07, and L22&ndash;L24.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The problem first</div>
+      <h2>Why you cannot put everything in one giant index file</h2>
+      <p>Before memorizing five terms, ask what fails if you skip them. Suppose you launch a single search process backed by one monolithic Lucene index file on one server. On day one it flies. Within months, four distinct physical walls stop it cold:</p>
+      <ul>
+        <li><strong>Single-machine limits and Lucene&rsquo;s hard doc cap</strong> &mdash; one server&rsquo;s disk, RAM, and CPU saturate as traffic climbs. Underneath, a single Apache Lucene index also has a hard architectural ceiling of <code>2,147,483,519</code> documents (<code>Integer.MAX_VALUE - 128</code>, counting both live and unmerged deleted docs), and practical search and recovery latency degrades long before that (Elastic targets <strong>10&ndash;50&nbsp;GB</strong> and <strong>under 200 million documents</strong> per shard).</li>
+        <li><strong>No survival across a host failure</strong> &mdash; one machine holding the only copy means a dead SSD or a host reboot takes every search query offline.</li>
+        <li><strong>In-place mutation destroys inverted-index speed</strong> &mdash; an inverted index stores heavily compressed, sorted term dictionaries and postings lists. Rewriting one giant file in place whenever a single document changes would thrash disk I/O and stall readers.</li>
+        <li><strong>Mixed workloads collide</strong> &mdash; stuffing product catalogs, nginx logs, and audit events into one undifferentiated pool mixes schemas, retention periods, and BM25 term frequencies.</li>
+      </ul>
+      <p>Every layer of Elasticsearch&rsquo;s mental model exists specifically to remove one of those walls: <strong>segments</strong> solve in-place mutation, <strong>shards</strong> solve size limits and parallel/redundant execution, <strong>indices</strong> separate logical datasets, <strong>nodes</strong> supply physical compute and storage, and the <strong>cluster</strong> coordinates the whole fleet as one addressable engine.</p>
+
+      <div class="callout">
+        <span class="k">The misconception to drop right now</span>
+        <p>Most newcomers read &ldquo;Cluster &rarr; Node &rarr; Index &rarr; Shard&rdquo; as strict Russian nesting dolls &mdash; assuming a Node contains Indices, which contain Shards. <strong>That picture is wrong.</strong> An <strong>Index is a logical namespace, not a box inside one node.</strong> Physically, a cluster contains <strong>Nodes</strong>, and an index&rsquo;s <strong>Shards</strong> are spread across multiple nodes. One node commonly hosts shards from many different indices, and one index commonly spans many nodes.</p>
+      </div>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> The five-box map</div>
+      <h2>Cluster &rarr; Node &rarr; Index &rarr; Shard &rarr; Segment &#9656;</h2>
+      <p>Keep the distinction between <em>logical organization</em> and <em>physical placement</em> sharp as you walk the five layers from top to bottom:</p>
+      <ul>
+        <li><strong>Cluster</strong> &mdash; one or more connected nodes sharing a cluster name and synchronized cluster metadata. Exposes one federated API across all data and coordinates failover automatically.</li>
+        <li><strong>Node</strong> &mdash; a single running Elasticsearch JVM instance (one server or container). Stores assigned shards on disk, serves queries against them, and can act as a <strong>coordinating node</strong> to route incoming requests across the cluster.</li>
+        <li><strong>Index</strong> &mdash; a <em>logical</em> collection of JSON documents sharing a schema (<strong>mapping</strong>) and configuration (<strong>settings</strong>). Think of it as the address your application targets by name or alias.</li>
+        <li><strong>Shard</strong> &mdash; a physical horizontal partition of an index. Under the hood, every shard is a <strong>complete, self-contained Apache Lucene index</strong>. Every document hashes into one <strong>primary shard</strong>; <strong>replica shards</strong> are exact copies placed on <em>different</em> nodes for high availability and read throughput.</li>
+        <li><strong>Segment</strong> &mdash; an <strong>immutable</strong> mini-inverted index living inside a shard. Writes accumulate into new segments instead of mutating old ones, and background merges combine small segments into larger ones.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-hierarchy">
+          <svg viewBox="0 0 680 412" role="img" aria-label="Interactive five-layer Elasticsearch hierarchy: a cluster contains three physical nodes, a logical index called orders with 2 primary shards and 1 replica spans across nodes via primary shards P0 and P1 and replicas R0 and R1, and shard P0 opens into immutable Lucene segments holding JSON documents">
+            <!-- Cluster frame -->
+            <g class="st" id="hm-cluster-frame">
+              <rect class="node" x="14" y="14" width="652" height="352" rx="12"/>
+              <text class="lbl" x="28" y="36">CLUSTER &middot; "prod-search" (one federated search &amp; indexing engine)</text>
+            </g>
+
+            <!-- Logical Index banner + logical routing lines -->
+            <g class="st" id="hm-index">
+              <rect class="node-t" x="28" y="50" width="624" height="54" rx="9"/>
+              <text class="lbl" x="44" y="73">LOGICAL INDEX: orders</text>
+              <text class="lbl-sm" x="44" y="92">mapping: field schema &middot; settings: 2 primaries, 1 replica (4 shards total)</text>
+              <path d="M185 104 V 164" class="flow-t" marker-end="url(#arrow-t)"/>
+              <path d="M385 104 V 164" class="flow-t" marker-end="url(#arrow-t)"/>
+              <path d="M446 104 V 290 H 429" class="flow-d" marker-end="url(#arrow-s)"/>
+              <path d="M612 104 V 164" class="flow-d" marker-end="url(#arrow-s)"/>
+            </g>
+
+            <!-- Three physical nodes -->
+            <g class="st" id="hm-nodes-frame">
+              <rect class="node" x="28" y="128" width="198" height="224" rx="9"/>
+              <text class="lbl" x="40" y="150">NODE 1 (JVM)</text>
+
+              <rect class="node" x="241" y="128" width="198" height="224" rx="9"/>
+              <text class="lbl" x="253" y="150">NODE 2 (JVM)</text>
+
+              <rect class="node" x="454" y="128" width="198" height="224" rx="9"/>
+              <text class="lbl" x="466" y="150">NODE 3 (JVM)</text>
+            </g>
+
+            <!-- Primary shards -->
+            <g class="st" id="hm-primaries">
+              <rect class="node-b" x="40" y="166" width="174" height="174" rx="8"/>
+              <text class="lbl" x="127" y="186" text-anchor="middle">Primary Shard P0</text>
+              <text class="lbl-xs" x="127" y="201" text-anchor="middle">Lucene index (writes here)</text>
+
+              <rect class="node-b" x="253" y="166" width="174" height="74" rx="8"/>
+              <text class="lbl" x="340" y="196" text-anchor="middle">Primary Shard P1</text>
+              <text class="lbl-sm" x="340" y="217" text-anchor="middle">Lucene index</text>
+            </g>
+
+            <!-- Replica shards -->
+            <g class="st" id="hm-replicas">
+              <rect class="node-v" x="253" y="254" width="174" height="74" rx="8"/>
+              <text class="lbl" x="340" y="284" text-anchor="middle">Replica Shard R0</text>
+              <text class="lbl-sm" x="340" y="305" text-anchor="middle">copy of P0 (off Node 1)</text>
+
+              <rect class="node-v" x="466" y="166" width="174" height="74" rx="8"/>
+              <text class="lbl" x="553" y="196" text-anchor="middle">Replica Shard R1</text>
+              <text class="lbl-sm" x="553" y="217" text-anchor="middle">copy of P1 (off Node 2)</text>
+
+              <rect class="node-dash" x="466" y="254" width="174" height="74" rx="8"/>
+              <text class="lbl-sm" x="553" y="287" text-anchor="middle">headroom / other</text>
+              <text class="lbl-xs" x="553" y="305" text-anchor="middle">indices' shards</text>
+            </g>
+
+            <!-- Segments inside P0 -->
+            <g class="st" id="hm-segments">
+              <rect class="node-g" x="50" y="212" width="74" height="52" rx="6"/>
+              <text class="lbl-sm" x="87" y="234" text-anchor="middle" fill="#20201D">seg_0</text>
+              <text class="lbl-xs" x="87" y="250" text-anchor="middle">immutable</text>
+
+              <rect class="node-g" x="130" y="212" width="74" height="52" rx="6"/>
+              <text class="lbl-sm" x="167" y="234" text-anchor="middle" fill="#20201D">seg_1</text>
+              <text class="lbl-xs" x="167" y="250" text-anchor="middle">immutable</text>
+            </g>
+
+            <!-- JSON Document inside seg_0 -->
+            <g class="st" id="hm-doc">
+              <rect class="node-r" x="50" y="274" width="154" height="56" rx="6"/>
+              <text class="lbl-sm" x="127" y="297" text-anchor="middle" fill="#B0532F">JSON Document</text>
+              <text class="lbl-xs" x="127" y="315" text-anchor="middle">{"_id":"9","sku":"A1"}</text>
+            </g>
+
+            <text id="hm-read" class="readout" x="340" y="394" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: an Index is a logical grouping spanning physical Nodes through Primary and Replica Shards, each made of immutable Segments.</figcaption>
+      </figure>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Logical vs. physical</div>
+      <h2>Index vs. Node, Primary vs. Replica, and why types are gone</h2>
+      <p>The fastest way to avoid rookie cluster mistakes is to separate what your application names from how Elasticsearch places bytes on hardware. If you come from PostgreSQL or MySQL, an analogy helps for the first thirty seconds &mdash; and then immediately breaks in four places that interviewers love to test.</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr>
+              <th>SQL / RDBMS concept</th>
+              <th>Closest Elasticsearch match</th>
+              <th>Where the analogy breaks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Cluster / Instance</td>
+              <td><strong>Cluster</strong></td>
+              <td>Many nodes cooperate as one peer-to-peer distributed engine, not one primary server plus read-only followers for the whole database.</td>
+            </tr>
+            <tr>
+              <td>Table</td>
+              <td><strong>Index</strong></td>
+              <td>An index is a <em>logical</em> namespace spread across nodes via shards &mdash; and unlike older ES versions, an index is <strong>not</strong> a database holding multiple &ldquo;table types.&rdquo;</td>
+            </tr>
+            <tr>
+              <td>Row</td>
+              <td><strong>JSON Document</strong></td>
+              <td>Documents can hold nested objects and arrays directly; there are no multi-table foreign-key ACID joins at query time.</td>
+            </tr>
+            <tr>
+              <td>Column</td>
+              <td><strong>Field</strong></td>
+              <td>A single text field commonly maintains multiple physical structures at once (inverted index, doc values, optionally vectors).</td>
+            </tr>
+            <tr>
+              <td>Schema</td>
+              <td><strong>Mapping</strong></td>
+              <td>Mappings can grow dynamically on new fields, but changing an existing field&rsquo;s type requires building a new index and reindexing.</td>
+            </tr>
+            <tr>
+              <td>Partition / Table file</td>
+              <td><strong>Shard (Lucene index)</strong></td>
+              <td>Each shard is an entire independent search engine with its own inverted index, cache, segments, and hard ~2.14B document limit.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Mapping types are history (removed in 8.0.0)</h3>
+      <p>Older blog posts and outdated interview answers compare an Elasticsearch <em>index</em> to a SQL <em>database</em> and a <em>mapping type</em> (like <code>users</code> or <code>orders</code>) to a SQL <em>table</em>. That design caused severe Lucene conflicts because two different types in the same index had to share identical underlying Lucene field definitions when field names collided. Elastic deprecated multi-type indices in 6.0, deprecated types further in 7.0, and <strong>completely removed mapping types in Elasticsearch 8.0.0</strong>. Today, one index holds one logical entity shape, and <code>_doc</code> in URLs like <code>/orders/_doc/42</code> is simply the fixed typeless endpoint path.</p>
+
+      <h3>Primary vs. Replica defaults &mdash; and the &ldquo;yellow laptop&rdquo; puzzle</h3>
+      <p>Every regular index carries two core shard settings:</p>
+      <ul>
+        <li><code>index.number_of_shards</code> (defaults to <strong><code>1</code></strong> since 7.0; previously 5) &mdash; sets the count of <strong>primary shards</strong>. Every document routes to exactly one primary shard, and this setting is <strong>static at index creation</strong> (capped at <code>1024</code> shards per index by default). Changing primary shard count later requires reindexing into a new index (or using the Shrink/Split APIs under strict prerequisites; see L22).</li>
+        <li><code>index.number_of_replicas</code> (defaults to <strong><code>1</code></strong>) &mdash; sets how many <strong>replica copies</strong> exist for <em>each</em> primary shard. This setting is <strong>dynamic</strong> and can be scaled up or down live via <code>PUT /&lt;index&gt;/_settings</code>.</li>
+      </ul>
+      <p>Crucially, Elasticsearch obeys one strict placement invariant: <strong>a replica shard is never allocated on the same node as its own primary shard</strong>. Putting primary and copy on the same machine wastes disk and protects against zero host failures. That single rule explains why a fresh single-node cluster immediately turns <strong>yellow</strong> as soon as you index your first document with default settings:</p>
+
+      <div class="vs three">
+        <div class="col">
+          <h4 style="color:#3f7a2e">Green</h4>
+          <ul>
+            <li>Every primary <em>and</em> every replica shard is allocated and active.</li>
+            <li>Requires at least <code>1 + number_of_replicas</code> data nodes for full redundancy.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4 style="color:#9a6515">Yellow</h4>
+          <ul>
+            <li>All primary shards are active (reads and writes work), but at least one replica is unassigned.</li>
+            <li>Classic cause: 1-node dev cluster with default <code>number_of_replicas: 1</code>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4 style="color:var(--rust)">Red</h4>
+          <ul>
+            <li>At least one primary shard is unassigned.</li>
+            <li>Part of the index is unavailable; searches return partial or error results depending on config.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p>&ldquo;Suppose I create an index with <code>number_of_shards: 3</code> and <code>number_of_replicas: 2</code>. How many shards exist in total, and how many nodes do I need for <code>green</code> health?&rdquo; Answer cleanly: <code>3</code> primaries + <code>3 &times; 2 = 6</code> replicas = <strong>9 shard copies total</strong>. Because a primary and its two replicas must sit on three distinct hosts, you need at least <strong>3 data nodes</strong> for <code>green</code> cluster health.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Inside a shard</div>
+      <h2>Segments: why Lucene never mutates an index file in place</h2>
+      <p>Zoom all the way into one shard on disk. You do not find one monolithic file; you find an Apache Lucene index built out of <strong>immutable segments</strong> plus a <strong>commit point</strong> listing which segments currently belong to the shard. Each segment is itself a mini search engine containing its own term dictionary, postings lists, columnar doc values, and (when configured) HNSW vector graphs.</p>
+      <p>Why keep segments strictly read-only once written? Because immutability buys three things mutable B-tree pages struggle to deliver simultaneously:</p>
+      <ul>
+        <li><strong>Lock-free concurrent reads</strong> &mdash; search threads read finished segment files simultaneously with zero file locks or write-coordination stalls.</li>
+        <li><strong>OS filesystem page cache stays hot</strong> &mdash; because an immutable segment file never changes bytes, the operating system caches it in free RAM aggressively without invalidating cached pages on every write.</li>
+        <li><strong>Sequential I/O on write</strong> &mdash; new writes enter an in-memory buffer (backed by a transaction log for durability) and periodically open a fresh segment during a lightweight <strong>refresh</strong> (by default every <strong>1 second</strong> on indices actively receiving searches).</li>
+      </ul>
+      <p>If segments never change, how do <code>UPDATE</code> and <code>DELETE</code> work? When you delete or overwrite a document, Lucene sets a bit in a lightweight <strong>live-documents bitmap</strong> (<code>.liv</code>) marking the old document ID as deleted, and appends the updated version into a new segment. Queries filter out masked IDs automatically. Later, a background <strong>merge process</strong> picks compatible small segments, writes a consolidated segment containing only live documents, switches the commit point atomically, and deletes the obsolete segment files &mdash; keeping file descriptors and per-segment overhead bounded (detailed in L05 and L07).</p>
+
+      <figure>
+        <div class="blueprint" id="fig-segments">
+          <svg viewBox="0 0 680 286" role="img" aria-label="Static schematic inside one Lucene shard showing three immutable segments — seg_0 with 498 live and 2 deleted tombstone docs, seg_1 with 310 live docs, and seg_2 newly opened by a 1-second refresh — serving lock-free concurrent searches while background segment merging compacts seg_0 and seg_1 into seg_3 and reclaims deleted docs">
+            <rect class="node" x="18" y="18" width="644" height="250" rx="11"/>
+            <text class="lbl" x="34" y="42">ONE SHARD = APACHE LUCENE INDEX (commit point tracks active segments)</text>
+
+            <!-- Left: Segments -->
+            <rect class="node-b" x="36" y="62" width="246" height="54" rx="8"/>
+            <text class="lbl" x="50" y="85">Segment _0 (immutable)</text>
+            <text class="lbl-sm" x="50" y="104">498 live docs &middot; 2 tombstones (.liv)</text>
+
+            <rect class="node-b" x="36" y="128" width="246" height="54" rx="8"/>
+            <text class="lbl" x="50" y="151">Segment _1 (immutable)</text>
+            <text class="lbl-sm" x="50" y="170">310 live docs &middot; zero locks</text>
+
+            <rect class="node-t" x="36" y="194" width="246" height="54" rx="8"/>
+            <text class="lbl" x="50" y="217">Segment _2 (new refresh)</text>
+            <text class="lbl-sm" x="50" y="236">18 new docs &middot; searchable in ~1s</text>
+
+            <!-- Arrows -->
+            <path d="M282 88 H 352" class="flow" marker-end="url(#arrow)"/>
+            <path d="M282 155 C 316 155, 320 112, 352 104" class="flow-d" marker-end="url(#arrow-s)"/>
+            <path d="M282 220 C 316 220, 320 124, 352 114" class="flow-d" marker-end="url(#arrow-s)"/>
+
+            <path d="M282 104 C 314 114, 318 192, 352 204" class="flow-g" marker-end="url(#arrow-g)"/>
+            <path d="M282 164 C 314 170, 318 214, 352 220" class="flow-g" marker-end="url(#arrow-g)"/>
+
+            <!-- Right top: Reads -->
+            <rect class="node" x="354" y="62" width="290" height="84" rx="9"/>
+            <text class="lbl" x="370" y="87">Concurrent Search Reads</text>
+            <text class="lbl-sm" x="370" y="108">Scans all segments in parallel;</text>
+            <text class="lbl-sm" x="370" y="126">skips deleted IDs via live bitmap</text>
+
+            <!-- Right bottom: Merge -->
+            <rect class="node-g" x="354" y="164" width="290" height="84" rx="9"/>
+            <text class="lbl" x="370" y="189">Background Segment Merge</text>
+            <text class="lbl-sm" x="370" y="210">Compacts _0 + _1 &rarr; Segment _3</text>
+            <text class="lbl-sm" x="370" y="228">808 live docs &middot; 2 deletes purged</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 &mdash; immutability gives lock-free reads and warm OS page cache; deletes wait in a live-docs bitmap until background merge reclaims them.</figcaption>
+      </figure>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> At the bottom</div>
+      <h2>The JSON document: your data plus its routing envelope</h2>
+      <p>Follow the hierarchy down past segments and you reach the atomic unit of storage: a <strong>JSON document</strong>. Unlike rigid relational tuples, documents naturally carry nested objects and arrays (<code>tags</code>, <code>metadata</code>, <code>embeddings</code>). Whenever you index or fetch one, Elasticsearch pairs the JSON body you sent inside <code>_source</code> with system-managed metadata fields prefixed by an underscore.</p>
+      <p>Two of those metadata fields matter on day one because they connect directly back to the cluster map above: <code>_index</code> names the logical index holding the document, and <code>_id</code> uniquely identifies it within that index and serves as the default input to the hash function that picks its primary shard (<code>_version</code>, <code>_seq_no</code>, and <code>_primary_term</code> track single-document write ordering, explored in L02).</p>
+
+      <figure>
+        <div class="blueprint" id="fig-doc-envelope">
+          <svg viewBox="0 0 680 240" role="img" aria-label="Static anatomy of an Elasticsearch JSON document showing the system metadata envelope (_index, _id, _version, _seq_no, _primary_term) wrapping the original JSON payload inside _source, and what each field connects to in the cluster hierarchy">
+            <rect class="node" x="18" y="18" width="330" height="204" rx="10"/>
+            <text class="lbl" x="34" y="42">STORED DOCUMENT ENVELOPE</text>
+
+            <rect class="node-b" x="32" y="56" width="302" height="72" rx="8"/>
+            <text class="lbl-sm" x="46" y="77" fill="#1F4E79">SYSTEM METADATA</text>
+            <text class="lbl-xs" x="46" y="96">"_index": "catalog",  "_id": "kb-75",</text>
+            <text class="lbl-xs" x="46" y="113">"_version": 1, "_seq_no": 0, "_primary_term": 1</text>
+
+            <rect class="node-t" x="32" y="138" width="302" height="70" rx="8"/>
+            <text class="lbl-sm" x="46" y="159" fill="#246B6B">_source (YOUR JSON PAYLOAD)</text>
+            <text class="lbl-xs" x="46" y="178">{"sku": "KB-75", "title": "Compact 75%",</text>
+            <text class="lbl-xs" x="46" y="195"> "price": 129.0, "tags": ["mech","usb"]}</text>
+
+            <path d="M334 92 H 374" class="flow" marker-end="url(#arrow)"/>
+            <path d="M334 173 H 374" class="flow-t" marker-end="url(#arrow-t)"/>
+
+            <rect class="node" x="376" y="18" width="286" height="204" rx="10"/>
+            <text class="lbl" x="392" y="42">ROLE ON THE CLUSTER MAP</text>
+            <text class="lbl-sm" x="392" y="72" fill="#20201D">_index</text>
+            <text class="lbl-xs" x="454" y="72">logical namespace &amp; mapping</text>
+            <text class="lbl-sm" x="392" y="98" fill="#20201D">_id</text>
+            <text class="lbl-xs" x="454" y="98">hashes to 1 primary shard</text>
+            <text class="lbl-sm" x="392" y="124" fill="#20201D">_seq_no</text>
+            <text class="lbl-xs" x="454" y="124">single-doc OCC write order</text>
+            <line x1="392" y1="142" x2="644" y2="142" class="flow-d"/>
+            <text class="lbl-sm" x="392" y="168" fill="#246B6B">_source</text>
+            <text class="lbl-xs" x="454" y="168">returned verbatim on search</text>
+            <text class="lbl-xs" x="392" y="189">(or reconstructed from doc values in</text>
+            <text class="lbl-xs" x="392" y="205">synthetic _source modes like logsdb)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 &mdash; every document pairs system routing/concurrency metadata with your JSON payload in <code>_source</code>.</figcaption>
+      </figure>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Regular Index (mutable entities)</h4>
+          <ul>
+            <li>Target directly when documents need updates or deletes by <code>_id</code> (product catalogs, user profiles, knowledge chunks).</li>
+            <li>One logical index backed by its fixed count of primary shards and dynamic replicas.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Data Stream (append-only telemetry)</h4>
+          <ul>
+            <li>Target for timestamped logs, metrics, and traces &mdash; covered deeply in L02 and L36.</li>
+            <li>One logical stream name automatically rolls over across hidden backing indices as time or shard size grows.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Driving the map</div>
+      <h2>The HTTP + JSON REST API (and the coordinating node) &#9656;</h2>
+      <p>Every layer you just drew has a direct HTTP+JSON address exposed on port <strong><code>9200</code></strong> (while nodes exchange cluster state, shard replication, and internal query traffic privately over a binary protocol on port <strong><code>9300</code></strong>). Notice how cleanly the URL paths echo the hierarchy: cluster endpoints start with <code>/_cluster</code> or <code>/_cat</code>, index operations target <code>/&lt;index&gt;</code>, and document/search calls sit at <code>/&lt;index&gt;/_doc</code> and <code>/&lt;index&gt;/_search</code>.</p>
+      <p>Even better, <strong>every node is cluster-aware</strong>. Your client or load balancer can send an HTTP request to <em>any</em> node; that receiving node becomes the <strong>coordinating node</strong> for the request, looks up shard placement in its local cluster state, forwards writes or scatters searches to the actual shard owners over port <code>9300</code>, and returns one combined JSON answer.</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Typical HTTP + JSON endpoint</th>
+              <th>What you inspect or control</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cluster</strong></td>
+              <td><code>GET /</code> &middot; <code>GET /_cluster/health</code></td>
+              <td>Version &amp; cluster name; <code>green</code>/<code>yellow</code>/<code>red</code> status, node count, active vs. unassigned shards.</td>
+            </tr>
+            <tr>
+              <td><strong>Node</strong></td>
+              <td><code>GET /_cat/nodes?v</code> &middot; <code>GET /_nodes/stats</code></td>
+              <td>Human-readable node roles/heap/CPU (<code>_cat</code>), or JSON telemetry per node.</td>
+            </tr>
+            <tr>
+              <td><strong>Index</strong></td>
+              <td><code>PUT /catalog</code> &middot; <code>PUT /catalog/_settings</code></td>
+              <td>Create index with static <code>number_of_shards</code> + mappings; dynamically resize <code>number_of_replicas</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Shard &amp; Segment</strong></td>
+              <td><code>GET /_cat/shards/catalog?v</code> &middot; <code>GET /catalog/_segments</code></td>
+              <td>Which node holds each primary/replica copy; live Lucene segments, doc counts, and deletions.</td>
+            </tr>
+            <tr>
+              <td><strong>Document &amp; Search</strong></td>
+              <td><code>POST /catalog/_doc</code> &middot; <code>GET /catalog/_search</code></td>
+              <td>Index or fetch a JSON document (L02); scatter-gather search across one copy of every shard (L13, L22).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-rest">
+          <svg viewBox="0 0 680 356" role="img" aria-label="Interactive HTTP REST request routing: a client calls port 9200 on Node 1 as coordinating node, which checks cluster health, allocates 2 primaries and 1 replica across 3 nodes, routes document writes over port 9300 to primary P1 on Node 2 and replica R1 on Node 3, and scatters searches across one copy of every shard before merging JSON back">
+            <g class="st" id="rs-client">
+              <rect class="node" x="18" y="114" width="146" height="106" rx="9"/>
+              <text class="lbl" x="91" y="148" text-anchor="middle">Client</text>
+              <text class="lbl-sm" x="91" y="170" text-anchor="middle">curl / Python 9.x</text>
+              <text class="lbl-xs" x="91" y="192" text-anchor="middle">HTTP + JSON (:9200)</text>
+            </g>
+
+            <g class="st" id="rs-n1">
+              <rect class="node-t" x="234" y="96" width="174" height="142" rx="10"/>
+              <text class="lbl" x="321" y="122" text-anchor="middle">Node 1</text>
+              <text class="lbl-sm" x="321" y="142" text-anchor="middle">Coordinating Node</text>
+              <rect class="node-b" x="252" y="158" width="138" height="40" rx="6"/>
+              <text class="lbl-sm" x="321" y="182" text-anchor="middle" fill="#1F4E79">Shard P0 (Primary)</text>
+              <text id="rs-n1-note" class="lbl-xs" x="321" y="220" text-anchor="middle">receives :9200 HTTP</text>
+            </g>
+
+            <g class="st" id="rs-n2">
+              <rect class="node" x="476" y="26" width="184" height="122" rx="10"/>
+              <text class="lbl" x="568" y="50" text-anchor="middle">Node 2 (Data)</text>
+              <rect class="node-b" x="492" y="64" width="152" height="34" rx="6"/>
+              <text class="lbl-sm" x="568" y="85" text-anchor="middle" fill="#1F4E79">P1 (Primary)</text>
+              <rect class="node-v" x="492" y="104" width="152" height="32" rx="6"/>
+              <text class="lbl-sm" x="568" y="124" text-anchor="middle" fill="#6E59A5">R0 (Replica of P0)</text>
+            </g>
+
+            <g class="st" id="rs-n3">
+              <rect class="node" x="476" y="186" width="184" height="114" rx="10"/>
+              <text class="lbl" x="568" y="210" text-anchor="middle">Node 3 (Data)</text>
+              <rect class="node-v" x="492" y="224" width="152" height="36" rx="6"/>
+              <text class="lbl-sm" x="568" y="246" text-anchor="middle" fill="#6E59A5">R1 (Replica of P1)</text>
+              <text id="rs-n3-note" class="lbl-xs" x="568" y="282" text-anchor="middle">serves reads + failover</text>
+            </g>
+
+            <!-- Paths -->
+            <path id="rp-http" class="flow-t" style="opacity:.16" d="M164 150 H 232" marker-end="url(#arrow-t)"/>
+            <path id="rp-resp" class="flow" style="opacity:.16" d="M234 186 H 166" marker-end="url(#arrow)"/>
+            <path id="rp-fwd" class="flow" style="opacity:.16" d="M408 134 C 440 120, 452 96, 474 86" marker-end="url(#arrow)"/>
+            <path id="rp-rep" class="flow-g" style="opacity:.16" d="M568 148 V 184" marker-end="url(#arrow-g)"/>
+            <path id="rp-n3" class="flow-t" style="opacity:.16" d="M408 196 C 440 212, 452 228, 474 238" marker-end="url(#arrow-t)"/>
+
+            <text class="lbl-xs" x="199" y="138" text-anchor="middle">:9200</text>
+            <text class="lbl-xs" x="442" y="90" text-anchor="middle">:9300</text>
+            <text class="lbl-xs" x="596" y="170" text-anchor="middle">:9300</text>
+
+            <text id="rs-read" class="readout" x="340" y="336" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 4 &mdash; interactive: clients speak HTTP+JSON to any coordinating node on <code>:9200</code>; nodes forward shard writes and scatter-gather reads internally on <code>:9300</code>.</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="k">Security note on 8.x &amp; 9.x clusters</span>
+        <p>Since Elasticsearch 8.0, security (TLS on both <code>9200</code> HTTPS and <code>9300</code> transport, plus built-in authentication / API keys) is enabled automatically on newly bootstrapped clusters. Local single-node Docker tutorials often disable TLS or pass an auto-generated password/CA cert; in production, never leave port <code>9200</code> unauthenticated.</p>
+      </div>
+    </section>
+
+    <!-- 06 WORKED -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Worked example</div>
+      <h2>Seeing Cluster &rarr; Index &rarr; Shard &rarr; Segment in real responses</h2>
+      <p>Put the whole map against a real cluster. Below are the HTTP requests you can run in Kibana Dev Tools or <code>curl</code>, followed by a Python script using the official <code>elasticsearch==9.5.1</code> client targeting <strong>Elasticsearch 9.5</strong>. It creates a 2-primary, 1-replica index, indexes a JSON document, inspects cluster health (catching why a 1-node local box reports <code>yellow</code>!), and opens <code>/_segments</code> to inspect the underlying Lucene 10 segments.</p>
+
+      <div class="worked">
+        <div class="whead">
+          <span class="wk">Worked walkthrough</span>
+          <span class="pill e">Concept check</span>
+          <span class="lc">Elasticsearch 9.5 &middot; elasticsearch==9.5.1</span>
+        </div>
+        <div class="wbody">
+          <div class="wname">Inspecting all five layers via REST and Python</div>
+          <p class="wprompt">Create an index named <strong>catalog-map</strong> with <strong>2 primary shards</strong> and <strong>1 replica per primary</strong> (4 shards total). Index one JSON document with <code>refresh="wait_for"</code>, then inspect <code>_cluster/health</code> and <code>_segments</code> to see the node IDs, primary/replica flags, and immutable Lucene segment counts.</p>
+
+          <h4 class="wh">1 &middot; The HTTP + JSON REST calls</h4>
+          <p class="codetag">http / kibana dev tools &middot; port 9200</p>
+          <pre class="code"><code><span class="kw">PUT</span> /catalog-map
+{
+  <span class="st2">"settings"</span>: {
+    <span class="st2">"number_of_shards"</span>: <span class="lit">2</span>,
+    <span class="st2">"number_of_replicas"</span>: <span class="lit">1</span>
+  },
+  <span class="st2">"mappings"</span>: {
+    <span class="st2">"properties"</span>: {
+      <span class="st2">"sku"</span>: { <span class="st2">"type"</span>: <span class="st2">"keyword"</span> },
+      <span class="st2">"title"</span>: { <span class="st2">"type"</span>: <span class="st2">"text"</span> }
+    }
+  }
+}
+
+<span class="kw">POST</span> /catalog-map/_doc/kb-75?refresh=wait_for
+{ <span class="st2">"sku"</span>: <span class="st2">"KB-75"</span>, <span class="st2">"title"</span>: <span class="st2">"Compact mechanical keyboard"</span> }
+
+<span class="kw">GET</span> /_cluster/health/catalog-map
+<span class="kw">GET</span> /catalog-map/_segments</code></pre>
+
+          <h4 class="wh">2 &middot; Equivalent Python script</h4>
+          <p class="codetag">python 3 &middot; pip install elasticsearch==9.5.1 &middot; local dev node on http://localhost:9200</p>
+          <pre class="code"><code><span class="kw">import</span> uuid
+<span class="kw">from</span> elasticsearch <span class="kw">import</span> Elasticsearch
+
+client = Elasticsearch(<span class="st2">"http://localhost:9200"</span>)
+INDEX = <span class="st2">f"lab-map-{uuid.uuid4().hex[:8]}"</span>
+
+<span class="kw">try</span>:
+    <span class="cm"># 1. Logical index: 2 primary shards (fixed) x 1 replica each (dynamic)</span>
+    client.indices.create(
+        index=INDEX,
+        settings={<span class="st2">"number_of_shards"</span>: <span class="lit">2</span>, <span class="st2">"number_of_replicas"</span>: <span class="lit">1</span>},
+        mappings={<span class="st2">"properties"</span>: {<span class="st2">"sku"</span>: {<span class="st2">"type"</span>: <span class="st2">"keyword"</span>}, <span class="st2">"title"</span>: {<span class="st2">"type"</span>: <span class="st2">"text"</span>}}},
+    )
+
+    <span class="cm"># 2. Index one JSON document; wait for the NRT refresh to open a Lucene segment</span>
+    res = client.index(
+        index=INDEX,
+        id=<span class="st2">"kb-75"</span>,
+        document={<span class="st2">"sku"</span>: <span class="st2">"KB-75"</span>, <span class="st2">"title"</span>: <span class="st2">"Compact mechanical keyboard"</span>},
+        refresh=<span class="st2">"wait_for"</span>,
+    )
+    <span class="cm"># The response names the shard metadata stamps created by the primary shard</span>
+    <span class="kw">assert</span> res[<span class="st2">"_index"</span>] == INDEX <span class="kw">and</span> res[<span class="st2">"_id"</span>] == <span class="st2">"kb-75"</span>
+
+    <span class="cm"># 3. Cluster + shard placement check</span>
+    health = client.cluster.health(index=INDEX)
+    <span class="cm"># On 1 node: active_primary_shards=2, unassigned_shards=2 -&gt; status="yellow"</span>
+    <span class="cm"># On 2+ nodes: active_shards=4, unassigned_shards=0       -&gt; status="green"</span>
+    expected = <span class="st2">"yellow"</span> <span class="kw">if</span> health[<span class="st2">"number_of_data_nodes"</span>] == <span class="lit">1</span> <span class="kw">else</span> <span class="st2">"green"</span>
+    <span class="kw">assert</span> health[<span class="st2">"status"</span>] == expected
+
+    <span class="cm"># 4. Drill into shards -&gt; Lucene segments inside the index</span>
+    seg_resp = client.indices.segments(index=INDEX)
+    shards_map = seg_resp[<span class="st2">"indices"</span>][INDEX][<span class="st2">"shards"</span>]
+    <span class="kw">assert</span> set(shards_map.keys()) == {<span class="st2">"0"</span>, <span class="st2">"1"</span>}
+
+    summary = []
+    <span class="kw">for</span> shard_id, copies <span class="kw">in</span> sorted(shards_map.items()):
+        <span class="kw">for</span> copy <span class="kw">in</span> copies:
+            segs = copy[<span class="st2">"segments"</span>]
+            summary.append({
+                <span class="st2">"shard"</span>: shard_id,
+                <span class="st2">"primary"</span>: copy[<span class="st2">"routing"</span>][<span class="st2">"primary"</span>],
+                <span class="st2">"node"</span>: copy[<span class="st2">"routing"</span>][<span class="st2">"node"</span>],
+                <span class="st2">"search_segments"</span>: copy[<span class="st2">"num_search_segments"</span>],
+                <span class="st2">"lucene_versions"</span>: sorted({s[<span class="st2">"version"</span>] <span class="kw">for</span> s <span class="kw">in</span> segs.values()}),
+            })
+    print({<span class="st2">"health"</span>: health[<span class="st2">"status"</span>], <span class="st2">"nodes"</span>: health[<span class="st2">"number_of_nodes"</span>], <span class="st2">"shards"</span>: summary})
+<span class="kw">finally</span>:
+    client.indices.delete(index=INDEX, ignore_unavailable=<span class="lit">True</span>)</code></pre>
+
+          <div class="say">
+            <span class="k">Explain it aloud in an interview</span>
+            <p>&ldquo;When a client sends <code>POST /catalog-map/_doc/kb-75</code> over HTTP port <code>9200</code>, any node can accept it as the coordinating node. From the logical index name, it hashes <code>_id</code> to pick one of the index&rsquo;s fixed primary shards &mdash; say shard <code>1</code> &mdash; and forwards the write over internal port <code>9300</code> to whichever data node hosts primary <code>1</code>. That primary shard is an Apache Lucene index: it buffers the document, replicates it to its replica copy on another node, and opens a fresh immutable segment on the next 1-second refresh. Later reads can hit either the primary or replica shard.&rdquo;</p>
+            <p class="plain">Follow-ups to expect: why <code>_segments</code> shows only one shard having <code>1</code> doc and the other having <code>0</code> (each document belongs to one primary shard), why <code>number_of_shards</code> is static while <code>number_of_replicas</code> is dynamic (changing primary count changes the shard routing hash space), and how L03 inspects this quickly via <code>GET /_cat/shards?v</code>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="practice">
+      <div class="steptag"><b>&#8599;</b> Practice</div>
+      <h2>Configure &rarr; Diagnose &rarr; Design</h2>
+      <div class="ladder">
+        <div class="rung"><b>Configure</b>You spin up a 2-node cluster and create an index <code>events-demo</code> with <code>number_of_shards: 3</code> and <code>number_of_replicas: 1</code>. Calculate total shard copies (<code>6</code>), explain why <code>GET /_cluster/health/events-demo</code> reports <code>green</code>, and predict what happens to <code>status</code> and <code>unassigned_shards</code> if you dynamically set <code>number_of_replicas: 2</code> without adding a third node.</div>
+        <div class="rung"><b>Diagnose</b>A teammate boots a single-node Elasticsearch container locally, creates an index with default settings, indexes a test document, and sees <code>status: "yellow"</code> in <code>/_cluster/health</code>. Explain why no data is lost or corrupted, name the exact placement invariant causing the unassigned shard, and name the two ways to turn it green (add a second data node, or set <code>number_of_replicas: 0</code> in local dev).</div>
+        <div class="rung"><b>Design</b>Review a junior engineer&rsquo;s migration plan from MySQL: (a) create one index named <code>store</code> with two mapping types, <code>users</code> and <code>orders</code>, to keep one &ldquo;database&rdquo;; and (b) set <code>number_of_shards: 50</code> on a 4&nbsp;GB dataset &ldquo;so we never outgrow it.&rdquo; Identify both structural mistakes against Elasticsearch 9.x and state the clean layout instead.</div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Seven takeaways</h2>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>Logical vs. physical</b><span>An <em>index</em> is a logical namespace; physically, <em>nodes</em> hold <em>shards</em> spread across the cluster.</span></div>
+        <div class="tk"><span class="num">02</span><b>A shard is Lucene</b><span>Each shard is a self-contained Lucene index capped at <code>2,147,483,519</code> docs (target 10&ndash;50&nbsp;GB).</span></div>
+        <div class="tk"><span class="num">03</span><b>Primaries fixed, replicas live</b><span><code>number_of_shards</code> (default 1) is static at creation; <code>number_of_replicas</code> (default 1) resizes anytime.</span></div>
+        <div class="tk"><span class="num">04</span><b>Never co-locate primary &amp; replica</b><span>Replicas avoid their primary&rsquo;s node &mdash; which is why a 1-node cluster with default settings turns <code>yellow</code>.</span></div>
+        <div class="tk"><span class="num">05</span><b>Segments are immutable</b><span>Zero read locks and warm OS page cache; deletes mask a live bitmap until background merge reclaims them.</span></div>
+        <div class="tk"><span class="num">06</span><b>Mapping types are gone</b><span>Removed in 8.0.0; give each logical entity its own index (<code>_doc</code> is a typeless endpoint).</span></div>
+        <div class="tk"><span class="num">07</span><b>HTTP+JSON on 9200; 9300 internal</b><span>Any node acts as coordinating node over REST <code>:9200</code> and routes shard traffic over <code>:9300</code>.</span></div>
+      </div>
+    </section>
+
+    <section id="self-test" class="self-test">
+      <div class="steptag"><b>?</b> Active recall</div>
+      <h2>Self-test</h2>
+      <details class="self-test-question"><summary>1. Why is &ldquo;Cluster &gt; Node &gt; Index &gt; Shard&rdquo; misleading if read as physical containment?</summary><p>Because an <strong>Index</strong> is a logical grouping, not something trapped inside one Node. Physically, a Cluster contains Nodes, and the Shards belonging to one Index are distributed across multiple Nodes (while one Node typically holds Shards from many different Indices).</p></details>
+      <details class="self-test-question"><summary>2. What is the difference between an Elasticsearch shard and a Lucene segment?</summary><p>A <strong>shard</strong> is a complete Apache Lucene index (owning routing, primary/replica status, and cluster allocation). Inside every shard sit multiple <strong>immutable segments</strong>, each holding its own mini inverted index, doc values, and commit-point membership.</p></details>
+      <details class="self-test-question"><summary>3. Why does a brand-new single-node dev cluster turn <code>yellow</code> when you create an index with default settings?</summary><p>New regular indices default to <code>number_of_shards: 1</code> and <code>number_of_replicas: 1</code>. Elasticsearch never allocates a replica shard onto the same node as its primary shard, so the 1 primary starts (reads/writes succeed) while the 1 replica remains unassigned &mdash; reporting <code>yellow</code>.</p></details>
+      <details class="self-test-question"><summary>4. Why are Lucene segments immutable, and how does deleting or updating a document work?</summary><p>Immutability gives lock-free concurrent reads, sequential write I/O, and warm OS filesystem caching without page invalidation. On delete or update, Lucene marks the old document ID as deleted in a live-documents bitmap (<code>.liv</code>) and writes the new version to a fresh segment; background segment merging later drops the dead records physically.</p></details>
+      <details class="self-test-question"><summary>5. Can you change <code>number_of_shards</code> or <code>number_of_replicas</code> on a live index?</summary><p><code>number_of_replicas</code> is <strong>dynamic</strong> and can be changed anytime via <code>PUT /&lt;index&gt;/_settings</code>. <code>number_of_shards</code> (primary shards) is <strong>static</strong> at index creation because changing it alters document-to-shard routing; changing it later requires reindexing (or using Shrink/Split APIs under specific rules).</p></details>
+      <details class="self-test-question"><summary>6. What happened to mapping types, and what do ports <code>9200</code> vs. <code>9300</code> carry?</summary><p>Mapping types were completely removed in Elasticsearch 8.0.0; one index holds one logical entity shape and <code>_doc</code> is a fixed typeless endpoint. Clients send HTTP+JSON REST requests to any coordinating node on port <strong><code>9200</code></strong>, while nodes handle internal cluster state, replication, and forwarded shard operations over binary transport on port <strong><code>9300</code></strong>.</p></details>
+    </section>
+
+    <section id="sources" class="sources-section">
+      <div class="steptag"><b>&#8599;</b> Primary sources</div>
+      <h2>Official sources &amp; further reading</h2>
+      <ol>
+        <li><a href="https://www.elastic.co/docs/manage-data/data-store/index-basics">Elastic Documentation — Index Basics (Documents, Mappings, Settings &amp; Shards)</a></li>
+        <li><a href="https://www.elastic.co/docs/deploy-manage/distributed-architecture/clusters-nodes-shards">Elastic Documentation — Clusters, Nodes, and Shards</a></li>
+        <li><a href="https://www.elastic.co/docs/manage-data/data-store/near-real-time-search">Elastic Documentation — Near Real-Time Search &amp; Lucene Segments</a></li>
+        <li><a href="https://www.elastic.co/docs/manage-data/data-store/mapping/removal-of-mapping-types">Elastic Documentation — Removal of Mapping Types (8.0.0+)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/index-settings/index-modules">Elasticsearch Reference — General Index Settings (<code>number_of_shards</code>, <code>number_of_replicas</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/size-shards">Elastic Documentation — Size Your Shards (10&ndash;50 GB &amp; 200M-Doc Guidelines)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis">Elasticsearch Reference — REST APIs Overview</a></li>
+        <li><a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-health">Elasticsearch API Reference — Get Cluster Health (<code>_cluster/health</code>)</a></li>
+      </ol>
+    </section>
+
+    <nav class="course-nav" aria-label="Course navigation">
+      <a data-nav="previous" href="lesson-00-why-elasticsearch-exists.html">&larr; Previous</a>
+      <a data-nav="index" href="index.html">Course index</a>
+      <span class="done">Next: Lesson 02 &mdash; soon</span>
+    </nav>
+
+    <footer>
+      LESSON 01 &middot; THE MENTAL MODEL: CLUSTER &rarr; INDEX &rarr; SHARD &rarr; SEGMENT &middot; ORIGINAL INTERACTIVE STUDY CHAPTER<br>
+      Elasticsearch 9.5 &middot; Apache Lucene 10 &middot; targets the 8.x&ndash;9.x Search AI Platform &middot; review, replay, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        if(map[e.target.id])map[e.target.id].classList.add('active');}});
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — Five-layer hierarchy */
+  makeStepper(_g('fig-hierarchy'), [
+    {text:"Start at the top: a Cluster is a group of Nodes cooperating as one federated search and analytics engine.",
+     active:["hm-cluster-frame","hm-nodes-frame","hm-index","hm-primaries","hm-replicas","hm-segments","hm-doc"],
+     read:"five layers: Cluster -> Node -> Index -> Shard -> Segment -> JSON Doc"},
+    {text:"Physical layer: Nodes are the actual running JVM servers (Node 1, Node 2, Node 3) supplying CPU, RAM, and disk.",
+     active:["hm-cluster-frame","hm-nodes-frame"],
+     read:"nodes are physical servers; an index is NOT pinned to just one node"},
+    {text:"Logical layer: an Index ('orders') names a dataset and mapping — its physical shards span multiple nodes.",
+     active:["hm-index","hm-primaries","hm-replicas"],
+     read:"one logical index spans nodes via 2 primaries (P0, P1) + 2 replicas (R0, R1)"},
+    {text:"Shard layer: each shard is a full Lucene index. Replicas never co-locate with their primary (R0 sits off Node 1; R1 off Node 2).",
+     active:["hm-nodes-frame","hm-primaries","hm-replicas"],
+     read:"number_of_shards=2 (fixed at creation) | number_of_replicas=1 (dynamic)"},
+    {text:"Inside Shard P0: data lives in immutable Lucene segments (seg_0, seg_1) opened on refresh and merged in background.",
+     active:["hm-primaries","hm-segments"],
+     read:"segments are immutable inverted indexes -> lock-free concurrent reads"},
+    {text:"At the bottom: every segment stores your JSON documents (plus _index, _id, _seq_no metadata) ready for search.",
+     active:["hm-segments","hm-doc"],
+     read:"JSON document inside segment -> shard -> node -> cluster"}
+  ], function(idx,s){
+    _g('hm-read').textContent=s.read;
+  });
+
+  /* FIG 4 — HTTP + JSON REST API & coordinating node */
+  var restPaths=['rp-http','rp-resp','rp-fwd','rp-rep','rp-n3'];
+  makeStepper(_g('fig-rest'), [
+    {text:"Client sends GET /_cluster/health over HTTP port 9200 to any node. Node 1 acts as coordinating node and reads cluster state.",
+     active:["rs-client","rs-n1"], path:"rp-http",
+     n1:"cluster state -> green/yellow/red", n3:"serves reads + failover",
+     read:"step 1: GET /_cluster/health (:9200) answered from cluster state"},
+    {text:"PUT /catalog creates an index (2 primaries, 1 replica). Cluster places P0 on Node 1, P1+R0 on Node 2, and R1 on Node 3.",
+     active:["rs-n1","rs-n2","rs-n3"],
+     n1:"P0 allocated locally", n3:"R1 allocated off Node 2",
+     read:"step 2: PUT /catalog allocates 4 shards across 3 nodes (:9300)"},
+    {text:"POST /catalog/_doc/sku-9 arrives on Node 1 (:9200). Coordinating Node 1 hashes 'sku-9' -> routes over :9300 to Primary P1 on Node 2.",
+     active:["rs-n1","rs-n2"], path:"rp-fwd",
+     n1:"hash('sku-9') -> Shard 1 (Node 2)", n3:"waiting for replication",
+     read:"step 3: coordinating node forwards write to owner of Primary P1"},
+    {text:"Node 2 indexes 'sku-9' into P1's segments and replicates it over :9300 to Replica R1 on Node 3 before returning 201 Created.",
+     active:["rs-n2","rs-n3"], path:"rp-rep",
+     n1:"awaits primary ack", n3:"R1 receives replicated doc",
+     read:"step 4: primary writes + replicates to R1 over internal :9300"},
+    {text:"GET /catalog/_search arrives on Node 1 (:9200). Node 1 searches P0 locally and scatters to one copy of shard 1 (R1 on Node 3).",
+     active:["rs-n1","rs-n3"], path:"rp-n3",
+     n1:"searches P0 + scatters to R1", n3:"R1 searches its Lucene segments",
+     read:"step 5: scatter-gather query hits one copy of every shard (P0 + R1)"},
+    {text:"Node 1 merges the top hits from all shards and streams one unified JSON response back to the client over :9200.",
+     active:["rs-client","rs-n1"], path:"rp-resp",
+     n1:"merges hits -> 200 OK JSON", n3:"ready for next query",
+     read:"step 6: coordinating node merges shard hits -> unified JSON on :9200"}
+  ], function(idx,s){
+    restPaths.forEach(function(id){
+      var p=_g(id); if(p) p.style.opacity=(id===s.path)?'1':'.16';
+    });
+    _g('rs-n1-note').textContent=s.n1;
+    _g('rs-n3-note').textContent=s.n3;
+    _g('rs-read').textContent=s.read;
+  });
+</script>
+</body>
+</html>
