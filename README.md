@@ -67,9 +67,9 @@ prep, hosted as static HTML on GitHub Pages.
   the core and advanced data types, caching patterns & eviction, persistence (RDB/AOF),
   programmability (transactions, Lua, distributed locks, rate limiting), replication & Redis
   Cluster, the modern Redis 8 platform (Search, JSON, vector search for AI/RAG, semantic
-  caching), production operations, and a patterns & interview capstone. The first two lessons —
-  why Redis exists and the data-structure server mental model — are live and interactive (2 of
-  45); the rest are mapped.
+  caching), production operations, and a patterns & interview capstone. The first three lessons —
+  why Redis exists, the data-structure server mental model, and the single-threaded event loop —
+  are live and interactive (3 of 45); the rest are mapped.
 
 ## How to use
 

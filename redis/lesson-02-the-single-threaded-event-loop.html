@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 02 — The Single-Threaded Event Loop (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --amber-wash:#F6ECD8; --green:#69B34C; --green-wash:#EAF3E4;
+    --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(36px,5.3vw,58px);line-height:1.03;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .node-g{fill:var(--green-wash);stroke:var(--green);stroke-width:2;}
+  .node-a{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2;}
+  .node-dash{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .lbl-xs{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .flow-g{stroke:var(--green);stroke-width:2;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .tradeoff{margin:28px 0;overflow-x:auto;}
+  .tradeoff table{width:100%;border-collapse:collapse;background:var(--paper-2);font-size:15.5px;}
+  .tradeoff th,.tradeoff td{padding:12px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  .tradeoff th{background:var(--blueprint-wash);font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- worked example + narration ---- */
+  .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.e{background:#E6F1DF;color:#3f7a2e;} .pill.m{background:#FBEEDB;color:#9a6515;} .pill.h{background:var(--rust-wash);color:var(--rust);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 4px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);} pre.code .st2{color:#3f7a2e;}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  /* ---- practice ladder, self-test, sources, course-nav ---- */
+  .ladder{display:grid;gap:13px;margin:24px 0;}
+  .rung{padding:17px 19px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);}
+  .rung b{display:block;margin-bottom:5px;color:var(--rust);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .self-test-question{margin:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);}
+  .self-test-question summary{padding:14px 17px;cursor:pointer;font-weight:600;}
+  .self-test-question p{padding:0 17px 15px;margin:0;color:var(--ink-soft);font-size:16px;}
+  .sources-section ol{padding-left:22px;}
+  .sources-section li{margin-bottom:10px;}
+  .course-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:58px;padding-top:24px;border-top:1px solid var(--line-strong);}
+  .course-nav a{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;text-decoration:none;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--blueprint);}
+  .course-nav a:hover{border-color:var(--blueprint-soft);background:var(--blueprint-wash);}
+  .course-nav span.done{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--ink-soft);opacity:.55;display:block;}
+  footer{margin-top:36px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+    .worked .lc{margin-left:0;} .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;}
+    .course-nav{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+  /* ---- lesson 02 figure helpers ---- */
+  .lane{fill:var(--paper-2);stroke:var(--line);stroke-width:1.2;}
+  .rv{transition:opacity .35s ease;} .rv.off{opacity:0;}
+  .wait{stroke:var(--rust);stroke-width:2;stroke-dasharray:4 4;fill:none;}
+  .note-r{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--rust);}
+  .tradeoff + p.fine{margin:-14px 0 24px;font-size:14.5px;color:var(--ink-soft);line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Lesson contents">
+    <div class="brandmark">Redis &middot; Phase 0</div>
+    <div class="brandtitle">The Single-Threaded<br>Event Loop</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>One slow command &#9656;</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Where the time goes</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>The reactor loop &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The command is the quantum</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>What holds the loop</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Slicing the work</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Where threads help &#9656;</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>Build: stall, slice, measure</span></a></li>
+      <li><a href="#practice"><span class="n">&#8599;</span><span>Practice ladder</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Takeaways</span></a></li>
+      <li><a href="#self-test"><span class="n">?</span><span>Self-test</span></a></li>
+      <li><a href="#sources"><span class="n">&#8599;</span><span>Primary sources</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">02</span><span>Core concept &middot; Phase 0 &middot; Redis</span></div>
+      <h1>The Single-Threaded Event Loop</h1>
+      <p class="lede">Lesson&nbsp;01 gave Redis a shape: one dictionary of typed values. This lesson gives it a pulse. Every command runs on <strong>one thread, one at a time, to completion</strong>. That is why a <code>GET</code> costs almost nothing, why single commands are atomic without a lock, and why one careless <code>O(N)</code> command stalls every client at once.</p>
+      <div class="disclaimer">
+        <strong>Original study chapter.</strong> Written from scratch for backend and system-design interviews. Target behavior follows <strong>Redis Open Source 8.10</strong> (latest stable patch <code>8.10.3</code>, released 2026-10-26; <code>8.12</code> is still a release candidate as of 2026-11-21). The lab runs on Python&nbsp;3.10+ with <code>redis==8.1.0</code>, plus the <code>redis-cli</code> and <code>redis-benchmark</code> that ship with Redis. Contains <strong>five original figures &mdash; three interactive</strong> (press <em>Play</em>, or step with <em>Next</em>). The RESP wire format lives in L03, expiry in L15, pipelining in L22, Lua in L24, and <code>SLOWLOG</code> and <code>INFO</code> in depth in L38.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Failure first</div>
+      <h2>One slow command, everyone waits &#9656;</h2>
+      <p>Start with an incident that looks like a network problem. A support dashboard runs <code>KEYS user:8841:*</code> to list one customer&rsquo;s sessions. It returns three keys after about a tenth of a second and the page renders. In the same instant the checkout service sends a single <code>GET</code> for a cart, a command that costs the server well under a microsecond, and the request times out. Redis is not down and its log is empty. The only trace is one bump on a latency graph.</p>
+      <p>The cause is the first rule of this lesson: <strong>Redis executes commands on one thread, one at a time, each to completion.</strong> While <code>KEYS</code> runs, nothing else runs. The operating system keeps accepting bytes from every other client into socket buffers, but the one thread that could read them is busy. The request at the front decides when everyone behind it is served, which is called <strong>head-of-line blocking</strong>. Three symptoms give it away:</p>
+      <ul>
+        <li><strong>A latency spike on unrelated clients at the same instant.</strong> Each connection that sent a request during the stall waits out whatever is left of it.</li>
+        <li><strong>Timeouts and retries with no Redis error.</strong> Clients give up and retry, which queues more requests behind the stall.</li>
+        <li><strong>One long entry in <code>SLOWLOG</code> and a calm average.</strong> The slow log records the command&rsquo;s own execution time (L38 covers it), and a CPU graph averaged over a minute hides a 140&nbsp;ms stall.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-stall">
+          <svg viewBox="0 0 680 372" role="img" aria-label="Interactive timeline with three client lanes and one Redis main-thread lane: a GET and a PING are served in microseconds, then a KEYS command from an admin script occupies the main thread for about 140 milliseconds while a GET from a cart service and a PING from a login service wait unread, and both are answered only after KEYS finishes">
+            <rect class="lane" x="126" y="36" width="534" height="44" rx="7"/>
+            <rect class="lane" x="126" y="92" width="534" height="44" rx="7"/>
+            <rect class="lane" x="126" y="148" width="534" height="44" rx="7"/>
+            <rect class="lane" x="126" y="214" width="534" height="68" rx="7"/>
+            <text class="lbl-sm" x="16" y="56">Client A</text><text class="lbl-xs" x="16" y="70">admin script</text>
+            <text class="lbl-sm" x="16" y="112">Client B</text><text class="lbl-xs" x="16" y="126">cart service</text>
+            <text class="lbl-sm" x="16" y="168">Client C</text><text class="lbl-xs" x="16" y="182">login service</text>
+            <text class="lbl-sm" x="16" y="244">Redis</text><text class="lbl-xs" x="16" y="258">the one thread</text>
+            <path class="flow-d" d="M126 308 H656" marker-end="url(#arrow-s)"/>
+            <text class="lbl-xs" x="656" y="326" text-anchor="end">time, not to scale</text>
+
+            <g id="s1-g1" class="rv">
+              <rect class="node-b" x="146" y="102" width="52" height="24" rx="6"/><text class="lbl-sm" x="172" y="118" text-anchor="middle">GET</text>
+              <rect class="node-b" x="206" y="158" width="52" height="24" rx="6"/><text class="lbl-sm" x="232" y="174" text-anchor="middle">PING</text>
+              <path class="flow-d" d="M172 126 V230" marker-end="url(#arrow-s)"/>
+              <path class="flow-d" d="M232 182 V230" marker-end="url(#arrow-s)"/>
+              <rect class="node-g" x="168" y="232" width="8" height="32" rx="2"/>
+              <rect class="node-g" x="228" y="232" width="8" height="32" rx="2"/>
+              <text class="lbl-xs" x="202" y="276" text-anchor="middle">microseconds each</text>
+            </g>
+            <g id="s1-g2" class="rv off">
+              <rect class="node-r" x="268" y="44" width="118" height="28" rx="6"/>
+              <text class="lbl-sm" x="327" y="62" text-anchor="middle">KEYS user:*</text>
+              <path class="flow-r" d="M290 72 V224" marker-end="url(#arrow-r)"/>
+            </g>
+            <g id="s1-g3" class="rv off">
+              <rect class="node-r" x="276" y="226" width="248" height="44" rx="6"/>
+              <text class="lbl" x="400" y="246" text-anchor="middle">KEYS user:* &middot; O(N)</text>
+              <text class="lbl-sm" x="400" y="262" text-anchor="middle">&#8776; 140 ms at 1M keys</text>
+            </g>
+            <g id="s1-g4" class="rv off">
+              <rect class="node-b" x="340" y="102" width="76" height="24" rx="6"/>
+              <text class="lbl-sm" x="378" y="118" text-anchor="middle">GET cart:7</text>
+              <path class="wait" d="M418 114 H528" marker-end="url(#arrow-r)"/>
+              <text class="lbl-xs" x="474" y="106" text-anchor="middle" fill="#B0532F">unread, waiting</text>
+              <rect class="node-b" x="420" y="158" width="52" height="24" rx="6"/>
+              <text class="lbl-sm" x="446" y="174" text-anchor="middle">PING</text>
+              <path class="wait" d="M474 170 H550" marker-end="url(#arrow-r)"/>
+            </g>
+            <g id="s1-g5" class="rv off">
+              <rect class="node-g" x="528" y="232" width="8" height="32" rx="2"/>
+              <rect class="node-g" x="552" y="232" width="8" height="32" rx="2"/>
+            </g>
+            <g id="s1-g6" class="rv off">
+              <rect class="node-g" x="532" y="102" width="52" height="24" rx="6"/><text class="lbl-sm" x="558" y="118" text-anchor="middle">reply</text>
+              <rect class="node-g" x="556" y="158" width="52" height="24" rx="6"/><text class="lbl-sm" x="582" y="174" text-anchor="middle">reply</text>
+            </g>
+            <text id="s1-note" class="note-r rv off" x="304" y="208">no scheduler: nothing can cut this command short</text>
+
+            <text id="s1-read" class="readout" x="340" y="354" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: while one command runs, every other request waits unread in a socket buffer. The 140&nbsp;ms is this lab&rsquo;s run; B&rsquo;s and C&rsquo;s arrival times are illustrative.</figcaption>
+      </figure>
+
+      <div class="callout">
+        <span class="k">A fast server is not a fair server</span>
+        <p>Redis does not make commands fast by running many at once. It makes each command so cheap that running them one at a time is fine, <em>as long as every command stays cheap</em>. The rest of the lesson explains why that bet is sound, how the loop carries it, what breaks it, and how to stay inside it.</p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Cost model</div>
+      <h2>Why one thread is enough: where the time goes</h2>
+      <p>The obvious objection is that servers have dozens of cores. The answer is in where a command&rsquo;s time goes. A <code>GET</code> on an in-memory hash table is a hash, a short pointer walk and a copy into a reply buffer. Redis publishes two counters that split the loop&rsquo;s busy time into <em>executing commands</em> and <em>everything else</em>: <code>eventloop_duration_cmd_sum</code> and <code>eventloop_duration_sum</code> in <code>INFO stats</code>. Reading them around a <code>redis-benchmark</code> run at three pipeline depths gives this picture:</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr><th>Load style</th><th>Loop time per command</th><th>Share spent executing the command</th><th>One-thread ceiling (1 &divide; loop time)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>One request per round trip</strong>, 50 clients</td><td>&#8776; 8&nbsp;&micro;s</td><td>&#8776; 7%</td><td>&#8776; 120,000 ops/s</td></tr>
+            <tr><td><strong>Pipeline of 16</strong></td><td>&#8776; 1.0&nbsp;&micro;s</td><td>&#8776; 20%</td><td>&#8776; 1,000,000 ops/s</td></tr>
+            <tr><td><strong>Pipeline of 100</strong></td><td>&#8776; 0.65&nbsp;&micro;s</td><td>&#8776; 32%</td><td>&#8776; 1,500,000 ops/s</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="fine">Measured for this lesson: Redis 8.10.3 built from source, 8-core Apple-silicon laptop, loopback, <code>redis-benchmark -t set -r 100000 -c 50</code>, counters read from <code>INFO stats</code> before and after each run. Plain <code>redis-benchmark</code> runs without <code>-r</code> landed in the same ranges: roughly 120,000&ndash;140,000 ops/s unpipelined and 1.2&ndash;1.5 million with <code>-P 16</code> (one repeated key is cheaper than random keys). The shape travels between machines; the exact numbers do not. The Build lab reproduces the table.</p>
+
+      <p>Two readings follow. First, <strong>the command is not the expensive part</strong>. Without pipelining, more than nine tenths of the thread&rsquo;s busy time goes to the conversation around the command (reading and parsing the request, writing the reply, housekeeping), and even at depth 100 about two thirds does. Second, <strong>a million operations a second is a pipelining number</strong>. The Redis FAQ quotes it for exactly that case, and adds that CPU is rarely the limit because Redis is usually bound by memory or network. L22 does the round-trip arithmetic. Here the point is that a thread spending under a microsecond per command is fast because each command is tiny, not because anything runs in parallel.</p>
+      <p>Why not give every command its own thread anyway? Each reason below is a cost that parallel execution would add:</p>
+      <ul>
+        <li><strong>No locks.</strong> Dictionaries, skiplists and listpacks stay plain data structures: no mutexes or atomics guarding the data, no cache lines bouncing between cores.</li>
+        <li><strong>No deadlocks and no torn multi-key work.</strong> <code>MULTI</code>/<code>EXEC</code>, scripts and commands such as <code>SUNIONSTORE</code> touch several keys at once. With one executor they need no lock ordering.</li>
+        <li><strong>One order of commands.</strong> The replication stream and the append-only file are that order written down. Two concurrent writers would need reconciling before either could be replayed (L18, L27).</li>
+      </ul>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Mechanism</div>
+      <h2>The reactor loop &#9656;</h2>
+      <p>One thread can serve thousands of connections only if it never waits on any single one. A blocking design solves the same problem the other way round, and putting the two side by side shows what Redis chose:</p>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Thread per connection (blocking I/O)</h4>
+          <ul>
+            <li>Each client gets a thread that blocks in <code>read()</code> until bytes arrive.</li>
+            <li>The OS scheduler provides concurrency and can preempt a long request.</li>
+            <li>Shared data needs locks; threads, stacks and context switches grow with connections.</li>
+            <li>The order of commands across clients is whatever the scheduler produced.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Event loop (Redis)</h4>
+          <ul>
+            <li>One thread asks the kernel which sockets are ready, then runs a short handler for each.</li>
+            <li>Concurrency is interleaving at command boundaries; nothing preempts a handler.</li>
+            <li>No locks on the dataset; an idle connection costs a socket and buffers, not a thread.</li>
+            <li>The order of commands is one sequence that can be logged and replayed.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>The kernel feature behind the right-hand column is a <strong>readiness query</strong>: <em>which of these sockets can I read or write right now?</em> On Linux it is <code>epoll_wait</code>, on BSD and macOS <code>kevent</code>, on Solaris-family systems event ports, with <code>select</code> as the fallback. Redis wraps whichever the build supports in a small event library, <code>ae.c</code>, and <code>INFO server</code> reports the choice in <code>multiplexing_api</code>. Textbooks call the structure a <strong>reactor</strong>: a demultiplexer reports which handles are ready, and a dispatcher calls the handler registered for each.</p>
+      <p>Each pass through the loop does four things in a fixed order. The names below come from the 8.10 source (<code>aeProcessEvents</code> in <code>ae.c</code>, <code>beforeSleep</code> in <code>server.c</code>):</p>
+      <ul>
+        <li><strong>1 &middot; <code>beforeSleep</code>.</strong> Work that must happen before the thread may sleep: write the replies queued last turn, flush the append-only buffer, serve clients whose blocking call can now finish, run a quick pass that deletes expired keys.</li>
+        <li><strong>2 &middot; Poll.</strong> Ask the kernel which sockets are ready, with a timeout equal to the time until the next timer. With no traffic the thread sleeps here, so an idle Redis uses almost no CPU.</li>
+        <li><strong>3 &middot; File events.</strong> For each ready socket, run its handler: read without blocking, parse the request, run the command to completion, append the reply to that client&rsquo;s output buffer.</li>
+        <li><strong>4 &middot; Time events.</strong> If a timer is due, run it. The main one, <code>serverCron</code>, fires <code>hz</code> times a second (default 10, so every 100&nbsp;ms) for incremental housekeeping: sampling for expired keys, resizing hash tables a little at a time, closing timed-out clients.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-loop">
+          <svg viewBox="0 0 680 392" role="img" aria-label="Interactive walk through one turn of the Redis event loop: beforeSleep, polling the kernel for ready sockets, running the read-parse-execute handler for each ready client one after another, running due timers, and returning to the top where queued replies are written">
+            <g class="st" id="s2-b1">
+              <rect class="node-b" x="44" y="36" width="290" height="70" rx="9"/>
+              <text class="lbl" x="62" y="58">1 &middot; beforeSleep</text>
+              <text class="lbl-xs" x="62" y="76">write queued replies &middot; flush AOF buffer</text>
+              <text class="lbl-xs" x="62" y="92">wake unblocked clients, quick expiry</text>
+            </g>
+            <g class="st" id="s2-b2">
+              <rect class="node-v" x="44" y="126" width="290" height="62" rx="9"/>
+              <text class="lbl" x="62" y="148">2 &middot; poll the kernel</text>
+              <text class="lbl-xs" x="62" y="166">poll fds &middot; timeout = time to next timer</text>
+              <text class="lbl-xs" x="62" y="180">no traffic? the thread sleeps right here</text>
+            </g>
+            <g class="st" id="s2-b3">
+              <rect class="node-g" x="44" y="208" width="290" height="72" rx="9"/>
+              <text class="lbl" x="62" y="230">3 &middot; each ready socket, in turn</text>
+              <text class="lbl-xs" x="62" y="248">read without blocking, parse the request</text>
+              <text class="lbl-xs" x="62" y="264">run command to completion, queue reply</text>
+            </g>
+            <g class="st" id="s2-b4">
+              <rect class="node-a" x="44" y="300" width="290" height="62" rx="9"/>
+              <text class="lbl" x="62" y="322">4 &middot; timers (serverCron)</text>
+              <text class="lbl-xs" x="62" y="340">hz per second: expiry, resize, timeouts</text>
+              <text class="lbl-xs" x="62" y="354">default hz = 10, so every 100 ms</text>
+            </g>
+
+            <path id="s2-p12" class="flow" d="M189 108 V124" marker-end="url(#arrow)"/>
+            <path id="s2-p23" class="flow" d="M189 190 V206" marker-end="url(#arrow)"/>
+            <path id="s2-p34" class="flow" d="M189 282 V298" marker-end="url(#arrow)"/>
+            <path id="s2-p41" class="flow-r" d="M44 331 C 8 331, 8 71, 42 71" marker-end="url(#arrow-r)"/>
+            <text class="lbl-xs" x="24" y="206" transform="rotate(-90 24 206)" text-anchor="middle" fill="#B0532F">next turn</text>
+
+            <text class="lbl-sm" x="392" y="28">SOCKETS &middot; KERNEL BUFFERS</text>
+            <g class="st" id="s2-sock">
+              <rect class="node" x="392" y="40" width="264" height="54" rx="8"/>
+              <text class="lbl" x="408" y="62">Client A</text>
+              <text id="s2-a" class="lbl-sm" x="408" y="82"></text>
+              <rect class="node" x="392" y="104" width="264" height="54" rx="8"/>
+              <text class="lbl" x="408" y="126">Client B</text>
+              <text id="s2-b" class="lbl-sm" x="408" y="146"></text>
+              <rect class="node" x="392" y="168" width="264" height="54" rx="8"/>
+              <text class="lbl" x="408" y="190">Client C</text>
+              <text id="s2-c" class="lbl-sm" x="408" y="210"></text>
+              <rect class="node-v" x="392" y="240" width="264" height="58" rx="8"/>
+              <text class="lbl" x="408" y="262">poll returned</text>
+              <text id="s2-ready" class="lbl-sm" x="408" y="282"></text>
+            </g>
+            <path class="flow-d" d="M392 262 H338" marker-end="url(#arrow-s)"/>
+
+            <text id="s2-read" class="readout" x="340" y="384" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: one turn of the loop. Handlers run one after another; the only scheduling point is the end of a command.</figcaption>
+      </figure>
+
+      <p>Three rules keep the loop honest:</p>
+      <ul>
+        <li><strong>Handlers never block on I/O.</strong> Sockets are non-blocking. A read with nothing to read returns at once, and the loop waits for the next readiness report.</li>
+        <li><strong>A command runs to completion.</strong> There is no way to pause one command and serve another. The end of a command is the only scheduling point.</li>
+        <li><strong>A slow reader costs memory, not time.</strong> If a client does not drain its replies, they wait in its output buffer and a writable-socket handler finishes the job later while the loop moves on. The cap is <code>client-output-buffer-limit</code>. Normal clients default to <code>0 0 0</code>, which means unlimited. Replicas (256&nbsp;MB hard, 64&nbsp;MB soft for 60&nbsp;s) and Pub/Sub clients (32&nbsp;MB hard, 8&nbsp;MB soft for 60&nbsp;s) have limits.</li>
+      </ul>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Invariant</div>
+      <h2>The command is the unit of scheduling</h2>
+      <p>State the model as one sentence you can say in an interview: <strong>between two commands anything can happen; inside one command nothing can.</strong> Everything Redis promises about concurrency is a corollary.</p>
+      <ul>
+        <li><strong>Single commands are atomic.</strong> <code>INCR</code>, <code>LPUSH</code> and <code>ZADD</code> cannot be seen half-done, and two clients cannot interleave inside one.</li>
+        <li><strong><code>MULTI</code>/<code>EXEC</code> is a longer command.</strong> The queued commands run back to back, and no other client&rsquo;s request is served in the middle of them (L23).</li>
+        <li><strong>Scripts and functions are longer still.</strong> They are atomic by the same mechanism, so a script&rsquo;s run time is every client&rsquo;s wait. Redis will not abort a script that runs too long, because that could leave a half-written dataset. After <code>busy-reply-threshold</code> (5,000&nbsp;ms by default) other clients start receiving <code>BUSY</code> errors. <code>SCRIPT KILL</code> works only if the script has not written yet; after a write the only exit is <code>SHUTDOWN NOSAVE</code> (L24).</li>
+        <li><strong>Order is shared.</strong> The replication stream and the append-only file replay the same sequence the loop produced.</li>
+      </ul>
+
+      <div class="vs">
+        <div class="col">
+          <h4>What the model buys</h4>
+          <ul>
+            <li>Atomic single commands with no locking code anywhere.</li>
+            <li>Transactions and scripts that are just longer commands.</li>
+            <li>One command order that replication and the AOF can reproduce.</li>
+            <li>Low, predictable latency while every command stays cheap.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>What it costs</h4>
+          <ul>
+            <li>Head-of-line blocking: one slow command is every client&rsquo;s latency.</li>
+            <li>A ceiling of one core for executing commands.</li>
+            <li>No protection between clients: the loop cannot tell a dashboard query from a checkout request.</li>
+            <li>Atomicity per command only: <code>GET</code> then <code>SET</code> from a client still races (L01).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <span class="k">Two meanings of &ldquo;blocking&rdquo;</span>
+        <p><code>BLPOP</code>, <code>BRPOP</code> and <code>BZPOPMIN</code> are <strong>blocking commands</strong>: they park the calling client until data arrives or a timeout passes, and the loop keeps serving everyone else. A later push wakes the parked client during a following <code>beforeSleep</code>. <code>INFO clients</code> counts the parked ones in <code>blocked_clients</code>. <code>KEYS</code> and <code>SMEMBERS</code> on a huge set are <strong>slow commands</strong>: they hold the loop itself. The two names collide, and the effects are opposite.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Hazards</div>
+      <h2>What holds the loop: the O(N) catalogue</h2>
+      <p>Whether a command is safe is written on its page as a complexity line, and the <code>N</code> in that line belongs to <em>your data</em>. <code>SMEMBERS</code> on a 20-member set and on a 2-million-member set run the same code with a gap of five orders of magnitude between them, and nothing in your application changes. That is why O(N) commands pass in staging and fail in production: the data grew, not the code.</p>
+
+      <figure>
+        <div class="blueprint" id="fig-growth">
+          <svg viewBox="0 0 680 358" role="img" aria-label="Static log-scale bar chart of how long a KEYS command holds the Redis main thread as the keyspace grows from one thousand to ten million keys: about 0.04 to 0.14 milliseconds, 0.4 to 1.4 milliseconds, 4 to 14 milliseconds, 40 to 140 milliseconds, and 0.4 to 1.4 seconds, compared with a normal round trip of about 0.3 milliseconds">
+<text class="lbl" x="24" y="26">KEYS STALL vs KEYS VISITED &middot; log scale</text>
+<line x1="108" y1="292" x2="652" y2="292" stroke="#E3DBCB" stroke-width="1"/>
+<text class="lbl-xs" x="100" y="295" text-anchor="end">0.01 ms</text>
+<line x1="108" y1="252" x2="652" y2="252" stroke="#E3DBCB" stroke-width="1"/>
+<text class="lbl-xs" x="100" y="255" text-anchor="end">0.1 ms</text>
+<line x1="108" y1="212" x2="652" y2="212" stroke="#E3DBCB" stroke-width="1"/>
+<text class="lbl-xs" x="100" y="215" text-anchor="end">1 ms</text>
+<line x1="108" y1="172" x2="652" y2="172" stroke="#E3DBCB" stroke-width="1"/>
+<text class="lbl-xs" x="100" y="175" text-anchor="end">10 ms</text>
+<line x1="108" y1="132" x2="652" y2="132" stroke="#E3DBCB" stroke-width="1"/>
+<text class="lbl-xs" x="100" y="135" text-anchor="end">100 ms</text>
+<line x1="108" y1="92" x2="652" y2="92" stroke="#E3DBCB" stroke-width="1"/>
+<text class="lbl-xs" x="100" y="95" text-anchor="end">1 s</text>
+<line x1="108" y1="52" x2="652" y2="52" stroke="#E3DBCB" stroke-width="1"/>
+<text class="lbl-xs" x="100" y="55" text-anchor="end">10 s</text>
+<line x1="108" y1="232.9" x2="652" y2="232.9" stroke="#4A7BA6" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text class="lbl-xs" x="652" y="226.9" text-anchor="end" fill="#1F4E79">dashed: a normal round trip, about 0.3 ms (L00)</text>
+<rect class="node-g" x="134.4" y="246.2" width="56" height="21.8" rx="5"/>
+<text class="lbl-sm" x="162.4" y="281.9" text-anchor="middle">0.04–0.14 ms</text>
+<text class="lbl-xs" x="162.4" y="312" text-anchor="middle">1,000 keys</text>
+<rect class="node-a" x="243.2" y="206.2" width="56" height="21.8" rx="5"/>
+<text class="lbl-sm" x="271.2" y="198.2" text-anchor="middle">0.4–1.4 ms</text>
+<text class="lbl-xs" x="271.2" y="312" text-anchor="middle">10,000 keys</text>
+<rect class="node-r" x="352" y="166.2" width="56" height="21.8" rx="5"/>
+<text class="lbl-sm" x="380" y="158.2" text-anchor="middle">4–14 ms</text>
+<text class="lbl-xs" x="380" y="312" text-anchor="middle">100,000 keys</text>
+<rect class="node-r" x="460.8" y="126.2" width="56" height="21.8" rx="5"/>
+<text class="lbl-sm" x="488.8" y="118.2" text-anchor="middle">40–140 ms</text>
+<text class="lbl-xs" x="488.8" y="312" text-anchor="middle">1 million keys</text>
+<rect class="node-r" x="569.6" y="86.2" width="56" height="21.8" rx="5"/>
+<text class="lbl-sm" x="597.6" y="78.2" text-anchor="middle">0.4–1.4 s</text>
+<text class="lbl-xs" x="597.6" y="312" text-anchor="middle">10 million keys</text>
+<path class="flow-r" d="M342.8 127.2 H457.8" marker-end="url(#arrow-r)"/>
+<text class="lbl-xs" x="336.8" y="123.2" text-anchor="end" fill="#B0532F">this lab: KEYS over 1M keys</text>
+<text class="lbl-xs" x="336.8" y="136.2" text-anchor="end" fill="#B0532F">held the loop about 140 ms</text>
+<text class="lbl-xs" x="380.0" y="336" text-anchor="middle">bars span 40 ns per key (KEYS docs) to 140 ns per key (this lab); growth assumed linear</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 &mdash; the stall a <code>KEYS</code> causes grows in step with the keys it visits. Read each bar against the dashed line for a normal round trip.</figcaption>
+      </figure>
+
+      <p>At a million keys the stall is a tenth of a second, a few hundred times a normal round trip. At ten million it reaches the range of a second. The bars scale two measured per-key costs, 40&nbsp;ns from the <code>KEYS</code> documentation and 140&nbsp;ns from this lesson&rsquo;s lab, so read them as orders of magnitude. The same reasoning applies to every command in the table below.</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr><th>Command</th><th>Cost on its page</th><th>What holds the loop</th><th>Loop-friendly alternative</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>KEYS pattern</code></td>
+              <td><code>O(N)</code>, N = keys in the database</td>
+              <td>Every key name is matched, even when only three match</td>
+              <td><code>SCAN</code> with <code>MATCH</code> and <code>COUNT</code>; or an index set you maintain</td>
+            </tr>
+            <tr>
+              <td><code>SMEMBERS</code>, <code>HGETALL</code>, <code>LRANGE k 0 -1</code>, <code>ZRANGE k 0 -1</code></td>
+              <td><code>O(N)</code>, N = size of the value</td>
+              <td>Every element is visited and copied into one reply</td>
+              <td><code>SSCAN</code>, <code>HSCAN</code>, <code>ZSCAN</code>, or paged <code>LRANGE</code> / <code>ZRANGE</code> windows</td>
+            </tr>
+            <tr>
+              <td><code>SUNION</code>, <code>SINTER</code>, <code>SDIFF</code>, <code>SORT</code></td>
+              <td><code>O(N)</code> for <code>SUNION</code> and <code>SDIFF</code>, <code>O(N*M)</code> for <code>SINTER</code>, <code>O(N+M*log M)</code> for <code>SORT</code></td>
+              <td>The whole computation runs in one go</td>
+              <td>Restructure the data, or run it on a replica</td>
+            </tr>
+            <tr>
+              <td><code>DEL</code> on a big collection, <code>FLUSHALL</code> / <code>FLUSHDB</code></td>
+              <td><code>O(M)</code> per key; <code>O(N)</code> over all keys</td>
+              <td>Frees every element on the loop (the 8.10 default)</td>
+              <td><code>UNLINK</code>; <code>FLUSHALL ASYNC</code></td>
+            </tr>
+            <tr>
+              <td><code>SAVE</code></td>
+              <td><code>O(N)</code>, N = keys in all databases</td>
+              <td>Writes the whole RDB file synchronously</td>
+              <td><code>BGSAVE</code> (L17)</td>
+            </tr>
+            <tr>
+              <td><code>EVAL</code> / <code>FCALL</code> with a long loop</td>
+              <td>Whatever the script does</td>
+              <td>Atomic by design, so nothing else runs</td>
+              <td>Keep scripts bounded; <code>busy-reply-threshold</code> is a smoke alarm, not a fix</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <span class="k">Ask what N will be</span>
+        <p>Every command page opens with its complexity, and L03 shows how to read it. Before you ship a command you have not used, decide what N is a year from now: the whole keyspace, one collection, or the number of arguments in the call. A command that is O(N) in the arguments, such as a <code>DEL</code> or <code>MGET</code> naming a hundred thousand keys, holds the loop just as surely.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Fixes</div>
+      <h2>Slicing the work: SCAN, UNLINK and replicas</h2>
+      <p>If the end of a command is the only scheduling point, you schedule by choosing how big a command is. Cut a long job into slices and the loop can serve other clients between them. Figure&nbsp;4 shows the same scan in both shapes.</p>
+
+      <figure>
+        <div class="blueprint" id="fig-slices">
+          <svg viewBox="0 0 680 346" role="img" aria-label="Static comparison of one KEYS command that blocks client B for its whole duration against a SCAN walk made of many short slices, where client B's GET runs between two slices and waits less than one slice, at the price of a longer total time">
+<text class="lbl" x="24" y="26">SAME SCAN, TWO SHAPES</text>
+<text class="lbl-sm" x="24" y="56">KEYS pattern &middot; one command</text>
+<rect class="node" x="24" y="64" width="632" height="46" rx="8" style="stroke:#E3DBCB"/>
+<rect class="node-r" x="150" y="72" width="360" height="30" rx="5"/>
+<text class="lbl-sm" x="330" y="92" text-anchor="middle" fill="#B0532F">one block &middot; O(N) &middot; &#8776; 140 ms at 1M keys</text>
+<rect class="node-b" x="176" y="124" width="64" height="26" rx="6"/>
+<text class="lbl-sm" x="208" y="141" text-anchor="middle">B: GET</text>
+<path class="flow-r" d="M240 137 H508" marker-end="url(#arrow-r)"/>
+<text class="lbl-sm" x="378" y="130" text-anchor="middle" fill="#B0532F">B waits for the whole block</text>
+<text class="lbl-sm" x="24" y="196">SCAN cursor COUNT 1000 &middot; about a thousand commands</text>
+<rect class="node" x="24" y="204" width="632" height="46" rx="8" style="stroke:#E3DBCB"/>
+<rect class="node-b" x="34" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="55" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="76" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="97" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="118" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="139" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="160" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="181" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="202" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="223" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="244" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="265" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="286" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="307" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="328" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="349" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="370" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="391" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="412" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="433" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="454" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="475" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="496" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="517" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="538" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="559" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="580" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="601" y="212" width="14" height="30" rx="3"/>
+<rect class="node-b" x="622" y="212" width="14" height="30" rx="3"/>
+<rect class="node-g" x="217" y="212" width="5" height="30" rx="2"/>
+<rect class="node-b" x="185" y="262" width="64" height="26" rx="6"/>
+<text class="lbl-sm" x="217" y="279" text-anchor="middle">B: GET</text>
+<path class="flow-g" d="M219 262 V252" marker-end="url(#arrow-g)"/>
+<text class="lbl-sm" x="259" y="279" fill="#3f7a2e">served between two slices &middot; waits &lt; 1 slice</text>
+<text class="lbl-xs" x="340" y="316" text-anchor="middle">the client carries the cursor: 0 &rarr; c1 &rarr; c2 &rarr; &#8230; &rarr; 0 &middot; the server keeps no iterator</text>
+<text class="lbl-xs" x="340" y="332" text-anchor="middle">price: a round trip per slice, so total time grows (&#8776; 470 ms vs &#8776; 140 ms in this lab)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 &mdash; same scanning work, different slicing: the longest wait shrinks from the whole command to one slice.</figcaption>
+      </figure>
+
+      <p><code>SCAN</code> is the standard slicing tool. Each call examines a small piece of the keyspace and returns a <strong>cursor</strong>. The client passes it back to continue, and a returned cursor of <code>0</code> means the walk is complete. The server keeps no iterator. Per a comment in the source, the cursor advances in reverse-binary order (its bits are reversed, incremented, then reversed back), which keeps the walk valid if the hash table grows or shrinks between calls. <code>SSCAN</code>, <code>HSCAN</code> and <code>ZSCAN</code> do the same inside one set, hash or sorted set.</p>
+      <p>A stateless cursor buys simplicity and costs guarantees. What you can rely on:</p>
+      <ul>
+        <li>An element present for the whole walk is returned at least once, and one absent for the whole walk is never returned. Elements added or removed during the walk may or may not appear.</li>
+        <li><strong>Duplicates are possible.</strong> Make the per-key work safe to repeat. <code>UNLINK</code> and idempotent writes are.</li>
+        <li><code>COUNT</code> is a hint about work per call (default 10), not a page size. <code>MATCH</code> filters <em>after</em> the slice is fetched, so a selective pattern returns many empty pages. Stop on cursor <code>0</code>, never on an empty page.</li>
+        <li>The full walk is still O(N) and, with a round trip per slice, takes longer than <code>KEYS</code>. What you buy is that no single call holds the loop longer than one slice.</li>
+      </ul>
+      <p><strong><code>DEL</code> versus <code>UNLINK</code>.</strong> Lesson&nbsp;01 introduced the pair. In 8.10, <code>DEL</code> and <code>FLUSHALL</code> free memory on the loop unless you opt in with <code>FLUSHALL ASYNC</code> or a <code>lazyfree-lazy-*</code> setting; all of those default to <code>no</code>. <code>UNLINK</code> unhooks the key at once and hands the freeing of a <em>large</em> value to a background thread. The source&rsquo;s cutoff is a free effort above 64 allocations, so small values are still freed inline, which is cheap per key but not free in bulk. Deleting a million small keys still wants batches; the lab below uses a thousand keys per call.</p>
+      <p><strong>Heavy reads belong on a replica.</strong> If a slow read is a real requirement, such as a report over a big set, run it on a replica so the primary&rsquo;s loop never sees it. The Redis latency guide makes the same recommendation. The cost is replication lag (L27).</p>
+    </section>
+
+    <!-- 06 -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Threads</div>
+      <h2>Where threads do help &#9656;</h2>
+      <p>&ldquo;Redis is single-threaded&rdquo; is shorthand for &ldquo;one thread executes commands.&rdquo; A running Redis 8.10 has more threads than that, and each exists for a reason:</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr><th>Thread or process</th><th>Exists when</th><th>What it does</th><th>What it never does</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Main thread</strong></td>
+              <td>Always</td>
+              <td>The event loop, every command, the timers. With <code>io-threads 1</code> it also does all socket reads and writes.</td>
+              <td>Nothing is off limits, so any slow command stalls everything</td>
+            </tr>
+            <tr>
+              <td><strong>I/O threads</strong></td>
+              <td><code>io-threads</code> above 1 (restart required)</td>
+              <td>Read sockets, parse requests and write replies, each thread in its own small loop</td>
+              <td>Execute commands or touch the dataset</td>
+            </tr>
+            <tr>
+              <td><strong>Background threads</strong></td>
+              <td>Always: three of them</td>
+              <td>Close files whose release is slow, fsync the AOF, free big values for <code>UNLINK</code> and async flushes</td>
+              <td>Serve a client request</td>
+            </tr>
+            <tr>
+              <td><strong>Forked child process</strong></td>
+              <td>During <code>BGSAVE</code> and AOF rewrite</td>
+              <td>Writes the snapshot from a copy-on-write view of memory (L17)</td>
+              <td>Serve clients. The <code>fork</code> call itself runs on the main thread, and a large dataset makes it take longer.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="fine">In this lab&rsquo;s macOS build a default process showed four OS threads: the main thread plus three background workers. Builds with jemalloc, the usual Linux default, add an allocator helper thread (<code>jemalloc-bg-thread</code>), and loaded modules can add threads of their own. None of these change the rule that one thread executes commands.</p>
+
+      <p>Section&nbsp;01 showed that most of the loop&rsquo;s busy time is the conversation around a command. That is the part I/O threads take over. Redis 6.0 introduced them and 8.0 replaced the implementation. In the 8.x design the main thread assigns each client to an I/O thread. That thread reads the socket, parses the request and tells the main thread. The main thread executes the command and builds the reply, and the I/O thread writes it back. Each I/O thread runs its own small event loop over its own clients.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-iothreads">
+          <svg viewBox="0 0 680 372" role="img" aria-label="Interactive diagram of Redis 8 I/O threads: clients are assigned to I/O threads that read and parse requests in parallel, a single main thread executes the parsed commands one after another and is the only thread that touches the dataset, the I/O threads write the replies in parallel, and a slow KEYS command would still hold the main thread while parsed requests wait">
+            <g class="st" id="s5-clients">
+              <rect class="node" x="16" y="38" width="104" height="48" rx="8"/><text class="lbl-sm" x="68" y="67" text-anchor="middle">Client A</text>
+              <rect class="node" x="16" y="100" width="104" height="48" rx="8"/><text class="lbl-sm" x="68" y="129" text-anchor="middle">Client B</text>
+              <rect class="node" x="16" y="214" width="104" height="48" rx="8"/><text class="lbl-sm" x="68" y="243" text-anchor="middle">Client C</text>
+            </g>
+            <g class="st" id="s5-t1">
+              <rect class="node-b" x="210" y="30" width="176" height="140" rx="9"/>
+              <text class="lbl" x="298" y="54" text-anchor="middle">I/O thread 1</text>
+              <text class="lbl-xs" x="298" y="70" text-anchor="middle">its own small event loop</text>
+              <text id="s5-t1-a" class="lbl-sm" x="298" y="106" text-anchor="middle"></text>
+              <text id="s5-t1-b" class="lbl-sm" x="298" y="126" text-anchor="middle"></text>
+            </g>
+            <g class="st" id="s5-t2">
+              <rect class="node-b" x="210" y="190" width="176" height="100" rx="9"/>
+              <text class="lbl" x="298" y="214" text-anchor="middle">I/O thread 2</text>
+              <text class="lbl-xs" x="298" y="230" text-anchor="middle">its own small event loop</text>
+              <text id="s5-t2-a" class="lbl-sm" x="298" y="256" text-anchor="middle"></text>
+              <text id="s5-t2-b" class="lbl-sm" x="298" y="274" text-anchor="middle"></text>
+            </g>
+            <g class="st" id="s5-main">
+              <rect id="s5-main-box" class="node-v" x="474" y="30" width="190" height="260" rx="9"/>
+              <text class="lbl" x="569" y="54" text-anchor="middle">Main thread</text>
+              <text class="lbl-xs" x="569" y="70" text-anchor="middle">the only command executor</text>
+              <rect class="node-g" x="490" y="86" width="158" height="64" rx="7"/>
+              <text class="lbl-sm" x="569" y="114" text-anchor="middle">dataset</text>
+              <text class="lbl-xs" x="569" y="132" text-anchor="middle">touched only here</text>
+              <text id="s5-main-a" class="lbl-sm" x="569" y="190" text-anchor="middle"></text>
+              <text id="s5-main-b" class="lbl-sm" x="569" y="210" text-anchor="middle"></text>
+            </g>
+
+            <path id="s5-pa" class="flow" style="opacity:.14" d="M120 56 H208" marker-end="url(#arrow)"/>
+            <path id="s5-pb" class="flow" style="opacity:.14" d="M120 124 H208" marker-end="url(#arrow)"/>
+            <path id="s5-pc" class="flow" style="opacity:.14" d="M120 232 H208" marker-end="url(#arrow)"/>
+            <path id="s5-pw1" class="flow-d" style="opacity:.14" d="M208 72 H122" marker-end="url(#arrow-s)"/>
+            <path id="s5-pw2" class="flow-d" style="opacity:.14" d="M208 248 H122" marker-end="url(#arrow-s)"/>
+            <path id="s5-pt1" class="flow" style="opacity:.14" d="M388 80 H472" marker-end="url(#arrow)"/>
+            <path id="s5-pt2" class="flow" style="opacity:.14" d="M388 236 H472" marker-end="url(#arrow)"/>
+            <path id="s5-pr1" class="flow-d" style="opacity:.14" d="M472 150 H390" marker-end="url(#arrow-s)"/>
+            <path id="s5-pr2" class="flow-d" style="opacity:.14" d="M472 268 H390" marker-end="url(#arrow-s)"/>
+
+            <text id="s5-read" class="readout" x="340" y="326" text-anchor="middle"></text>
+            <text class="lbl-xs" x="340" y="352" text-anchor="middle">io-threads 3: INFO threads lists io_thread_0 (main), io_thread_1, io_thread_2</text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 7</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 &mdash; interactive: I/O threads parallelize the socket work around a command. The execution step stays serial.</figcaption>
+      </figure>
+
+      <ul>
+        <li><strong>Off by default.</strong> <code>io-threads</code> defaults to <code>1</code>, which means the main thread does everything. <code>io-threads 4</code> means one main thread plus three helpers, and <code>INFO threads</code> then lists <code>io_thread_0</code> (the main thread) through <code>io_thread_3</code> with their client, read and write counts. The setting is immutable: <code>CONFIG SET io-threads</code> is refused, so edit <code>redis.conf</code> and restart. The cap is 128. In this lab&rsquo;s <code>io-threads 4</code> run under a benchmark, <code>io_thread_0</code> stayed at <code>reads=0,writes=0</code> while threads 1 to 3 each handled a few hundred thousand.</li>
+        <li><strong>Reads and writes both move.</strong> <code>io-threads-do-reads</code> is still accepted but has had no effect since 8.0, because the new implementation always uses threads for both.</li>
+        <li><strong>It helps when</strong> the main thread is pinned near 100% CPU by many clients, small commands or large replies, and cores are free. The shipped <code>redis.conf</code> advises it only on machines with at least four cores, leaving one spare, and only when Redis is genuinely CPU-bound. Redis measured 37% to 112% more throughput with eight threads on a multi-core Intel CPU, depending on the commands.</li>
+        <li><strong>It does nothing for a slow command.</strong> The main thread still executes <code>KEYS</code> alone. I/O threads only let parsed requests queue up more efficiently behind it.</li>
+        <li><strong>Not every client moves.</strong> In the 8.10 source, Pub/Sub subscribers, <code>MONITOR</code> clients, blocked clients and client-side-caching (tracking) clients stay on the main thread.</li>
+        <li><strong>Benchmark fairly.</strong> A single-threaded load generator saturates before the server does. <code>redis-benchmark --threads N</code> exists for this reason.</li>
+      </ul>
+      <p>If one core is still the ceiling after that, add processes instead of threads. The Redis FAQ suggests running several instances and treating them as separate servers, and Redis Cluster (L29) splits the keyspace across them for you. Replicas (L27) add read capacity, not write capacity.</p>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p><strong>1 &middot; &ldquo;Redis is single-threaded, so how does it serve 10,000 connections?&rdquo;</strong> Non-blocking sockets plus one readiness query per loop turn. The thread sleeps in <code>epoll</code> or <code>kqueue</code> until some sockets are ready, then runs a short handler for each. An idle connection costs a socket and a buffer, not a thread.</p>
+        <p><strong>2 &middot; &ldquo;Is that still true in Redis 8?&rdquo;</strong> Command execution is. Optional I/O threads (since 6.0, reimplemented in 8.0) handle socket reads, parsing and writes. Three background threads handle file close, AOF fsync and lazy free, and a forked child writes snapshots.</p>
+        <p><strong>3 &middot; &ldquo;Would <code>io-threads</code> fix our <code>KEYS</code> stall?&rdquo;</strong> No. It shortens the conversation around commands, not the commands themselves. Fix the command: <code>SCAN</code>, a maintained index, or a replica.</p>
+        <p><strong>4 &middot; &ldquo;We are at 100% of one core. What are the options?&rdquo;</strong> First find out what the time is: one slow command (<code>SLOWLOG</code>) or sheer volume. For volume, pipeline, then try I/O threads on a box with spare cores, then shard with Cluster. For slow commands, slice them or move them.</p>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section id="s7">
+      <div class="steptag"><b>07</b> Build</div>
+      <h2>Stall the loop, slice it, read the counters</h2>
+      <p>Three measurements, each tied to a claim above: the stall from &sect;00, the slice from &sect;05, and the time split from &sect;01. Use a <strong>throwaway</strong> server. The script holds the loop on purpose and writes a million keys.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Verification checkpoint</span><span class="pill e">Runnable</span><span class="lc">Redis 8.10 &middot; redis==8.1.0</span></div>
+        <div class="wbody">
+          <div class="wname">Stall the loop with KEYS, slice it with SCAN, then read the loop&rsquo;s own counters</div>
+          <p class="wprompt">Run against a throwaway Redis&nbsp;8.10 on <code>localhost:6379</code>. The script writes one million keys under its own prefix and removes them with batched <code>UNLINK</code> when it ends. Install the client with <code>pip install redis==8.1.0</code> (Python&nbsp;3.10 or newer).</p>
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">1 &middot; Victim and offender</span><p>A probe pings on its own connection in a tight loop, so one <code>PING</code> is always in flight. Its slowest round trip is what an unlucky client feels. The command under test runs on a second connection.</p></div>
+            <div class="ws"><span class="wsk">2 &middot; Same scan, two shapes</span><p>The pattern matches only 11 of the million keys, so replies are tiny and the cost is the server&rsquo;s scan. <code>KEYS</code> is one command. <code>SCAN</code> with <code>COUNT 1000</code> is about a thousand commands, with the client carrying the cursor.</p></div>
+            <div class="ws"><span class="wsk">3 &middot; Three views of one stall</span><p>Expect the probe&rsquo;s worst ping to equal the <code>KEYS</code> time, because it waited out the whole command. Expect <code>SLOWLOG</code>, the server&rsquo;s own clock, to agree within a millisecond or two. Expect the <code>SCAN</code> run to take longer overall but show a worst ping near one slice, plus laptop noise.</p></div>
+            <div class="ws"><span class="wsk">4 &middot; Where a command&rsquo;s time goes</span><p><code>eventloop_duration_cmd_sum</code> divided by <code>eventloop_duration_sum</code>, measured across a benchmark, is the share of busy loop time spent inside commands. Run it at three pipeline depths and the &sect;01 table appears.</p></div>
+          </div>
+          <h4 class="wh">The code</h4>
+          <p class="codetag">shell &middot; setup</p>
+          <pre class="code"><code>redis-server --save "" --appendonly no   <span class="cm"># throwaway: port 6379, nothing persisted</span>
+pip install "redis==8.1.0"               <span class="cm"># Python 3.10 or newer</span>
+python event_loop_stall.py</code></pre>
+          <p class="codetag" style="margin-top:14px;">python &middot; redis==8.1.0 &middot; event_loop_stall.py</p>
+          <pre class="code"><code><span class="kw">import</span> asyncio
+<span class="kw">import</span> time
+<span class="kw">import</span> uuid
+
+<span class="kw">import</span> redis.asyncio <span class="kw">as</span> aioredis
+
+HOST, PORT = <span class="st2">"localhost"</span>, <span class="lit">6379</span>
+KEY_COUNT = <span class="lit">1_000_000</span>
+BATCH_SIZE = <span class="lit">1_000</span>
+SETTLE_SECONDS = <span class="lit">0.3</span>
+PREFIX = <span class="st2">f"lab:loop:{uuid.uuid4().hex[:8]}:"</span>
+<span class="cm"># The pattern matches only 11 keys, so the reply is tiny and any stall is the</span>
+<span class="cm"># server's scan, not the client parsing a big reply.</span>
+PATTERN = <span class="st2">f"{PREFIX}99999*"</span>
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">seed_keys</span>(server):
+    pipe = server.pipeline(transaction=<span class="lit">False</span>)
+    <span class="kw">for</span> number <span class="kw">in</span> range(KEY_COUNT):
+        pipe.set(<span class="st2">f"{PREFIX}{number}"</span>, number)
+        <span class="kw">if</span> (number + <span class="lit">1</span>) % BATCH_SIZE == <span class="lit">0</span>:
+            <span class="kw">await</span> pipe.execute()
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">ping_until</span>(stop, probe):
+    worst = <span class="lit">0.0</span>
+    <span class="kw">while</span> <span class="kw">not</span> stop.is_set():
+        started = time.perf_counter()
+        <span class="kw">await</span> probe.ping()
+        worst = max(worst, time.perf_counter() - started)
+    <span class="kw">return</span> worst * <span class="lit">1000</span>
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">measure_stall</span>(command, server, probe):
+    stop = asyncio.Event()
+    probing = asyncio.create_task(ping_until(stop, probe))
+    <span class="kw">await</span> asyncio.sleep(SETTLE_SECONDS)
+    started = time.perf_counter()
+    <span class="kw">await</span> command(server)
+    command_ms = (time.perf_counter() - started) * <span class="lit">1000</span>
+    <span class="kw">await</span> asyncio.sleep(SETTLE_SECONDS)
+    stop.set()
+    <span class="kw">return</span> command_ms, <span class="kw">await</span> probing
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">keys_matching</span>(server):
+    <span class="kw">return</span> <span class="kw">await</span> server.keys(PATTERN)
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">scan_matching</span>(server):
+    scan = server.scan_iter(match=PATTERN, count=BATCH_SIZE)
+    <span class="kw">return</span> [key <span class="kw">async</span> <span class="kw">for</span> key <span class="kw">in</span> scan]
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">unlink_prefix</span>(server):
+    batch = []
+    <span class="kw">async</span> <span class="kw">for</span> key <span class="kw">in</span> server.scan_iter(match=<span class="st2">f"{PREFIX}*"</span>, count=BATCH_SIZE):
+        batch.append(key)
+        <span class="kw">if</span> len(batch) == BATCH_SIZE:
+            <span class="kw">await</span> server.unlink(*batch)
+            batch.clear()
+    <span class="kw">if</span> batch:
+        <span class="kw">await</span> server.unlink(*batch)
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">slowlog_ms</span>(server, command_name):
+    <span class="kw">for</span> entry <span class="kw">in</span> <span class="kw">await</span> server.slowlog_get(<span class="lit">10</span>):
+        <span class="kw">if</span> entry[<span class="st2">"command"</span>].startswith(command_name):
+            <span class="kw">return</span> entry[<span class="st2">"duration"</span>] / <span class="lit">1000</span>
+
+
+<span class="kw">async</span> <span class="kw">def</span> <span class="fn">main</span>():
+    server = aioredis.Redis(host=HOST, port=PORT, decode_responses=<span class="lit">True</span>)
+    probe = aioredis.Redis(host=HOST, port=PORT)
+    <span class="kw">try</span>:
+        <span class="kw">await</span> seed_keys(server)
+
+        keys_ms, keys_worst = <span class="kw">await</span> measure_stall(keys_matching, server, probe)
+        scan_ms, scan_worst = <span class="kw">await</span> measure_stall(scan_matching, server, probe)
+        print(<span class="st2">f"KEYS: command {keys_ms:6.1f} ms | worst PING {keys_worst:6.2f} ms"</span>)
+        print(<span class="st2">f"SCAN: command {scan_ms:6.1f} ms | worst PING {scan_worst:6.2f} ms"</span>)
+        keys_server_ms = <span class="kw">await</span> slowlog_ms(server, <span class="st2">b"KEYS"</span>)
+        print(<span class="st2">f"SLOWLOG: the server timed KEYS at {keys_server_ms:.1f} ms"</span>)
+
+        <span class="kw">assert</span> keys_worst &gt; <span class="lit">0.8</span> * keys_ms
+        <span class="kw">assert</span> scan_worst &lt; keys_worst
+    <span class="kw">finally</span>:
+        <span class="kw">await</span> unlink_prefix(server)
+        <span class="kw">await</span> server.aclose()
+        <span class="kw">await</span> probe.aclose()
+
+
+asyncio.run(main())</code></pre>
+          <p class="codetag" style="margin-top:14px;">typical output &middot; one run, Redis 8.10.3 built from source, 8-core Apple-silicon laptop</p>
+          <pre class="code"><code>KEYS: command  144.5 ms | worst PING 144.47 ms
+SCAN: command  486.7 ms | worst PING   1.21 ms
+SLOWLOG: the server timed KEYS at 144.0 ms</code></pre>
+          <p>Laptop timing is noisy. On a busy machine a single <code>SCAN</code> ping can pick up ten milliseconds or more of unrelated delay, which is why the asserts compare the two runs and the probe against the command instead of fixing absolute numbers.</p>
+
+          <p class="codetag" style="margin-top:14px;">shell &middot; redis-cli and redis-benchmark 8.10 &middot; loop_counters.sh</p>
+          <pre class="code"><code><span class="cm"># prints three numbers, in the order INFO lists them: commands run,</span>
+<span class="cm"># microseconds the loop was busy, microseconds spent inside commands</span>
+loop_stats() {
+  redis-cli INFO stats | tr -d '\r' | awk -F: '
+    /^total_commands_processed:/    { printf "%s ", $2 }
+    /^eventloop_duration_sum:/      { printf "%s ", $2 }
+    /^eventloop_duration_cmd_sum:/  { printf "%s ", $2 }
+    END { print "" }'
+}
+
+<span class="kw">for</span> depth <span class="kw">in</span> 1 16 100; <span class="kw">do</span>
+  before=$(loop_stats)
+  redis-benchmark -t set -r 100000 -n 1000000 -c 50 -P "$depth" -q &gt; /dev/null
+  after=$(loop_stats)
+  echo "$depth $before $after" | awk '{
+    commands = $5 - $2; busy_us = $6 - $3; exec_us = $7 - $4
+    printf "pipeline %3d: %.2f us per command, %.0f%% of it executing\n",
+           $1, busy_us / commands, 100 * exec_us / busy_us }'
+<span class="kw">done</span></code></pre>
+          <p class="codetag" style="margin-top:14px;">typical output &middot; same machine and build</p>
+          <pre class="code"><code>pipeline   1: 8.56 us per command, 7% of it executing
+pipeline  16: 1.15 us per command, 18% of it executing
+pipeline 100: 0.69 us per command, 31% of it executing</code></pre>
+
+          <p class="codetag" style="margin-top:14px;">equivalent redis-cli probe</p>
+          <pre class="code"><code><span class="cm"># terminal 1: the victim. Prints min / max / avg PING time in ms, sampling every 10 ms</span>
+redis-cli --latency
+
+<span class="cm"># terminal 2: create about 630,000 keys named key:&lt;12 digits&gt;, then run the offender</span>
+redis-benchmark -t set -n 1000000 -r 1000000 -P 16 -q
+redis-cli KEYS 'key:00000099999*'   <span class="cm"># terminal 1's max jumps to about this duration</span>
+redis-cli SLOWLOG GET 1             <span class="cm"># the server's own timing: third field, in us</span></code></pre>
+
+          <div class="say">
+            <span class="k">Explain it aloud in an interview</span>
+            <p>&ldquo;Redis executes commands on one thread. It multiplexes thousands of non-blocking sockets with epoll or kqueue, runs a short handler for each ready socket, and never preempts a command. That gives me atomic commands without locks and one command order for replication, and it means the thread&rsquo;s time is mostly socket work, so pipelining or I/O threads are the throughput levers. The cost is head-of-line blocking: an O(N) command such as <code>KEYS</code>, a huge <code>SMEMBERS</code> or a long script is every client&rsquo;s latency. In production I use <code>SCAN</code> with a count, <code>UNLINK</code> for big deletes, paged reads and bounded scripts, and I run slow analytics on a replica. If one core is still the ceiling after I/O threads, I shard.&rdquo;</p>
+            <p class="plain">Follow-ups to anticipate: why <code>io-threads</code> does not fix a slow command, what <code>SLOWLOG</code> does and does not measure, why <code>SCAN</code> can return duplicates, and what a <code>BUSY</code> error means.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="practice">
+      <div class="steptag"><b>&#8599;</b> Practice</div>
+      <h2>Configure &rarr; Diagnose &rarr; Design</h2>
+      <div class="ladder">
+        <div class="rung"><b>Configure</b>A 4-core Linux VM runs one Redis&nbsp;8.10 instance with 300 clients making small <code>GET</code>, <code>SET</code> and <code>HSET</code> calls. <code>top</code> shows the main thread near 95% CPU at 180,000 ops/s and <code>SLOWLOG</code> is empty. Decide whether <code>io-threads</code> is worth testing, what value you would try and why, how you apply it, which <code>INFO</code> output proves the helper threads are working, and how the benchmark client must be set up to show a real before-and-after.</div>
+        <div class="rung"><b>Diagnose</b>Every five minutes the API&rsquo;s p99 jumps from 3&nbsp;ms to 400&nbsp;ms for about a second, across endpoints that share nothing but Redis. Average Redis CPU is 20%. <code>SLOWLOG GET 3</code> shows <code>SMEMBERS audience:all</code> at 380,000&nbsp;&micro;s. Explain the mechanism end to end, including why the CPU graph hides it and why the number of connected clients can climb during the spike. Propose a minimal fix and a structural one.</div>
+        <div class="rung"><b>Design</b>A nightly job must delete about 40&nbsp;million expired-session keys under <code>sess:*</code> from a primary that serves live traffic, and report how many belonged to each tenant. Design it so no single command holds the loop for more than a millisecond or two. State how you handle <code>SCAN</code> duplicates, which deletion command you use and why, how you pace the job, and which two measurements would prove it was safe.</div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Seven takeaways</h2>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>One thread, one command</b><span>Commands run one at a time, to completion. Single commands are atomic with no lock.</span></div>
+        <div class="tk"><span class="num">02</span><b>The command is the quantum</b><span>Nothing preempts a command, so its run time is every other client&rsquo;s wait.</span></div>
+        <div class="tk"><span class="num">03</span><b>Commands are cheap, conversations are not</b><span>Executing a simple command takes well under a microsecond; reading, parsing and replying take microseconds. Pipelining and I/O threads attack that part.</span></div>
+        <div class="tk"><span class="num">04</span><b>A reactor loop</b><span><code>beforeSleep</code>, poll, ready-socket handlers, timers. Non-blocking sockets mean a slow client cannot stall the loop.</span></div>
+        <div class="tk"><span class="num">05</span><b>N belongs to your data</b><span>O(N) commands pass staging and fail in production. Read the complexity line and ask what N will be.</span></div>
+        <div class="tk"><span class="num">06</span><b>Slice, don&rsquo;t sweep</b><span><code>SCAN</code>-family cursors, paged reads, batched <code>UNLINK</code>, and replicas for heavy reads.</span></div>
+        <div class="tk"><span class="num">07</span><b>Threads help I/O, not execution</b><span><code>io-threads</code> (opt-in, restart) parallelizes socket work. For more cores for commands, add processes.</span></div>
+      </div>
+    </section>
+
+    <section id="self-test" class="self-test">
+      <div class="steptag"><b>?</b> Active recall</div>
+      <h2>Self-test</h2>
+      <details class="self-test-question"><summary>1. How can one thread serve thousands of connections without blocking on any of them?</summary><p>Sockets are non-blocking and the thread makes one readiness query per loop turn (<code>epoll_wait</code>, <code>kevent</code>, event ports or <code>select</code>). It runs a short handler for each ready socket, then polls again. An idle connection costs a socket and buffers, not a thread, and a client that is slow to read leaves its reply in an output buffer instead of stalling the loop.</p></details>
+      <details class="self-test-question"><summary>2. Why are single Redis commands atomic without locks, and what does that not cover?</summary><p>Only one command executes at a time and each runs to completion, so none can be observed half-done. The same holds for <code>MULTI</code>/<code>EXEC</code> and scripts, which run as one uninterrupted unit. It does not cover a read-compute-write sequence a client spreads over separate commands: other clients&rsquo; commands can run between them (L23, L24).</p></details>
+      <details class="self-test-question"><summary>3. <code>KEYS 'user:42:*'</code> returns three keys instantly in a test. Why is it still dangerous in production?</summary><p>Its cost is O(N) in the number of keys in the database, however many match. Every key name is tested against the pattern while no other command runs. The test database was small and production&rsquo;s is not. Use <code>SCAN</code> with <code>MATCH</code> and <code>COUNT</code>, or keep a set of each user&rsquo;s keys.</p></details>
+      <details class="self-test-question"><summary>4. In terms of blocking, how do <code>BLPOP</code> and <code>SMEMBERS</code> on a huge set differ?</summary><p><code>BLPOP</code> is a blocking command: it parks the calling client and the loop keeps serving everyone else (counted in <code>blocked_clients</code>). <code>SMEMBERS</code> over millions of members is a slow command: it holds the loop while it visits every element, so every client waits.</p></details>
+      <details class="self-test-question"><summary>5. What do I/O threads parallelize, and what does <code>io-threads 4</code> mean in Redis 8.10?</summary><p>Socket reads, request parsing and socket writes, with each I/O thread running its own small event loop over its clients. Commands still execute one at a time on the main thread. <code>io-threads 4</code> means the main thread plus three I/O threads (<code>INFO threads</code> lists <code>io_thread_0</code> to <code>io_thread_3</code>). The default is 1 and the setting is immutable at runtime. It helps only when the main thread is CPU-bound on I/O with cores to spare, and it does nothing for a slow command.</p></details>
+      <details class="self-test-question"><summary>6. What does <code>SLOWLOG</code> measure, and why can a client see more latency than it shows?</summary><p>Only the command&rsquo;s execution time on the main thread, against a default threshold of 10,000&nbsp;&micro;s. It excludes reading the request, writing the reply, network time and, above all, the time the request waited behind other commands. A client stuck behind a 140&nbsp;ms <code>KEYS</code> can see up to about 140&nbsp;ms while its own <code>GET</code> never appears in the slow log.</p></details>
+      <details class="self-test-question"><summary>7. What does <code>SCAN</code> guarantee, and how do you handle its duplicates?</summary><p>An element present for the whole walk is returned at least once, and one absent for the whole walk is never returned; elements that appear or disappear mid-walk may or may not be returned. Duplicates can occur, so make per-key work idempotent (<code>UNLINK</code>, set-style writes) or deduplicate on the client. <code>COUNT</code> is only a hint and <code>MATCH</code> filters after fetching, so empty pages are normal. Stop when the returned cursor is <code>0</code>.</p></details>
+    </section>
+
+    <section id="sources" class="sources-section">
+      <div class="steptag"><b>&#8599;</b> Primary sources</div>
+      <h2>Official sources &amp; further reading</h2>
+      <ol>
+        <li><a href="https://redis.io/docs/latest/develop/get-started/faq/">Redis Documentation &mdash; FAQ: how can Redis use multiple CPUs or cores</a></li>
+        <li><a href="https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/">Redis Documentation &mdash; Diagnosing latency issues (single-threaded design, slow commands, fork)</a></li>
+        <li><a href="https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/">Redis Documentation &mdash; Benchmarking (pipelining, threads and fair comparisons)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/keys/">Redis Command Reference &mdash; <code>KEYS</code> (complexity and the production warning)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/scan/">Redis Command Reference &mdash; <code>SCAN</code> (guarantees, <code>COUNT</code>, <code>MATCH</code>)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/unlink/">Redis Command Reference &mdash; <code>UNLINK</code> (constant work per key, reclamation in another thread)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/slowlog-get/">Redis Command Reference &mdash; <code>SLOWLOG GET</code> (what the execution time includes)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/info/">Redis Command Reference &mdash; <code>INFO</code> (threads section, event loop counters, <code>multiplexing_api</code>)</a></li>
+        <li><a href="https://redis.io/docs/latest/develop/using-commands/transactions/">Redis Documentation &mdash; Transactions (serialized, uninterrupted execution)</a></li>
+        <li><a href="https://redis.io/docs/latest/develop/programmability/">Redis Documentation &mdash; Programmability (script atomicity, <code>busy-reply-threshold</code>, <code>BUSY</code>)</a></li>
+        <li><a href="https://redis.io/blog/redis-8-0-m03-is-out-even-more-performance-new-features/">Redis Blog &mdash; Redis 8.0-M03: the asynchronous I/O threading implementation</a></li>
+        <li><a href="https://github.com/redis/redis/releases/tag/8.0-m03">Redis Open Source &mdash; 8.0-M03 release notes (<code>io-threads-do-reads</code> no longer effective)</a></li>
+        <li><a href="https://github.com/redis/redis/blob/8.10/redis.conf">Redis Open Source 8.10 &mdash; <code>redis.conf</code> (threaded I/O guidance, <code>hz</code>, lazy freeing)</a></li>
+        <li><a href="https://github.com/redis/redis/blob/8.10/src/ae.c">Redis Open Source 8.10 &mdash; <code>src/ae.c</code>, the event library</a></li>
+        <li><a href="https://github.com/redis/redis/blob/8.10/src/dict.c">Redis Open Source 8.10 &mdash; <code>src/dict.c</code> (the <code>dictScan</code> cursor design)</a></li>
+        <li><a href="https://github.com/redis/redis/releases/tag/8.10.3">Redis Open Source &mdash; 8.10.3 release</a></li>
+      </ol>
+    </section>
+
+    <nav class="course-nav" aria-label="Course navigation">
+      <a data-nav="previous" href="lesson-01-the-data-structure-server-mental-model.html">&larr; Previous</a>
+      <a data-nav="index" href="index.html">Course index</a>
+      <span class="done">Next: Lesson 03 &mdash; soon</span>
+    </nav>
+
+    <footer>
+      LESSON 02 &middot; THE SINGLE-THREADED EVENT LOOP &middot; ORIGINAL INTERACTIVE STUDY CHAPTER<br>
+      Redis Open Source 8.10 (8.10.3 GA) &middot; redis-py 8.1.0 &middot; review, replay, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — one slow command stalls every client */
+  var stallLayers=['s1-g1','s1-g2','s1-g3','s1-g4','s1-g5','s1-g6','s1-note'];
+  makeStepper(_g('fig-stall'), [
+    {text:"A normal moment. B and C send tiny commands, and the thread runs each one to completion in microseconds, so both replies feel instant.",
+     show:['s1-g1'], read:"B and C normally see about 0.3 ms: network plus microseconds of work"},
+    {text:"Client A, an admin script, sends KEYS user:* to find one customer's sessions. The keyspace holds about a million keys.",
+     show:['s1-g1','s1-g2'], read:"A's request is on its way"},
+    {text:"The loop reads the request and starts executing. KEYS must test every key name against the pattern, so the work is O(N): about 140 ms at a million keys, even though only a few keys match.",
+     show:['s1-g1','s1-g2','s1-g3'], read:"one command now owns the only thread"},
+    {text:"While KEYS runs, B sends GET cart:7 and C sends PING. The operating system accepts both into socket buffers, but the one thread that could read them is busy.",
+     show:['s1-g1','s1-g2','s1-g3','s1-g4'], read:"B's and C's bytes sit unread in the kernel"},
+    {text:"Nothing preempts a running command. Redis has no scheduler that could cut KEYS into pieces and serve B or C in between, so both wait for the whole command.",
+     show:['s1-g1','s1-g2','s1-g3','s1-g4','s1-note'], read:"the end of a command is the only scheduling point"},
+    {text:"KEYS finishes and A gets its reply. The loop polls again and finds B's and C's sockets readable at once.",
+     show:['s1-g1','s1-g2','s1-g3','s1-g4','s1-g5'], read:"poll returns: B and C are both ready"},
+    {text:"Both commands take microseconds, but each client's observed latency is its wait plus its work: about 100 ms for B and 60 ms for C, for commands that cost 0.02 ms.",
+     show:['s1-g1','s1-g2','s1-g3','s1-g4','s1-g5','s1-g6'], read:"B: 0.02 ms of work, about 100 ms observed. C: about 60 ms observed."}
+  ], function(idx,s){
+    stallLayers.forEach(function(id){
+      _g(id).classList.toggle('off', s.show.indexOf(id)===-1);
+    });
+    _g('s1-read').textContent=s.read;
+  });
+
+  /* FIG 2 — one turn of the event loop */
+  makeStepper(_g('fig-loop'), [
+    {text:"Top of a turn. beforeSleep runs first: it writes the replies queued last turn, flushes the append-only buffer, and wakes clients whose blocking call can now finish.",
+     active:['s2-b1','s2-sock'], a:"idle", b:"idle", c:"idle", ready:"(not asked yet)",
+     read:"housekeeping before the loop may sleep"},
+    {text:"The loop asks the kernel which sockets are ready (epoll_wait on Linux, kevent on macOS). The timeout is the time until the next timer, so with no traffic the thread sleeps right here.",
+     active:['s2-b2','s2-sock'], path:'s2-p12', a:"idle", b:"idle", c:"idle", ready:"sleeping in poll...",
+     read:"an idle Redis waits here at almost no CPU"},
+    {text:"While the loop slept, B and C sent requests. The kernel wakes the poll and returns a ready list: B and C. Client A is quiet.",
+     active:['s2-b2','s2-sock'], a:"idle", b:"readable: GET cart:7", c:"readable: INCR hits", ready:"B, C",
+     read:"poll returns two ready sockets"},
+    {text:"Handler for B: read the bytes without blocking, parse the request, run GET cart:7 to completion, append the reply to B's output buffer. The end of this command is the only point where anything else could run.",
+     active:['s2-b3','s2-sock'], path:'s2-p23', a:"idle", b:"running GET, reply queued", c:"readable, waiting its turn", ready:"B, C",
+     read:"one command, start to finish"},
+    {text:"Only now does C's handler start. It reads and parses INCR hits, runs it to completion and queues the reply. C waited for B's command, however short that was.",
+     active:['s2-b3','s2-sock'], a:"idle", b:"reply queued", c:"running INCR, reply queued", ready:"B, C",
+     read:"strictly one after the other"},
+    {text:"Time events. If the next serverCron is due (every 100 ms at the default hz of 10), it runs now: it samples keys for expiry, resizes hash tables a little, and closes timed-out clients.",
+     active:['s2-b4'], path:'s2-p34', a:"idle", b:"reply queued", c:"reply queued", ready:"B, C",
+     read:"housekeeping in small slices, between commands"},
+    {text:"The turn ends and the next one begins with beforeSleep, which writes B's and C's queued replies to their sockets before the loop polls again.",
+     active:['s2-b1','s2-sock'], path:'s2-p41', a:"idle", b:"reply written", c:"reply written", ready:"(next poll)",
+     read:"replies leave, and the loop turns again"}
+  ], function(idx,s){
+    _g('s2-a').textContent=s.a;
+    _g('s2-b').textContent=s.b;
+    _g('s2-c').textContent=s.c;
+    _g('s2-ready').textContent=s.ready;
+    _g('s2-read').textContent=s.read;
+  });
+
+  /* FIG 5 — I/O threads */
+  var ioPaths=['s5-pa','s5-pb','s5-pc','s5-pw1','s5-pw2','s5-pt1','s5-pt2','s5-pr1','s5-pr2'];
+  makeStepper(_g('fig-iothreads'), [
+    {text:"io-threads 3 means one main thread plus two I/O threads. The main thread assigns each new client to an I/O thread: here A and B go to thread 1, C to thread 2.",
+     paths:['s5-pa','s5-pb','s5-pc'], t1a:"owns clients A and B", t1b:"", t2a:"owns client C", t2b:"",
+     ma:"idle", mb:"", read:"setup: clients are spread over the I/O threads"},
+    {text:"A and C send requests. Each I/O thread reads its own client's socket and parses the request, at the same time and without touching the dataset.",
+     active:['s5-clients','s5-t1','s5-t2'], paths:['s5-pa','s5-pc'], path:'s5-pa', t1a:"reading + parsing A", t1b:"SET a 1", t2a:"reading + parsing C", t2b:"GET c",
+     ma:"idle", mb:"", read:"parallel: socket reads and parsing"},
+    {text:"Each thread tells the main thread that a parsed client is ready. The requests wait in line for the single executor.",
+     active:['s5-t1','s5-t2','s5-main'], paths:['s5-pt1','s5-pt2'], path:'s5-pt1', t1a:"A is parsed", t1b:"handed to main", t2a:"C is parsed", t2b:"handed to main",
+     ma:"queue: A, C", mb:"", read:"hand-off to the one executor"},
+    {text:"The main thread runs A's command, then C's, strictly one after the other. It is the only thread that reads or writes the dataset.",
+     active:['s5-main'], paths:[], t1a:"", t1b:"", t2a:"", t2b:"",
+     ma:"running SET a 1", mb:"then GET c", read:"serial: still one command at a time"},
+    {text:"Replies are queued and returned to the I/O thread that owns each client.",
+     active:['s5-t1','s5-t2','s5-main'], paths:['s5-pr1','s5-pr2'], path:'s5-pr1', t1a:"has A's reply", t1b:"", t2a:"has C's reply", t2b:"",
+     ma:"next parsed client", mb:"", read:"hand-back to the owning thread"},
+    {text:"The I/O threads write to their sockets in parallel while the main thread has already moved on to the next client in line.",
+     active:['s5-clients','s5-t1','s5-t2'], paths:['s5-pw1','s5-pw2'], path:'s5-pw1', t1a:"writing A's reply", t1b:"", t2a:"writing C's reply", t2b:"",
+     ma:"running next command", mb:"", read:"parallel: socket writes"},
+    {text:"What did not change: a slow command still holds the main thread. While a KEYS of about 140 ms runs, parsed requests pile up and the I/O threads can only wait.",
+     active:['s5-main','s5-t1','s5-t2'], paths:[], tone:'bad', t1a:"parsed requests wait", t1b:"", t2a:"parsed requests wait", t2b:"",
+     ma:"running KEYS user:*", mb:"about 140 ms", read:"I/O threads do not shorten a command"}
+  ], function(idx,s){
+    var lit=s.paths||[];
+    ioPaths.forEach(function(id){
+      _g(id).style.opacity=(lit.indexOf(id)!==-1)?'1':'.14';
+    });
+    _g('s5-t1-a').textContent=s.t1a;
+    _g('s5-t1-b').textContent=s.t1b;
+    _g('s5-t2-a').textContent=s.t2a;
+    _g('s5-t2-b').textContent=s.t2b;
+    _g('s5-main-a').textContent=s.ma;
+    _g('s5-main-b').textContent=s.mb;
+    _g('s5-read').textContent=s.read;
+    _g('s5-main-box').setAttribute('class', s.tone==='bad' ? 'node-r' : 'node-v');
+  });
+</script>
+</body>
+</html>
