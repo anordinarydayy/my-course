@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 03 — Talking to the Cluster: REST, _cat &amp; Bulk (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --amber-wash:#F6ECD8; --green:#69B34C; --green-wash:#EAF3E4;
+    --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --teal:#2E8B8B; --teal-soft:#3FA3A3; --teal-wash:#E0EEEE; --teal-deep:#246B6B;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--teal);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--teal);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--teal-wash);color:var(--ink);}
+  .toc a.active{background:var(--teal);color:#fff;} .toc a.active .n{color:#cfe9e9;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(36px,5.2vw,56px);line-height:1.04;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-deep);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--teal);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .node-g{fill:var(--green-wash);stroke:var(--green);stroke-width:2;}
+  .node-t{fill:var(--teal-wash);stroke:var(--teal);stroke-width:2;}
+  .node-a{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2;}
+  .node-dash{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .lbl-xs{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--ink-soft);}
+  .t-rust{fill:var(--rust);} .t-teal{fill:var(--teal-deep);} .t-blue{fill:var(--blueprint);}
+  .t-green{fill:#3f7a2e;} .t-violet{fill:var(--violet);} .t-amber{fill:#9a6515;}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .flow-t{stroke:var(--teal);stroke-width:2;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2;fill:none;}
+  .flow-a{stroke:var(--amber);stroke-width:2;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--teal);background:var(--teal-wash);} .callout.note .k{color:var(--teal-deep);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .tradeoff{margin:28px 0;overflow-x:auto;}
+  .tradeoff table{width:100%;border-collapse:collapse;background:var(--paper-2);font-size:15.5px;}
+  .tradeoff th,.tradeoff td{padding:12px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  .tradeoff th{background:var(--blueprint-wash);font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- state boxes used by the figures ---- */
+  .sc-box{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;transition:fill .25s,stroke .25s,opacity .25s;}
+  .sc-box.hit{fill:var(--green-wash);stroke:var(--green);stroke-width:2.4;}
+  .sc-box.scan{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2.4;}
+  .sc-box.blue{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .sc-box.teal{fill:var(--teal-wash);stroke:var(--teal);stroke-width:2.4;}
+  .sc-box.amber{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2.4;}
+  .sc-box.ghost{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;}
+  /* ---- worked example + narration ---- */
+  .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.e{background:#E6F1DF;color:#3f7a2e;} .pill.m{background:#FBEEDB;color:#9a6515;} .pill.h{background:var(--rust-wash);color:var(--rust);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:18px 0 6px;}
+  pre.code{margin:0 0 14px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);} pre.code .st2{color:#3f7a2e;}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  /* ---- practice ladder, self-test, sources, course-nav ---- */
+  .ladder{display:grid;gap:13px;margin:24px 0;}
+  .rung{padding:17px 19px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);}
+  .rung b{display:block;margin-bottom:5px;color:var(--rust);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .self-test-question{margin:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);}
+  .self-test-question summary{padding:14px 17px;cursor:pointer;font-weight:600;}
+  .self-test-question p{padding:0 17px 15px;margin:0;color:var(--ink-soft);font-size:16px;}
+  .sources-section ol{padding-left:22px;}
+  .sources-section li{margin-bottom:10px;}
+  .course-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:58px;padding-top:24px;border-top:1px solid var(--line-strong);}
+  .course-nav a{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;text-decoration:none;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--blueprint);}
+  .course-nav a:hover{border-color:var(--teal);background:var(--teal-wash);color:var(--teal-deep);}
+  .course-nav span.done{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--ink-soft);opacity:.55;display:block;}
+  footer{margin-top:36px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--teal);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(46,139,139,.32);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+    .worked .lc{margin-left:0;} .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;}
+    .course-nav{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2E8B8B"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+  <marker id="arrow-a" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#C98A2B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Lesson contents">
+    <div class="brandmark">Elasticsearch &middot; Phase 0</div>
+    <div class="brandtitle">Talking to the Cluster:<br>REST, <code>_cat</code> &amp; Bulk</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The failures first</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>REST conventions &amp; options &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>_cat APIs for humans</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Kibana Dev Tools Console</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Bulk API &amp; partial failure &#9656;</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Batch sizing &amp; 429 retry &#9656;</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>Build: inspect, bulk, retry</span></a></li>
+      <li><a href="#practice"><span class="n">&#8599;</span><span>Practice ladder</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Takeaways</span></a></li>
+      <li><a href="#self-test"><span class="n">?</span><span>Self-test</span></a></li>
+      <li><a href="#sources"><span class="n">&#8599;</span><span>Primary sources</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal-deep);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">03</span><span>Concept &middot; Phase 0 &middot; Elasticsearch</span></div>
+      <h1>Talking to the Cluster: REST, <code>_cat</code> &amp; Bulk</h1>
+      <p class="lede">Lessons 01 and 02 introduced port <code>9200</code>, the coordinating node, and single-document CRUD. In real systems, nobody loads a million products one HTTP request at a time, and nobody reads a raw JSON cluster-state dump with their eyes during an incident. This chapter closes Phase Zero with the three interfaces you use every day: the REST conventions and query flags, the <code>_cat</code> tabular endpoints for operators, the <code>_bulk</code> NDJSON endpoint for throughput, and Kibana Dev Tools Console to drive them fast.</p>
+      <div class="disclaimer">
+        <strong>Original study chapter.</strong> Written from scratch for backend, search, and platform interviews &mdash; and for everyday cluster operations. Behavior and defaults target stable <strong>Elasticsearch 9.5</strong> (Apache Lucene&nbsp;10, tracking the 8.x&nbsp;&rarr;&nbsp;9.x line; latest 9.5.6 patch); code examples show raw HTTP / Dev Tools Console syntax, <code>curl</code>, and Python&nbsp;3 with <code>elasticsearch==9.5.1</code> (<code>elasticsearch.helpers</code>). Contains <strong>five original figures, three interactive</strong> (press <em>Play</em>, or step with <em>Next</em>). Segment refresh/translog internals follow in L07, shard routing in L22, and deep production triage in L39.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The failure first</div>
+      <h2>An HTTP <code>200</code> that silently dropped writes, and a monitor broken by whitespace</h2>
+      <p>Start with two bugs that happen in almost every team&rsquo;s first Elasticsearch integration.</p>
+      <p>First, an ingestion service tries to load 50,000 catalog items by running <code>PUT /catalog/_doc/{id}</code> in a loop. Every document pays a separate TCP/TLS round trip, JSON decode, and shard dispatch, taking minutes instead of seconds. The engineer switches to <code>POST /_bulk</code>, checks <code>if resp.status_code == 200:</code>, and marks the batch done. Weeks later, search is missing hundreds of products. Why? Because <strong><code>_bulk</code> is not a transaction</strong>: it returns HTTP <code>200 OK</code> even when half the documents in the batch failed with <code>400 mapper_parsing_exception</code> or <code>429 es_rejected_execution_exception</code>. Those errors sit inside <code>items[]</code> behind <code>"errors": true</code>, and code that checks only the outer status drops them silently.</p>
+      <p>Second, a cron alert runs <code>curl /_cat/indices</code> and splits columns with <code>awk</code> to track document counts, while another dashboard call pulls full multi-megabyte JSON responses over a thin link without trimming unused fields. A cluster upgrade shifts column layout or adds a column, breaking the parser &mdash; violating Elastic&rsquo;s own rule that <strong><code>_cat</code> is strictly for humans</strong>, while programs belong on typed JSON endpoints shaped with <code>filter_path</code>.</p>
+      <p>The build-up covers: REST conventions and common options (01), <code>_cat</code> vs. JSON (02), Kibana Dev Tools Console (03), <code>_bulk</code> NDJSON routing and partial failures (04), batch sizing and selective <code>429</code> retries (05), and an end-to-end build (06).</p>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> REST grammar</div>
+      <h2>Targets, headers, and common options across every endpoint &#9656;</h2>
+      <p>Every HTTP endpoint on port <code>9200</code> shares a small set of global conventions. Learn them once and they work identically on search, cluster inspection, and bulk writes.</p>
+      <ul>
+        <li><strong>Strict <code>Content-Type</code> and UTF-8 JSON</strong> &mdash; any request carrying a body must declare an explicit <code>Content-Type</code> header (typically <code>application/json</code>; <code>application/x-ndjson</code> for bulk and multi-search; YAML, CBOR, and SMILE are also supported). Text inside JSON must be UTF-8 encoded.</li>
+        <li><strong>Multi-target paths and date math</strong> &mdash; data and search endpoints accept comma-separated names (<code>orders-2025,orders-2026</code>), wildcards with exclusions (<code>logs-*,-logs-debug</code>), or <code>_all</code>. Time-based indices also support <strong>date math</strong> expressions such as <code>&lt;logs-{now/d}&gt;</code> (which resolves dynamically to today&rsquo;s UTC index name; URL-encode <code>&lt;</code> as <code>%3C</code> and <code>&gt;</code> as <code>%3E</code> in raw <code>curl</code>). Pair wildcards with <code>ignore_unavailable=true</code>, <code>allow_no_indices=true</code>, and <code>expand_wildcards=open|closed|all|none</code> so missing or closed indices do not fail a multi-index query.</li>
+        <li><strong><code>X-Opaque-Id</code> request tracing</strong> &mdash; attach an <code>X-Opaque-Id: catalog-sync</code> HTTP header to any request and Elasticsearch carries that tag into task management (<code>_tasks</code>), slow logs, and deprecation logs, letting you trace an expensive query straight back to the caller that sent it.</li>
+      </ul>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr>
+              <th>Common option</th>
+              <th>What it changes</th>
+              <th>When to use &mdash; and when to leave off</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>?filter_path=...</code></td>
+              <td>Comma-separated dot paths (with <code>*</code>, <code>**</code>, and <code>-</code> exclusions) filtering what the coordinating node serializes back.</td>
+              <td><strong>Use in scripts and high-volume callers</strong> (e.g., <code>filter_path=took,errors,items.*.error</code>). Cuts wire payload dramatically, though shards still run the full query before trimming.</td>
+            </tr>
+            <tr>
+              <td><code>?pretty=true</code></td>
+              <td>Indents and line-breaks the JSON response.</td>
+              <td><strong>Terminal debugging only.</strong> Adds bytes and serialization work; never send from application code.</td>
+            </tr>
+            <tr>
+              <td><code>?human=true</code></td>
+              <td>Adds readable sizes and durations (<code>"10kb"</code>, <code>"1m"</code>) rather than raw bytes/ms only.</td>
+              <td><strong>Operator checks.</strong> Default is <code>false</code> on JSON APIs because computers want raw integer bytes and milliseconds.</td>
+            </tr>
+            <tr>
+              <td><code>?error_trace=true</code></td>
+              <td>Includes the server-side Java stack trace inside 4xx/5xx error JSON.</td>
+              <td><strong>Local debugging only.</strong> Verbose and exposes internal stack details.</td>
+            </tr>
+            <tr>
+              <td><code>?refresh=false|wait_for|true</code></td>
+              <td>Controls when writes become visible to search (<code>false</code> default, <code>wait_for</code> pauses for next periodic refresh, <code>true</code> forces immediate refresh).</td>
+              <td><strong>Keep <code>false</code> for bulk</strong> throughput; use <code>wait_for</code> only when the caller needs read-after-write visibility; reserve <code>true</code> for tests.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-rest">
+          <svg viewBox="0 0 680 364" role="img" aria-label="Interactive diagram of REST API conventions: a client sends a wildcard GET request with X-Opaque-Id header and filter_path query option to a coordinating node on port 9200. The coordinator expands open indices while skipping closed ones, scatters over port 9300, collects 42 KB of raw JSON, and trims the response down to 95 bytes via filter_path before returning it.">
+            <g class="st" id="rs-client">
+              <rect class="node" x="12" y="54" width="210" height="222" rx="10"/>
+              <text class="lbl" x="24" y="80">Client (:9200)</text>
+              <text class="lbl-xs t-blue" x="24" y="106">GET /logs-*/_search</text>
+              <text class="lbl-xs" x="24" y="126">?expand_wildcards=open</text>
+              <text class="lbl-xs" x="24" y="144">&amp;ignore_unavailable=true</text>
+              <text class="lbl-xs t-teal" x="24" y="162">&amp;filter_path=took,hits.total</text>
+              <line x1="24" y1="178" x2="210" y2="178" class="flow-d"/>
+              <text class="lbl-xs" x="24" y="198">Body: UTF-8 JSON</text>
+              <text class="lbl-xs t-amber" x="24" y="216">X-Opaque-Id: billing-job</text>
+              <text id="rs-wire-note" class="lbl-xs" x="24" y="256">wire reply: waiting...</text>
+            </g>
+
+            <g class="st" id="rs-coord">
+              <rect class="node-t" x="250" y="34" width="206" height="264" rx="11"/>
+              <text class="lbl" x="353" y="58" text-anchor="middle">Coordinating Node</text>
+              <rect class="node" x="262" y="72" width="182" height="62" rx="7"/>
+              <text class="lbl-sm" x="274" y="93">1. Target &amp; header</text>
+              <text id="rs-coord-note" class="lbl-xs" x="274" y="113">expands logs-* &amp; tags task</text>
+
+              <rect class="node-b" x="262" y="146" width="182" height="62" rx="7"/>
+              <text class="lbl-sm" x="274" y="167">2. Scatter (:9300)</text>
+              <text id="rs-shard-note" class="lbl-xs" x="274" y="187">collects 42 KB full hits</text>
+
+              <rect class="node-g" x="262" y="220" width="182" height="62" rx="7"/>
+              <text class="lbl-sm" x="274" y="241">3. Response shaping</text>
+              <text id="rs-trim-note" class="lbl-xs" x="274" y="261">filter_path -&gt; 95 bytes</text>
+            </g>
+
+            <g class="st" id="rs-shards">
+              <rect class="node" x="496" y="42" width="172" height="246" rx="10"/>
+              <text class="lbl" x="582" y="66" text-anchor="middle">Cluster Indices</text>
+              <rect id="rs-i1" class="sc-box blue" x="510" y="82" width="144" height="54" rx="7"/>
+              <text class="lbl-sm" x="582" y="104" text-anchor="middle">logs-2026.11.21</text>
+              <text class="lbl-xs" x="582" y="122" text-anchor="middle">open &middot; queried</text>
+
+              <rect id="rs-i2" class="sc-box blue" x="510" y="148" width="144" height="54" rx="7"/>
+              <text class="lbl-sm" x="582" y="170" text-anchor="middle">logs-2026.11.22</text>
+              <text class="lbl-xs" x="582" y="188" text-anchor="middle">open &middot; queried</text>
+
+              <rect id="rs-i3" class="sc-box ghost" x="510" y="214" width="144" height="58" rx="7"/>
+              <text class="lbl-sm" x="582" y="236" text-anchor="middle">logs-2026.10.01</text>
+              <text class="lbl-xs" x="582" y="254" text-anchor="middle">closed &middot; skipped</text>
+            </g>
+
+            <path id="rp-req" class="flow-t" style="opacity:.16" d="M222 118 H 248" marker-end="url(#arrow-t)"/>
+            <path id="rp-scat" class="flow" style="opacity:.16" d="M456 166 H 494" marker-end="url(#arrow)"/>
+            <path id="rp-back" class="flow" style="opacity:.16" d="M494 196 H 456" marker-end="url(#arrow)"/>
+            <path id="rp-resp" class="flow-g" style="opacity:.16" d="M248 248 H 222" marker-end="url(#arrow-g)"/>
+
+            <text id="rs-read" class="readout" x="340" y="340" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: targets expand on the coordinating node, headers tag logs/tasks, and <code>filter_path</code> trims the response before it crosses the wire.</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p>&ldquo;Does <code>?filter_path=took,hits.total</code> make the search execute faster on the shards?&rdquo; Mostly <strong>no</strong> &mdash; the shards still score and return results to the coordinating node unless you also set <code>"size": 0</code> or <code>"_source": false</code> in the query body. <code>filter_path</code> saves <em>network bandwidth and client JSON parsing</em>, not shard CPU.</p>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Operator visibility</div>
+      <h2>The <code>_cat</code> APIs: compact tables meant for human eyes, never code</h2>
+      <p>JSON is great for programs and miserable to scan in an SSH session at 2&nbsp;a.m. That is why Elasticsearch ships the <strong><code>_cat</code></strong> (Compact and Aligned Text) APIs. Send <code>GET /_cat</code> and the cluster prints every available endpoint. Unlike regular JSON APIs, <code>_cat</code> formats responses into fixed-width, whitespace-aligned terminal tables.</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>What it answers immediately</th>
+              <th>Operator call you actually run</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>GET /_cat/health</code></td>
+              <td>One-line snapshot: timestamp, cluster name, <code>green</code>/<code>yellow</code>/<code>red</code>, nodes, active/unassigned shards.</td>
+              <td><code>GET /_cat/health?v</code></td>
+            </tr>
+            <tr>
+              <td><code>GET /_cat/nodes</code></td>
+              <td>Per-node CPU, load average, RAM, JVM heap%, roles, and <code>*</code> marking the elected master.</td>
+              <td><code>GET /_cat/nodes?v&amp;h=ip,heap.percent,ram.percent,cpu,node.role,master,name</code></td>
+            </tr>
+            <tr>
+              <td><code>GET /_cat/indices</code></td>
+              <td>Health, status, primary/replica counts, live vs. deleted docs, and disk footprint per index.</td>
+              <td><code>GET /_cat/indices?v&amp;s=store.size:desc</code></td>
+            </tr>
+            <tr>
+              <td><code>GET /_cat/shards</code></td>
+              <td>Exact node placement for every primary (<code>p</code>) and replica (<code>r</code>), plus why a shard is <code>UNASSIGNED</code>.</td>
+              <td><code>GET /_cat/shards/catalog?v&amp;h=index,shard,prirep,state,docs,store,node,unassigned.reason</code></td>
+            </tr>
+            <tr>
+              <td><code>GET /_cat/count</code></td>
+              <td>Fast total document count across the cluster or a named index.</td>
+              <td><code>GET /_cat/count/catalog?v</code></td>
+            </tr>
+            <tr>
+              <td><code>GET /_cat/thread_pool/write</code></td>
+              <td>Active workers, queued requests, and cumulative <code>rejected</code> count on the write pool (critical during bulk tuning).</td>
+              <td><code>GET /_cat/thread_pool/write?v&amp;h=node_name,active,queue,rejected</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Five shared query flags unlock almost all the power of <code>_cat</code>:</p>
+      <ul>
+        <li><strong><code>?v</code> (verbose)</strong> &mdash; prints the column header row. Without <code>?v</code>, <code>_cat</code> prints bare data lines.</li>
+        <li><strong><code>?help</code></strong> &mdash; prints every supported column name, short alias, and description for that endpoint &mdash; no memorizing obscure headers.</li>
+        <li><strong><code>?h=col1,col2,...</code></strong> &mdash; selects only the columns you care about (supports wildcards such as <code>h=node*,*store*</code>).</li>
+        <li><strong><code>?s=col:desc</code></strong> &mdash; sorts rows by any column ascending or descending (for example, <code>?s=docs.deleted:desc</code> to find segment bloat or <code>?s=store.size:desc</code> to find the biggest indices).</li>
+        <li><strong><code>?bytes=mb</code> / <code>?time=ms</code> / <code>?format=json</code></strong> &mdash; normalizes unit scaling across rows, or emits JSON for one-off CLI piping into <code>jq</code>.</li>
+      </ul>
+
+      <p class="codetag">sample output &middot; GET /_cat/indices/orders*?v&amp;s=store.size:desc</p>
+      <pre class="code"><code>health status index         uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   orders-v2     7aKp9x2...               3   1     420500         1820    142.8mb         71.4mb
+yellow open   orders-lab    Qm4v8n1...               1   1         12            3     28.4kb         28.4kb</code></pre>
+
+      <figure>
+        <div class="blueprint" id="fig-cat-vs-json">
+          <svg viewBox="0 0 680 314" role="img" aria-label="Static comparison showing the human vs program interface boundary: human operators in curl or Kibana Console use _cat endpoints with ?v, ?h, ?s, and ?help for aligned text tables, while applications and monitoring scripts must use stable JSON endpoints like /_cluster/health, /_stats, and /_count rather than scraping _cat text.">
+            <rect class="node-t" x="16" y="18" width="314" height="196" rx="11"/>
+            <text class="lbl" x="32" y="44">HUMAN OPERATOR (curl / Console)</text>
+            <text class="lbl-xs t-teal" x="32" y="64">GET /_cat/shards?v&amp;h=shard,prirep,state,node</text>
+            <rect class="node" x="30" y="78" width="286" height="84" rx="7"/>
+            <text class="lbl-xs" x="42" y="99">shard  prirep  state       node</text>
+            <text class="lbl-xs" x="42" y="117">0      p       STARTED     es-data-1</text>
+            <text class="lbl-xs" x="42" y="135">0      r       STARTED     es-data-2</text>
+            <text class="lbl-xs t-rust" x="42" y="153">1      r       UNASSIGNED  -</text>
+            <text class="lbl-xs" x="32" y="184">Flags: ?v headers &middot; ?help columns &middot; ?s sort</text>
+            <text class="lbl-xs" x="32" y="200">Built for eyes on a terminal</text>
+
+            <rect class="node-b" x="350" y="18" width="314" height="196" rx="11"/>
+            <text class="lbl" x="366" y="44">APPLICATION / MONITOR SCRIPT</text>
+            <text class="lbl-xs t-blue" x="366" y="64">GET /_cluster/health?filter_path=status</text>
+            <rect class="node" x="364" y="78" width="286" height="84" rx="7"/>
+            <text class="lbl-xs" x="376" y="102">{</text>
+            <text class="lbl-xs" x="388" y="120">"status": "yellow",</text>
+            <text class="lbl-xs t-rust" x="388" y="138">"unassigned_shards": 1</text>
+            <text class="lbl-xs" x="376" y="154">}</text>
+            <text class="lbl-xs" x="366" y="184">Typed numbers &middot; stable JSON keys</text>
+            <text class="lbl-xs" x="366" y="200">Use /_cluster/health, /_stats, /_count</text>
+
+            <rect class="node-r" x="16" y="230" width="648" height="68" rx="10"/>
+            <text class="lbl t-rust" x="32" y="256">ANTI-PATTERN: scraping /_cat/* output with awk, sed, or regex in code</text>
+            <text class="lbl-sm" x="32" y="278">Elastic explicitly marks _cat for humans only &mdash; columns and spacing are not a machine contract.</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 2 &mdash; one cluster, two audiences: read <code>_cat</code> tables with your eyes; parse typed JSON endpoints in scripts and services.</figcaption>
+      </figure>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Use <code>/_cat/*</code> when&hellip;</h4>
+          <ul>
+            <li>You are debugging live in a terminal or Kibana Console.</li>
+            <li>You want to spot which node holds an unassigned shard or which index has high <code>docs.deleted</code> in one glance.</li>
+            <li>You need interactive discovery via <code>?help</code> and sorting via <code>?s=</code>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Use JSON APIs when&hellip;</h4>
+          <ul>
+            <li>A script, exporter, health check, or CI gate reads the answer (<code>/_cluster/health</code>, <code>/_nodes/stats</code>, <code>/_count</code>).</li>
+            <li>You need exact numeric bytes, milliseconds, or nested per-shard metrics without unit rounding.</li>
+            <li>You want predictable keys combined with <code>?filter_path=</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Interactive workbench</div>
+      <h2>Kibana Dev Tools Console: fast iteration without shell escaping</h2>
+      <p>Writing nested JSON queries and NDJSON bulk bodies straight in bash with <code>curl -d '...'</code> quickly turns into a war with single quotes, TLS flags, and missing trailing newlines. Kibana ships a built-in HTTP workbench at <strong>Dev Tools &rarr; Console</strong> (<code>&lt;kibana-url&gt;/app/dev_tools#/console</code>, plus a Persistent Console available from the footer on search and serverless views).</p>
+      <p>Console is not a separate query language &mdash; it is a thin Monaco-powered editor over the exact same Elasticsearch REST API (and Kibana APIs when prefixed with <code>kbn:</code>). What it adds is ergonomic speed:</p>
+      <ul>
+        <li><strong>Clean HTTP shorthand</strong> &mdash; write <code>GET /_cat/shards?v</code> or <code>POST /catalog/_search</code> followed directly by the JSON body, with no host, port, or <code>Content-Type</code> boilerplate.</li>
+        <li><strong>Context-sensitive autocomplete &amp; comments</strong> &mdash; suggests API paths, Query DSL clauses, and field names from your actual mappings, while allowing <code>//</code>, <code>#</code>, and <code>/* ... */</code> comments inside your scratchpad (and keeping your last 500 executed requests in History).</li>
+        <li><strong>One-click export to code</strong> &mdash; Console&rsquo;s action menu can copy any request as <code>curl</code>, JavaScript, or Python once an experiment works.</li>
+      </ul>
+
+      <div class="callout note">
+        <span class="k">The copy-paste trap between Console and curl</span>
+        <p>Console automatically handles two things that break when you move a working <code>_bulk</code> request into shell scripts: it sets the right <code>Content-Type</code> header, and it appends the mandatory trailing newline for you. When translating to <code>curl</code>, always pass <code>-H "Content-Type: application/x-ndjson"</code> and <strong><code>--data-binary</code></strong> (never plain <code>-d</code>, which strips line breaks and corrupts NDJSON!). Alongside Console in Dev Tools sit the <strong>Search Profiler</strong>, <strong>Grok Debugger</strong>, and <strong>Painless Lab</strong> for profiling queries and testing ingest rules.</p>
+      </div>
+    </section>
+
+    <!-- 04 INTERACTIVE -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Throughput &amp; wire format</div>
+      <h2>The Bulk API: NDJSON pairs, parallel routing, and why HTTP 200 can lie &#9656;</h2>
+      <p>Why is looping 10,000 single-document <code>PUT</code> calls slow? Even when each document takes 2&nbsp;ms inside Lucene, paying 10,000 HTTP round trips, TLS handshakes, and coordinator dispatches wastes almost the entire wall clock on transport overhead. The <strong>Bulk API</strong> (<code>POST /_bulk</code> or <code>POST /&lt;index&gt;/_bulk</code>) packs hundreds or thousands of <code>index</code>, <code>create</code>, <code>update</code>, and <code>delete</code> operations into one HTTP request.</p>
+      <p>Instead of one giant JSON array &mdash; which would force the coordinating node to deserialize every document body into memory before routing &mdash; <code>_bulk</code> uses <strong>Newline Delimited JSON (NDJSON)</strong> with <code>Content-Type: application/x-ndjson</code>:</p>
+      <ul>
+        <li><strong>One compact JSON object per line</strong> &mdash; never pretty-print inside a bulk payload; embedded newlines break line boundaries.</li>
+        <li><strong>Two lines for writes, one line for deletes</strong> &mdash; <code>index</code>, <code>create</code>, and <code>update</code> take an action-metadata line followed immediately by a payload line (<code>{"doc": ...}</code> for <code>update</code>; plain fields for <code>index</code>/<code>create</code>). <code>delete</code> has <strong>no</strong> payload line; accidentally leaving an empty or body line after <code>delete</code> shifts every operation below it out of sync.</li>
+        <li><strong>Mandatory trailing newline (<code>\n</code>)</strong> &mdash; the final line of the entire request body <em>must</em> end with <code>\n</code> (or <code>\r\n</code>), or the parser rejects the batch.</li>
+        <li><strong>Data-stream rule carries over from L02</strong> &mdash; you can mix <code>index</code>, <code>create</code>, <code>update</code>, and <code>delete</code> across multiple indices in one <code>POST /_bulk</code> call, <em>except</em> when targeting a data stream, which rejects everything except <code>create</code>.</li>
+        <li><strong>Metadata options live inside the action header</strong> &mdash; per-item <code>_index</code> (optional if set in the URL), <code>_id</code>, <code>routing</code>, <code>pipeline</code>, <code>if_seq_no</code>/<code>if_primary_term</code>, and <code>retry_on_conflict</code> (for <code>update</code>) all belong in the action JSON line, not the URL query string.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-bulk-route">
+          <svg viewBox="0 0 680 392" role="img" aria-label="Interactive diagram of a Bulk API request: four NDJSON actions enter the coordinating node, which parses only the metadata lines without decoding _source bodies, hashes IDs to route sub-batches in parallel over port 9300 to primary shards P0 and P1, and returns a single HTTP 200 OK response with errors true because item 2 failed parsing and item 4 was rejected with 429.">
+            <g class="st" id="bk-payload">
+              <rect class="node" x="14" y="22" width="224" height="296" rx="10"/>
+              <text class="lbl-sm" x="28" y="44">POST /cat/_bulk (x-ndjson)</text>
+
+              <rect id="bk-b1" class="sc-box blue" x="24" y="56" width="204" height="50" rx="7"/>
+              <text class="lbl-xs" x="34" y="75">1. {"index":{"_id":"1"}}</text>
+              <text class="lbl-xs" x="34" y="94">{"sku":"KB-1","price":99}</text>
+
+              <rect id="bk-b2" class="sc-box blue" x="24" y="114" width="204" height="50" rx="7"/>
+              <text class="lbl-xs" x="34" y="133">2. {"create":{"_id":"2"}}</text>
+              <text class="lbl-xs t-rust" x="34" y="152">{"sku":"KB-2","price":"bad"}</text>
+
+              <rect id="bk-b3" class="sc-box blue" x="24" y="172" width="204" height="50" rx="7"/>
+              <text class="lbl-xs" x="34" y="191">3. {"update":{"_id":"3"}}</text>
+              <text class="lbl-xs" x="34" y="210">{"doc":{"stock":15}}</text>
+
+              <rect id="bk-b4" class="sc-box blue" x="24" y="230" width="204" height="36" rx="7"/>
+              <text class="lbl-xs" x="34" y="252">4. {"delete":{"_id":"9"}}</text>
+              <text class="lbl-xs t-teal" x="28" y="286">delete = 1 line &middot; final \n required</text>
+              <text class="lbl-xs" x="28" y="304">7 lines + trailing newline</text>
+            </g>
+
+            <g class="st" id="bk-coord">
+              <rect class="node-t" x="268" y="52" width="178" height="206" rx="10"/>
+              <text class="lbl" x="357" y="78" text-anchor="middle">Coordinator</text>
+              <text class="lbl-xs" x="357" y="102" text-anchor="middle">reads ONLY metadata lines</text>
+              <text class="lbl-xs" x="357" y="120" text-anchor="middle">(skips decoding _source)</text>
+              <line x1="282" y1="136" x2="432" y2="136" class="flow-d"/>
+              <text id="bk-c1" class="lbl-xs" x="357" y="160" text-anchor="middle">hashes _id -&gt; shard P0/P1</text>
+              <text id="bk-c2" class="lbl-xs" x="357" y="182" text-anchor="middle">sends in parallel (:9300)</text>
+              <text id="bk-c3" class="lbl-xs" x="357" y="218" text-anchor="middle">builds ordered items[]</text>
+            </g>
+
+            <g class="st" id="bk-s0">
+              <rect id="bk-p0" class="sc-box blue" x="478" y="28" width="188" height="122" rx="10"/>
+              <text class="lbl" x="492" y="52">Node 1 &middot; Primary P0</text>
+              <text id="bk-p0-a" class="lbl-xs" x="492" y="80">item 1 (id 1): waiting</text>
+              <text id="bk-p0-b" class="lbl-xs" x="492" y="104">item 2 (id 2): waiting</text>
+              <text class="lbl-xs" x="492" y="132">independent doc execution</text>
+            </g>
+
+            <g class="st" id="bk-s1">
+              <rect id="bk-p1" class="sc-box blue" x="478" y="172" width="188" height="122" rx="10"/>
+              <text class="lbl" x="492" y="196">Node 2 &middot; Primary P1</text>
+              <text id="bk-p1-a" class="lbl-xs" x="492" y="224">item 3 (id 3): waiting</text>
+              <text id="bk-p1-b" class="lbl-xs" x="492" y="248">item 4 (id 9): waiting</text>
+              <text class="lbl-xs" x="492" y="276">write queue &amp; replicas</text>
+            </g>
+
+            <rect id="bk-banner" class="sc-box" x="250" y="294" width="416" height="50" rx="9"/>
+            <text id="bk-banner-txt" class="lbl-sm" x="458" y="324" text-anchor="middle">awaiting batch...</text>
+
+            <path id="bp-in" class="flow-t" style="opacity:.16" d="M238 148 H 266" marker-end="url(#arrow-t)"/>
+            <path id="bp-s0" class="flow" style="opacity:.16" d="M446 116 L 476 92" marker-end="url(#arrow)"/>
+            <path id="bp-s1" class="flow" style="opacity:.16" d="M446 196 L 476 226" marker-end="url(#arrow)"/>
+            <path id="bp-r0" class="flow-d" style="opacity:.16" d="M476 122 L 446 146" marker-end="url(#arrow-s)"/>
+            <path id="bp-r1" class="flow-d" style="opacity:.16" d="M476 252 L 446 224" marker-end="url(#arrow-s)"/>
+            <path id="bp-out" class="flow-r" style="opacity:.16" d="M266 246 H 240" marker-end="url(#arrow-r)"/>
+
+            <text id="bk-read" class="readout" x="340" y="376" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: the coordinator routes by metadata lines alone, shards execute independently, and failures return inside HTTP <code>200 OK</code>.</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="k">The partial-failure invariant</span>
+        <p><code>_bulk</code> is <strong>not atomic</strong>. Each action executes independently on its target shard: a bad field type or version conflict on item&nbsp;2 never rolls back item&nbsp;1 or item&nbsp;3. Because the HTTP transport succeeded, the cluster returns <strong><code>200 OK</code></strong> with <code>"errors": true</code> and the per-item statuses in <code>items[]</code> (in the exact order you sent them). Always inspect <code>errors</code> and scan <code>items[]</code> &mdash; never trust HTTP <code>200</code> alone.</p>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p>&ldquo;Why does Elasticsearch ask for NDJSON instead of a standard JSON array in <code>_bulk</code>?&rdquo; Because the coordinating node needs to route documents to shards <em>without</em> allocating and JSON-parsing megabytes of document bodies on the coordinator heap. Line-by-line framing lets it inspect only the tiny action metadata lines, slice the raw source bytes straight through to the owning shard over port <code>9300</code>, and parse each document once on the shard that actually stores it.</p>
+      </div>
+    </section>
+
+    <!-- 05 INTERACTIVE -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Sizing &amp; backpressure</div>
+      <h2>Tuning bulk throughput: the 5&ndash;15 MiB sweet spot and selective <code>429</code> retries &#9656;</h2>
+      <p>If batching 500 documents beats sending 1, why not send 100,000 documents in a single request? Because Elasticsearch holds the raw bulk payload in JVM heap memory on the coordinating node while slicing and forwarding it. Send too little and network round trips throttle throughput; send too much concurrently and you trigger GC pauses, circuit breakers, or <code>write</code> thread-pool rejections.</p>
+      <ul>
+        <li><strong>Benchmark by doubling, don&rsquo;t guess</strong> &mdash; Elastic&rsquo;s indexing-speed guidance is empirical: benchmark against a single node and single shard starting around 100 documents, then double (<code>200</code>, <code>400</code>, <code>800</code>, &hellip;) until documents/sec plateaus. When two sizes tie, pick the smaller batch.</li>
+        <li><strong>Watch payload bytes, not just document count</strong> &mdash; 500 tiny 200-byte log lines is 100&nbsp;KB, while 500 50-KB product descriptions is 25&nbsp;MB. In practice, batches of <strong>5&ndash;15&nbsp;MiB</strong> hit the throughput sweet spot; stay well under a few tens of megabytes per request. Remember that <code>http.max_content_length</code> (default <strong>100&nbsp;MB</strong>) is an upper safety guardrail, never a target batch size.</li>
+        <li><strong>Auto-generated IDs skip existence checks</strong> &mdash; when using <code>index</code> or <code>create</code> without deduplication needs, letting Elasticsearch generate a 20-character <code>_id</code> skips checking every shard segment to see if that ID already exists.</li>
+        <li><strong>Keep <code>refresh=false</code> during bulk loads</strong> &mdash; forcing <code>refresh=true</code> creates tiny Lucene segments on every batch and crushes write throughput.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint" id="fig-bulk-curve">
+          <svg viewBox="0 0 680 282" role="img" aria-label="Static throughput curve across bulk batch size: tiny batches of 1 to 10 docs are bottlenecked by HTTP round trips; doubling from 100 docs toward 5 to 15 MiB reaches a throughput plateau (sweet spot); batches approaching tens of megabytes or the 100 MB http.max_content_length ceiling hit JVM heap pressure, garbage collection stalls, and 429 rejections.">
+            <rect class="node-a" x="18" y="24" width="188" height="196" rx="10"/>
+            <text class="lbl t-amber" x="32" y="48">TOO SMALL</text>
+            <text class="lbl-xs" x="32" y="68">1 doc &rarr; ~50 docs</text>
+            <text class="lbl-xs" x="32" y="182">HTTP round trips &amp; TLS</text>
+            <text class="lbl-xs" x="32" y="198">dominate wall time</text>
+
+            <rect class="node-g" x="220" y="24" width="234" height="196" rx="10"/>
+            <text class="lbl t-green" x="236" y="48">SWEET SPOT (~5&ndash;15 MiB)</text>
+            <text class="lbl-xs" x="236" y="68">double 100 &rarr; 200 &rarr; 400&hellip;</text>
+            <text class="lbl-xs" x="236" y="182">Throughput peaks without</text>
+            <text class="lbl-xs" x="236" y="198">starving JVM heap</text>
+
+            <rect class="node-r" x="468" y="24" width="194" height="196" rx="10"/>
+            <text class="lbl t-rust" x="482" y="48">PRESSURE CLIFF</text>
+            <text class="lbl-xs" x="482" y="68">&gt; 30 MB &rarr; 100 MB cap</text>
+            <text class="lbl-xs" x="482" y="182">Coordinator heap bloat, GC</text>
+            <text class="lbl-xs" x="482" y="198">pauses &amp; 429 rejections</text>
+
+            <!-- Schematic throughput curve -->
+            <path d="M40 162 C 120 158, 175 102, 240 94 L 430 92 C 470 92, 515 108, 632 152" stroke="#1F4E79" stroke-width="3" fill="none"/>
+            <circle cx="335" cy="93" r="6" fill="#69B34C"/>
+            <text class="lbl-xs t-blue" x="335" y="114" text-anchor="middle">plateau (stop doubling here)</text>
+
+            <line x1="18" y1="238" x2="662" y2="238" class="flow" marker-end="url(#arrow)"/>
+            <text class="lbl-xs" x="24" y="260">batch size: 1 doc/req</text>
+            <text class="lbl-xs" x="337" y="260" text-anchor="middle">5&ndash;15 MiB (hundreds to few thousand docs)</text>
+            <text class="lbl-xs t-rust" x="656" y="260" text-anchor="end">http.max_content_length = 100mb</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 &mdash; benchmark by doubling batch size until docs/sec plateaus; stay well clear of tens-of-megabyte payloads and the 100&nbsp;MB ceiling.</figcaption>
+      </figure>
+
+      <h3>Backpressure: <code>429</code> rejections and selective retry</h3>
+      <p>When clients push bulk batches faster than shards can write them, either the node&rsquo;s <code>write</code> thread pool queue fills up or <code>indexing_pressure</code> memory limits trip, producing <strong><code>429</code> / <code>es_rejected_execution_exception</code></strong> (either per item inside <code>items[]</code> or at the HTTP level). Note what <em>not</em> to do when that happens:</p>
+      <ul>
+        <li><strong>Never retry the whole batch blindly</strong> &mdash; re-sending items that already returned <code>201</code> wastes cluster CPU (or triggers <code>409</code> on <code>create</code>), and sending permanent <code>400 mapper_parsing_exception</code> rows again will fail forever.</li>
+        <li><strong>Retry only the <code>429</code> items with jittered exponential backoff</strong> &mdash; pause briefly (for example, 1&ndash;2&nbsp;seconds doubling with random jitter), shrink concurrency if needed, and re-submit only the throttled subset.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-bulk-retry">
+          <svg viewBox="0 0 680 340" role="img" aria-label="Interactive selective retry flow on a partial Bulk failure: client inspects HTTP 200 with errors true, commits item 0 with status 201, sends item 1 with status 400 to a dead-letter log with no retry, and extracts only items 2 and 3 with status 429 for randomized exponential backoff retry.">
+            <g class="st" id="rt-items">
+              <rect class="node" x="14" y="26" width="208" height="258" rx="10"/>
+              <text class="lbl-sm" x="28" y="48">HTTP 200 &middot; errors: true</text>
+              <rect id="rt-c0" class="sc-box" x="24" y="64" width="188" height="44" rx="7"/>
+              <text class="lbl-xs" x="34" y="84">item 0 (id 1): status 201</text>
+              <text class="lbl-xs" x="34" y="100">result: created</text>
+
+              <rect id="rt-c1" class="sc-box" x="24" y="118" width="188" height="44" rx="7"/>
+              <text class="lbl-xs" x="34" y="138">item 1 (id 2): status 400</text>
+              <text class="lbl-xs" x="34" y="154">mapper_parsing_exception</text>
+
+              <rect id="rt-c2" class="sc-box" x="24" y="172" width="188" height="44" rx="7"/>
+              <text class="lbl-xs" x="34" y="192">item 2 (id 8): status 429</text>
+              <text class="lbl-xs" x="34" y="208">es_rejected_execution</text>
+
+              <rect id="rt-c3" class="sc-box" x="24" y="226" width="188" height="44" rx="7"/>
+              <text class="lbl-xs" x="34" y="246">item 3 (id 9): status 429</text>
+              <text class="lbl-xs" x="34" y="262">es_rejected_execution</text>
+            </g>
+
+            <g class="st" id="rt-filter">
+              <rect class="node-t" x="262" y="84" width="152" height="142" rx="10"/>
+              <text class="lbl" x="338" y="112" text-anchor="middle">Item Router</text>
+              <text class="lbl-xs" x="338" y="138" text-anchor="middle">scans items[]</text>
+              <text class="lbl-xs" x="338" y="158" text-anchor="middle">separates transient</text>
+              <text class="lbl-xs" x="338" y="176" text-anchor="middle">429 vs permanent</text>
+              <text class="lbl-xs" x="338" y="194" text-anchor="middle">400 / 409</text>
+            </g>
+
+            <g class="st" id="rt-ok">
+              <rect class="node-g" x="456" y="26" width="210" height="68" rx="9"/>
+              <text class="lbl-sm t-green" x="470" y="50">Done (200 / 201)</text>
+              <text class="lbl-xs" x="470" y="72">item 0 &rarr; acked, never resent</text>
+            </g>
+
+            <g class="st" id="rt-dlq">
+              <rect class="node-r" x="456" y="112" width="210" height="72" rx="9"/>
+              <text class="lbl-sm t-rust" x="470" y="136">Permanent Error (400 / 409)</text>
+              <text class="lbl-xs" x="470" y="156">item 1 &rarr; dead-letter / alert</text>
+              <text class="lbl-xs" x="470" y="172">(retrying will fail forever)</text>
+            </g>
+
+            <g class="st" id="rt-retry">
+              <rect class="node-a" x="456" y="202" width="210" height="82" rx="9"/>
+              <text class="lbl-sm t-amber" x="470" y="226">Backpressure (429 ONLY)</text>
+              <text class="lbl-xs" x="470" y="246">items 2 &amp; 3 queued for retry</text>
+              <text class="lbl-xs" x="470" y="264">exponential backoff + jitter</text>
+            </g>
+
+            <path id="rp-in" class="flow-t" style="opacity:.16" d="M222 155 H 260" marker-end="url(#arrow-t)"/>
+            <path id="rp-ok" class="flow-g" style="opacity:.16" d="M414 114 L 454 66" marker-end="url(#arrow-g)"/>
+            <path id="rp-dlq" class="flow-r" style="opacity:.16" d="M414 150 H 454" marker-end="url(#arrow-r)"/>
+            <path id="rp-ret" class="flow-a" style="opacity:.16" d="M414 196 L 454 236" marker-end="url(#arrow-a)"/>
+            <path id="rp-loop" class="flow-a" style="opacity:.16" d="M560 284 C 560 308, 338 308, 338 228" marker-end="url(#arrow-a)"/>
+
+            <text id="rt-read" class="readout" x="340" y="326" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 5</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 5 &mdash; interactive: inspect every item in <code>items[]</code>, dead-letter permanent errors, and back off on <code>429</code> items only.</figcaption>
+      </figure>
+
+      <h3>Choosing the right Python Bulk API wrapper</h3>
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr>
+              <th>Python API (<code>elasticsearch</code> 9.x)</th>
+              <th>What it handles for you</th>
+              <th>Best fit &amp; watch-outs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>client.bulk(operations=...)</code></td>
+              <td>Thin wrapper over <code>POST /_bulk</code>. You chunk the payload and parse <code>errors</code> / <code>items[]</code> yourself.</td>
+              <td>Custom batch protocols or mixed manual retry pipelines where you want raw server JSON back.</td>
+            </tr>
+            <tr>
+              <td><code>helpers.streaming_bulk(...)</code></td>
+              <td>Generator consuming an action iterable in chunks (default <code>chunk_size=500</code>, <code>max_chunk_bytes=104857600</code>), yielding <code>(ok, info)</code> per item and retrying <code>retry_on_status=(429,)</code> up to <code>max_retries</code> with exponential backoff.</td>
+              <td><strong>Default choice for production ingestion.</strong> Streams memory cleanly; note it is lazy &mdash; nothing executes until you iterate over it!</td>
+            </tr>
+            <tr>
+              <td><code>helpers.bulk(...)</code></td>
+              <td>Drains <code>streaming_bulk</code> into memory and returns <code>(success_count, errors)</code>.</td>
+              <td>Small scripts and tests where returning one summary tuple is nicer than streaming.</td>
+            </tr>
+            <tr>
+              <td><code>helpers.parallel_bulk(...)</code></td>
+              <td>Uses a thread pool to run multiple <code>streaming_bulk</code> requests concurrently.</td>
+              <td>High-bandwidth ETL into multi-node clusters; watch thread count so you don&rsquo;t saturate <code>write</code> queues.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 06 WORKED -->
+    <section id="s6">
+      <div class="steptag"><b>06</b> Worked example</div>
+      <h2>Build: inspecting with <code>_cat</code>, blasting a bulk batch, and handling partial failure</h2>
+      <p>Put all three interfaces together. Part&nbsp;1 shows the raw HTTP / Console batch alongside the <code>curl --data-binary</code> invocation and <code>_cat</code> inspection. Part&nbsp;2 implements the production-safe Python pattern using <code>elasticsearch.helpers.streaming_bulk</code> with <code>X-Opaque-Id</code>, selective dead-letter handling on <code>400</code>/<code>409</code>, and automatic <code>429</code> backoff retries.</p>
+
+      <div class="worked">
+        <div class="whead">
+          <span class="wk">Worked walkthrough</span>
+          <span class="pill e">REST + _cat + Bulk</span>
+          <span class="lc">Elasticsearch 9.5 &middot; elasticsearch==9.5.1</span>
+        </div>
+        <div class="wbody">
+          <div class="wname">Mixed Bulk actions, <code>filter_path</code> trimming, and <code>_cat</code> verification</div>
+          <p class="wprompt">Create a single-shard index <strong>lab-bulk-demo</strong>, send one <code>_bulk</code> request mixing <code>create</code>, <code>index</code>, <code>update</code> (with <code>retry_on_conflict</code>), <code>delete</code>, and one intentional bad type (<code>400</code>), trim the response with <code>filter_path</code>, and verify doc counts and deleted flags via <code>_cat/indices</code> and <code>_cat/shards</code>.</p>
+
+          <h4 class="wh">1 &middot; HTTP / Kibana Dev Tools Console</h4>
+          <p class="codetag">kibana dev tools console &middot; single node on port 9200</p>
+          <pre class="code"><code><span class="kw">PUT</span> /lab-bulk-demo
+{
+  <span class="st2">"settings"</span>: { <span class="st2">"number_of_shards"</span>: <span class="lit">1</span>, <span class="st2">"number_of_replicas"</span>: <span class="lit">0</span> },
+  <span class="st2">"mappings"</span>: { <span class="st2">"properties"</span>: {
+    <span class="st2">"sku"</span>:   { <span class="st2">"type"</span>: <span class="st2">"keyword"</span> },
+    <span class="st2">"price"</span>: { <span class="st2">"type"</span>: <span class="st2">"float"</span> },
+    <span class="st2">"stock"</span>: { <span class="st2">"type"</span>: <span class="st2">"integer"</span> } } }
+}
+
+<span class="cm">// Mixed _bulk request: note delete has 1 line only, and filter_path trims output</span>
+<span class="kw">POST</span> /lab-bulk-demo/_bulk?refresh=wait_for&amp;filter_path=took,errors,items.*.status,items.*.error.type
+{ <span class="st2">"create"</span>: { <span class="st2">"_id"</span>: <span class="st2">"kb-1"</span> } }
+{ <span class="st2">"sku"</span>: <span class="st2">"KB-1"</span>, <span class="st2">"price"</span>: <span class="lit">99.0</span>, <span class="st2">"stock"</span>: <span class="lit">12</span> }
+{ <span class="st2">"index"</span>:  { <span class="st2">"_id"</span>: <span class="st2">"kb-2"</span> } }
+{ <span class="st2">"sku"</span>: <span class="st2">"KB-2"</span>, <span class="st2">"price"</span>: <span class="lit">149.0</span>, <span class="st2">"stock"</span>: <span class="lit">8</span> }
+{ <span class="st2">"index"</span>:  { <span class="st2">"_id"</span>: <span class="st2">"bad-doc"</span> } }
+{ <span class="st2">"sku"</span>: <span class="st2">"BAD"</span>, <span class="st2">"price"</span>: <span class="st2">"not-a-float"</span>, <span class="st2">"stock"</span>: <span class="lit">1</span> }
+{ <span class="st2">"update"</span>: { <span class="st2">"_id"</span>: <span class="st2">"kb-1"</span>, <span class="st2">"retry_on_conflict"</span>: <span class="lit">2</span> } }
+{ <span class="st2">"doc"</span>: { <span class="st2">"stock"</span>: <span class="lit">10</span> } }
+{ <span class="st2">"delete"</span>: { <span class="st2">"_id"</span>: <span class="st2">"kb-2"</span> } }
+
+<span class="cm">// Response: HTTP 200 OK, "errors": true &mdash; kb-1 created &amp; updated, kb-2 deleted, bad-doc 400</span>
+<span class="kw">GET</span> /_cat/indices/lab-bulk-demo?v&amp;h=health,status,index,docs.count,docs.deleted,store.size
+<span class="kw">GET</span> /_cat/shards/lab-bulk-demo?v&amp;h=index,shard,prirep,state,docs,store,node</code></pre>
+
+          <h4 class="wh">2 &middot; Equivalent curl command (note --data-binary!)</h4>
+          <p class="codetag">bash &middot; preserves newlines and appends trailing \n</p>
+          <pre class="code"><code>curl -sS -X POST <span class="st2">"http://localhost:9200/lab-bulk-demo/_bulk?refresh=wait_for"</span> \
+  -H <span class="st2">"Content-Type: application/x-ndjson"</span> \
+  -H <span class="st2">"X-Opaque-Id: catalog-sync-01"</span> \
+  --data-binary @batch.ndjson</code></pre>
+
+          <h4 class="wh">3 &middot; Streaming Python script with selective error handling</h4>
+          <p class="codetag">python 3 &middot; pip install elasticsearch==9.5.1 &middot; elasticsearch.helpers.streaming_bulk</p>
+          <pre class="code"><code><span class="kw">import</span> uuid
+<span class="kw">from</span> elasticsearch <span class="kw">import</span> Elasticsearch
+<span class="kw">from</span> elasticsearch.helpers <span class="kw">import</span> streaming_bulk
+
+client = Elasticsearch(<span class="st2">"http://localhost:9200"</span>)
+<span class="cm"># Tag every request with X-Opaque-Id so slow logs / _tasks point back to this job</span>
+scoped = client.options(headers={<span class="st2">"X-Opaque-Id"</span>: <span class="st2">"lesson-03-bulk-lab"</span>})
+INDEX = <span class="st2">f"lab-bulk-{uuid.uuid4().hex[:8]}"</span>
+
+
+<span class="kw">def</span> <span class="fn">generate_actions</span>():
+    <span class="kw">yield</span> {<span class="st2">"_op_type"</span>: <span class="st2">"create"</span>, <span class="st2">"_index"</span>: INDEX, <span class="st2">"_id"</span>: <span class="st2">"kb-1"</span>,
+           <span class="st2">"_source"</span>: {<span class="st2">"sku"</span>: <span class="st2">"KB-1"</span>, <span class="st2">"price"</span>: <span class="lit">99.0</span>, <span class="st2">"stock"</span>: <span class="lit">12</span>}}
+    <span class="kw">yield</span> {<span class="st2">"_op_type"</span>: <span class="st2">"index"</span>, <span class="st2">"_index"</span>: INDEX, <span class="st2">"_id"</span>: <span class="st2">"kb-2"</span>,
+           <span class="st2">"_source"</span>: {<span class="st2">"sku"</span>: <span class="st2">"KB-2"</span>, <span class="st2">"price"</span>: <span class="lit">149.0</span>, <span class="st2">"stock"</span>: <span class="lit">8</span>}}
+    <span class="kw">yield</span> {<span class="st2">"_op_type"</span>: <span class="st2">"index"</span>, <span class="st2">"_index"</span>: INDEX, <span class="st2">"_id"</span>: <span class="st2">"bad-doc"</span>,
+           <span class="st2">"_source"</span>: {<span class="st2">"sku"</span>: <span class="st2">"BAD"</span>, <span class="st2">"price"</span>: <span class="st2">"not-a-float"</span>, <span class="st2">"stock"</span>: <span class="lit">1</span>}}
+    <span class="kw">yield</span> {<span class="st2">"_op_type"</span>: <span class="st2">"update"</span>, <span class="st2">"_index"</span>: INDEX, <span class="st2">"_id"</span>: <span class="st2">"kb-1"</span>,
+           <span class="st2">"retry_on_conflict"</span>: <span class="lit">2</span>, <span class="st2">"doc"</span>: {<span class="st2">"stock"</span>: <span class="lit">10</span>}}
+    <span class="kw">yield</span> {<span class="st2">"_op_type"</span>: <span class="st2">"delete"</span>, <span class="st2">"_index"</span>: INDEX, <span class="st2">"_id"</span>: <span class="st2">"kb-2"</span>}
+
+
+<span class="kw">try</span>:
+    scoped.indices.create(
+        index=INDEX,
+        settings={<span class="st2">"number_of_shards"</span>: <span class="lit">1</span>, <span class="st2">"number_of_replicas"</span>: <span class="lit">0</span>},
+        mappings={<span class="st2">"properties"</span>: {
+            <span class="st2">"sku"</span>: {<span class="st2">"type"</span>: <span class="st2">"keyword"</span>},
+            <span class="st2">"price"</span>: {<span class="st2">"type"</span>: <span class="st2">"float"</span>},
+            <span class="st2">"stock"</span>: {<span class="st2">"type"</span>: <span class="st2">"integer"</span>},
+        }},
+    )
+
+    applied, dead_letter = <span class="lit">0</span>, []
+    <span class="cm"># streaming_bulk is a generator: nothing runs until the loop pulls from it.</span>
+    <span class="cm"># Retries ONLY 429 rejections automatically; permanent 400/409 errors surface to us.</span>
+    <span class="kw">for</span> ok, item <span class="kw">in</span> streaming_bulk(
+        scoped,
+        generate_actions(),
+        chunk_size=<span class="lit">500</span>,
+        raise_on_error=<span class="lit">False</span>,
+        max_retries=<span class="lit">3</span>,
+        retry_on_status=(<span class="lit">429</span>,),
+        refresh=<span class="st2">"wait_for"</span>,
+    ):
+        op, info = next(iter(item.items()))
+        <span class="kw">if</span> ok:
+            applied += <span class="lit">1</span>
+        <span class="kw">else</span>:
+            dead_letter.append((op, info.get(<span class="st2">"_id"</span>), info.get(<span class="st2">"status"</span>), info.get(<span class="st2">"error"</span>, {}).get(<span class="st2">"type"</span>)))
+
+    <span class="cm"># Use typed JSON APIs in Python code (never parse _cat text in applications!)</span>
+    count = scoped.count(index=INDEX, filter_path=<span class="st2">"count"</span>)[<span class="st2">"count"</span>]
+    <span class="kw">assert</span> applied == <span class="lit">4</span> <span class="kw">and</span> len(dead_letter) == <span class="lit">1</span> <span class="kw">and</span> count == <span class="lit">1</span>
+    print({<span class="st2">"applied_ops"</span>: applied, <span class="st2">"live_docs"</span>: count, <span class="st2">"dead_letter"</span>: dead_letter})
+<span class="kw">finally</span>:
+    client.indices.delete(index=INDEX, ignore_unavailable=<span class="lit">True</span>)</code></pre>
+
+          <div class="say">
+            <span class="k">Explain it aloud in an interview</span>
+            <p>&ldquo;For operational checks I use <code>_cat</code> endpoints with <code>?v</code>, <code>?h=</code>, and <code>?s=</code>, because they give humans compact tables in one screen &mdash; while keeping scripts strictly on typed JSON endpoints shaped with <code>filter_path</code>. For writes at scale I batch through <code>_bulk</code> using NDJSON: two lines per write, one line per delete, mandatory trailing newline. That lets the coordinating node parse only the tiny metadata lines and route sub-batches to shards in parallel. Because <code>_bulk</code> is not atomic and returns HTTP <code>200</code> even on partial failure, my client always scans <code>items[]</code>, dead-letters permanent <code>400</code> or <code>409</code> errors, and retries only transient <code>429</code> queue rejections with jittered backoff &mdash; sizing batches empirically toward the 5&ndash;15&nbsp;MiB plateau.&rdquo;</p>
+            <p class="plain">Follow-ups to expect: why <code>delete</code> takes one line instead of two, why <code>curl -d</code> breaks bulk files while <code>--data-binary</code> works, why <code>_cat/indices</code> shows <code>docs.deleted: 2</code> after <code>kb-1</code> was updated and <code>kb-2</code> was deleted, and what happens if you send an <code>update</code> inside a <code>_bulk</code> batch targeting a data stream (400 error: only <code>create</code> is allowed).</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="practice">
+      <div class="steptag"><b>&#8599;</b> Practice</div>
+      <h2>Configure &rarr; Diagnose &rarr; Design</h2>
+      <div class="ladder">
+        <div class="rung"><b>Configure</b>Write a <code>curl</code> command targeting <code>POST /catalog/_bulk</code> that carries an <code>X-Opaque-Id</code> header, suppresses unused response fields with <code>?filter_path=took,errors,items.*.error</code>, creates document <code>p-1</code>, updates document <code>p-2</code> with <code>retry_on_conflict: 3</code>, and deletes document <code>p-3</code>. Count the exact number of lines in the NDJSON body (5 lines plus a mandatory trailing newline) and state why <code>--data-binary</code> is required instead of <code>-d</code>.</div>
+        <div class="rung"><b>Diagnose</b>Two production issues hit the same week: (1) a nightly product sync reports HTTP <code>200 OK</code> on every <code>_bulk</code> call, yet 2% of new SKUs never appear in search; (2) an alert script running <code>GET /_cat/indices</code> breaks after a cluster minor upgrade adds a column. Name the root cause and fix for each.</div>
+        <div class="rung"><b>Design</b>Design a bulk ingestion pipeline loading 15&nbsp;million log events per hour into a data stream across a 6-node cluster. Specify the allowed bulk <code>_op_type</code>, whether to assign custom IDs or let Elasticsearch generate them, how you empirically find batch size, what <code>refresh</code> value to keep on bulk requests, and how your client handles a sudden burst of <code>429</code> rejections without duplicating or starving the cluster.</div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Seven takeaways</h2>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>REST flags shape the edge</b><span>Use <code>X-Opaque-Id</code> to trace callers and <code>filter_path</code> to shrink payloads; leave <code>pretty</code> and <code>error_trace</code> off in services.</span></div>
+        <div class="tk"><span class="num">02</span><b><code>_cat</code> is for eyes, JSON for code</b><span><code>_cat</code> gives operators fast tables via <code>?v</code>, <code>?h=</code>, <code>?s=</code>, and <code>?help</code>; scripts belong on typed JSON APIs.</span></div>
+        <div class="tk"><span class="num">03</span><b>Console hides two curl gotchas</b><span>Kibana Dev Tools Console handles <code>Content-Type</code> and final newlines automatically; <code>curl</code> needs <code>--data-binary</code>.</span></div>
+        <div class="tk"><span class="num">04</span><b>NDJSON lets coordinators skip parsing</b><span>Metadata-only routing sends document bytes straight to shards; deletes take 1 line and batches end with <code>\n</code>.</span></div>
+        <div class="tk"><span class="num">05</span><b>HTTP 200 can hold failures</b><span><code>_bulk</code> is not atomic. Check <code>"errors": true</code> and inspect every entry in <code>items[]</code>.</span></div>
+        <div class="tk"><span class="num">06</span><b>Double to the 5&ndash;15 MiB plateau</b><span>Benchmark batch size from ~100 docs upward until throughput levels off; 100&nbsp;MB is a cap, not a goal.</span></div>
+        <div class="tk"><span class="num">07</span><b>Retry only 429s with backoff</b><span>Dead-letter permanent <code>400</code>/<code>409</code> errors and exponentially back off only rejected <code>429</code> items.</span></div>
+      </div>
+    </section>
+
+    <section id="self-test" class="self-test">
+      <div class="steptag"><b>?</b> Active recall</div>
+      <h2>Self-test</h2>
+      <details class="self-test-question"><summary>1. Why should monitoring scripts never parse <code>GET /_cat/indices</code> text output?</summary><p><code>_cat</code> endpoints are built exclusively for human reading in terminals and Kibana Console. Their column order, spacing, and headers are not a stable programmatic contract. Scripts and alerting jobs should query typed JSON endpoints such as <code>/_cluster/health</code>, <code>/_stats</code>, or <code>/_count</code> (optionally trimmed with <code>?filter_path=</code>).</p></details>
+      <details class="self-test-question"><summary>2. Why does the Bulk API use NDJSON instead of a JSON array, and what happens if the trailing newline is missing?</summary><p>NDJSON separates compact action-metadata lines from raw document payload lines so the coordinating node only parses the metadata lines to hash and route sub-batches to shards without buffering/deserializing huge document bodies on its heap. Every line &mdash; including the very last line &mdash; must end with <code>\n</code> (or <code>\r\n</code>), or Elasticsearch rejects the final operation.</p></details>
+      <details class="self-test-question"><summary>3. Your <code>POST /_bulk</code> request returned HTTP <code>200 OK</code>. Does that guarantee every document was indexed?</summary><p>No. <code>_bulk</code> is not atomic. Valid operations succeed while malformed or rejected ones fail individually. Elasticsearch returns HTTP <code>200 OK</code> with <code>"errors": true</code> and puts per-item statuses and error blocks inside the ordered <code>items[]</code> array.</p></details>
+      <details class="self-test-question"><summary>4. How many lines does a <code>delete</code> action take in a <code>_bulk</code> request, and what happens if you include an empty body line?</summary><p>A <code>delete</code> action takes <strong>one line only</strong> (no source payload line follows it). Including an extra line shifts every subsequent metadata/body pair out of alignment and breaks parsing for the rest of the batch.</p></details>
+      <details class="self-test-question"><summary>5. A bulk batch hits <code>400 mapper_parsing_exception</code> on two items and <code>429 es_rejected_execution_exception</code> on ten items. What should the client retry?</summary><p>Retry <strong>only the ten <code>429</code> items</strong> after randomized exponential backoff. Never resend items that succeeded (<code>200</code>/<code>201</code>), and never retry permanent <code>400</code> or <code>409</code> errors &mdash; route those to a dead-letter log or alert.</p></details>
+      <details class="self-test-question"><summary>6. What happens if you run <code>helpers.streaming_bulk(client, actions)</code> in Python without iterating over it?</summary><p>Nothing is sent to Elasticsearch. <code>streaming_bulk</code> returns a lazy generator that reads actions and dispatches chunks only as your loop pulls tuples from it (unlike <code>helpers.bulk</code>, which consumes the entire iterator internally).</p></details>
+    </section>
+
+    <section id="sources" class="sources-section">
+      <div class="steptag"><b>&#8599;</b> Primary sources</div>
+      <h2>Official sources &amp; further reading</h2>
+      <ol>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis">Elasticsearch Reference &mdash; REST APIs Overview</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/api-conventions">Elasticsearch Reference &mdash; API Conventions (<code>Content-Type</code>, multi-target, date math, <code>X-Opaque-Id</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/common-options">Elasticsearch Reference &mdash; Common Options (<code>filter_path</code>, <code>pretty</code>, <code>human</code>, <code>error_trace</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/cat-apis">Elasticsearch Reference &mdash; Compact and Aligned Text (<code>_cat</code>) APIs</a></li>
+        <li><a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-indices">Elasticsearch API Reference &mdash; <code>_cat/indices</code></a> &amp; <a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-shards"><code>_cat/shards</code></a></li>
+        <li><a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-nodes">Elasticsearch API Reference &mdash; <code>_cat/nodes</code></a> &amp; <a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-health"><code>_cat/health</code></a></li>
+        <li><a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-bulk">Elasticsearch API Reference &mdash; Bulk API (<code>_bulk</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/indexing-speed">Elastic Documentation &mdash; Tune for indexing speed (bulk size benchmarking, auto-IDs, <code>refresh_interval</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/clients/python/helpers">Elasticsearch Python Client &mdash; Bulk Helpers (<code>bulk</code>, <code>streaming_bulk</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/explore-analyze/kibana-dev-tools">Elastic Documentation &mdash; Run API requests with Console (Kibana Dev Tools)</a></li>
+      </ol>
+    </section>
+
+    <nav class="course-nav" aria-label="Course navigation">
+      <a data-nav="previous" href="lesson-02-documents-indices-and-data-streams.html">&larr; Previous</a>
+      <a data-nav="index" href="index.html">Course index</a>
+      <span class="done">Next: Lesson 04 &mdash; soon</span>
+    </nav>
+
+    <footer>
+      LESSON 03 &middot; TALKING TO THE CLUSTER: REST, _cat &amp; BULK &middot; ORIGINAL INTERACTIVE STUDY CHAPTER<br>
+      Elasticsearch 9.5 &middot; Apache Lucene 10 &middot; targets the 8.x&ndash;9.x Search AI Platform &middot; review, replay, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        if(map[e.target.id])map[e.target.id].classList.add('active');}});
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — REST conventions & response shaping */
+  var rsPaths=['rp-req','rp-scat','rp-back','rp-resp'];
+  makeStepper(_g('fig-rest'), [
+    {text:"The client sends GET /logs-*/_search (or date math like <logs-{now/d}>) with X-Opaque-Id and ?filter_path=took,hits.total.",
+     active:["rs-client","rs-coord"], path:"rp-req",
+     coord:"tags task: billing-job", shard:"waiting for targets", trim:"pending", wire:"request in flight",
+     read:"step 1: request arrives on :9200 with target pattern and options"},
+    {text:"Target resolution: expand_wildcards=open expands logs-* to open indices only, skipping closed logs-2026.10.01 without raising an error.",
+     active:["rs-coord","rs-shards"], path:"rp-scat",
+     coord:"resolved: 2 open, 1 closed", shard:"routing to open shards", trim:"pending", wire:"awaiting shards",
+     read:"step 2: expand_wildcards=open skips closed indices cleanly"},
+    {text:"The shards still execute the full search and stream 42 KB of raw JSON back over :9300. filter_path does NOT reduce shard search work.",
+     active:["rs-coord","rs-shards"], path:"rp-back",
+     coord:"logs-01 + logs-02 done", shard:"42 KB raw hits gathered", trim:"ready to filter", wire:"coordinator holds 42 KB",
+     read:"step 3: shards return 42 KB; filter_path acts at the coordinator"},
+    {text:"Before sending bytes over the wire, the coordinator applies ?filter_path=took,hits.total and strips 41.9 KB of unused fields.",
+     active:["rs-coord"],
+     coord:"kept took + hits.total", shard:"42 KB -> 95 B", trim:"trimmed to 95 bytes", wire:"ready to stream 95 B",
+     read:"step 4: filter_path shrinks network bandwidth and client JSON parse"},
+    {text:"The trimmed 95-byte JSON reaches the client. (Keep ?pretty=true and ?error_trace=true off in production services to avoid overhead.)",
+     active:["rs-client","rs-coord"], path:"rp-resp",
+     coord:"logged X-Opaque-Id", shard:"complete", trim:"95 B response sent", wire:"wire reply: 95 B JSON",
+     read:"step 5: tiny response delivered; X-Opaque-Id visible in slow logs"},
+    {text:"On write calls, add ?refresh=false (default throughput), ?refresh=wait_for (waits ~1s for next refresh), or ?refresh=true (tests only).",
+     active:["rs-client","rs-coord","rs-shards"],
+     coord:"refresh=false | wait_for | true", shard:"controls search visibility", trim:"false = fastest bulk", wire:"choose by latency vs throughput",
+     read:"step 6: refresh option trades write throughput for immediate visibility"}
+  ], function(idx,s){
+    rsPaths.forEach(function(id){var p=_g(id); if(p) p.style.opacity=(id===s.path)?'1':'.16';});
+    _g('rs-coord-note').textContent=s.coord;
+    _g('rs-shard-note').textContent=s.shard;
+    _g('rs-trim-note').textContent=s.trim;
+    _g('rs-wire-note').textContent=s.wire;
+    _g('rs-read').textContent=s.read;
+  });
+
+  /* FIG 3 — Bulk NDJSON routing & partial failure */
+  var bkPaths=['bp-in','bp-s0','bp-s1','bp-r0','bp-r1','bp-out'];
+  var bkBoxes=['bk-b1','bk-b2','bk-b3','bk-b4'];
+  makeStepper(_g('fig-bulk-route'), [
+    {text:"One POST /_bulk (Content-Type: application/x-ndjson) packs 4 actions into 7 lines plus a mandatory trailing newline: writes take 2 lines, delete takes 1.",
+     active:["bk-payload"], boxes:["blue","blue","blue","blue"],
+     p0:["item 1 (id 1): queued","item 2 (id 2): queued"], p1:["item 3 (id 3): queued","item 4 (id 9): queued"],
+     banner:["blue","awaiting coordinator dispatch..."],
+     read:"step 1: 4 NDJSON operations in one HTTP request"},
+    {text:"The coordinator reads ONLY the small action metadata lines — it skips parsing the JSON document bodies — and hashes each _id to its primary shard.",
+     active:["bk-payload","bk-coord"], path:"bp-in", boxes:["teal","teal","teal","teal"],
+     p0:["item 1 (id 1): routed to P0","item 2 (id 2): routed to P0"], p1:["item 3 (id 3): routed to P1","item 4 (id 9): routed to P1"],
+     banner:["blue","coordinator parsed metadata lines only (zero _source decode)"],
+     read:"step 2: metadata-only routing keeps coordinator heap overhead tiny"},
+    {text:"Coordinator forwards Shard P0's sub-batch (items 1 & 2) to Node 1 and Shard P1's sub-batch (items 3 & 4) to Node 2 in parallel over :9300.",
+     active:["bk-coord","bk-s0","bk-s1"], path:"bp-s0", boxes:["blue","blue","blue","blue"],
+     p0:["item 1 (id 1): executing","item 2 (id 2): executing"], p1:["item 3 (id 3): executing","item 4 (id 9): executing"],
+     banner:["blue","sub-batches execute concurrently across shards"],
+     read:"step 3: parallel shard execution over port 9300"},
+    {text:"On Shard P0, item 1 succeeds (201 created) while item 2 fails float parsing (400 mapper_parsing_exception). Item 1 is NOT rolled back.",
+     active:["bk-s0","bk-coord"], path:"bp-r0", reject:true, boxes:["hit","scan","blue","blue"],
+     p0:["item 1 (id 1): 201 created","item 2 (id 2): 400 parse"], p1:["item 3 (id 3): executing","item 4 (id 9): executing"],
+     banner:["amber","partial failure on P0: item 1 kept, item 2 rejected"],
+     read:"step 4: _bulk is not atomic — item 1 commits even though item 2 failed"},
+    {text:"On Shard P1, item 3 updates id 3 (200 updated) while item 4 hits a saturated write queue (429 es_rejected_execution_exception).",
+     active:["bk-s1","bk-coord"], path:"bp-r1", reject:true, boxes:["hit","scan","hit","amber"],
+     p0:["item 1 (id 1): 201 created","item 2 (id 2): 400 parse"], p1:["item 3 (id 3): 200 updated","item 4 (id 9): 429 busy"],
+     banner:["amber","2 items ok, 1 bad schema (400), 1 backpressure (429)"],
+     read:"step 5: shard responses stream back to coordinator"},
+    {text:"Coordinator returns HTTP 200 OK with \"errors\": true and all 4 results in items[]. Code that checks only HTTP 200 misses items 2 and 4.",
+     active:["bk-payload","bk-coord"], path:"bp-out", reject:true, boxes:["hit","scan","hit","amber"],
+     p0:["item 1 (id 1): 201 created","item 2 (id 2): 400 parse"], p1:["item 3 (id 3): 200 updated","item 4 (id 9): 429 busy"],
+     banner:["scan","HTTP 200 OK · \"errors\": true — inspect items[] every time!"],
+     read:"step 6: HTTP 200 can still hide failed documents inside items[]"}
+  ], function(idx,s){
+    bkPaths.forEach(function(id){var p=_g(id); if(p) p.style.opacity=(id===s.path)?'1':'.16';});
+    bkBoxes.forEach(function(id,i){_g(id).setAttribute('class','sc-box '+s.boxes[i]);});
+    _g('bk-p0-a').textContent=s.p0[0];
+    _g('bk-p0-b').textContent=s.p0[1];
+    _g('bk-p1-a').textContent=s.p1[0];
+    _g('bk-p1-b').textContent=s.p1[1];
+    _g('bk-banner').setAttribute('class','sc-box '+s.banner[0]);
+    _g('bk-banner-txt').textContent=s.banner[1];
+    _g('bk-read').textContent=s.read;
+  });
+
+  /* FIG 5 — Selective retry on 429 */
+  var rtPaths=['rp-in','rp-ok','rp-dlq','rp-ret','rp-loop'];
+  var rtCards=['rt-c0','rt-c1','rt-c2','rt-c3'];
+  makeStepper(_g('fig-bulk-retry'), [
+    {text:"The client receives HTTP 200 OK with \"errors\": true. Instead of dropping errors or blindly retrying all 4 items, it sends items[] to the router.",
+     active:["rt-items","rt-filter"], path:"rp-in", cards:["blue","blue","blue","blue"],
+     read:"step 1: check response['errors'] and inspect every item in items[]"},
+    {text:"Item 0 returned 201 created: it is already durable on the cluster. Mark it complete and never resend it.",
+     active:["rt-filter","rt-ok"], path:"rp-ok", cards:["hit","blue","blue","blue"],
+     read:"step 2: 200/201 items are finished — do not re-index them"},
+    {text:"Item 1 returned 400 mapper_parsing_exception (same for 409 conflict): retrying will never fix bad data. Send it to a dead-letter log.",
+     active:["rt-filter","rt-dlq"], path:"rp-dlq", reject:true, cards:["hit","scan","blue","blue"],
+     read:"step 3: permanent 400 / 409 failures go to dead-letter, not retry"},
+    {text:"Items 2 and 3 returned 429 es_rejected_execution_exception: the shard write queue was temporarily full. Extract ONLY items 2 and 3.",
+     active:["rt-filter","rt-retry"], path:"rp-ret", cards:["hit","scan","amber","amber"],
+     read:"step 4: isolate transient 429 items into a tiny retry subset"},
+    {text:"Wait with randomized exponential backoff (e.g. 2s -> 4s + jitter) and re-send ONLY items 2 and 3, just like helpers.streaming_bulk does.",
+     active:["rt-retry","rt-filter"], path:"rp-loop", cards:["hit","scan","amber","amber"],
+     read:"step 5: jittered backoff retry of only the 429 items protects the cluster"}
+  ], function(idx,s){
+    rtPaths.forEach(function(id){var p=_g(id); if(p) p.style.opacity=(id===s.path)?'1':'.16';});
+    rtCards.forEach(function(id,i){_g(id).setAttribute('class','sc-box '+s.cards[i]);});
+    _g('rt-read').textContent=s.read;
+  });
+</script>
+</body>
+</html>

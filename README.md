@@ -51,9 +51,10 @@ prep, hosted as static HTML on GitHub Pages.
   text analysis, the write path), data modeling & mapping, querying & relevance (BM25 and
   ES|QL), aggregations, sharding & scale, the modern vector / semantic / hybrid-search AI
   layer (kNN, BBQ, ELSER, `semantic_text`, retrievers & RRF, RAG), the ELK pipeline,
-  production operations, and an interview & system-design capstone. The first three lessons —
-  why Elasticsearch exists, the cluster → index → shard → segment mental model, and
-  documents, indices & data streams — are live and interactive (3 of 45); the rest are mapped.
+  production operations, and an interview & system-design capstone. The first four lessons —
+  why Elasticsearch exists, the cluster → index → shard → segment mental model, documents,
+  indices & data streams, and talking to the cluster (REST, `_cat` & Bulk) — are live and
+  interactive (4 of 45); the rest are mapped.
 - **[RabbitMQ](rabbitmq/index.html)** — the message broker, for backend and system-design
   interviews. A 45-lesson map across ten phases: why messaging and the broker model, the AMQP
   entity model (exchange → binding → queue), exchanges & routing, queues & messages (classic /
