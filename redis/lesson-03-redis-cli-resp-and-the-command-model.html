@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 03 — Talking to Redis: redis-cli, RESP &amp; the Command Model (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --amber-wash:#F6ECD8; --green:#69B34C; --green-wash:#EAF3E4;
+    --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blueprint-soft);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--blueprint-soft);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--blueprint-wash);color:var(--ink);}
+  .toc a.active{background:var(--blueprint);color:#fff;} .toc a.active .n{color:#bcd3e8;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(36px,5.3vw,58px);line-height:1.03;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint-soft);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--blueprint);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .node-g{fill:var(--green-wash);stroke:var(--green);stroke-width:2;}
+  .node-a{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2;}
+  .node-dash{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .lbl-xs{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .flow-g{stroke:var(--green);stroke-width:2;fill:none;}
+  .flow-v{stroke:var(--violet);stroke-width:2;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--violet);background:var(--violet-wash);} .callout.note .k{color:var(--violet);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .tradeoff{margin:28px 0;overflow-x:auto;}
+  .tradeoff table{width:100%;border-collapse:collapse;background:var(--paper-2);font-size:15.5px;}
+  .tradeoff th,.tradeoff td{padding:12px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  .tradeoff th{background:var(--blueprint-wash);font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- worked example + narration ---- */
+  .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.e{background:#E6F1DF;color:#3f7a2e;} .pill.m{background:#FBEEDB;color:#9a6515;} .pill.h{background:var(--rust-wash);color:var(--rust);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 4px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);} pre.code .st2{color:#3f7a2e;}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  /* ---- practice ladder, self-test, sources, course-nav ---- */
+  .ladder{display:grid;gap:13px;margin:24px 0;}
+  .rung{padding:17px 19px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);}
+  .rung b{display:block;margin-bottom:5px;color:var(--rust);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .self-test-question{margin:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);}
+  .self-test-question summary{padding:14px 17px;cursor:pointer;font-weight:600;}
+  .self-test-question p{padding:0 17px 15px;margin:0;color:var(--ink-soft);font-size:16px;}
+  .sources-section ol{padding-left:22px;}
+  .sources-section li{margin-bottom:10px;}
+  .course-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:58px;padding-top:24px;border-top:1px solid var(--line-strong);}
+  .course-nav a{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;text-decoration:none;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--blueprint);}
+  .course-nav a:hover{border-color:var(--blueprint-soft);background:var(--blueprint-wash);}
+  .course-nav span.done{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--ink-soft);opacity:.55;display:block;}
+  footer{margin-top:36px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--blueprint);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(31,78,121,.3);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+    .worked .lc{margin-left:0;} .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;}
+    .course-nav{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+  /* ---- lesson 03 figure helpers ---- */
+  .wire-mono{font-family:"JetBrains Mono",monospace;font-size:11.5px;fill:var(--ink);}
+  .t-rust{fill:var(--rust);} .t-blue{fill:var(--blueprint);} .t-green{fill:#3f7a2e;} .t-violet{fill:var(--violet);}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+  <marker id="arrow-v" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6E59A5"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Lesson contents">
+    <div class="brandmark">Redis &middot; Phase 0</div>
+    <div class="brandtitle">Talking to Redis:<br>CLI, RESP &amp; Commands</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The invisible wire &#9656;</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Driving redis-cli</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>RESP2 &amp; RESP3 &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>The command model</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>Reading complexity</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Build: raw RESP probe</span></a></li>
+      <li><a href="#practice"><span class="n">&#8599;</span><span>Practice ladder</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Takeaways</span></a></li>
+      <li><a href="#self-test"><span class="n">?</span><span>Self-test</span></a></li>
+      <li><a href="#sources"><span class="n">&#8599;</span><span>Primary sources</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">03</span><span>Concept &middot; Phase 0 &middot; Redis</span></div>
+      <h1>Talking to Redis: <code>redis-cli</code>, RESP &amp; the Command Model</h1>
+      <p class="lede">Lessons&nbsp;01 and&nbsp;02 put a flat dictionary of typed containers inside a single-threaded event loop. Before Phase&nbsp;1 opens those containers one by one, you need the contract on the socket between your app and that loop: how <strong><code>redis-cli</code></strong> drives the server, how <strong>RESP</strong> frames binary-safe commands and replies on TCP, how Redis parses arity and key locations, and how to read the <strong>Time Complexity</strong> line off any command page without misjudging <code>N</code>.</p>
+      <div class="disclaimer">
+        <strong>Original study chapter.</strong> Written from scratch for backend and system-design interviews &mdash; and for everyday debugging on port&nbsp;<code>6379</code>. Target behavior follows <strong>Redis Open Source 8.10</strong> (latest stable GA patch <code>8.10.3</code>; <code>8.12</code> in release candidate as of late 2026). The Build section uses <strong>zero third-party libraries</strong> &mdash; pure Python&nbsp;3 standard-library <code>socket</code> to send and decode raw RESP2 and RESP3 frames &mdash; paired with <code>redis-cli</code>. Contains <strong>four original figures &mdash; two interactive</strong> (press <em>Play</em>, or step with <em>Next</em>). Deep pipelining batch math lives in L22, client-side caching invalidations in L30, and <code>INFO</code>/<code>SLOWLOG</code> ops in L38.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> Failure first</div>
+      <h2>The invisible wire: why raw text breaks and <code>OK</code> hides the frame &#9656;</h2>
+      <p>Most engineers meet Redis through a client SDK or the <code>127.0.0.1:6379&gt;</code> prompt, so the wire disappears behind neat strings and helper methods. The moment you drop into a shell script, a raw TCP socket, or a production ACL review, four surprises surface at once:</p>
+      <ul>
+        <li><strong>Naive text framing mangles binary payloads</strong> &mdash; typing <code>SET note hello\r\n</code> over <code>nc</code> works because inline commands split on spaces and stop at <code>\r\n</code>. Pass a JSON value with spaces, a newline, or a null byte (<code>\x00</code>) that way and the parser splits the payload into bogus arguments or rejects it with <code>ERR syntax error</code>.</li>
+        <li><strong><code>redis-cli</code> changes its output format behind your back</strong> &mdash; in a terminal it prints human sugar like <code>(integer) 2</code>, <code>1) "apples"</code>, and <code>(nil)</code>, while stdout redirected to a pipe silently flips to raw mode and drops the type tags. Scripts written by eyeballing interactive output break in cron jobs.</li>
+        <li><strong>Null vs. empty string vs. RESP2 collections</strong> &mdash; <code>SET k ""</code> returns <code>""</code> (0 bytes) on read, whereas a missing key returns <code>(nil)</code>; under RESP2 both missing bulk strings (<code>$-1</code>) and missing arrays (<code>*-1</code>) mean null, while <code>HGETALL</code> arrives as a flat list instead of a map and <code>SUBSCRIBE</code> locks the connection out of normal commands.</li>
+        <li><strong>Complexity misreading</strong> &mdash; treating every <code>O(N)</code> command alike misses what <code>N</code> counts: <code>KEYS</code> scans the entire database, <code>HGETALL</code> scans one hash, and <code>MGET</code> loops over your caller-supplied keys.</li>
+      </ul>
+      <p>Every one of those surprises vanishes once you separate <strong>what the CLI displays</strong> from <strong>the RESP frame on the socket</strong> and <strong>the command metadata inside the server</strong>. Watch a round trip cross port&nbsp;<code>6379</code> first.</p>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-wire">
+          <svg viewBox="0 0 680 374" role="img" aria-label="Interactive trace of Redis commands crossing TCP in RESP2 and RESP3: a binary-safe SET containing a newline and null byte uses length prefixes, a missing GET returns $-1 in RESP2 and _ in RESP3, and HGETALL returns a flat 4-element array in RESP2 versus a 2-pair map in RESP3 while redis-cli translates both for the terminal">
+            <!-- boxes -->
+            <g class="st" id="w-cli">
+              <rect class="node" x="18" y="34" width="184" height="122" rx="9"/>
+              <text class="lbl" x="110" y="60" text-anchor="middle">Client / redis-cli</text>
+              <text id="w-cli-in" class="lbl-sm t-blue" x="110" y="88" text-anchor="middle">SET note "line1\n..."</text>
+              <text id="w-cli-out" class="lbl-xs" x="110" y="116" text-anchor="middle">TTY display: OK</text>
+              <text id="w-cli-raw" class="lbl-xs" x="110" y="136" text-anchor="middle">--raw / pipe: OK</text>
+            </g>
+            <g class="st" id="w-wire">
+              <rect class="node-b" x="236" y="34" width="208" height="122" rx="9"/>
+              <text class="lbl" x="340" y="60" text-anchor="middle">TCP Wire (RESP)</text>
+              <text id="w-wire-tag" class="lbl-xs t-blue" x="340" y="80" text-anchor="middle">RESP2 array of bulk strings</text>
+              <text id="w-wire-tx" class="wire-mono" x="340" y="108" text-anchor="middle">*3\r\n$3\r\nSET\r\n...</text>
+              <text id="w-wire-rx" class="wire-mono t-rust" x="340" y="134" text-anchor="middle">+OK\r\n</text>
+            </g>
+            <g class="st" id="w-srv">
+              <rect class="node-v" x="478" y="34" width="184" height="122" rx="9"/>
+              <text class="lbl" x="570" y="60" text-anchor="middle">Redis 8.10</text>
+              <text id="w-srv-op" class="lbl-sm" x="570" y="88" text-anchor="middle">parse *3, $len bytes</text>
+              <text id="w-srv-mem" class="lbl-xs" x="570" y="116" text-anchor="middle">DB 0: note &rarr; 15 B</text>
+              <text id="w-srv-proto" class="lbl-xs t-violet" x="570" y="136" text-anchor="middle">socket proto: RESP2</text>
+            </g>
+
+            <!-- paths -->
+            <path id="w-p-req1" class="flow" style="opacity:.14" d="M204 76 H234" marker-end="url(#arrow)"/>
+            <path id="w-p-req2" class="flow" style="opacity:.14" d="M446 76 H476" marker-end="url(#arrow)"/>
+            <path id="w-p-res2" class="flow-r" style="opacity:.14" d="M476 118 H446" marker-end="url(#arrow-r)"/>
+            <path id="w-p-res1" class="flow-r" style="opacity:.14" d="M234 118 H204" marker-end="url(#arrow-r)"/>
+
+            <!-- lower inspection panel -->
+            <rect x="18" y="182" width="644" height="136" rx="10" fill="#FDFBF6" stroke="#D2C7B0" stroke-width="1.5"/>
+            <text id="w-panel-title" class="lbl" x="34" y="208">EXACT BYTES ON PORT 6379</text>
+            <text id="w-panel-l1" class="wire-mono" x="34" y="236">C&rarr;S: *3\r\n$3\r\nSET\r\n$4\r\nnote\r\n$15\r\nline1\nline2\x00end\r\n</text>
+            <text id="w-panel-l2" class="wire-mono t-blue" x="34" y="262">S&rarr;C: +OK\r\n   (first byte '+' = Simple String, CRLF-terminated)</text>
+            <text id="w-panel-l3" class="lbl-sm" x="34" y="294">Note: $15 tells Redis to read 15 raw bytes verbatim &mdash; \n and \x00 never end the frame.</text>
+
+            <text id="w-read" class="readout" x="340" y="352" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: <code>redis-cli</code> formats replies for humans, while the wire carries byte-prefixed RESP frames.</figcaption>
+      </figure>
+
+      <div class="callout">
+        <span class="k">The CLI is a translator, not the protocol</span>
+        <p>When <code>redis-cli</code> prints <code>(integer) 2</code>, <code>(nil)</code>, or <code>1) "apples"</code>, those labels never cross the network. The server emits a single prefix byte &mdash; <code>:</code>, <code>$-1</code> (or <code>_</code> in RESP3), <code>*</code> &mdash; and the client decides how to display or return it.</p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Driving the server</div>
+      <h2><code>redis-cli</code>: REPL, shell scripts, and safe probes</h2>
+      <p>Every Redis installation ships with <code>redis-cli</code>, and engineers reach for it in three distinct roles: an interactive REPL during development, a composable Unix command in shell scripts, and a zero-dependency diagnostic tool during incidents. Mixing up those modes &mdash; especially TTY formatting and credentials &mdash; causes subtle bugs.</p>
+      <ul>
+        <li><strong>Interactive REPL &amp; connection basics</strong> &mdash; running <code>redis-cli</code> with no command opens a prompt with <code>Tab</code> completion, command history, inline syntax hints, and built-in <code>HELP &lt;command&gt;</code> or <code>HELP @&lt;group&gt;</code>. Connect via host/port (<code>-h</code>, <code>-p</code>), TLS (<code>--tls</code>), or a URI (<code>-u redis://user:pass@host:6379/0</code>, or <code>rediss://</code> for TLS). Never pass secrets with <code>-a</code> in shared shells because process listings (<code>ps</code>) and shell history expose it; export <code>REDISCLI_AUTH</code> or pass <code>--askpass</code> instead. Use <code>-c</code> against Redis Cluster so <code>redis-cli</code> follows <code>-MOVED</code> and <code>-ASK</code> redirects automatically (and remember Cluster uses DB&nbsp;<code>0</code> only; <code>-n &lt;db&gt;</code> applies to standalone servers). Prefixing any REPL line with an integer (<code>5 PING</code>) repeats that command cleanly.</li>
+        <li><strong>Shell scripting &amp; binary inputs</strong> &mdash; <code>redis-cli</code> detects whether stdout is a terminal. On a TTY it pretty-prints quotes and type tags; when piped (<code>redis-cli GET k | jq</code>) it automatically switches to <strong>raw</strong> output. Pass <code>--raw</code> to force raw strings on a TTY, or <code>--no-raw</code> to preserve type annotations inside pipes. Use <code>-x</code> to read the final argument from <code>stdin</code> without shell-escaping gymnastics (<code>redis-cli -x SET doc &lt; body.json</code>), <code>-X &lt;tag&gt;</code> to substitute a placeholder token from <code>stdin</code>, <code>--quoted-input</code> for C-style escapes like <code>"\x00"</code>, and <code>-e</code> so a Redis error exits non-zero in CI/CD scripts. Use <code>--json</code> (defaults to RESP3; pass <code>-2</code> if RESP2 is required) or <code>--csv</code> for machine-readable exports.</li>
+        <li><strong>Safe production probes &amp; bulk loading</strong> &mdash; <code>--scan --pattern 'sess:*' --count 500</code> replaces dangerous <code>KEYS</code> calls with cursor-paced scans (L02). <code>--bigkeys</code> counts the largest element-count keys by type, <code>--memkeys</code> samples actual byte footprints, and <code>--hotkeys</code> samples the hottest keys (requires an <code>*lfu</code> eviction policy; throttle all three with <code>-i 0.1</code> to pause 100&nbsp;ms every 100 scan iterations). <code>--stat</code> streams a rolling one-line-per-second snapshot of keys, memory, clients, and ops/sec; <code>--latency</code> continuously measures round-trip min/avg/max; and <code>--pipe</code> streams raw RESP frames straight into TCP without waiting per reply (L22).</li>
+      </ul>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr><th>Flag / command</th><th>Role</th><th>Behavior to remember</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>--raw</code> / <code>--no-raw</code></td><td>Formatting</td><td>Automatic raw mode when stdout is not a TTY; force either side explicitly in scripts.</td></tr>
+            <tr><td><code>-x</code> / <code>-X &lt;tag&gt;</code></td><td>Binary stdin</td><td>Reads last arg (<code>-x</code>) or named placeholder (<code>-X</code>) verbatim from <code>stdin</code> &mdash; safe for JSON, Lua, or binary bytes.</td></tr>
+            <tr><td><code>-e</code></td><td>Shell exit code</td><td>Makes <code>redis-cli</code> exit non-zero on server errors (otherwise it prints <code>(error) ...</code> and exits <code>0</code>).</td></tr>
+            <tr><td><code>-3</code> / <code>--json</code></td><td>RESP3 / JSON</td><td><code>-3</code> starts in RESP3 via <code>HELLO 3</code>; <code>--json</code> formats replies as JSON (also defaults to RESP3).</td></tr>
+            <tr><td><code>REDISCLI_AUTH</code> / <code>--askpass</code></td><td>Auth hygiene</td><td>Avoids leaking passwords via <code>-a</code> in shell history or <code>ps aux</code> (<code>--askpass</code> ignores <code>-a</code> and env var).</td></tr>
+            <tr><td><code>--scan</code> / <code>--bigkeys</code> / <code>--memkeys</code></td><td>Keyspace probes</td><td>Cursor-driven via <code>SCAN</code>; throttle with <code>-i</code> or run against a replica on busy primaries.</td></tr>
+            <tr><td><code>--pipe</code></td><td>Mass loading</td><td>Streams raw RESP from <code>stdin</code> without round-trip stalls (bulk-load mode; see L22).</td></tr>
+            <tr><td><code>MONITOR</code> (REPL command)</td><td>Live firehose</td><td>Streams every server command back to the client; imposes a severe throughput penalty &mdash; never leave running in prod.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Wire protocol</div>
+      <h2>RESP2 &amp; RESP3: byte-prefixed framing and <code>HELLO 3</code> &#9656;</h2>
+      <p>Why didn&rsquo;t Redis adopt HTTP+JSON or a compact binary schema like Protobuf? Because <strong>RESP</strong> (REdis Serialization Protocol) targets a narrow sweet spot between them: <strong>fast to parse</strong> (read one prefix byte and an ASCII length, then <code>memcpy</code>), <strong>human-readable</strong> in packet captures, and <strong>binary-safe</strong> up to 512&nbsp;MB per bulk string with zero JSON escaping or schema compilation.</p>
+      <p>Every frame starts with a single ASCII type byte and ends every line with <code>\r\n</code> (CRLF). Client <strong>requests</strong> always travel as a RESP Array of Bulk Strings &mdash; for instance, <code>GET cart:42</code> is <code>*2\r\n$3\r\nGET\r\n$7\r\ncart:42\r\n</code>. Redis also accepts plain space-separated <strong>inline commands</strong> (<code>PING\r\n</code>) for quick manual debugging over <code>telnet</code> or <code>nc</code>, but real drivers never rely on inline syntax because it cannot protect whitespace, newlines, or binary bytes inside an argument.</p>
+      <p><strong>RESP2</strong> served Redis for over a decade with five types (<code>+</code>, <code>-</code>, <code>:</code>, <code>$</code>, <code>*</code>). That minimalism forced awkward client workarounds: <code>HGETALL</code> arrived as a flat array you had to zip into pairs, <code>SMEMBERS</code> looked identical to a list, booleans became <code>1</code>/<code>0</code>, missing keys used <code>$-1</code> while missing multi-bulks used <code>*-1</code>, and <code>SUBSCRIBE</code> flipped the whole socket into a restricted pub/sub mode where regular commands stopped working. Starting in Redis&nbsp;6.0, <strong>RESP3</strong> added rich semantic types and out-of-band push frames &mdash; opt-in via <code>HELLO 3</code> so every TCP connection still starts in RESP2 for backward compatibility.</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr><th>First byte</th><th>Type &amp; version</th><th>Wire example (<code>\r\n</code> shown literally)</th><th>Role &amp; detail</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>+</code></td><td>Simple String (RESP2)</td><td><code>+OK\r\n</code></td><td>Short status replies; cannot contain <code>\r</code> or <code>\n</code>.</td></tr>
+            <tr><td><code>-</code></td><td>Simple Error (RESP2)</td><td><code>-WRONGTYPE Operation...\r\n</code></td><td>Single-line error token (<code>ERR</code>, <code>WRONGTYPE</code>, <code>BUSY</code>) + message.</td></tr>
+            <tr><td><code>:</code></td><td>Integer (RESP2)</td><td><code>:1000\r\n</code></td><td>Signed 64-bit integer count, boolean flag (RESP2), or status code.</td></tr>
+            <tr><td><code>$</code></td><td>Bulk String (RESP2)</td><td><code>$5\r\nhello\r\n</code> · <code>$0\r\n\r\n</code> · <code>$-1\r\n</code></td><td>Binary-safe bytes up to 512&nbsp;MB; <code>$0</code> is empty string, <code>$-1</code> is RESP2 null.</td></tr>
+            <tr><td><code>*</code></td><td>Array (RESP2)</td><td><code>*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n</code> · <code>*-1\r\n</code></td><td>Ordered sequence of <code>N</code> RESP elements (commands always use this).</td></tr>
+            <tr><td><code>_</code></td><td>Null (RESP3)</td><td><code>_\r\n</code></td><td>Single unified null replacing both <code>$-1</code> and <code>*-1</code>.</td></tr>
+            <tr><td><code>#</code></td><td>Boolean (RESP3)</td><td><code>#t\r\n</code> · <code>#f\r\n</code></td><td>Explicit true / false instead of integer <code>1</code>/<code>0</code>.</td></tr>
+            <tr><td><code>,</code></td><td>Double (RESP3)</td><td><code>,1.23\r\n</code> · <code>,inf\r\n</code> · <code>,nan\r\n</code></td><td>IEEE 754 floating-point number (e.g. sorted-set scores) instead of stringified decimals.</td></tr>
+            <tr><td><code>(</code></td><td>Big Number (RESP3)</td><td><code>(3492890328409238509...\r\n</code></td><td>Arbitrary-precision signed integer beyond 64-bit range.</td></tr>
+            <tr><td><code>!</code></td><td>Blob Error (RESP3)</td><td><code>!21\r\nSYNTAX invalid syntax\r\n</code></td><td>Length-prefixed, binary-safe error payload (allows newlines).</td></tr>
+            <tr><td><code>=</code></td><td>Verbatim String (RESP3)</td><td><code>=15\r\ntxt:Some string\r\n</code></td><td>3-byte format tag (<code>txt</code>, <code>mkd</code>) + <code>:</code> + raw payload (15 includes the 4-byte prefix).</td></tr>
+            <tr><td><code>%</code></td><td>Map (RESP3)</td><td><code>%2\r\n$6\r\napples\r\n$1\r\n3\r\n$4\r\nnote\r\n$4\r\ngift\r\n</code></td><td><code>N</code> key&rarr;value pairs (<code>2N</code> elements follow), e.g. <code>HGETALL</code> and <code>HELLO 3</code>.</td></tr>
+            <tr><td><code>~</code></td><td>Set (RESP3)</td><td><code>~2\r\n$5\r\ncache\r\n$3\r\nram\r\n</code></td><td>Unordered unique collection of <code>N</code> elements, e.g. <code>SMEMBERS</code>.</td></tr>
+            <tr><td><code>|</code></td><td>Attribute (RESP3)</td><td><code>|1\r\n+ttl\r\n:3600\r\n</code></td><td>Out-of-band metadata map decorating only the value immediately after it.</td></tr>
+            <tr><td><code>&gt;</code></td><td>Push (RESP3)</td><td><code>&gt;3\r\n$7\r\nmessage\r\n...</code></td><td>Async server push (Pub/Sub, tracking invalidation) multiplexed on the same socket.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-resp">
+          <svg viewBox="0 0 680 374" role="img" aria-label="Interactive parser dispatch of RESP2 and RESP3 showing how the first byte routes a decoder between CRLF-delimited scalars, length-prefixed blobs, and element-counted aggregates, and how HELLO 3 enables Maps, Sets, unified Nulls, and non-blocking out-of-band Push frames on one connection">
+            <!-- byte 0 decoder -->
+            <g class="st" id="r-byte0">
+              <rect class="node-b" x="20" y="34" width="166" height="92" rx="9"/>
+              <text class="lbl" x="103" y="62" text-anchor="middle">1 &middot; Read byte 0</text>
+              <text id="r-b0-tok" class="wire-mono t-blue" x="103" y="88" text-anchor="middle">prefix: '+'</text>
+              <text id="r-b0-sub" class="lbl-xs" x="103" y="108" text-anchor="middle">one byte picks rule</text>
+            </g>
+
+            <!-- three branches -->
+            <g class="st" id="r-scalar">
+              <rect class="node" x="248" y="22" width="184" height="66" rx="8"/>
+              <text class="lbl" x="340" y="47" text-anchor="middle">+ - : _ # , (</text>
+              <text id="r-sc-sub" class="lbl-xs" x="340" y="68" text-anchor="middle">read until \r\n (scalar)</text>
+            </g>
+            <g class="st" id="r-blob">
+              <rect class="node" x="248" y="102" width="184" height="66" rx="8"/>
+              <text class="lbl" x="340" y="127" text-anchor="middle">$ ! =</text>
+              <text id="r-bl-sub" class="lbl-xs" x="340" y="148" text-anchor="middle">read len &rarr; exact N bytes</text>
+            </g>
+            <g class="st" id="r-agg">
+              <rect class="node" x="248" y="182" width="184" height="66" rx="8"/>
+              <text class="lbl" x="340" y="207" text-anchor="middle">* ~ % &gt; |</text>
+              <text id="r-ag-sub" class="lbl-xs" x="340" y="228" text-anchor="middle">recurse N (or 2N) items</text>
+            </g>
+
+            <!-- result / mode box -->
+            <g class="st" id="r-out">
+              <rect id="r-out-box" class="node-g" x="478" y="34" width="182" height="214" rx="9"/>
+              <text class="lbl" x="569" y="62" text-anchor="middle">Decoded Value</text>
+              <text id="r-out-mode" class="lbl-xs t-green" x="569" y="84" text-anchor="middle">mode: RESP2</text>
+              <text id="r-out-v1" class="lbl-xs" x="569" y="122" text-anchor="middle">"OK"</text>
+              <text id="r-out-v2" class="lbl-xs" x="569" y="146" text-anchor="middle">status string</text>
+              <rect x="494" y="172" width="150" height="58" rx="7" fill="#FDFBF6" stroke="#D2C7B0"/>
+              <text id="r-out-sock1" class="lbl-xs" x="569" y="196" text-anchor="middle">socket state:</text>
+              <text id="r-out-sock2" class="lbl-xs t-blue" x="569" y="216" text-anchor="middle">request / reply</text>
+            </g>
+
+            <!-- paths -->
+            <path id="r-p1" class="flow" style="opacity:.14" d="M188 64 H246" marker-end="url(#arrow)"/>
+            <path id="r-p2" class="flow" style="opacity:.14" d="M188 90 L246 135" marker-end="url(#arrow)"/>
+            <path id="r-p3" class="flow" style="opacity:.14" d="M188 112 L246 215" marker-end="url(#arrow)"/>
+            <path id="r-p4" class="flow-g" style="opacity:.14" d="M434 55 H476" marker-end="url(#arrow-g)"/>
+            <path id="r-p5" class="flow-g" style="opacity:.14" d="M434 135 H476" marker-end="url(#arrow-g)"/>
+            <path id="r-p6" class="flow-v" style="opacity:.14" d="M434 215 H476" marker-end="url(#arrow-v)"/>
+
+            <!-- bottom wire sample -->
+            <rect x="20" y="266" width="640" height="56" rx="8" fill="#FDFBF6" stroke="#D2C7B0"/>
+            <text id="r-wire-line" class="wire-mono" x="34" y="299">wire: +OK\r\n</text>
+
+            <text id="r-read" class="readout" x="340" y="352" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button data-act="restart" title="Restart">&#8635;</button>
+            <button data-act="prev">&#9664; Prev</button>
+            <button data-act="play">&#9654; Play</button>
+            <button data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: a single byte tells the decoder whether to scan to CRLF, read <code>N</code> bytes, or recurse over <code>N</code> children.</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="k">Why framing invites pipelining (preview of L22)</span>
+        <p>Because every RESP request and reply declares its exact element count (<code>*N</code>) and byte lengths (<code>$len</code>), nothing forces a client to wait for reply #1 before transmitting request #2. A client can write 500 commands into one TCP send buffer and parse the 500 framed replies cleanly as they stream back &mdash; the exact mechanism behind <code>redis-cli --pipe</code> and client pipelines (L22) as well as RESP3 server-push tracking (L30).</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Inside the server</div>
+      <h2>The Command Model: dispatch, arity, key specs &amp; subcommands</h2>
+      <p>Once Redis parses a RESP Array into an argument vector &mdash; say <code>["ZADD", "lb", "100", "ada"]</code> &mdash; the server does not jump straight to the dataset. Every command runs through a deterministic metadata table that checks four questions before touching memory:</p>
+      <ul>
+        <li><strong>1 &middot; Command &amp; subcommand lookup</strong> &mdash; command names (and subcommands like <code>OBJECT ENCODING</code> or <code>ACL CAT</code>) are case-insensitive, while keys and values remain binary-exact. Unknown names fail immediately with <code>ERR unknown command</code>.</li>
+        <li><strong>2 &middot; Arity check</strong> &mdash; every command stores an integer <strong>arity</strong> that <em>counts the command name itself</em> (and subcommand name for nested commands). A positive number means an exact count (<code>GET k</code> has arity&nbsp;<code>2</code>; <code>LRANGE k 0 9</code> has arity&nbsp;<code>4</code>). A negative number means a minimum count: <code>MGET</code> has arity&nbsp;<code>-2</code> (command + at least 1&nbsp;key), and <code>ZADD</code> has arity&nbsp;<code>-4</code> (command + key + score + member).</li>
+        <li><strong>3 &middot; Flags, ACLs &amp; mode gates</strong> &mdash; each command carries flags such as <code>readonly</code>, <code>write</code>, <code>denyoom</code> (reject writes if <code>maxmemory</code> is full while allowing <code>DEL</code> and <code>GET</code>), <code>fast</code>, and <code>blocking</code>, plus ACL categories like <code>@read</code>, <code>@write</code>, <code>@string</code>, <code>@fast</code>, or <code>@slow</code>. Read-only replicas reject <code>write</code> commands, <code>MULTI</code> queues valid commands while rejecting arity errors at queue time (L23), and ACL rules check both command permission and key pattern before execution.</li>
+        <li><strong>4 &middot; Key specifications (Cluster &amp; proxy routing)</strong> &mdash; legacy metadata used three integers (<code>firstkey</code>, <code>lastkey</code>, <code>step</code>), which worked for <code>GET</code> (<code>1, 1, 1</code>) and <code>MSET</code> (<code>1, -1, 2</code>) but broke when a key&rsquo;s position depended on an argument like <code>numkeys</code> (<code>ZINTERSTORE dst 2 k1 k2</code>) or keyword tokens (<code>SORT list STORE out</code>). Starting in Redis&nbsp;7.0 and standard across 8.x, <code>COMMAND INFO</code> exposes rich <strong>key specifications</strong> (<code>begin_search</code>, <code>find_keys</code>, access flags like <code>RO</code>/<code>RW</code>/<code>UPDATE</code>) so proxies, ACL key checks, and <code>COMMAND GETKEYS</code> locate every key without hardcoding grammars.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint" id="fig-cmdmodel">
+          <svg viewBox="0 0 680 342" role="img" aria-label="Static anatomy of Redis COMMAND INFO metadata showing the 10-field descriptor returned for a command and how GET, ZINTERSTORE, and OBJECT differ in arity, flags, key specifications, and subcommands">
+            <text class="lbl" x="22" y="28">INSIDE THE COMMAND TABLE &middot; COMMAND INFO &amp; COMMAND DOCS</text>
+
+            <!-- left: 10 fields -->
+            <rect class="node" x="22" y="44" width="234" height="278" rx="9"/>
+            <text class="lbl" x="139" y="68" text-anchor="middle">10-field COMMAND INFO tuple</text>
+            <text class="lbl-xs" x="36" y="92">0 &middot; name ("get")</text>
+            <text class="lbl-xs" x="36" y="114">1 &middot; arity (2 = exact, -N = min)</text>
+            <text class="lbl-xs" x="36" y="136">2 &middot; flags (readonly, write, denyoom)</text>
+            <text class="lbl-xs" x="36" y="158">3..5 &middot; legacy first / last / step</text>
+            <text class="lbl-xs" x="36" y="180">6 &middot; ACL categories (@read, @fast)</text>
+            <text class="lbl-xs" x="36" y="202">7 &middot; command tips (routing policies)</text>
+            <text class="lbl-xs t-blue" x="36" y="224">8 &middot; key_specs (begin_search + find)</text>
+            <text class="lbl-xs t-violet" x="36" y="246">9 &middot; subcommands (nested table)</text>
+            <rect x="34" y="264" width="210" height="44" rx="7" fill="#E9EFF5" stroke="#4A7BA6"/>
+            <text class="lbl-xs" x="139" y="282" text-anchor="middle">Pair with COMMAND DOCS &lt;cmd&gt;</text>
+            <text class="lbl-xs" x="139" y="298" text-anchor="middle">for summary, since &amp; complexity</text>
+
+            <!-- right: 3 examples -->
+            <rect class="node-g" x="284" y="44" width="374" height="82" rx="9"/>
+            <text class="lbl" x="300" y="68">GET key</text>
+            <text class="lbl-xs t-green" x="642" y="68" text-anchor="end">simple fixed key</text>
+            <text class="lbl-xs" x="300" y="92">arity: 2 &middot; readonly, fast &middot; @read @string @fast</text>
+            <text class="lbl-xs" x="300" y="112">key_spec: begin index 1 &rarr; range 1 key (RO, access)</text>
+
+            <rect class="node-b" x="284" y="142" width="374" height="82" rx="9"/>
+            <text class="lbl" x="300" y="166">ZINTERSTORE dst numkeys k1 k2 ...</text>
+            <text class="lbl-xs t-blue" x="642" y="166" text-anchor="end">dynamic key count</text>
+            <text class="lbl-xs" x="300" y="190">arity: -4 &middot; write, denyoom &middot; @write @sortedset @slow</text>
+            <text class="lbl-xs" x="300" y="210">key_spec: idx 1 (RW dst) + keynum rule at idx 2 (RO)</text>
+
+            <rect class="node-v" x="284" y="240" width="374" height="82" rx="9"/>
+            <text class="lbl" x="300" y="264">OBJECT (container) &rarr; OBJECT ENCODING key</text>
+            <text class="lbl-xs t-violet" x="642" y="264" text-anchor="end">subcommands</text>
+            <text class="lbl-xs" x="300" y="288">parent arity: -2 | child object|encoding arity: 3</text>
+            <text class="lbl-xs" x="300" y="308">subcommand carries own flags, ACLs &amp; key_spec (idx 2)</text>
+
+            <path class="flow" d="M256 86 H282" marker-end="url(#arrow)"/>
+            <path class="flow" d="M256 184 H282" marker-end="url(#arrow)"/>
+            <path class="flow" d="M256 282 H282" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+        <figcaption>FIG. 3 &mdash; Redis publishes command arity, flags, ACL speed groups, subcommands, and key extraction rules directly via <code>COMMAND INFO</code>.</figcaption>
+      </figure>
+    </section>
+
+    <!-- 04 -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> Reading complexity</div>
+      <h2>Time complexity &amp; <code>@fast</code> vs. <code>@slow</code>: what <code>N</code> really means</h2>
+      <p>Lesson&nbsp;02 warned that one slow command blocks the single-threaded event loop for every client. Every Redis command page opens with a <strong>Time complexity</strong> line &mdash; yet engineers repeatedly misread it because the letter <code>N</code> changes meaning from command to command. Never stop at the Big-O symbol; read the prose clause that defines <code>N</code>, <code>M</code>, and <code>S</code>.</p>
+      <p>Across Redis&nbsp;8.10, complexity variables fall into five distinct meanings:</p>
+      <ul>
+        <li><strong>1 &middot; Whole database keyspace (<code>N</code> = keys in DB)</strong> &mdash; <code>KEYS</code> is <code>O(N)</code> across every key in the database, so its cost scales with total data even if only one key matches. <code>RANDOMKEY</code> is <code>O(1)</code>.</li>
+        <li><strong>2 &middot; Elements inside one key (<code>N</code> = collection length)</strong> &mdash; <code>HGETALL</code>, <code>SMEMBERS</code>, and <code>LINDEX</code> scale with the size of that single container. Fine on a 10-field profile hash; dangerous on an unbounded set of millions of user IDs. (Note: Redis&nbsp;8.8&rsquo;s <code>ARGET</code> reads sparse array indices in <code>O(1)</code> instead of <code>LINDEX</code>&rsquo;s <code>O(N)</code> walk.)</li>
+        <li><strong>3 &middot; Caller-supplied arguments (<code>N</code> = batch size you sent)</strong> &mdash; <code>MGET</code> is <code>O(N)</code> in the number of keys requested, and <code>SADD</code>/<code>LPUSH</code> are <code>O(1)</code> per item added (<code>O(N)</code> for <code>N</code> arguments). <code>DEL</code> has <em>both</em>: <code>O(N)</code> over the <code>N</code> keys named <em>plus</em> <code>O(M)</code> per non-string key holding <code>M</code> items (whereas <code>UNLINK</code> detaches in <code>O(1)</code> per key and frees large containers off-thread).</li>
+        <li><strong>4 &middot; Position + returned slice (<code>O(S+N)</code> or <code>O(log(N)+M)</code>)</strong> &mdash; <code>LRANGE k start stop</code> costs <code>O(S+N)</code>, where <code>S</code> is distance from the nearest list end (head for small lists, head or tail for large lists) and <code>N</code> is elements returned: <code>LRANGE q 0 9</code> is effectively constant, while <code>LRANGE q 0 -1</code> walks everything. <code>ZRANGE</code> costs <code>O(log(N)+M)</code>, where <code>N</code> is sorted-set size and <code>M</code> is elements returned: reading top&nbsp;10 from 10&nbsp;million players is ~25 steps.</li>
+        <li><strong>5 &middot; Multi-collection worst case (<code>O(N*M)</code>)</strong> &mdash; <code>SINTER</code> costs <code>O(N*M)</code> where <code>N</code> is the cardinality of the <strong>smallest</strong> set and <code>M</code> is the number of sets. Intersecting a 5-member set against a 5-million-member set does ~5 hash lookups, not 5&nbsp;million.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint" id="fig-complexity">
+          <svg viewBox="0 0 680 328" role="img" aria-label="Static four-quadrant comparison showing four different meanings of N in Redis time complexity: whole database keys for KEYS, single-container elements for HGETALL and SMEMBERS, caller-supplied arguments for MGET and SADD, and logarithmic seek plus returned slice M for ZRANGE">
+            <text class="lbl" x="22" y="26">FOUR MEANINGS OF N &middot; ALWAYS READ THE CLAUSE AFTER O(...)</text>
+
+            <rect class="node-r" x="22" y="44" width="306" height="122" rx="9"/>
+            <text class="lbl" x="38" y="70">KEYS * &middot; O(N)</text>
+            <text class="lbl-xs t-rust" x="312" y="70" text-anchor="end">@slow</text>
+            <text class="lbl-sm" x="38" y="96">N = every key in the database</text>
+            <text class="lbl-xs" x="38" y="120">Stalls whole server as DB grows;</text>
+            <text class="lbl-xs" x="38" y="138">use cursor-paced SCAN in prod.</text>
+
+            <rect class="node-a" x="352" y="44" width="306" height="122" rx="9"/>
+            <text class="lbl" x="368" y="70">HGETALL / SMEMBERS &middot; O(N)</text>
+            <text class="lbl-xs t-rust" x="642" y="70" text-anchor="end">@slow</text>
+            <text class="lbl-sm" x="368" y="96">N = items inside this one key</text>
+            <text class="lbl-xs" x="368" y="120">Safe for 15 fields (cart:42);</text>
+            <text class="lbl-xs" x="368" y="138">dangerous on unbounded collections.</text>
+
+            <rect class="node-b" x="22" y="186" width="306" height="122" rx="9"/>
+            <text class="lbl" x="38" y="212">MGET / SADD / LPUSH &middot; O(N)</text>
+            <text class="lbl-xs t-green" x="312" y="212" text-anchor="end">@fast (!)</text>
+            <text class="lbl-sm" x="38" y="238">N = arguments in your request</text>
+            <text class="lbl-xs" x="38" y="262">Bounded if you cap batch size;</text>
+            <text class="lbl-xs" x="38" y="280">100k keys in one MGET still stalls!</text>
+
+            <rect class="node-g" x="352" y="186" width="306" height="122" rx="9"/>
+            <text class="lbl" x="368" y="212">ZRANGE &middot; O(log(N) + M)</text>
+            <text class="lbl-xs t-rust" x="642" y="212" text-anchor="end">@slow</text>
+            <text class="lbl-sm" x="368" y="238">N = zset size, M = returned slice</text>
+            <text class="lbl-xs" x="368" y="262">0..9 over 10M items = tiny (M=10);</text>
+            <text class="lbl-xs" x="368" y="280">0..-1 dumps all 10M (M=N).</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 &mdash; the same Big-O letter hides completely different growth curves unless you name what <code>N</code> counts and check <code>ACL CAT</code>.</figcaption>
+      </figure>
+
+      <p><strong>Reading ACL speed tags accurately.</strong> Redis splits every command between two complementary ACL categories: <strong><code>@fast</code></strong> and <strong><code>@slow</code></strong> (inspectable via <code>ACL CAT fast</code> or <code>COMMAND INFO</code>). In Redis&rsquo;s ACL definition, <code>@fast</code> covers <code>O(1)</code> commands (plus bounded <code>O(log N)</code> like <code>ZADD</code> and argument-looping commands like <code>MGET</code>, <code>SADD</code>, and <code>LPUSH</code> that never walk an arbitrary stored collection), while <code>@slow</code> covers everything else. That makes <code>-@slow</code> a handy ACL guardrail against accidental <code>KEYS</code> or <code>HGETALL</code> calls &mdash; with two crucial caveats:</p>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr><th>Command</th><th>Official complexity</th><th>What N / M mean</th><th>ACL speed tag</th><th>Production judgment</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>GET k</code></td><td><code>O(1)</code></td><td>Constant hash lookup</td><td><code>@fast</code></td><td>Always fast (network RTT dominates; large 100&nbsp;MB values still cost I/O copy time).</td></tr>
+            <tr><td><code>MGET k1..kN</code></td><td><code>O(N)</code></td><td><code>N</code> = keys passed by client</td><td><code>@fast</code></td><td><strong>Caveat:</strong> passes <code>-@slow</code>, yet passing 100,000 keys stalls the loop. Batch sensibly.</td></tr>
+            <tr><td><code>ZADD k s m ...</code></td><td><code>O(log(N))</code> per item</td><td><code>N</code> = elements in sorted set</td><td><code>@fast</code></td><td>Logarithmic skiplist insert per arg; safe in normal batches.</td></tr>
+            <tr><td><code>ZRANGE k 0 9</code></td><td><code>O(log(N)+M)</code></td><td><code>N</code> = zset size, <code>M</code> = returned count</td><td><code>@slow</code></td><td>Tagged <code>@slow</code> because unbounded <code>M</code> (<code>0 -1</code>) scans all; paged slices are fast.</td></tr>
+            <tr><td><code>LRANGE k 0 9</code></td><td><code>O(S+N)</code></td><td><code>S</code> = offset from end, <code>N</code> = slice length</td><td><code>@slow</code></td><td>Head/tail slices (<code>0 9</code>, <code>-10 -1</code>) are tiny; middle slices or <code>0 -1</code> scale linearly.</td></tr>
+            <tr><td><code>HGETALL k</code></td><td><code>O(N)</code></td><td><code>N</code> = fields inside hash <code>k</code></td><td><code>@slow</code></td><td>Safe for small bounded objects; switch to <code>HSCAN</code> or <code>HMGET</code> on huge hashes.</td></tr>
+            <tr><td><code>DEL k1..kN</code></td><td><code>O(N)</code> (+<code>O(M)</code> per container)</td><td><code>N</code> = keys, <code>M</code> = elements in non-strings</td><td><code>@slow</code></td><td>Freeing a single huge hash blocks the main thread; use <code>UNLINK</code> instead (L01, L02).</td></tr>
+            <tr><td><code>SINTER k1..kM</code></td><td><code>O(N*M)</code></td><td><code>N</code> = smallest set, <code>M</code> = number of sets</td><td><code>@slow</code></td><td>Fast if one set is tiny; heavy if all sets are huge.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p><strong>1 &middot; &ldquo;Why does <code>SET note "a\nb"</code> break over raw <code>nc</code>/inline mode yet work fine from Python or <code>redis-cli -x</code>?&rdquo;</strong> Inline parsing splits on ASCII spaces and ends the command at <code>\r\n</code>. Real clients and <code>redis-cli -x</code> send a RESP Array of length-prefixed Bulk Strings (<code>*3\r\n$3\r\nSET\r\n...$3\r\na\nb\r\n</code>), so Redis reads exact byte counts verbatim without scanning payload bytes for delimiters.</p>
+        <p><strong>2 &middot; &ldquo;Why did Redis introduce RESP3 when RESP2 already worked?&rdquo;</strong> RESP2 flattened maps and sets into generic arrays, overloaded nulls across <code>$-1</code> and <code>*-1</code>, lacked native booleans and floats, and forced Pub/Sub onto a connection-locking state machine. Negotiating <code>HELLO 3</code> adds native <code>%</code> Maps, <code>~</code> Sets, <code>_</code> Null, <code>#</code> Booleans, <code>,</code> Doubles, <code>|</code> Attributes, and non-blocking <code>&gt;</code> Push frames on the same socket.</p>
+        <p><strong>3 &middot; &ldquo;If we strip <code>-@slow</code> from an app&rsquo;s ACL user, can it still stall Redis?&rdquo;</strong> Yes. Commands like <code>MGET</code>, <code>SADD</code>, and <code>LPUSH</code> carry <code>@fast</code> because they do not scan server-owned collections &mdash; they loop over caller arguments. A client sending 200,000 keys to <code>MGET</code> passes <code>@fast</code> and still blocks the single-threaded loop.</p>
+        <p><strong>4 &middot; &ldquo;How does a Redis Cluster client route <code>SORT</code> or multi-key <code>EVAL</code> if keys can sit anywhere in the command?&rdquo;</strong> Through <code>COMMAND INFO</code>&rsquo;s key specifications (and <code>COMMAND GETKEYS</code> for server-side inspection), which describe <code>begin_search</code> and <code>find_keys</code> rules even when key counts depend on an argument like <code>numkeys</code>.</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Build</div>
+      <h2>Talk raw RESP2 &amp; RESP3 over TCP and inspect command metadata</h2>
+      <p>Client libraries normally hide the wire protocol. Writing thirty lines of pure Python <code>socket</code> code removes all mystery: you build the RESP request array yourself, send a newline and a null byte inside a value without escaping anything, compare <code>GET</code> and <code>HGETALL</code> before and after <code>HELLO 3</code>, and read arity plus <code>@fast</code>/<code>@slow</code> tags straight out of <code>COMMAND INFO</code>.</p>
+
+      <div class="worked">
+        <div class="whead"><span class="wk">Verification checkpoint</span><span class="pill e">Runnable</span><span class="lc">Redis 8.10 &middot; Python 3 stdlib</span></div>
+        <div class="wbody">
+          <div class="wname">Raw RESP2/RESP3 frame encoder, decoder, and <code>COMMAND INFO</code> probe</div>
+          <p class="wprompt">Run against a throwaway local Redis&nbsp;8.10 server on <code>localhost:6379</code>. Uses Python&nbsp;3&rsquo;s built-in <code>socket</code> module only (no packages to install) and cleans up every key via <code>UNLINK</code>.</p>
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">1 &middot; Frame requests as Bulk String Arrays</span><p>Prefix the argument count with <code>*</code> and each argument with <code>$&lt;len&gt;</code>; binary payloads containing <code>\n</code> and <code>\x00</code> pass straight through.</p></div>
+            <div class="ws"><span class="wsk">2 &middot; Dispatch replies on byte 0</span><p>Scan to <code>\r\n</code> for scalars (<code>+</code>, <code>-</code>, <code>:</code>, <code>_</code>, <code>#</code>, <code>,</code>, <code>(</code>), read exact byte counts for blobs (<code>$</code>, <code>!</code>, <code>=</code>), and recurse for aggregates (<code>*</code>, <code>~</code>, <code>%</code>, <code>&gt;</code>, <code>|</code>).</p></div>
+            <div class="ws"><span class="wsk">3 &middot; Upgrade in place &amp; inspect metadata</span><p>Send <code>HELLO 3</code> to watch missing <code>GET</code> flip from <code>$-1</code> to <code>_</code>, <code>HGETALL</code> flip from list to dict, and <code>SMEMBERS</code> flip to a set; then query <code>COMMAND INFO</code> and <code>COMMAND GETKEYS</code>.</p></div>
+          </div>
+          <h4 class="wh">The code</h4>
+          <p class="codetag">python 3 &middot; stdlib only &middot; resp_wire_probe.py</p>
+          <pre class="code"><code><span class="kw">import</span> socket
+<span class="kw">import</span> uuid
+
+
+<span class="kw">class</span> <span class="fn">RedisReplyError</span>(Exception):
+    <span class="kw">pass</span>
+
+
+<span class="kw">def</span> <span class="fn">encode_cmd</span>(*args):
+    frames = [<span class="st2">f"*{len(args)}\r\n"</span>.encode(<span class="st2">"ascii"</span>)]
+    <span class="kw">for</span> arg <span class="kw">in</span> args:
+        raw = arg <span class="kw">if</span> isinstance(arg, bytes) <span class="kw">else</span> str(arg).encode(<span class="st2">"utf-8"</span>)
+        frames.append(<span class="st2">f"${len(raw)}\r\n"</span>.encode(<span class="st2">"ascii"</span>) + raw + <span class="st2">b"\r\n"</span>)
+    <span class="kw">return</span> <span class="st2">b""</span>.join(frames)
+
+
+<span class="kw">def</span> <span class="fn">read_frame</span>(f):
+    line = f.readline()
+    <span class="kw">if</span> <span class="kw">not</span> line.endswith(<span class="st2">b"\r\n"</span>):
+        <span class="kw">raise</span> EOFError(<span class="st2">"Truncated RESP frame"</span>)
+    prefix, body = line[:<span class="lit">1</span>], line[<span class="lit">1</span>:-<span class="lit">2</span>]
+
+    <span class="kw">if</span> prefix == <span class="st2">b"+"</span>: <span class="kw">return</span> body.decode(<span class="st2">"utf-8"</span>)
+    <span class="kw">if</span> prefix == <span class="st2">b"-"</span>: <span class="kw">raise</span> RedisReplyError(body.decode(<span class="st2">"utf-8"</span>))
+    <span class="kw">if</span> prefix == <span class="st2">b":"</span>: <span class="kw">return</span> int(body)
+    <span class="kw">if</span> prefix == <span class="st2">b"_"</span>: <span class="kw">return</span> <span class="lit">None</span>
+    <span class="kw">if</span> prefix == <span class="st2">b"#"</span>: <span class="kw">return</span> body == <span class="st2">b"t"</span>
+    <span class="kw">if</span> prefix <span class="kw">in</span> (<span class="st2">b","</span>,): <span class="kw">return</span> float(body)
+    <span class="kw">if</span> prefix == <span class="st2">b"("</span>: <span class="kw">return</span> int(body)
+    <span class="kw">if</span> prefix <span class="kw">in</span> (<span class="st2">b"$"</span>, <span class="st2">b"!"</span>, <span class="st2">b"="</span>):
+        n = int(body)
+        <span class="kw">if</span> n == -<span class="lit">1</span>: <span class="kw">return</span> <span class="lit">None</span>
+        data = f.read(n)
+        f.read(<span class="lit">2</span>)  <span class="cm"># discard trailing \r\n</span>
+        <span class="kw">if</span> prefix == <span class="st2">b"!"</span>: <span class="kw">raise</span> RedisReplyError(data.decode(<span class="st2">"utf-8"</span>, errors=<span class="st2">"replace"</span>))
+        <span class="kw">return</span> data[<span class="lit">4</span>:] <span class="kw">if</span> prefix == <span class="st2">b"="</span> <span class="kw">else</span> data
+    <span class="kw">if</span> prefix == <span class="st2">b"*"</span>:
+        n = int(body)
+        <span class="kw">return</span> <span class="lit">None</span> <span class="kw">if</span> n == -<span class="lit">1</span> <span class="kw">else</span> [read_frame(f) <span class="kw">for</span> _ <span class="kw">in</span> range(n)]
+    <span class="kw">if</span> prefix == <span class="st2">b"~"</span>:
+        items = [read_frame(f) <span class="kw">for</span> _ <span class="kw">in</span> range(int(body))]
+        <span class="kw">try</span>:
+            <span class="kw">return</span> set(items)
+        <span class="kw">except</span> TypeError:
+            <span class="kw">return</span> items  <span class="cm"># e.g. COMMAND INFO wraps key-spec Maps inside a Set</span>
+    <span class="kw">if</span> prefix == <span class="st2">b"%"</span>:
+        <span class="kw">return</span> {read_frame(f): read_frame(f) <span class="kw">for</span> _ <span class="kw">in</span> range(int(body))}
+    <span class="kw">if</span> prefix == <span class="st2">b"&gt;"</span>:
+        <span class="kw">return</span> (<span class="st2">"push"</span>, [read_frame(f) <span class="kw">for</span> _ <span class="kw">in</span> range(int(body))])
+    <span class="kw">if</span> prefix == <span class="st2">b"|"</span>:
+        _attrs = {read_frame(f): read_frame(f) <span class="kw">for</span> _ <span class="kw">in</span> range(int(body))}
+        <span class="kw">return</span> read_frame(f)
+    <span class="kw">raise</span> ValueError(<span class="st2">f"Unknown RESP prefix: {prefix!r}"</span>)
+
+
+<span class="kw">def</span> <span class="fn">send_cmd</span>(sock, f, *args):
+    wire = encode_cmd(*args)
+    sock.sendall(wire)
+    <span class="kw">return</span> wire, read_frame(f)
+
+
+p = <span class="st2">f"lab:resp:{uuid.uuid4().hex[:8]}"</span>
+k_bin, k_empty, k_miss, k_cart, k_tags = (
+    <span class="st2">f"{p}:bin"</span>, <span class="st2">f"{p}:empty"</span>, <span class="st2">f"{p}:miss"</span>, <span class="st2">f"{p}:cart"</span>, <span class="st2">f"{p}:tags"</span>
+)
+
+<span class="kw">with</span> socket.create_connection((<span class="st2">"127.0.0.1"</span>, <span class="lit">6379</span>), timeout=<span class="lit">5</span>) <span class="kw">as</span> sock:
+    f = sock.makefile(<span class="st2">"rb"</span>)
+    <span class="kw">try</span>:
+        payload = <span class="st2">b"line1\nline2\x00end"</span>
+        wire, ok = send_cmd(sock, f, <span class="st2">"SET"</span>, k_bin, payload)
+        <span class="kw">assert</span> ok == <span class="st2">"OK"</span> <span class="kw">and</span> wire.startswith(<span class="st2">b"*3\r\n$3\r\nSET\r\n"</span>)
+        <span class="kw">assert</span> send_cmd(sock, f, <span class="st2">"GET"</span>, k_bin)[<span class="lit">1</span>] == payload
+
+        <span class="cm"># RESP2: empty string vs null, flat array for HGETALL &amp; SMEMBERS</span>
+        send_cmd(sock, f, <span class="st2">"SET"</span>, k_empty, <span class="st2">b""</span>)
+        <span class="kw">assert</span> send_cmd(sock, f, <span class="st2">"GET"</span>, k_empty)[<span class="lit">1</span>] == <span class="st2">b""</span>
+        <span class="kw">assert</span> send_cmd(sock, f, <span class="st2">"GET"</span>, k_miss)[<span class="lit">1</span>] <span class="kw">is</span> <span class="lit">None</span>
+        send_cmd(sock, f, <span class="st2">"HSET"</span>, k_cart, <span class="st2">"apples"</span>, <span class="st2">"3"</span>, <span class="st2">"note"</span>, <span class="st2">"gift"</span>)
+        send_cmd(sock, f, <span class="st2">"SADD"</span>, k_tags, <span class="st2">"cache"</span>, <span class="st2">"ram"</span>)
+        <span class="kw">assert</span> send_cmd(sock, f, <span class="st2">"HGETALL"</span>, k_cart)[<span class="lit">1</span>] == [<span class="st2">b"apples"</span>, <span class="st2">b"3"</span>, <span class="st2">b"note"</span>, <span class="st2">b"gift"</span>]
+        <span class="kw">assert</span> isinstance(send_cmd(sock, f, <span class="st2">"SMEMBERS"</span>, k_tags)[<span class="lit">1</span>], list)
+
+        <span class="cm"># Upgrade socket to RESP3 in one round trip</span>
+        hello = send_cmd(sock, f, <span class="st2">"HELLO"</span>, <span class="st2">"3"</span>)[<span class="lit">1</span>]
+        <span class="kw">assert</span> isinstance(hello, dict) <span class="kw">and</span> hello[<span class="st2">b"proto"</span>] == <span class="lit">3</span>
+        <span class="kw">assert</span> send_cmd(sock, f, <span class="st2">"GET"</span>, k_miss)[<span class="lit">1</span>] <span class="kw">is</span> <span class="lit">None</span>  <span class="cm"># wire is now _\r\n</span>
+        <span class="kw">assert</span> send_cmd(sock, f, <span class="st2">"HGETALL"</span>, k_cart)[<span class="lit">1</span>] == {<span class="st2">b"apples"</span>: <span class="st2">b"3"</span>, <span class="st2">b"note"</span>: <span class="st2">b"gift"</span>}
+        <span class="kw">assert</span> send_cmd(sock, f, <span class="st2">"SMEMBERS"</span>, k_tags)[<span class="lit">1</span>] == {<span class="st2">b"cache"</span>, <span class="st2">b"ram"</span>}
+
+        <span class="cm"># Inspect arity, ACL speed categories, and key extraction</span>
+        info = send_cmd(sock, f, <span class="st2">"COMMAND"</span>, <span class="st2">"INFO"</span>, <span class="st2">"GET"</span>, <span class="st2">"MGET"</span>, <span class="st2">"DEL"</span>, <span class="st2">"LRANGE"</span>, <span class="st2">"ZADD"</span>)[<span class="lit">1</span>]
+        summary = {row[<span class="lit">0</span>].decode(): (row[<span class="lit">1</span>], sorted(row[<span class="lit">6</span>])) <span class="kw">for</span> row <span class="kw">in</span> info}
+        <span class="kw">assert</span> summary[<span class="st2">"get"</span>][<span class="lit">0</span>] == <span class="lit">2</span> <span class="kw">and</span> <span class="st2">"@fast"</span> <span class="kw">in</span> summary[<span class="st2">"get"</span>][<span class="lit">1</span>]
+        <span class="kw">assert</span> summary[<span class="st2">"mget"</span>][<span class="lit">0</span>] == -<span class="lit">2</span> <span class="kw">and</span> <span class="st2">"@fast"</span> <span class="kw">in</span> summary[<span class="st2">"mget"</span>][<span class="lit">1</span>]
+        <span class="kw">assert</span> summary[<span class="st2">"del"</span>][<span class="lit">0</span>] == -<span class="lit">2</span> <span class="kw">and</span> <span class="st2">"@slow"</span> <span class="kw">in</span> summary[<span class="st2">"del"</span>][<span class="lit">1</span>]
+        <span class="kw">assert</span> summary[<span class="st2">"lrange"</span>][<span class="lit">0</span>] == <span class="lit">4</span> <span class="kw">and</span> <span class="st2">"@slow"</span> <span class="kw">in</span> summary[<span class="st2">"lrange"</span>][<span class="lit">1</span>]
+        <span class="kw">assert</span> summary[<span class="st2">"zadd"</span>][<span class="lit">0</span>] == -<span class="lit">4</span> <span class="kw">and</span> <span class="st2">"@fast"</span> <span class="kw">in</span> summary[<span class="st2">"zadd"</span>][<span class="lit">1</span>]
+
+        keys = send_cmd(sock, f, <span class="st2">"COMMAND"</span>, <span class="st2">"GETKEYS"</span>, <span class="st2">"SORT"</span>, <span class="st2">"mylist"</span>, <span class="st2">"ALPHA"</span>, <span class="st2">"STORE"</span>, <span class="st2">"outlist"</span>)[<span class="lit">1</span>]
+        <span class="kw">assert</span> keys == [<span class="st2">b"mylist"</span>, <span class="st2">b"outlist"</span>]
+        print(<span class="st2">"verified:"</span>, summary)
+    <span class="kw">finally</span>:
+        send_cmd(sock, f, <span class="st2">"UNLINK"</span>, k_bin, k_empty, k_cart, k_tags)
+        f.close()</code></pre>
+          <p class="codetag" style="margin-top:14px;">equivalent redis-cli probes</p>
+          <pre class="code"><code>printf 'line1\nline2' | redis-cli -x SET demo:note   <span class="cm"># read last arg verbatim from stdin</span>
+redis-cli -3 HGETALL demo:cart                       <span class="cm"># RESP3 map rendering</span>
+redis-cli --json HGETALL demo:cart                   <span class="cm"># JSON output (uses RESP3 by default)</span>
+redis-cli COMMAND DOCS MGET                          <span class="cm"># summary, since, group, complexity</span>
+redis-cli COMMAND GETKEYS SORT mylist ALPHA STORE out
+redis-cli -e DEL demo:note demo:cart                 <span class="cm"># non-zero exit if server errors</span></code></pre>
+          <div class="say">
+            <span class="k">Explain it aloud in an interview</span>
+            <p>&ldquo;Clients talk to Redis over TCP using RESP &mdash; commands go out as length-prefixed Arrays of Bulk Strings, which gives 512&nbsp;MB binary safety and trivial framing that naturally supports pipelining. Connections start in RESP2 for compatibility and upgrade via <code>HELLO 3</code> to get native Maps, Sets, unified Nulls, and out-of-band Push frames. On the server side, every command has published metadata &mdash; arity, flags, ACL speed tags, and key specifications &mdash; and reading complexity means always checking what <code>N</code> counts: whole keyspace, one container, or caller-supplied arguments.&rdquo;</p>
+            <p class="plain">Follow-ups to anticipate: why <code>redis-cli --raw</code> differs from TTY output, why <code>MGET</code> is tagged <code>@fast</code> yet still dangerous with huge key lists, and how <code>COMMAND GETKEYS</code> helps Cluster proxies route dynamic-argument commands.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="practice">
+      <div class="steptag"><b>&#8599;</b> Practice</div>
+      <h2>Configure &rarr; Diagnose &rarr; Design</h2>
+      <div class="ladder">
+        <div class="rung"><b>Configure</b>You need a CI shell check that writes a multi-line JSON config blob from a file into Redis without shell-escaping bugs, reads a hash back as JSON for <code>jq</code>, fails the build step if Redis returns an error, and never leaks the ACL password in <code>ps</code> or shell history. Write the exact <code>redis-cli</code> flags and environment variable you would use.</div>
+        <div class="rung"><b>Diagnose</b>An on-call script runs <code>redis-cli INCR jobs:ok</code> in a bash loop and parses the line expecting <code>(integer) 42</code>; it works interactively on a laptop and breaks in cron. Meanwhile, an app user restricted with <code>ACL SETUSER svc -@slow</code> triggers a 200&nbsp;ms event-loop stall. Explain both root causes cleanly.</div>
+        <div class="rung"><b>Design</b>You are writing a thin Redis driver or Cluster-aware proxy from scratch. Specify how your client negotiates RESP3 with auth and a client name in a single round trip, how it distinguishes an empty string from a missing key on the wire, and which server metadata call discovers where keys sit inside arbitrary commands like <code>ZINTERSTORE</code> or <code>SORT</code> without hardcoding every command&rsquo;s grammar.</div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Seven takeaways</h2>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>CLI &#8800; protocol</b><span><code>(integer) 2</code> and <code>(nil)</code> are terminal formatting; piped stdout automatically drops them for raw mode.</span></div>
+        <div class="tk"><span class="num">02</span><b>Safe CLI flags</b><span>Use <code>REDISCLI_AUTH</code>/<code>--askpass</code> instead of <code>-a</code>, <code>-x</code> for binary stdin, <code>-e</code> for CI exit codes, and <code>--scan</code> over <code>KEYS</code>.</span></div>
+        <div class="tk"><span class="num">03</span><b>Length-prefixed wire</b><span>Commands cross TCP as RESP Arrays of Bulk Strings (<code>*N</code>, <code>$len</code>) &mdash; binary-safe up to 512&nbsp;MB and ready for pipelining.</span></div>
+        <div class="tk"><span class="num">04</span><b>Upgrade via HELLO 3</b><span>Sockets start in RESP2; <code>HELLO 3</code> unlocks Maps (<code>%</code>), Sets (<code>~</code>), unified Null (<code>_</code>), Attributes (<code>|</code>), and Push (<code>&gt;</code>) in one RTT.</span></div>
+        <div class="tk"><span class="num">05</span><b>Introspectable commands</b><span><code>COMMAND INFO</code> and <code>COMMAND DOCS</code> publish arity (counting command name), flags, ACLs, subcommands, and key specs.</span></div>
+        <div class="tk"><span class="num">06</span><b>Name what N counts</b><span><code>O(N)</code> means DB keys (<code>KEYS</code>), one value (<code>HGETALL</code>), or your batch args (<code>MGET</code>); <code>LRANGE</code> and <code>ZRANGE</code> pay offset/log + slice.</span></div>
+        <div class="tk"><span class="num">07</span><b>@fast is not unconditional</b><span><code>-@slow</code> blocks collection scans, not giant caller batches like a 100k-key <code>MGET</code> or <code>SADD</code>.</span></div>
+      </div>
+    </section>
+
+    <section id="self-test" class="self-test">
+      <div class="steptag"><b>?</b> Active recall</div>
+      <h2>Self-test</h2>
+      <details class="self-test-question"><summary>1. Why do real Redis clients send <code>*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n</code> instead of inline <code>GET foo\r\n</code>?</summary><p>Inline commands split tokens on whitespace and end at <code>\r\n</code>, so spaces, newlines, or <code>\x00</code> bytes inside a key or value break framing. RESP Arrays of Bulk Strings declare exact byte lengths via <code>$len</code>, making every key and value binary-safe up to 512&nbsp;MB.</p></details>
+      <details class="self-test-question"><summary>2. On the wire, how do an empty string, a missing key in RESP2, and a missing key in RESP3 differ?</summary><p>An empty string is <code>$0\r\n\r\n</code> (a 0-byte bulk string). A missing key in RESP2 is <code>$-1\r\n</code> (null bulk string, alongside <code>*-1\r\n</code> for null arrays). After <code>HELLO 3</code>, RESP3 sends unified Null <code>_\r\n</code>.</p></details>
+      <details class="self-test-question"><summary>3. Why did my shell script parse <code>(integer) 2</code> in my terminal and fail under cron?</summary><p><code>redis-cli</code> formats replies for humans only when stdout is a TTY. When redirected or run under cron (non-TTY), it automatically switches to raw output and prints bare <code>2</code>. Pass <code>--raw</code> or <code>--no-raw</code> explicitly whenever a script parses output.</p></details>
+      <details class="self-test-question"><summary>4. What four things does <code>HELLO 3 AUTH user pass SETNAME api</code> achieve, and why do sockets still open in RESP2?</summary><p>In one round trip it upgrades the connection to RESP3, authenticates the ACL user, names the connection for <code>CLIENT LIST</code>, and returns a Map of server metadata. Connections still open in RESP2 so older clients and proxies never break unexpectedly.</p></details>
+      <details class="self-test-question"><summary>5. What does an arity of <code>-4</code> mean in <code>COMMAND INFO ZADD</code>, and why did Redis&nbsp;7+ add Key Specifications?</summary><p>Arity counts the command name itself; negative means &ldquo;at least.&rdquo; <code>-4</code> means <code>ZADD</code> plus at least three arguments (key, score, member). Key Specifications (<code>begin_search</code> and <code>find_keys</code>) replaced fixed <code>first/last/step</code> integers so Cluster clients and proxies can locate keys in dynamic commands like <code>ZINTERSTORE</code>, <code>SORT</code>, and <code>EVAL</code>.</p></details>
+      <details class="self-test-question"><summary>6. How do <code>KEYS</code>, <code>HGETALL</code>, <code>MGET</code>, and <code>ZRANGE 0 9</code> differ even though <code>N</code> appears in all of their complexities?</summary><p><code>KEYS</code> scans all keys in the database; <code>HGETALL</code> scans all fields inside one hash; <code>MGET</code> loops over the <code>N</code> keys you passed; <code>ZRANGE 0 9</code> seeks in <code>O(log N)</code> over the zset and returns only <code>M=10</code> elements, keeping the call tiny even at millions of members.</p></details>
+      <details class="self-test-question"><summary>7. Which commands belong to <code>@fast</code> vs. <code>@slow</code>, and why can an <code>@fast</code> user still block the event loop?</summary><p><code>@fast</code> holds <code>O(1)</code> commands plus bounded <code>O(log N)</code> inserts like <code>ZADD</code> and argument-looping commands like <code>MGET</code>/<code>SADD</code>; <code>@slow</code> holds everything else. Because <code>MGET</code> and <code>SADD</code> loop over client-supplied arguments, passing 100,000 items in a single call passes <code>-@slow</code> yet still blocks the main thread.</p></details>
+    </section>
+
+    <section id="sources" class="sources-section">
+      <div class="steptag"><b>&#8599;</b> Primary sources</div>
+      <h2>Official sources &amp; further reading</h2>
+      <ol>
+        <li><a href="https://redis.io/docs/latest/develop/reference/protocol-spec/">Redis Documentation &mdash; RESP Protocol Specification (RESP2 &amp; RESP3 wire types, inline commands)</a></li>
+        <li><a href="https://redis.io/docs/latest/develop/tools/cli/">Redis Documentation &mdash; <code>redis-cli</code> (REPL, raw/JSON/CSV formatting, <code>-x</code>, <code>--pipe</code>, <code>--scan</code>, <code>--bigkeys</code>, <code>REDISCLI_AUTH</code>)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/hello/">Redis Command Reference &mdash; <code>HELLO</code> (RESP2/RESP3 negotiation, <code>AUTH</code>, <code>SETNAME</code>)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/command-info/">Redis Command Reference &mdash; <code>COMMAND INFO</code> (arity, flags, ACL categories, key specifications, subcommands)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/command-docs/">Redis Command Reference &mdash; <code>COMMAND DOCS</code> (summary, since, group, complexity metadata)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/command-getkeys/">Redis Command Reference &mdash; <code>COMMAND GETKEYS</code> (extracting keys from arbitrary commands)</a></li>
+        <li><a href="https://redis.io/docs/latest/commands/acl-cat/">Redis Command Reference &mdash; <code>ACL CAT</code> (<code>@fast</code> vs. <code>@slow</code> definitions)</a></li>
+        <li><a href="https://redis.io/docs/latest/develop/using-commands/pipelining/">Redis Documentation &mdash; Pipelining (batching framed requests without waiting per reply)</a></li>
+        <li><a href="https://github.com/redis/redis/releases/tag/8.10.3">Redis Open Source &mdash; 8.10.3 GA Release</a></li>
+      </ol>
+    </section>
+
+    <nav class="course-nav" aria-label="Course navigation">
+      <a data-nav="previous" href="lesson-02-the-single-threaded-event-loop.html">&larr; Previous</a>
+      <a data-nav="index" href="index.html">Course index</a>
+      <span class="done">Next: Lesson 04 &mdash; soon</span>
+    </nav>
+
+    <footer>
+      LESSON 03 &middot; TALKING TO REDIS: REDIS-CLI, RESP &amp; THE COMMAND MODEL &middot; ORIGINAL INTERACTIVE STUDY CHAPTER<br>
+      Redis Open Source 8.10 (8.10.3 GA) &middot; Python 3 stdlib + redis-cli &middot; review, replay, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),navmap={};
+  links.forEach(function(a){navmap[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        if(navmap[e.target.id])navmap[e.target.id].classList.add('active');}});
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — Command -> RESP Wire -> Server -> CLI rendering */
+  var wirePaths=['w-p-req1','w-p-req2','w-p-res2','w-p-res1'];
+  makeStepper(_g('fig-wire'), [
+    {text:"The app calls SET note with a 15-byte payload holding a newline and a null byte. Real clients frame it as a 3-element RESP Array of Bulk Strings.",
+     active:["w-cli","w-wire"], path:"w-p-req1", paths:["w-p-req1"],
+     cliIn:'SET note "line1\\n..."', cliOut:"waiting for reply...", cliRaw:"(piped = raw mode)",
+     wireTag:"RESP2 array of bulk strings", wireTx:"*3 · SET · note · 15B", wireRx:"(request in flight)",
+     srvOp:"awaiting frame", srvMem:"DB 0: note not set", srvProto:"socket proto: RESP2",
+     pTitle:"EXACT BYTES SENT BY CLIENT",
+     p1:"C->S: *3\\r\\n$3\\r\\nSET\\r\\n$4\\r\\nnote\\r\\n$15\\r\\nline1\\nline2\\x00end\\r\\n",
+     p2:"Prefix '*' = 3 arguments; '$15' declares exact byte length of the third argument.",
+     p3:"Binary safety: Redis reads 15 raw bytes without splitting on \\n or \\x00.",
+     read:"requests always cross the wire as Bulk String arrays"},
+    {text:"Redis parses *3, reads the 15 bytes verbatim into DB 0, and sends back a Simple String (+OK\\r\\n). redis-cli strips '+' and prints OK.",
+     active:["w-srv","w-wire","w-cli"], path:"w-p-res1", paths:["w-p-req2","w-p-res2","w-p-res1"],
+     cliIn:'SET note "line1\\n..."', cliOut:"TTY display: OK", cliRaw:"--raw / pipe: OK",
+     wireTag:"Simple String reply ('+')", wireTx:"SET note (15 bytes)", wireRx:"+OK\\r\\n",
+     srvOp:"stored note (15 B)", srvMem:"DB 0: note -> 15 B", srvProto:"socket proto: RESP2",
+     pTitle:"SERVER REPLY & CLI TRANSLATION",
+     p1:"S->C: +OK\\r\\n   (first byte '+' = Simple String, terminated by \\r\\n)",
+     p2:"redis-cli (TTY): OK   |   redis-cli (piped / --raw): OK",
+     p3:"Simple Strings never carry \\r or \\n; arbitrary strings use '$' Bulk Strings instead.",
+     read:"'+' signals a short status reply; CLI strips the wire framing"},
+    {text:"Next, the app runs GET missing:key. Under RESP2, Redis returns $-1\\r\\n (null bulk string) — distinct from $0\\r\\n\\r\\n (empty string).",
+     active:["w-cli","w-wire","w-srv"], path:"w-p-res2", paths:["w-p-req1","w-p-req2","w-p-res2"], reject:true,
+     cliIn:"GET missing:key", cliOut:"TTY display: (nil)", cliRaw:"--raw / pipe: (empty)",
+     wireTag:"RESP2 Null Bulk String", wireTx:"*2 · GET · missing:key", wireRx:"$-1\\r\\n",
+     srvOp:"lookup -> miss", srvMem:"DB 0: key absent", srvProto:"socket proto: RESP2",
+     pTitle:"NULL VS. EMPTY STRING IN RESP2",
+     p1:"Missing key: $-1\\r\\n   ->   TTY shows (nil); --raw prints empty output",
+     p2:"Empty string: $0\\r\\n\\r\\n   ->   TTY shows \"\"; --raw prints empty line",
+     p3:"Catch: in shell scripts --raw blurs missing vs empty; use --no-raw or check EXISTS.",
+     read:"$-1 means absent in RESP2; $0 means present with 0 bytes"},
+    {text:"Run INCR views under RESP2: Redis replies :1\\r\\n. Notice how redis-cli prints '(integer) 1' in a terminal, yet bare '1' when piped.",
+     active:["w-wire","w-cli","w-srv"], path:"w-p-res1", paths:["w-p-res2","w-p-res1"],
+     cliIn:"INCR views", cliOut:"TTY: (integer) 1", cliRaw:"piped / --raw: 1",
+     wireTag:"Integer reply (':')", wireTx:"*2 · INCR · views", wireRx:":1\\r\\n",
+     srvOp:"atomic incr -> 1", srvMem:"DB 0: views = 1", srvProto:"socket proto: RESP2",
+     pTitle:"WHY INTERACTIVE SCRIPTS BREAK IN CRON",
+     p1:"S->C: :1\\r\\n   (signed 64-bit integer between ':' and '\\r\\n')",
+     p2:"TTY stdout: '(integer) 1'   |   Non-TTY (cron / pipe): '1'",
+     p3:"Never strip '(integer) ' from redis-cli in scripts — non-TTY already outputs raw '1'.",
+     read:"redis-cli checks isatty(stdout) and changes output automatically"},
+    {text:"Run HGETALL cart:42 in RESP2: Redis returns *4 (a flat 4-element Array). Clients must pair key/value items themselves.",
+     active:["w-cli","w-wire","w-srv"], path:"w-p-res2", paths:["w-p-req2","w-p-res2"],
+     cliIn:"HGETALL cart:42", cliOut:'TTY: 1) "apples" 2) "3"...', cliRaw:"--raw: one line per item",
+     wireTag:"RESP2 flat array (*4)", wireTx:"*2 · HGETALL · cart:42", wireRx:"*4 ($6 apples $1 3 ...)",
+     srvOp:"read hash (2 fields)", srvMem:"DB 0: cart:42 (2 fields)", srvProto:"socket proto: RESP2",
+     pTitle:"RESP2 FLATTENS MAPS INTO ARRAYS",
+     p1:"S->C: *4\\r\\n$6\\r\\napples\\r\\n$1\\r\\n3\\r\\n$4\\r\\nnote\\r\\n$4\\r\\ngift\\r\\n",
+     p2:"The wire carries 4 undifferentiated bulk strings; the client library must zip pairs.",
+     p3:"Same story for SMEMBERS (sent as '*' array) — RESP2 had no Map or Set wire type.",
+     read:"RESP2 represents hashes and sets as plain '*' arrays"},
+    {text:"Send HELLO 3 once to switch the socket to RESP3: missing GET now returns _\\r\\n and HGETALL arrives as a native Map (%2).",
+     active:["w-cli","w-wire","w-srv"], path:"w-p-res1", paths:["w-p-req1","w-p-req2","w-p-res2","w-p-res1"],
+     cliIn:"HELLO 3 -> HGETALL", cliOut:'TTY: 1# "apples" => "3"', cliRaw:'--json: {"apples":"3"...}',
+     wireTag:"RESP3 Map (%2) & Null (_)", wireTx:"*2 · HGETALL · cart:42", wireRx:"%2 ($6 apples -> $1 3..)",
+     srvOp:"emit RESP3 Map (%2)", srvMem:"DB 0: cart:42 (2 fields)", srvProto:"socket proto: RESP3",
+     pTitle:"AFTER HELLO 3: SEMANTIC WIRE TYPES",
+     p1:"Missing key: _\\r\\n   (replaces $-1 and *-1 with one universal Null type)",
+     p2:"HGETALL: %2\\r\\n$6\\r\\napples\\r\\n$1\\r\\n3\\r\\n$4\\r\\nnote\\r\\n$4\\r\\ngift\\r\\n",
+     p3:"%2 means 2 key->value pairs (4 elements); SMEMBERS uses ~2 (Set).",
+     read:"HELLO 3 upgrades one connection cleanly while leaving RESP2 clients intact"}
+  ], function(idx,s){
+    var onPaths=s.paths||[];
+    wirePaths.forEach(function(id){
+      var el=_g(id); if(!el) return;
+      el.style.opacity=(onPaths.indexOf(id)!==-1)?'1':'.14';
+    });
+    _g('w-cli-in').textContent=s.cliIn;
+    _g('w-cli-out').textContent=s.cliOut;
+    _g('w-cli-raw').textContent=s.cliRaw;
+    _g('w-wire-tag').textContent=s.wireTag;
+    _g('w-wire-tx').textContent=s.wireTx;
+    _g('w-wire-rx').textContent=s.wireRx;
+    _g('w-srv-op').textContent=s.srvOp;
+    _g('w-srv-mem').textContent=s.srvMem;
+    _g('w-srv-proto').textContent=s.srvProto;
+    _g('w-panel-title').textContent=s.pTitle;
+    _g('w-panel-l1').textContent=s.p1;
+    _g('w-panel-l2').textContent=s.p2;
+    _g('w-panel-l3').textContent=s.p3;
+    _g('w-read').textContent=s.read;
+  });
+
+  /* FIG 2 — RESP byte-0 parser & RESP3 push multiplexing */
+  var respPaths=['r-p1','r-p2','r-p3','r-p4','r-p5','r-p6'];
+  makeStepper(_g('fig-resp'), [
+    {text:"Every RESP parser starts identically: inspect the very first byte of the reply to pick one of three decoding strategies.",
+     active:["r-byte0","r-scalar","r-blob","r-agg"], paths:["r-p1","r-p2","r-p3"],
+     tok:"prefix: byte[0]", bsub:"3 parser rules total",
+     scSub:"read until \\r\\n (scalar)", blSub:"read len -> exact N bytes", agSub:"recurse N (or 2N) items",
+     mode:"mode: RESP2 / RESP3", v1:"dispatch on byte 0", v2:"O(1) type branch",
+     s1:"socket state:", s2:"ready to frame", tone:"good",
+     wire:"wire: prefix byte determines how many bytes follow",
+     read:"one ASCII byte picks CRLF scan, exact-byte read, or recursion"},
+    {text:"Scalar prefix ('+', '-', ':', '_', '#', ',', '('): the parser reads up to \\r\\n. No inner newlines allowed; fast single-line parse.",
+     active:["r-byte0","r-scalar","r-out"], path:"r-p4", paths:["r-p1","r-p4"],
+     tok:"prefix: ':' or '_'", bsub:"RESP2 ':' | RESP3 '_'",
+     scSub:"read '42' until \\r\\n", blSub:"read len -> exact N bytes", agSub:"recurse N (or 2N) items",
+     mode:"mode: RESP3", v1:"42  (or None for '_')", v2:"CRLF-delimited scalar",
+     s1:"socket state:", s2:"request / reply", tone:"good",
+     wire:"wire: :42\\r\\n   |   _\\r\\n   |   #t\\r\\n   |   ,3.14\\r\\n",
+     read:"scalars scan straight to \\r\\n and cast by their byte-0 tag"},
+    {text:"Length-prefixed blobs ('$', '!', '='): read integer N, then consume exactly N bytes plus trailing \\r\\n. Verbatim '=' tags 4-byte format prefixes.",
+     active:["r-byte0","r-blob","r-out"], path:"r-p5", paths:["r-p2","r-p5"],
+     tok:"prefix: '$' or '='", bsub:"exact-byte length",
+     scSub:"read until \\r\\n (scalar)", blSub:"N=15 -> read 15 B + CRLF", agSub:"recurse N (or 2N) items",
+     mode:"mode: RESP3", v1:"txt -> 'Some string'", v2:"binary-safe blob (<=512 MB)",
+     s1:"socket state:", s2:"request / reply", tone:"good",
+     wire:"wire: =15\\r\\ntxt:Some string\\r\\n   (15 = 'txt:' + 11 bytes)",
+     read:"length prefixes guarantee binary safety without escaping bytes"},
+    {text:"Counted aggregates ('*', '~', '%', '|'): read element count N and recursively call the exact same decoder N times (2N for '%' Maps and '|' Attributes).",
+     active:["r-byte0","r-agg","r-out"], path:"r-p6", paths:["r-p3","r-p6"],
+     tok:"prefix: '%' (Map)", bsub:"2 pairs = 4 frames",
+     scSub:"read until \\r\\n (scalar)", blSub:"read len -> exact N bytes", agSub:"recurse 2*N items for Map",
+     mode:"mode: RESP3", v1:"{apples: 3, note: gift}", v2:"self-delimiting tree",
+     s1:"socket state:", s2:"request / reply", tone:"good",
+     wire:"wire: %2\\r\\n$6\\r\\napples\\r\\n$1\\r\\n3\\r\\n$4\\r\\nnote\\r\\n$4\\r\\ngift\\r\\n",
+     read:"'%2' unambiguously means 2 key-value pairs; '|' decorates the next item"},
+    {text:"Why RESP2 struggled with Pub/Sub: once a RESP2 client sends SUBSCRIBE, the socket flips into push-only mode and regular commands are restricted.",
+     active:["r-byte0","r-agg","r-out"], path:"r-p6", paths:["r-p3","r-p6"], reject:true,
+     tok:"RESP2 SUBSCRIBE", bsub:"no out-of-band tag",
+     scSub:"read until \\r\\n (scalar)", blSub:"read len -> exact N bytes", agSub:"*3 ['message', ch, body]",
+     mode:"mode: RESP2 (locked!)", v1:"mixed '*' arrays", v2:"cannot safely mix GET",
+     s1:"socket state:", s2:"PUB/SUB LOCKED", tone:"bad",
+     wire:"wire (RESP2): *3\\r\\n$7\\r\\nmessage\\r\\n...   (same '*' as normal replies!)",
+     read:"in RESP2 a push message looked like any '*' array, locking the connection"},
+    {text:"RESP3 fixes this with '>' Push frames: out-of-band messages are tagged with '>' so regular GET/SET replies share the exact same socket cleanly.",
+     active:["r-byte0","r-agg","r-out"], path:"r-p6", paths:["r-p3","r-p6"],
+     tok:"prefix: '>' (Push)", bsub:"out-of-band stream",
+     scSub:"read until \\r\\n (scalar)", blSub:"read len -> exact N bytes", agSub:">3 ['invalidate', keys]",
+     mode:"mode: RESP3 (shared)", v1:"push routed out-of-band", v2:"GET/SET keep running",
+     s1:"socket state:", s2:"MUX: cmds + '>' push", tone:"good",
+     wire:"wire (RESP3): >2\\r\\n$10\\r\\ninvalidate\\r\\n*1\\r\\n$7\\r\\ncart:42\\r\\n  then  $5\\r\\nhello\\r\\n",
+     read:"'>' Push frames unlock RESP3 Pub/Sub and client-side caching on one socket"}
+  ], function(idx,s){
+    var lit=s.paths||[];
+    respPaths.forEach(function(id){
+      var el=_g(id); if(!el) return;
+      el.style.opacity=(lit.indexOf(id)!==-1)?'1':'.14';
+    });
+    _g('r-b0-tok').textContent=s.tok;
+    _g('r-b0-sub').textContent=s.bsub;
+    _g('r-sc-sub').textContent=s.scSub;
+    _g('r-bl-sub').textContent=s.blSub;
+    _g('r-ag-sub').textContent=s.agSub;
+    _g('r-out-mode').textContent=s.mode;
+    _g('r-out-v1').textContent=s.v1;
+    _g('r-out-v2').textContent=s.v2;
+    _g('r-out-sock1').textContent=s.s1;
+    _g('r-out-sock2').textContent=s.s2;
+    _g('r-wire-line').textContent=s.wire;
+    _g('r-read').textContent=s.read;
+    _g('r-out-box').setAttribute('class', s.tone==='bad' ? 'node-r' : 'node-g');
+  });
+</script>
+</body>
+</html>
