@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 04 — The Inverted Index (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --amber-wash:#F6ECD8; --green:#69B34C; --green-wash:#EAF3E4;
+    --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --teal:#2E8B8B; --teal-soft:#3FA3A3; --teal-wash:#E0EEEE; --teal-deep:#246B6B;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--teal);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--teal);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--teal-wash);color:var(--ink);}
+  .toc a.active{background:var(--teal);color:#fff;} .toc a.active .n{color:#cfe9e9;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(36px,5.2vw,56px);line-height:1.04;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-deep);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--teal);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .node-g{fill:var(--green-wash);stroke:var(--green);stroke-width:2;}
+  .node-t{fill:var(--teal-wash);stroke:var(--teal);stroke-width:2;}
+  .node-a{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2;}
+  .node-dash{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .lbl-xs{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--ink-soft);}
+  .t-rust{fill:var(--rust);} .t-teal{fill:var(--teal-deep);} .t-blue{fill:var(--blueprint);}
+  .t-green{fill:#3f7a2e;} .t-violet{fill:var(--violet);} .t-amber{fill:#9a6515;}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .flow-t{stroke:var(--teal);stroke-width:2;fill:none;}
+  .flow-g{stroke:var(--green);stroke-width:2;fill:none;}
+  .flow-a{stroke:var(--amber);stroke-width:2;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14px;fill:var(--ink);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--teal);background:var(--teal-wash);} .callout.note .k{color:var(--teal-deep);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .tradeoff{margin:28px 0;overflow-x:auto;}
+  .tradeoff table{width:100%;border-collapse:collapse;background:var(--paper-2);font-size:15.5px;}
+  .tradeoff th,.tradeoff td{padding:12px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  .tradeoff th{background:var(--blueprint-wash);font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- state boxes used by the figures ---- */
+  .sc-box{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;transition:fill .25s,stroke .25s,opacity .25s;}
+  .sc-box.hit{fill:var(--green-wash);stroke:var(--green);stroke-width:2.4;}
+  .sc-box.scan{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2.4;}
+  .sc-box.blue{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2.4;}
+  .sc-box.teal{fill:var(--teal-wash);stroke:var(--teal);stroke-width:2.4;}
+  .sc-box.amber{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2.4;}
+  .sc-box.violet{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2.4;}
+  .sc-box.ghost{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;opacity:.45;}
+  /* ---- worked example + narration ---- */
+  .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.e{background:#E6F1DF;color:#3f7a2e;} .pill.m{background:#FBEEDB;color:#9a6515;} .pill.h{background:var(--rust-wash);color:var(--rust);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:18px 0 6px;}
+  pre.code{margin:0 0 14px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);} pre.code .st2{color:#3f7a2e;}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  /* ---- practice ladder, self-test, sources, course-nav ---- */
+  .ladder{display:grid;gap:13px;margin:24px 0;}
+  .rung{padding:17px 19px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);}
+  .rung b{display:block;margin-bottom:5px;color:var(--rust);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .self-test-question{margin:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);}
+  .self-test-question summary{padding:14px 17px;cursor:pointer;font-weight:600;}
+  .self-test-question p{padding:0 17px 15px;margin:0;color:var(--ink-soft);font-size:16px;}
+  .sources-section ol{padding-left:22px;}
+  .sources-section li{margin-bottom:10px;}
+  .course-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:58px;padding-top:24px;border-top:1px solid var(--line-strong);}
+  .course-nav a{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;text-decoration:none;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--blueprint);}
+  .course-nav a:hover{border-color:var(--teal);background:var(--teal-wash);color:var(--teal-deep);}
+  .course-nav span.done{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--ink-soft);opacity:.55;display:block;}
+  footer{margin-top:36px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--teal);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(46,139,139,.32);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+    .worked .lc{margin-left:0;} .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;}
+    .course-nav{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-t" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2E8B8B"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+  <marker id="arrow-a" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#C98A2B"/></marker>
+</defs></svg>
+
+<button class="menubtn" id="menubtn">&#9776; Contents</button>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Lesson contents">
+    <div class="brandmark">Elasticsearch &middot; Phase 1</div>
+    <div class="brandtitle">The Inverted<br>Index</div>
+    <h4>The build-up</h4>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span><span>The failures first</span></a></li>
+      <li><a href="#s1"><span class="n">01</span><span>Term index, dict &amp; postings &#9656;</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>Skip lists &amp; intersections &#9656;</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>Positions, offsets &amp; phrases &#9656;</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>What it is NOT for</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>Build: index_options &amp; offsets</span></a></li>
+      <li><a href="#practice"><span class="n">&#8599;</span><span>Practice ladder</span></a></li>
+      <li><a href="#summary"><span class="n">&#9733;</span><span>Takeaways</span></a></li>
+      <li><a href="#self-test"><span class="n">?</span><span>Self-test</span></a></li>
+      <li><a href="#sources"><span class="n">&#8599;</span><span>Primary sources</span></a></li>
+    </ol>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal-deep);line-height:1.5;margin-top:22px;">&#9656; marks an interactive,<br>play-through diagram</p>
+  </nav>
+
+  <main>
+    <header>
+      <div class="lessonmeta"><span class="num">04</span><span>Concept &middot; Core &middot; Elasticsearch</span></div>
+      <h1>The Inverted Index</h1>
+      <p class="lede">Phase Zero treated the inverted index as a black box that maps words to document IDs. Phase One opens the lid inside a single Lucene segment: how an off-heap <strong>term index</strong> locates a sorted <strong>term dictionary</strong> block, how delta-compressed <strong>postings lists</strong> and skip lists intersect millions of hits without scanning them, and how storing <strong>positions</strong> and <strong>offsets</strong> unlocks phrases and fast highlighting &mdash; along with the workloads where Elasticsearch skips the inverted index altogether.</p>
+      <div class="disclaimer">
+        <strong>Original study chapter.</strong> Written from scratch for backend, search, and platform interviews. Behavior and defaults target the <strong>Elasticsearch 9.5&ndash;9.6</strong> line on <strong>Apache Lucene 10</strong> (tracking 8.x&nbsp;&rarr;&nbsp;9.x as of late 2026); code blocks show HTTP / Kibana Dev Tools Console syntax and Python&nbsp;3 with the official <code>elasticsearch</code> 9.x client. Contains <strong>five original figures, three interactive</strong> (press <em>Play</em>, or step with <em>Next</em>). Segment merging and columnar doc values follow in L05, the text analysis pipeline in L06, the write path in L07, and BM25 scoring math in L15.
+      </div>
+    </header>
+
+    <hr class="rule">
+
+    <!-- 00 -->
+    <section id="s0">
+      <div class="steptag"><b>00</b> The failure first</div>
+      <h2>A broken phrase search, a slow highlight, and a sorted <code>text</code> trap</h2>
+      <p>Start with three production surprises that happen whenever engineers treat &ldquo;the inverted index&rdquo; as a vague synonym for &ldquo;search index.&rdquo;</p>
+      <ul>
+        <li><strong>Disk savings that break phrase search</strong> &mdash; to shrink index storage, an engineer sets <code>"index_options": "freqs"</code> on an article body field. Regular keyword queries still work, until a user wraps a search in quotes (<code>match_phrase</code>). Every phrase query suddenly fails with HTTP <code>400</code>: <code>field was indexed without position data; cannot run PhraseQuery</code>. The postings list dropped word positions, and you cannot fix it without reindexing.</li>
+        <li><strong>Highlighting that re-analyzes megabytes per hit</strong> &mdash; another team renders search snippets across long legal contracts. Because default mappings stop at positions (not character offsets), the highlighter has to fetch raw <code>_source</code> and re-run the analyzer on every returned document &mdash; eating CPU on search nodes or tripping the 1,000,000-character <code>index.highlight.max_analyzed_offset</code> guardrail.</li>
+        <li><strong>Assuming every field lives in an inverted index</strong> &mdash; a developer tries to sort or run a <code>terms</code> aggregation on a <code>text</code> field (which fails by default because the inverted index maps <code>word &rarr; docs</code>, not <code>doc &rarr; values</code>), or asks why a <code>range</code> query on product prices works fast even though scanning every distinct float in a term dictionary would crawl.</li>
+      </ul>
+      <p>Each of those mysteries clears up once you look at what sits inside a Lucene segment: the term index and dictionary (01), postings compression and skip lists (02), the four cumulative rungs of <code>index_options</code> (03), and the boundary between inverted indexes, BKD trees, and doc values (04).</p>
+    </section>
+
+    <!-- 01 INTERACTIVE -->
+    <section id="s1">
+      <div class="steptag"><b>01</b> Term dict &amp; postings</div>
+      <h2>The book-index analogy made precise: FST &rarr; block dictionary &rarr; postings &#9656;</h2>
+      <p>A textbook index at the back of a book lists sorted terms on the left and page numbers on the right. It fails as a literal implementation model at scale in two places: first, millions of distinct words would still be slow to scan on disk, and second, keeping the entire vocabulary in JVM heap memory would blow up garbage collection on large nodes.</p>
+      <p>Assuming the field&rsquo;s analyzer has already normalized text into tokens (Lesson 06 opens that pipeline), Apache Lucene stores each field&rsquo;s inverted index inside every immutable segment across three cooperating pieces:</p>
+      <ul>
+        <li><strong>Term Index (<code>.tip</code>, Finite State Transducer)</strong> &mdash; instead of holding every word in memory, Lucene builds an <strong>FST</strong>: a highly compact prefix-and-suffix-compressed trie mapping term <em>prefixes</em> to the byte offset of a block inside the on-disk dictionary. Since Elasticsearch 7.7, Lucene lazily maps <code>.tip</code> files <strong>off-heap via <code>mmap</code></strong> into the OS page cache rather than pinning them on the JVM heap, dramatically cutting heap footprint per terabyte of data.</li>
+        <li><strong>Term Dictionary (<code>.tim</code>, Block Tree)</strong> &mdash; stores every unique term in lexicographical order inside prefix-compressed blocks on disk, along with its document frequency (<code>df</code>) and a pointer to its postings list. Once the FST points to one block, Lucene seeks straight there and ignores every other word in the segment.</li>
+        <li><strong>Postings Lists (<code>.doc</code>, <code>.pos</code>, <code>.pay</code>)</strong> &mdash; for each term, the sorted list of internal segment <strong>docIDs</strong> (0-based integers local to that segment, <em>not</em> your string <code>_id</code>) that contain the term, compressed with <strong>delta encoding</strong> and bit-packing. Storing <code>[2, 5, 19, 24]</code> as gaps <code>[2, +3, +14, +5]</code> packs small integers into a handful of bits so hot postings stay cached in OS RAM.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-lookup">
+          <svg viewBox="0 0 680 378" role="img" aria-label="Interactive walkthrough of looking up the term timeout in a Lucene segment: the query token traverses the off-heap FST term index on prefix time, jumps directly to one prefix-compressed block in the on-disk term dictionary, follows its postings offset to decode delta-encoded internal docIDs 2, 5, and 19, and forwards only those 3 matches to scoring and fetch.">
+            <g class="st" id="lk-q">
+              <rect class="node" x="14" y="42" width="134" height="106" rx="10"/>
+              <text class="lbl-sm" x="28" y="66">Query token</text>
+              <text class="lbl t-teal" x="28" y="96">"timeout"</text>
+              <text class="lbl-xs" x="28" y="122">analyzed &amp; lowered</text>
+              <text class="lbl-xs" x="28" y="138">(same chain as write)</text>
+            </g>
+
+            <g class="st" id="lk-fst">
+              <rect class="node-v" x="174" y="24" width="142" height="162" rx="10"/>
+              <text class="lbl-sm t-violet" x="188" y="46">Term Index (.tip)</text>
+              <text class="lbl-xs" x="188" y="64">FST &middot; off-heap (mmap)</text>
+              <rect id="lk-fst-a" class="sc-box" x="186" y="78" width="118" height="28" rx="6"/>
+              <text class="lbl-xs" x="196" y="96">au.. &rarr; off 0x0080</text>
+              <rect id="lk-fst-t" class="sc-box" x="186" y="112" width="118" height="28" rx="6"/>
+              <text class="lbl-xs" x="196" y="130">time &rarr; off 0x04A0</text>
+              <rect id="lk-fst-z" class="sc-box" x="186" y="146" width="118" height="28" rx="6"/>
+              <text class="lbl-xs" x="196" y="164">up.. &rarr; off 0x0910</text>
+            </g>
+
+            <g class="st" id="lk-tim">
+              <rect class="node-b" x="342" y="24" width="154" height="226" rx="10"/>
+              <text class="lbl-sm t-blue" x="354" y="46">Term Dict (.tim)</text>
+              <text class="lbl-xs" x="354" y="64">sorted blocks on disk</text>
+              <rect id="lk-b0" class="sc-box" x="354" y="78" width="130" height="36" rx="6"/>
+              <text class="lbl-xs" x="364" y="100">[auth, cache, db]</text>
+              <rect id="lk-b1" class="sc-box" x="354" y="122" width="130" height="74" rx="6"/>
+              <text class="lbl-xs" x="364" y="140">block 0x04A0:</text>
+              <text class="lbl-xs" x="364" y="156">time, timed,</text>
+              <text id="lk-hit-term" class="lbl-xs t-teal" x="364" y="172">timeout (df=3) &rarr;</text>
+              <text class="lbl-xs" x="364" y="188">timer</text>
+              <rect id="lk-b2" class="sc-box" x="354" y="204" width="130" height="36" rx="6"/>
+              <text class="lbl-xs" x="364" y="226">[upstream, warn]</text>
+            </g>
+
+            <g class="st" id="lk-post">
+              <rect class="node-t" x="522" y="24" width="144" height="226" rx="10"/>
+              <text class="lbl-sm t-teal" x="534" y="46">Postings (.doc)</text>
+              <text class="lbl-xs" x="534" y="64">delta-encoded IDs</text>
+              <rect id="lk-p0" class="sc-box" x="534" y="82" width="120" height="44" rx="6"/>
+              <text class="lbl-xs" x="544" y="101">stored gaps:</text>
+              <text class="lbl-xs" x="544" y="117">[2, +3, +14]</text>
+              <rect id="lk-p1" class="sc-box" x="534" y="136" width="120" height="58" rx="6"/>
+              <text class="lbl-xs" x="544" y="155">decoded docIDs:</text>
+              <text class="lbl-xs t-green" x="544" y="172">[2, 5, 19]</text>
+              <text class="lbl-xs" x="544" y="187">tf: [1, 3, 1]</text>
+              <rect id="lk-p2" class="sc-box" x="534" y="204" width="120" height="36" rx="6"/>
+              <text class="lbl-xs" x="544" y="226">&rarr; BM25 + fetch</text>
+            </g>
+
+            <rect class="node" x="14" y="268" width="652" height="56" rx="10"/>
+            <text class="lbl-xs" x="30" y="288">SEGMENT COST MODEL</text>
+            <text id="lk-cost" class="lbl-sm" x="30" y="310">one FST walk + one disk block read + 3 postings decoded</text>
+
+            <path id="lp-q" class="flow-t" style="opacity:.16" d="M148 96 H 172" marker-end="url(#arrow-t)"/>
+            <path id="lp-fst" class="flow" style="opacity:.16" d="M316 126 H 340" marker-end="url(#arrow)"/>
+            <path id="lp-post" class="flow-t" style="opacity:.16" d="M496 168 H 520" marker-end="url(#arrow-t)"/>
+
+            <text id="lk-read" class="readout" x="340" y="356" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 1 &mdash; interactive: an off-heap FST narrows a lookup to one sorted dictionary block, which points straight to delta-compressed docIDs.</figcaption>
+      </figure>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p>&ldquo;Why is a leading wildcard like <code>*timeout</code> still slow on an inverted index?&rdquo; Because both the FST and the sorted term dictionary organize terms <em>left-to-right by prefix</em>. A trailing wildcard (<code>time*</code>) walks the FST to prefix <code>time</code> and reads only that subtree; a leading wildcard (<code>*timeout</code>) gives the FST no starting prefix, forcing Lucene to enumerate terms across the entire segment dictionary. Expect a second probe: &ldquo;What holds the FST in memory?&rdquo; Since Elasticsearch 7.7, <code>.tip</code> is memory-mapped off-heap via the OS page cache, not pinned on the JVM heap.</p>
+      </div>
+    </section>
+
+    <!-- 02 INTERACTIVE -->
+    <section id="s2">
+      <div class="steptag"><b>02</b> Intersecting postings</div>
+      <h2>Multi-term queries: skip lists, <code>advance()</code>, and Block-Max skipping &#9656;</h2>
+      <p>Single-word lookups are the easy case. Real queries ask for <em>all</em> terms (<code>gateway AND timeout</code>) or <em>any</em> of several terms (<code>gateway OR timeout OR retry</code>) across millions of documents. Walking two million-entry arrays element by element would throw away half the advantage of an inverted index.</p>
+      <p>Lucene avoids linear scans because postings lists are always sorted by ascending internal <code>docID</code> and chunked into blocks with an auxiliary <strong>skip list</strong>:</p>
+      <ul>
+        <li><strong>Conjunctions (<code>must</code> / <code>AND</code>) leapfrog via <code>advance(target)</code></strong> &mdash; Lucene inspects each term&rsquo;s estimated cost (its document frequency) and lets the <strong>shortest postings list drive</strong>. If <code>"gateway"</code> matches 3 documents (<code>[4, 48, 120]</code>) while <code>"timeout"</code> matches 500,000, the iterator never decompresses the 43 documents between <code>4</code> and <code>48</code>; it calls <code>advance(48)</code>, jumps across skip-list blocks directly to the block containing <code>48</code>, and decodes only that block.</li>
+        <li><strong>Disjunctions (<code>should</code> / <code>OR</code>) skip low-scoring blocks with Block-Max impacts</strong> &mdash; when you ask for the top 10 scored hits, Lucene does not even score every matching document. Since Lucene 8 (and continuing in Lucene 10), postings skip metadata stores <strong>impacts</strong>: the precomputed maximum score contribution a term can add inside each block of documents. Using <strong>Block-Max WAND / Block-Max MAXSCORE</strong>, once the 10th-best score threshold (<code>&theta;</code>) exceeds a block&rsquo;s upper-bound score, Lucene skips the entire block untouched &mdash; which is why Elasticsearch caps exact hit counting (<code>track_total_hits</code>) at <code>10,000</code> by default so skipping stays fast.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-intersect">
+          <svg viewBox="0 0 680 356" role="img" aria-label="Interactive intersection of a rare postings list gateway containing docIDs 4, 48, and 120 against a dense postings list timeout partitioned into three skip blocks: the rare iterator drives advance calls that leapfrog past middle blocks without decompressing non-matching docIDs.">
+            <g class="st" id="ix-rare">
+              <rect class="node-t" x="16" y="24" width="648" height="72" rx="10"/>
+              <text class="lbl-sm t-teal" x="30" y="47">RARE TERM &middot; "gateway" (df = 3, shortest list drives)</text>
+              <rect id="ix-g0" class="sc-box" x="30" y="58" width="96" height="28" rx="6"/>
+              <text class="lbl-xs" x="78" y="76" text-anchor="middle">doc 4</text>
+              <rect id="ix-g1" class="sc-box" x="286" y="58" width="96" height="28" rx="6"/>
+              <text class="lbl-xs" x="334" y="76" text-anchor="middle">doc 48</text>
+              <rect id="ix-g2" class="sc-box" x="546" y="58" width="96" height="28" rx="6"/>
+              <text class="lbl-xs" x="594" y="76" text-anchor="middle">doc 120</text>
+            </g>
+
+            <g class="st" id="ix-dense">
+              <rect class="node-b" x="16" y="128" width="648" height="122" rx="10"/>
+              <text class="lbl-sm t-blue" x="30" y="151">DENSE TERM &middot; "timeout" (chunked with skip pointers + max-impact metadata)</text>
+
+              <rect id="ix-b0" class="sc-box" x="30" y="164" width="146" height="68" rx="7"/>
+              <text class="lbl-xs" x="42" y="183">skip block 0 (max 4)</text>
+              <text class="lbl-xs" x="42" y="202">[1, 2, 3, 4]</text>
+              <text class="lbl-xs t-teal" x="42" y="220">checked for doc 4</text>
+
+              <rect id="ix-b1" class="sc-box" x="192" y="164" width="146" height="68" rx="7"/>
+              <text class="lbl-xs" x="204" y="183">skip block 1 (max 33)</text>
+              <text class="lbl-xs" x="204" y="202">[9, 17, 25, 33]</text>
+              <text id="ix-b1-st" class="lbl-xs" x="204" y="220">33 &lt; 48 &rarr; SKIP</text>
+
+              <rect id="ix-b2" class="sc-box" x="354" y="164" width="146" height="68" rx="7"/>
+              <text class="lbl-xs" x="366" y="183">skip block 2 (max 88)</text>
+              <text class="lbl-xs" x="366" y="202">[48, 60, 74, 88]</text>
+              <text id="ix-b2-st" class="lbl-xs" x="366" y="220">48 &le; 88 &rarr; decode</text>
+
+              <rect id="ix-b3" class="sc-box" x="516" y="164" width="134" height="68" rx="7"/>
+              <text class="lbl-xs" x="528" y="183">skip block 3</text>
+              <text class="lbl-xs" x="528" y="202">[102, 120, ...]</text>
+              <text id="ix-b3-st" class="lbl-xs" x="528" y="220">120 &rarr; decode</text>
+            </g>
+
+            <rect class="node" x="16" y="268" width="648" height="44" rx="9"/>
+            <text id="ix-res" class="lbl-sm" x="340" y="295" text-anchor="middle">matches so far: [ ]</text>
+
+            <path id="ip-adv1" class="flow-t" style="opacity:.16" d="M78 86 V 162" marker-end="url(#arrow-t)"/>
+            <path id="ip-jump" class="flow-r" style="opacity:.16" d="M334 86 C 334 118, 427 118, 427 162" marker-end="url(#arrow-r)"/>
+            <path id="ip-adv3" class="flow-t" style="opacity:.16" d="M594 86 V 162" marker-end="url(#arrow-t)"/>
+
+            <text id="ix-read" class="readout" x="340" y="338" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 2 &mdash; interactive: the rarest postings list drives <code>advance(target)</code> across skip blocks so whole chunks of dense postings are never decompressed.</figcaption>
+      </figure>
+    </section>
+
+    <!-- 03 INTERACTIVE + STATIC -->
+    <section id="s3">
+      <div class="steptag"><b>03</b> Positions &amp; offsets</div>
+      <h2>What positions and offsets buy you: phrases, proximity, and highlighting &#9656;</h2>
+      <p>Notice how our first two diagrams only needed docIDs and frequencies. Why does Elasticsearch&rsquo;s default <code>text</code> mapping store more? Because knowing that <code>"compact"</code> and <code>"keyboard"</code> both appear in document 1 cannot tell you whether the text reads <em>&ldquo;compact mechanical keyboard&rdquo;</em> or <em>&ldquo;keyboard cable &mdash; compact case&rdquo;</em>, and it cannot tell a search snippet highlighter which characters in the original string to wrap in <code>&lt;em&gt;</code> tags.</p>
+      <p>The mapping parameter <strong><code>index_options</code></strong> controls how much per-occurrence data Lucene writes into each term&rsquo;s postings list. Each level is strictly cumulative &mdash; adding a capability without dropping earlier ones:</p>
+      <ul>
+        <li><strong><code>docs</code></strong> (default for <code>keyword</code>) &mdash; stores only <code>docID</code>. Answers binary membership (&ldquo;does this exact term appear?&rdquo;). No term-frequency scoring and no phrases.</li>
+        <li><strong><code>freqs</code></strong> &mdash; stores <code>docID</code> + <strong>term frequency</strong> (<code>tf</code>). Unlocks BM25 term-frequency weighting so a document mentioning a word four times ranks above a single mention, while saving disk by omitting positions.</li>
+        <li><strong><code>positions</code></strong> (default for <code>text</code>) &mdash; stores <code>docID</code> + <code>tf</code> + <strong>word positions</strong> (<code>0, 1, 2, ...</code>). Unlocks <code>match_phrase</code>, <code>slop</code> proximity queries, and span queries. Setting <code>"index_phrases": true</code> on a <code>text</code> field also indexes 2-word pairs (2-shingles) in a hidden subsidiary field so exact <code>slop: 0</code> phrase queries avoid intersecting positions at query time, trading extra index space for phrase speed.</li>
+        <li><strong><code>offsets</code></strong> &mdash; stores <code>docID</code> + <code>tf</code> + positions + <strong>UTF-16 start/end character offsets</strong> in the original string. Lets Elasticsearch&rsquo;s default <strong>Unified Highlighter</strong> lift matching fragments straight from postings without re-running the analyzer over <code>_source</code> at query time.</li>
+      </ul>
+
+      <figure>
+        <div class="blueprint stepper" id="fig-positions">
+          <svg viewBox="0 0 680 390" role="img" aria-label="Interactive comparison of match, match_phrase, slop, and character offsets across two documents: doc 1 reads compact mechanical keyboard with positions 0, 1, 2 and doc 2 reads keyboard compact with positions 0, 1. match_phrase compact keyboard requires adjacent positions so slop 0 misses both, slop 1 bridges one gap in doc 1, slop 2 transposes doc 2, and offsets 0..7 and 19..27 drive highlighting without re-analyzing.">
+            <g class="st" id="ps-docs">
+              <rect id="ps-d1" class="sc-box" x="16" y="22" width="316" height="106" rx="10"/>
+              <text class="lbl-sm" x="30" y="45">doc 1 &middot; raw string (27 chars)</text>
+              <text class="lbl-xs t-blue" x="30" y="68">"compact mechanical keyboard"</text>
+              <text class="lbl-xs" x="30" y="90">pos 0: compact [0..7]</text>
+              <text class="lbl-xs" x="30" y="108">p1: mechanical [8..18] &middot; p2: keyboard [19..27]</text>
+
+              <rect id="ps-d2" class="sc-box" x="348" y="22" width="316" height="106" rx="10"/>
+              <text class="lbl-sm" x="362" y="45">doc 2 &middot; raw string (16 chars)</text>
+              <text class="lbl-xs t-blue" x="362" y="68">"keyboard compact"</text>
+              <text class="lbl-xs" x="362" y="90">pos 0: keyboard [0..8]</text>
+              <text class="lbl-xs" x="362" y="108">pos 1: compact [9..16]</text>
+            </g>
+
+            <g class="st" id="ps-post">
+              <rect class="node-b" x="16" y="148" width="648" height="114" rx="10"/>
+              <text class="lbl-sm t-blue" x="30" y="170">INVERTED INDEX POSTINGS (with positions + offsets)</text>
+              <rect id="ps-p-cmp" class="sc-box" x="30" y="182" width="302" height="66" rx="7"/>
+              <text class="lbl-xs t-teal" x="42" y="201">term "compact":</text>
+              <text class="lbl-xs" x="42" y="219">doc 1 &rarr; tf:1  pos:[0]  off:[0..7]</text>
+              <text class="lbl-xs" x="42" y="236">doc 2 &rarr; tf:1  pos:[1]  off:[9..16]</text>
+
+              <rect id="ps-p-kbd" class="sc-box" x="348" y="182" width="302" height="66" rx="7"/>
+              <text class="lbl-xs t-teal" x="360" y="201">term "keyboard":</text>
+              <text class="lbl-xs" x="360" y="219">doc 1 &rarr; tf:1  pos:[2]  off:[19..27]</text>
+              <text class="lbl-xs" x="360" y="236">doc 2 &rarr; tf:1  pos:[0]  off:[0..8]</text>
+            </g>
+
+            <g class="st" id="ps-eval">
+              <rect id="ps-qbox" class="sc-box teal" x="16" y="280" width="648" height="66" rx="10"/>
+              <text id="ps-qtitle" class="lbl-sm" x="30" y="303">Query check</text>
+              <text id="ps-qdetail" class="lbl-xs" x="30" y="325">inspecting postings...</text>
+            </g>
+
+            <text id="ps-read" class="readout" x="340" y="372" text-anchor="middle"></text>
+            <circle class="packet" r="7" style="display:none"/>
+          </svg>
+          <div class="stepcap"><span class="stepnum">Step 1 / 6</span><span class="steptext"></span></div>
+          <div class="controls">
+            <button type="button" data-act="restart" title="Restart">&#8635;</button>
+            <button type="button" data-act="prev">&#9664; Prev</button>
+            <button type="button" data-act="play">&#9654; Play</button>
+            <button type="button" data-act="next">Next &#9654;</button>
+          </div>
+        </div>
+        <figcaption>FIG. 3 &mdash; interactive: docIDs answer <code>match</code>, positions answer <code>match_phrase</code> &amp; <code>slop</code>, and character offsets let highlighters slice snippets without re-analyzing text.</figcaption>
+      </figure>
+
+      <figure>
+        <div class="blueprint" id="fig-index-options">
+          <svg viewBox="0 0 680 286" role="img" aria-label="Static four-tier ladder of Elasticsearch index_options showing cumulative payload inside each posting: docs stores only docID, freqs adds term frequency, positions adds word positions for phrase queries, offsets adds start and end character spans for unified highlighting, and separate term_vector stores per-document forward term maps for the Fast Vector Highlighter.">
+            <rect class="node" x="16" y="16" width="648" height="46" rx="8"/>
+            <text class="lbl t-blue" x="32" y="44">1. docs</text>
+            <text class="lbl-xs" x="160" y="38">[ docID ]</text>
+            <text class="lbl-xs" x="160" y="54">default for keyword &middot; presence/exact filter only</text>
+            <text class="lbl-xs t-green" x="648" y="44" text-anchor="end">smallest on disk</text>
+
+            <rect class="node-b" x="16" y="72" width="648" height="46" rx="8"/>
+            <text class="lbl t-blue" x="32" y="100">2. freqs</text>
+            <text class="lbl-xs" x="160" y="94">[ docID, tf ]</text>
+            <text class="lbl-xs" x="160" y="110">adds BM25 term frequency scoring &middot; NO match_phrase</text>
+            <text class="lbl-xs" x="648" y="100" text-anchor="end">drops positions</text>
+
+            <rect class="node-t" x="16" y="128" width="648" height="46" rx="8"/>
+            <text class="lbl t-teal" x="32" y="156">3. positions</text>
+            <text class="lbl-xs" x="160" y="150">[ docID, tf, pos[] ]</text>
+            <text class="lbl-xs" x="160" y="166">default for text &middot; unlocks match_phrase, slop, spans</text>
+            <text class="lbl-xs t-teal" x="648" y="156" text-anchor="end">text default</text>
+
+            <rect class="node-g" x="16" y="184" width="648" height="46" rx="8"/>
+            <text class="lbl t-green" x="32" y="212">4. offsets</text>
+            <text class="lbl-xs" x="160" y="206">[ docID, tf, pos[], (start,end)[] ]</text>
+            <text class="lbl-xs" x="160" y="222">adds char spans &middot; Unified Highlighter skips re-analysis</text>
+            <text class="lbl-xs" x="648" y="212" text-anchor="end">postings offsets</text>
+
+            <rect class="node-a" x="16" y="240" width="648" height="34" rx="8"/>
+            <text class="lbl-xs t-amber" x="32" y="261">Also: term_vector: "with_positions_offsets" &mdash; per-doc forward map (FVH / _termvectors; ~2x disk)</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 4 &mdash; the cumulative <code>index_options</code> ladder inside postings vs. per-document <code>term_vector</code> storage.</figcaption>
+      </figure>
+
+      <div class="tradeoff">
+        <table>
+          <thead>
+            <tr><th>Setting</th><th>What is stored per occurrence</th><th>What breaks or slows down if omitted</th><th>When to pick it</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>index_options: "docs"</code></td>
+              <td><code>docID</code> only.</td>
+              <td>No frequency weighting (repeated terms score equal to 1); <code>match_phrase</code> throws a <code>400</code> error.</td>
+              <td>Default on <code>keyword</code>; good for <code>text</code> tags/codes when you only check presence.</td>
+            </tr>
+            <tr>
+              <td><code>index_options: "freqs"</code></td>
+              <td><code>docID</code> + term frequency (<code>tf</code>).</td>
+              <td><code>match_phrase</code> and proximity queries throw <code>indexed without position data</code>.</td>
+              <td>Large <code>text</code> fields where BM25 scoring matters and you never run phrase queries.</td>
+            </tr>
+            <tr>
+              <td><code>index_options: "positions"</code></td>
+              <td><code>docID</code> + <code>tf</code> + word position indices.</td>
+              <td>Highlighting large fields falls back to re-analyzing <code>_source</code> at query time.</td>
+              <td><strong>Default for <code>text</code></strong>. Balances size with phrase/proximity support.</td>
+            </tr>
+            <tr>
+              <td><code>index_options: "offsets"</code></td>
+              <td><code>docID</code> + <code>tf</code> + positions + char offsets.</td>
+              <td>Slightly larger postings files than <code>positions</code> alone.</td>
+              <td>Large highlighted fields using the default <strong>Unified Highlighter</strong> (far smaller than term vectors).</td>
+            </tr>
+            <tr>
+              <td><code>term_vector: "with_positions_offsets"</code></td>
+              <td>Separate per-document forward term structure (<code>_termvectors</code>).</td>
+              <td>Highest disk overhead (roughly doubles field index size).</td>
+              <td>Legacy <strong>Fast Vector Highlighter (FVH)</strong> or massive (&gt;1&nbsp;MB) fields with complex multi-term highlights.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="k">What the interviewer probes next</span>
+        <p>&ldquo;We turned on highlighting on 200 KB documents and search CPU spiked &mdash; should we enable <code>term_vector: "with_positions_offsets"</code>?&rdquo; Usually start with <strong><code>"index_options": "offsets"</code></strong> first! Elasticsearch&rsquo;s default <strong>Unified Highlighter</strong> reads character offsets straight from the inverted index postings without re-analyzing <code>_source</code>, at a fraction of the disk cost of full term vectors. Reserve <code>term_vector</code> for the Fast Vector Highlighter or multi-megabyte documents with heavy wildcard/fuzzy highlighting.</p>
+      </div>
+    </section>
+
+    <!-- 04 STATIC -->
+    <section id="s4">
+      <div class="steptag"><b>04</b> The boundaries</div>
+      <h2>What the inverted index is <em>not</em> for: BKD trees, doc values, and vectors</h2>
+      <p>A common interview mistake is claiming Elasticsearch indexes every field in one giant inverted index. In modern Elasticsearch (8.x&ndash;9.x on Lucene 10), an inverted index is only one of four specialized per-segment data structures &mdash; because each access pattern hits a wall if forced onto the wrong one.</p>
+
+      <figure>
+        <div class="blueprint" id="fig-four-structures">
+          <svg viewBox="0 0 680 278" role="img" aria-label="Static four-panel boundary diagram inside a Lucene segment: Inverted Index handles text and keyword lookups mapping terms to docIDs; BKD Tree handles numeric, date, IP, and geo range queries; Doc Values stores columnar docID-to-value entries for sorting and aggregations; HNSW Graph handles dense_vector approximate nearest neighbor search.">
+            <rect class="node-b" x="16" y="18" width="316" height="114" rx="10"/>
+            <text class="lbl t-blue" x="32" y="42">1. INVERTED INDEX</text>
+            <text class="lbl-xs" x="32" y="62">Fields: text, keyword (default docs)</text>
+            <text class="lbl-xs" x="32" y="82">Map: term &rarr; sorted docIDs (+ tf, pos, off)</text>
+            <text class="lbl-xs t-teal" x="32" y="102">Best for: full-text, match_phrase, exact terms</text>
+            <text class="lbl-xs t-rust" x="32" y="118">Weak at: continuous numeric ranges &amp; sorting</text>
+
+            <rect class="node-t" x="348" y="18" width="316" height="114" rx="10"/>
+            <text class="lbl t-teal" x="364" y="42">2. BKD TREE (PointValues)</text>
+            <text class="lbl-xs" x="364" y="62">Fields: integer, long, float, date, ip, geo</text>
+            <text class="lbl-xs" x="364" y="82">Map: k-d block tree over point space</text>
+            <text class="lbl-xs t-teal" x="364" y="102">Best for: range [10 TO 50], geo bounding box</text>
+            <text class="lbl-xs t-rust" x="364" y="118">Weak at: huge exact-ID terms lists (use keyword)</text>
+
+            <rect class="node-g" x="16" y="148" width="316" height="114" rx="10"/>
+            <text class="lbl t-green" x="32" y="172">3. DOC VALUES (Columnar, L05)</text>
+            <text class="lbl-xs" x="32" y="192">Fields: keyword, numeric, date, ip, bool</text>
+            <text class="lbl-xs" x="32" y="212">Map: docID &rarr; typed column value on disk</text>
+            <text class="lbl-xs t-teal" x="32" y="232">Best for: sort, aggs, Painless doc['f']</text>
+            <text class="lbl-xs t-rust" x="32" y="248">Disabled on text (fielddata avoided; see L05)</text>
+
+            <rect class="node-v" x="348" y="148" width="316" height="114" rx="10"/>
+            <text class="lbl t-violet" x="364" y="172">4. HNSW GRAPH (Vectors, L26)</text>
+            <text class="lbl-xs" x="364" y="192">Fields: dense_vector (float / int8 / BBQ)</text>
+            <text class="lbl-xs" x="364" y="212">Map: layered proximity graph over embeddings</text>
+            <text class="lbl-xs t-teal" x="364" y="232">Best for: semantic similarity (kNN)</text>
+            <text class="lbl-xs t-rust" x="364" y="248">Note: sparse ELSER uses the inverted index!</text>
+          </svg>
+        </div>
+        <figcaption>FIG. 5 &mdash; four structures inside one Lucene segment: pick the field type that matches the query access pattern.</figcaption>
+      </figure>
+
+      <div class="vs">
+        <div class="col">
+          <h4>Inverted index excels when&hellip;</h4>
+          <ul>
+            <li>You search normalized words, phrases, or exact discrete strings (<code>text</code>, <code>keyword</code>).</li>
+            <li>You filter against a large set of exact IDs (<code>terms</code> lookup on a <code>keyword</code> field touches the dictionary in one sorted pass).</li>
+            <li>You index sparse learned embeddings like <strong>ELSER</strong> (which encode weighted tokens straight into Lucene postings!).</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h4>Reach for BKD trees or Doc Values when&hellip;</h4>
+          <ul>
+            <li>You query continuous ranges on numbers, dates, IPs, or coordinates &mdash; an inverted index would have to union thousands of distinct point terms, so Lucene uses <strong>BKD trees</strong> instead.</li>
+            <li>You sort hits or compute buckets/metrics &mdash; reading <code>docID &rarr; value</code> from columnar <strong>doc values</strong> (L05) beats inverting the whole term dictionary in reverse.</li>
+            <li><em>Design rule:</em> map numeric-looking identifiers you never range-query (<code>order_id</code>, <code>isbn</code>, <code>zip_code</code>) as <code>keyword</code>, not <code>long</code> (or enable numeric <code>index_terms</code> if you need both range and term-heavy lookups).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <span class="k">The core invariant</span>
+        <p>An inverted index answers one question at segment speed: <strong>&ldquo;Given a term (and optional position constraints), which sorted docIDs match?&rdquo;</strong> Lookup time scales with the dictionary prefix and the length of the matching postings &mdash; never with total document count &mdash; while sorting, aggregations, and numeric ranges rely on doc values and BKD trees alongside it.</p>
+      </div>
+    </section>
+
+    <!-- 05 WORKED -->
+    <section id="s5">
+      <div class="steptag"><b>05</b> Worked example</div>
+      <h2>Build: proving <code>index_options</code>, <code>slop</code>, <code>_termvectors</code>, and highlighting</h2>
+      <p>The build below places the exact same product descriptions into four fields configured along the <code>index_options</code> ladder (<code>docs</code>, <code>freqs</code>, <code>positions</code>, and <code>offsets</code> + <code>term_vector</code>), alongside a <code>keyword</code> SKU and a BKD-indexed <code>float</code> price. Watch <code>match_phrase</code> fail on <code>freqs</code>, step through <code>slop</code>&nbsp;0&nbsp;&rarr;&nbsp;1&nbsp;&rarr;&nbsp;2 on <code>positions</code>, inspect raw positions and character offsets with <code>_termvectors</code>, and verify Unified Highlighting on <code>offsets</code>.</p>
+
+      <div class="worked">
+        <div class="whead">
+          <span class="wk">Worked walkthrough</span>
+          <span class="pill e">Inverted Index Lab</span>
+          <span class="lc">Elasticsearch 9.5&ndash;9.6 &middot; elasticsearch 9.x</span>
+        </div>
+        <div class="wbody">
+          <div class="wname">Testing the <code>index_options</code> ladder, <code>slop</code>, and <code>_termvectors</code></div>
+          <p class="wprompt">Create a single-shard index <strong>lab-inv-idx</strong> with four <code>text</code> fields sharing identical content but different <code>index_options</code>, index three keyboard documents, prove why <code>match_phrase</code> rejects <code>freqs</code> while succeeding across <code>slop: 0/1/2</code> on <code>positions</code>, and read back exact positions and UTF-16 character offsets via <code>_termvectors</code>.</p>
+
+          <h4 class="wh">Think it through</h4>
+          <div class="wsteps">
+            <div class="ws"><span class="wsk">1 &middot; The ladder</span><p>Map <code>text_docs</code> (<code>docs</code>), <code>text_freqs</code> (<code>freqs</code>), <code>text_pos</code> (default <code>positions</code>), and <code>text_off</code> (<code>offsets</code> + <code>term_vector: "with_positions_offsets"</code>).</p></div>
+            <div class="ws"><span class="wsk">2 &middot; Phrase boundary</span><p>Run <code>match_phrase</code> against <code>text_freqs</code>: Elasticsearch returns HTTP <code>400</code> because no position list was written to the postings.</p></div>
+            <div class="ws"><span class="wsk">3 &middot; Slop progression</span><p>On <code>text_pos</code>, searching <code>"compact keyboard"</code> with <code>slop: 0</code> matches only doc 1; <code>slop: 1</code> adds doc 2 (1 word gap); <code>slop: 2</code> adds doc 3 (adjacent transposition).</p></div>
+            <div class="ws"><span class="wsk">4 &middot; Offsets &amp; highlighting</span><p>Call <code>GET /_termvectors/2</code> to inspect exact <code>position</code> and <code>[start_offset, end_offset]</code> values, and run a <code>unified</code> highlight query against <code>text_off</code>.</p></div>
+          </div>
+
+          <h4 class="wh">1 &middot; HTTP / Kibana Dev Tools Console</h4>
+          <p class="codetag">kibana dev tools console &middot; single node on port 9200</p>
+          <pre class="code"><code><span class="kw">PUT</span> /lab-inv-idx
+{
+  <span class="st2">"settings"</span>: { <span class="st2">"number_of_shards"</span>: <span class="lit">1</span>, <span class="st2">"number_of_replicas"</span>: <span class="lit">0</span> },
+  <span class="st2">"mappings"</span>: {
+    <span class="st2">"properties"</span>: {
+      <span class="st2">"sku"</span>:        { <span class="st2">"type"</span>: <span class="st2">"keyword"</span> },
+      <span class="st2">"price"</span>:      { <span class="st2">"type"</span>: <span class="st2">"float"</span> },
+      <span class="st2">"text_docs"</span>:  { <span class="st2">"type"</span>: <span class="st2">"text"</span>, <span class="st2">"index_options"</span>: <span class="st2">"docs"</span> },
+      <span class="st2">"text_freqs"</span>: { <span class="st2">"type"</span>: <span class="st2">"text"</span>, <span class="st2">"index_options"</span>: <span class="st2">"freqs"</span> },
+      <span class="st2">"text_pos"</span>:   { <span class="st2">"type"</span>: <span class="st2">"text"</span> },
+      <span class="st2">"text_off"</span>:   { <span class="st2">"type"</span>: <span class="st2">"text"</span>, <span class="st2">"index_options"</span>: <span class="st2">"offsets"</span>, <span class="st2">"term_vector"</span>: <span class="st2">"with_positions_offsets"</span> }
+    }
+  }
+}
+
+<span class="kw">POST</span> /lab-inv-idx/_bulk?refresh=wait_for
+{ <span class="st2">"create"</span>: { <span class="st2">"_id"</span>: <span class="st2">"1"</span> } }
+{ <span class="st2">"sku"</span>: <span class="st2">"KB-01"</span>, <span class="st2">"price"</span>: <span class="lit">99.0</span>,  <span class="st2">"text_docs"</span>: <span class="st2">"compact keyboard layout"</span>,   <span class="st2">"text_freqs"</span>: <span class="st2">"compact keyboard layout"</span>,   <span class="st2">"text_pos"</span>: <span class="st2">"compact keyboard layout"</span>,   <span class="st2">"text_off"</span>: <span class="st2">"compact keyboard layout"</span> }
+{ <span class="st2">"create"</span>: { <span class="st2">"_id"</span>: <span class="st2">"2"</span> } }
+{ <span class="st2">"sku"</span>: <span class="st2">"KB-02"</span>, <span class="st2">"price"</span>: <span class="lit">129.0</span>, <span class="st2">"text_docs"</span>: <span class="st2">"compact mechanical keyboard"</span>, <span class="st2">"text_freqs"</span>: <span class="st2">"compact mechanical keyboard"</span>, <span class="st2">"text_pos"</span>: <span class="st2">"compact mechanical keyboard"</span>, <span class="st2">"text_off"</span>: <span class="st2">"compact mechanical keyboard"</span> }
+{ <span class="st2">"create"</span>: { <span class="st2">"_id"</span>: <span class="st2">"3"</span> } }
+{ <span class="st2">"sku"</span>: <span class="st2">"KB-03"</span>, <span class="st2">"price"</span>: <span class="lit">149.0</span>, <span class="st2">"text_docs"</span>: <span class="st2">"keyboard compact travel"</span>,    <span class="st2">"text_freqs"</span>: <span class="st2">"keyboard compact travel"</span>,    <span class="st2">"text_pos"</span>: <span class="st2">"keyboard compact travel"</span>,    <span class="st2">"text_off"</span>: <span class="st2">"keyboard compact travel"</span> }
+
+<span class="cm">// 1. Fails 400: text_freqs has no position data in its postings</span>
+<span class="kw">POST</span> /lab-inv-idx/_search
+{ <span class="st2">"query"</span>: { <span class="st2">"match_phrase"</span>: { <span class="st2">"text_freqs"</span>: <span class="st2">"compact keyboard"</span> } } }
+
+<span class="cm">// 2. Succeeds on text_pos: slop 0 -> ["1"], slop 1 -> ["1","2"], slop 2 -> ["1","2","3"]</span>
+<span class="kw">POST</span> /lab-inv-idx/_search
+{ <span class="st2">"query"</span>: { <span class="st2">"match_phrase"</span>: { <span class="st2">"text_pos"</span>: { <span class="st2">"query"</span>: <span class="st2">"compact keyboard"</span>, <span class="st2">"slop"</span>: <span class="lit">1</span> } } } }
+
+<span class="cm">// 3. Inspect exact stored frequencies, positions, and char offsets on doc 2</span>
+<span class="kw">GET</span> /lab-inv-idx/_termvectors/2?fields=text_off&amp;positions=true&amp;offsets=true
+
+<span class="cm">// 4. Unified Highlighter reads offsets directly from postings</span>
+<span class="kw">POST</span> /lab-inv-idx/_search
+{
+  <span class="st2">"query"</span>: { <span class="st2">"match"</span>: { <span class="st2">"text_off"</span>: <span class="st2">"compact"</span> } },
+  <span class="st2">"highlight"</span>: { <span class="st2">"fields"</span>: { <span class="st2">"text_off"</span>: { <span class="st2">"type"</span>: <span class="st2">"unified"</span> } } }
+}
+
+<span class="kw">DELETE</span> /lab-inv-idx</code></pre>
+
+          <h4 class="wh">2 &middot; Equivalent Python script</h4>
+          <p class="codetag">python 3 &middot; pip install elasticsearch &middot; local node on http://localhost:9200</p>
+          <pre class="code"><code><span class="kw">import</span> uuid
+<span class="kw">from</span> elasticsearch <span class="kw">import</span> BadRequestError, Elasticsearch
+
+client = Elasticsearch(<span class="st2">"http://localhost:9200"</span>)
+INDEX = <span class="st2">f"lab-inv-idx-{uuid.uuid4().hex[:8]}"</span>
+
+DOCS = [
+    (<span class="st2">"1"</span>, <span class="st2">"KB-01"</span>, <span class="lit">99.0</span>,  <span class="st2">"compact keyboard layout"</span>),
+    (<span class="st2">"2"</span>, <span class="st2">"KB-02"</span>, <span class="lit">129.0</span>, <span class="st2">"compact mechanical keyboard"</span>),
+    (<span class="st2">"3"</span>, <span class="st2">"KB-03"</span>, <span class="lit">149.0</span>, <span class="st2">"keyboard compact travel"</span>),
+]
+
+
+<span class="kw">def</span> <span class="fn">phrase_ids</span>(field, slop=<span class="lit">0</span>):
+    resp = client.search(
+        index=INDEX,
+        query={<span class="st2">"match_phrase"</span>: {field: {<span class="st2">"query"</span>: <span class="st2">"compact keyboard"</span>, <span class="st2">"slop"</span>: slop}}},
+        sort=[{<span class="st2">"_id"</span>: <span class="st2">"asc"</span>}],
+    )
+    <span class="kw">return</span> [h[<span class="st2">"_id"</span>] <span class="kw">for</span> h <span class="kw">in</span> resp[<span class="st2">"hits"</span>][<span class="st2">"hits"</span>]]
+
+
+<span class="kw">try</span>:
+    client.indices.create(
+        index=INDEX,
+        settings={<span class="st2">"number_of_shards"</span>: <span class="lit">1</span>, <span class="st2">"number_of_replicas"</span>: <span class="lit">0</span>},
+        mappings={
+            <span class="st2">"properties"</span>: {
+                <span class="st2">"sku"</span>: {<span class="st2">"type"</span>: <span class="st2">"keyword"</span>},
+                <span class="st2">"price"</span>: {<span class="st2">"type"</span>: <span class="st2">"float"</span>},
+                <span class="st2">"text_docs"</span>: {<span class="st2">"type"</span>: <span class="st2">"text"</span>, <span class="st2">"index_options"</span>: <span class="st2">"docs"</span>},
+                <span class="st2">"text_freqs"</span>: {<span class="st2">"type"</span>: <span class="st2">"text"</span>, <span class="st2">"index_options"</span>: <span class="st2">"freqs"</span>},
+                <span class="st2">"text_pos"</span>: {<span class="st2">"type"</span>: <span class="st2">"text"</span>},
+                <span class="st2">"text_off"</span>: {
+                    <span class="st2">"type"</span>: <span class="st2">"text"</span>,
+                    <span class="st2">"index_options"</span>: <span class="st2">"offsets"</span>,
+                    <span class="st2">"term_vector"</span>: <span class="st2">"with_positions_offsets"</span>,
+                },
+            }
+        },
+    )
+
+    ops = []
+    <span class="kw">for</span> doc_id, sku, price, text <span class="kw">in</span> DOCS:
+        ops.append({<span class="st2">"create"</span>: {<span class="st2">"_id"</span>: doc_id}})
+        ops.append({
+            <span class="st2">"sku"</span>: sku, <span class="st2">"price"</span>: price,
+            <span class="st2">"text_docs"</span>: text, <span class="st2">"text_freqs"</span>: text,
+            <span class="st2">"text_pos"</span>: text, <span class="st2">"text_off"</span>: text,
+        })
+    client.bulk(index=INDEX, operations=ops, refresh=<span class="st2">"wait_for"</span>)
+
+    <span class="cm"># match_phrase requires positions; freqs throws 400 BadRequestError</span>
+    <span class="kw">try</span>:
+        phrase_ids(<span class="st2">"text_freqs"</span>)
+        <span class="kw">raise</span> AssertionError(<span class="st2">"expected PhraseQuery rejection"</span>)
+    <span class="kw">except</span> BadRequestError <span class="kw">as</span> exc:
+        <span class="kw">assert</span> <span class="st2">"without position data"</span> <span class="kw">in</span> str(exc)
+
+    <span class="cm"># positions enable exact adjacency (slop 0), gaps (slop 1), transpositions (slop 2)</span>
+    <span class="kw">assert</span> phrase_ids(<span class="st2">"text_pos"</span>, slop=<span class="lit">0</span>) == [<span class="st2">"1"</span>]
+    <span class="kw">assert</span> phrase_ids(<span class="st2">"text_pos"</span>, slop=<span class="lit">1</span>) == [<span class="st2">"1"</span>, <span class="st2">"2"</span>]
+    <span class="kw">assert</span> phrase_ids(<span class="st2">"text_pos"</span>, slop=<span class="lit">2</span>) == [<span class="st2">"1"</span>, <span class="st2">"2"</span>, <span class="st2">"3"</span>]
+
+    <span class="cm"># _termvectors reveals exact position + character offset spans stored for doc 2</span>
+    tv = client.termvectors(
+        index=INDEX, id=<span class="st2">"2"</span>, fields=[<span class="st2">"text_off"</span>], positions=<span class="lit">True</span>, offsets=<span class="lit">True</span>
+    )
+    terms = tv[<span class="st2">"term_vectors"</span>][<span class="st2">"text_off"</span>][<span class="st2">"terms"</span>]
+    <span class="kw">assert</span> terms[<span class="st2">"compact"</span>][<span class="st2">"tokens"</span>][<span class="lit">0</span>] == {<span class="st2">"position"</span>: <span class="lit">0</span>, <span class="st2">"start_offset"</span>: <span class="lit">0</span>, <span class="st2">"end_offset"</span>: <span class="lit">7</span>}
+    <span class="kw">assert</span> terms[<span class="st2">"keyboard"</span>][<span class="st2">"tokens"</span>][<span class="lit">0</span>] == {<span class="st2">"position"</span>: <span class="lit">2</span>, <span class="st2">"start_offset"</span>: <span class="lit">19</span>, <span class="st2">"end_offset"</span>: <span class="lit">27</span>}
+
+    <span class="cm"># Unified highlighter uses offsets; exact SKU uses keyword inverted index</span>
+    hl = client.search(
+        index=INDEX,
+        query={<span class="st2">"bool"</span>: {
+            <span class="st2">"must"</span>: [{<span class="st2">"match"</span>: {<span class="st2">"text_off"</span>: <span class="st2">"compact"</span>}}],
+            <span class="st2">"filter"</span>: [{<span class="st2">"term"</span>: {<span class="st2">"sku"</span>: <span class="st2">"KB-02"</span>}}, {<span class="st2">"range"</span>: {<span class="st2">"price"</span>: {<span class="st2">"lte"</span>: <span class="lit">140</span>}}}],
+        }},
+        highlight={<span class="st2">"fields"</span>: {<span class="st2">"text_off"</span>: {<span class="st2">"type"</span>: <span class="st2">"unified"</span>}}},
+    )
+    <span class="kw">assert</span> hl[<span class="st2">"hits"</span>][<span class="st2">"hits"</span>][<span class="lit">0</span>][<span class="st2">"highlight"</span>][<span class="st2">"text_off"</span>][<span class="lit">0</span>] == <span class="st2">"&lt;em&gt;compact&lt;/em&gt; mechanical keyboard"</span>
+    print({<span class="st2">"slop_0"</span>: [<span class="st2">"1"</span>], <span class="st2">"slop_1"</span>: [<span class="st2">"1"</span>, <span class="st2">"2"</span>], <span class="st2">"slop_2"</span>: [<span class="st2">"1"</span>, <span class="st2">"2"</span>, <span class="st2">"3"</span>], <span class="st2">"highlight"</span>: hl[<span class="st2">"hits"</span>][<span class="st2">"hits"</span>][<span class="lit">0</span>][<span class="st2">"highlight"</span>]})
+<span class="kw">finally</span>:
+    client.indices.delete(index=INDEX, ignore_unavailable=<span class="lit">True</span>)</code></pre>
+
+          <div class="say">
+            <span class="k">Explain it aloud in an interview</span>
+            <p>&ldquo;Inside every Lucene segment, an inverted index splits each term-based field into three parts: an off-heap FST term index pointing to sorted blocks in an on-disk term dictionary, and delta-compressed postings lists with skip lists. For multi-term intersections, the shortest postings list drives <code>advance()</code> across skip blocks; for top-k disjunctions, Block-Max metadata skips low-scoring blocks altogether. Each posting can store <code>docs</code>, <code>freqs</code>, <code>positions</code> (default for <code>text</code> so phrase and <code>slop</code> queries work), or <code>offsets</code> (so the Unified Highlighter avoids re-analyzing <code>_source</code>). Meanwhile, numeric ranges go to BKD trees and sorting or aggregations go to columnar doc values.&rdquo;</p>
+            <p class="plain">Follow-ups to expect: why <code>*timeout</code> leading wildcards still scan the dictionary, why transposed adjacent words take <code>slop: 2</code> rather than <code>1</code>, when <code>index_phrases: true</code> helps, and why a numeric ID like <code>order_id</code> should be mapped as <code>keyword</code> instead of <code>long</code>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="practice">
+      <div class="steptag"><b>&#8599;</b> Practice</div>
+      <h2>Configure &rarr; Diagnose &rarr; Design</h2>
+      <div class="ladder">
+        <div class="rung"><b>Configure</b>Write an index mapping for a technical documentation search engine with three text fields: <code>title</code> (needs exact phrase matching and fast highlighting with minimal extra disk), <code>body</code> (hundreds of KB per doc, highlighted with Unified Highlighter), and <code>tags_text</code> (only needs presence matching without frequency scoring or phrases). Pick the exact <code>index_options</code> for each and state whether <code>index_phrases: true</code> makes sense on <code>title</code>.</div>
+        <div class="rung"><b>Diagnose</b>Two incidents hit search on the same afternoon: (1) a user search for <code>"blue mechanical"</code> fails with HTTP 400 <code>was indexed without position data; cannot run PhraseQuery</code> on one legacy index; (2) a query filtering <code>terms</code> against 5,000 numeric <code>account_id</code> values runs noticeably slower when mapped as <code>long</code> than on a test index mapped as <code>keyword</code>. Explain the physical reason in Lucene for both and state whether fixing either requires a reindex.</div>
+        <div class="rung"><b>Design</b>Explain on a whiteboard how Elasticsearch executes <code>"must": [{"match": {"body": "gateway timeout"}}]</code> across a segment of 10 million documents where <code>"gateway"</code> matches 400 docs and <code>"timeout"</code> matches 3 million docs. Trace every structure touched from the FST term index to <code>advance()</code> skip blocks and postings decoding, and contrast what changes if the query switches to <code>"should"</code> (OR) for top 10 hits.</div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section id="summary">
+      <div class="steptag"><b>&#9733;</b> Review</div>
+      <h2>Seven takeaways</h2>
+      <div class="takeaways">
+        <div class="tk"><span class="num">01</span><b>FST &rarr; dict &rarr; postings</b><span>An off-heap <code>.tip</code> FST jumps straight to one sorted <code>.tim</code> block on disk, which points to delta-compressed docID postings.</span></div>
+        <div class="tk"><span class="num">02</span><b>Prefix order cuts both ways</b><span>Sorted blocks make exact terms and trailing <code>time*</code> prefixes fast, while leading wildcards (<code>*timeout</code>) still scan terms.</span></div>
+        <div class="tk"><span class="num">03</span><b>Skip lists leapfrog intersections</b><span>Sorted docIDs let the rarest term call <code>advance()</code> over whole blocks; Block-Max impacts skip low-scoring disjunction blocks.</span></div>
+        <div class="tk"><span class="num">04</span><b><code>index_options</code> is cumulative</b><span><code>docs</code> (<code>keyword</code> default) &rarr; <code>freqs</code> &rarr; <code>positions</code> (<code>text</code> default) &rarr; <code>offsets</code>. Dropping <code>positions</code> breaks <code>match_phrase</code>.</span></div>
+        <div class="tk"><span class="num">05</span><b>Offsets before term vectors</b><span>Set <code>index_options: "offsets"</code> so Unified Highlighter avoids re-analyzing <code>_source</code> without paying <code>term_vector</code>&rsquo;s ~2&times; disk cost.</span></div>
+        <div class="tk"><span class="num">06</span><b>Transposed phrases cost slop 2</b><span><code>slop: 1</code> bridges a one-word gap; swapping two adjacent words (<code>"keyboard compact"</code>) takes <code>slop: 2</code> moves.</span></div>
+        <div class="tk"><span class="num">07</span><b>Not everything is inverted</b><span>Numbers/dates/IPs/geo use <strong>BKD trees</strong>, sorting/aggs use <strong>doc values</strong> (L05), and dense vectors use <strong>HNSW</strong> (L26).</span></div>
+      </div>
+    </section>
+
+    <section id="self-test" class="self-test">
+      <div class="steptag"><b>?</b> Active recall</div>
+      <h2>Self-test</h2>
+      <details class="self-test-question"><summary>1. Why does Lucene split the vocabulary into an FST term index (<code>.tip</code>) and an on-disk term dictionary (<code>.tim</code>), and where does the FST live?</summary><p>Holding every unique term in RAM would exhaust JVM heap on large indices. Instead, the sorted term dictionary stays on disk in prefix-compressed blocks (<code>.tim</code>), while a compact Finite State Transducer (<code>.tip</code>) maps prefixes to disk block offsets. Since Elasticsearch 7.7, the FST is memory-mapped off-heap in the OS page cache rather than pinned on the JVM heap.</p></details>
+      <details class="self-test-question"><summary>2. How does Elasticsearch intersect <code>gateway AND timeout</code> when one term appears in 400 documents and the other in 3 million?</summary><p>Postings lists store sorted internal docIDs and skip-list blocks. Lucene lets the shorter postings list (<code>gateway</code>) drive <code>advance(targetDocID)</code> calls against the longer list (<code>timeout</code>), jumping across entire skip blocks without decompressing or checking millions of intermediate docIDs.</p></details>
+      <details class="self-test-question"><summary>3. You mapped a <code>text</code> field with <code>index_options: "freqs"</code> to save space. What works and what breaks?</summary><p>Standard <code>match</code> queries and BM25 term-frequency scoring work normally, because docIDs and <code>tf</code> are indexed. Phrase queries (<code>match_phrase</code>, <code>match_phrase_prefix</code>, proximity spans) fail with a <code>400</code> error stating the field was indexed without position data, and changing it requires reindexing.</p></details>
+      <details class="self-test-question"><summary>4. How should you speed up highlighting on large <code>text</code> fields: <code>index_options: "offsets"</code> or <code>term_vector: "with_positions_offsets"</code>?</summary><p>Start with <code>index_options: "offsets"</code>. Elasticsearch&rsquo;s default <strong>Unified Highlighter</strong> reads character offsets directly from the postings list without re-analyzing <code>_source</code>, using far less disk space than term vectors. Use <code>term_vector: "with_positions_offsets"</code> only for the Fast Vector Highlighter (FVH) or massive (&gt;1&nbsp;MB) fields with complex multi-term queries.</p></details>
+      <details class="self-test-question"><summary>5. Why does <code>match_phrase: "compact keyboard"</code> match <code>"keyboard compact"</code> at <code>slop: 2</code> rather than <code>slop: 1</code>?</summary><p>In Lucene, <code>slop</code> counts total position moves needed to align terms in the query&rsquo;s relative order. With <code>keyboard</code> at position 0 and <code>compact</code> at position 1, moving <code>compact</code> left to position 0 puts both on top of each other (1 move), and moving it one more step to position &minus;1 places it before <code>keyboard</code> (2 moves total).</p></details>
+      <details class="self-test-question"><summary>6. Do numeric fields like <code>price</code> or <code>order_id</code> use an inverted index by default? When should a numeric identifier be mapped as <code>keyword</code>?</summary><p>No &mdash; numeric, date, IP, and geo fields default to <strong>BKD trees</strong> for fast range queries, not inverted indexes. If an identifier like <code>order_id</code> only ever serves exact <code>term</code> / <code>terms</code> filters and aggregations (never ranges), map it as <code>keyword</code> so exact lookups hit the inverted index in one sorted dictionary pass rather than traversing a BKD tree repeatedly.</p></details>
+    </section>
+
+    <section id="sources" class="sources-section">
+      <div class="steptag"><b>&#8599;</b> Primary sources</div>
+      <h2>Official sources &amp; further reading</h2>
+      <ol>
+        <li><a href="https://www.elastic.co/docs/manage-data/data-store/index-basics">Elastic Documentation &mdash; Index Basics (Inverted Index, Analysis &amp; Mappings)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/index-options">Elasticsearch Reference &mdash; <code>index_options</code> (<code>docs</code>, <code>freqs</code>, <code>positions</code>, <code>offsets</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/term-vector">Elasticsearch Reference &mdash; <code>term_vector</code> Mapping Parameter</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/index-phrases">Elasticsearch Reference &mdash; <code>index_phrases</code> (2-shingle phrase acceleration)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/text">Elasticsearch Reference &mdash; <code>text</code> Field Type</a> &amp; <a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/keyword"><code>keyword</code> Field Type</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/number">Elasticsearch Reference &mdash; Numeric Field Types (BKD trees vs. <code>keyword</code> / <code>index_terms</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/mapping-index">Elasticsearch Reference &mdash; <code>index</code> Mapping Parameter</a></li>
+        <li><a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/highlighting">Elasticsearch Reference &mdash; Highlighting (Unified, Plain &amp; Fast Vector Highlighters)</a></li>
+        <li><a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-termvectors">Elasticsearch API Reference &mdash; Term Vectors API (<code>_termvectors</code>)</a></li>
+        <li><a href="https://www.elastic.co/docs/solutions/search/querying-for-search">Elastic Documentation &mdash; Querying for Search (<code>match_phrase</code> &amp; <code>slop</code>)</a></li>
+      </ol>
+    </section>
+
+    <nav class="course-nav" aria-label="Course navigation">
+      <a data-nav="previous" href="lesson-03-rest-cat-and-bulk.html">&larr; Previous</a>
+      <a data-nav="index" href="index.html">Course index</a>
+      <span class="done">Next: Lesson 05 &mdash; soon</span>
+    </nav>
+
+    <footer>
+      LESSON 04 &middot; THE INVERTED INDEX &middot; ORIGINAL INTERACTIVE STUDY CHAPTER<br>
+      Elasticsearch 9.5&ndash;9.6 &middot; Apache Lucene 10 &middot; targets the 8.x&ndash;9.x Search AI Platform &middot; review, replay, and quiz yourself freely.
+    </footer>
+  </main>
+</div>
+
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        if(map[e.target.id])map[e.target.id].classList.add('active');}});
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+  function _g(id){return document.getElementById(id);}
+
+  /* FIG 1 — FST Term Index -> Block Term Dictionary -> Delta-Encoded Postings */
+  var lkPaths=['lp-q','lp-fst','lp-post'];
+  makeStepper(_g('fig-lookup'), [
+    {text:"The query analyzer produces the normalized token 'timeout' and enters a single Lucene segment's inverted index.",
+     active:["lk-q"], fst:["","",""], dict:["","",""], post:["","",""],
+     cost:"segment lookup begins with normalized query token 'timeout'",
+     read:"step 1: query token enters the segment inverted index"},
+    {text:"First stop: walk the compact FST Term Index (.tip, off-heap via mmap) on prefix 'time' — avoiding loading all dictionary words on JVM heap.",
+     active:["lk-q","lk-fst"], path:"lp-q", fst:["ghost","violet","ghost"], dict:["","",""], post:["","",""],
+     cost:"FST prefix walk (.tip) -> block offset 0x04A0 in OS page cache",
+     read:"step 2: off-heap FST narrows prefix 'time' to one block offset"},
+    {text:"Jump straight to byte offset 0x04A0 in the on-disk Term Dictionary (.tim). Unrelated blocks ([auth..], [upstream..]) are never touched.",
+     active:["lk-fst","lk-tim"], path:"lp-fst", fst:["ghost","violet","ghost"], dict:["ghost","blue","ghost"], post:["","",""],
+     cost:"1 disk seek -> block 0x04A0 ([time, timed, timeout, timer])",
+     read:"step 3: binary-search inside block 0x04A0 finds 'timeout' (df = 3)"},
+    {text:"The dictionary entry for 'timeout' holds df=3 and a pointer straight to its postings offset in the .doc file.",
+     active:["lk-tim","lk-post"], path:"lp-post", fst:["ghost","violet","ghost"], dict:["ghost","teal","ghost"], post:["teal","",""],
+     cost:"postings stored as delta gaps [2, +3, +14] + bit-packed tf",
+     read:"step 4: follow postings pointer to compressed delta gaps [2, +3, +14]"},
+    {text:"Lucene decodes the delta gaps back into sorted segment-local docIDs [2, 5, 19] along with term frequencies [1, 3, 1].",
+     active:["lk-post"], fst:["ghost","violet","ghost"], dict:["ghost","teal","ghost"], post:["blue","hit",""],
+     cost:"decoded 3 matches out of millions without touching non-matching docs",
+     read:"step 5: accumulate gaps -> docIDs [2, 5, 19] with term frequencies"},
+    {text:"Only those 3 matching docIDs proceed to BM25 scoring and _source fetch. Notice: cost depends on postings length, not table size.",
+     active:["lk-q","lk-fst","lk-tim","lk-post"], fst:["ghost","violet","ghost"], dict:["ghost","teal","ghost"], post:["blue","hit","hit"],
+     cost:"one FST walk + one disk block seek + 3 postings decoded",
+     read:"step 6: done — lookup scales with matching postings, not total docs"}
+  ], function(idx,s){
+    lkPaths.forEach(function(id){var p=_g(id); if(p) p.style.opacity=(id===s.path)?'1':'.16';});
+    ['lk-fst-a','lk-fst-t','lk-fst-z'].forEach(function(id,i){_g(id).setAttribute('class','sc-box'+(s.fst[i]?' '+s.fst[i]:''));});
+    ['lk-b0','lk-b1','lk-b2'].forEach(function(id,i){_g(id).setAttribute('class','sc-box'+(s.dict[i]?' '+s.dict[i]:''));});
+    ['lk-p0','lk-p1','lk-p2'].forEach(function(id,i){_g(id).setAttribute('class','sc-box'+(s.post[i]?' '+s.post[i]:''));});
+    _g('lk-cost').textContent=s.cost;
+    _g('lk-read').textContent=s.read;
+  });
+
+  /* FIG 2 — Multi-term conjunction & skip lists */
+  var ixPaths=['ip-adv1','ip-jump','ip-adv3'];
+  makeStepper(_g('fig-intersect'), [
+    {text:"Query: 'gateway AND timeout'. Lucene inspects df for both terms and puts the rare postings list ('gateway', 3 docs) in the driver's seat.",
+     active:["ix-rare","ix-dense"], g:["teal","blue","blue"], b:["","","",""],
+     b1:"33 < 48 -> pending", b2:"48 <= 88 -> pending", b3:"120 -> pending",
+     res:"driver = 'gateway' [4, 48, 120] · matches so far: [ ]",
+     read:"step 1: rarest postings list always drives the intersection"},
+    {text:"Driver reads doc 4 and calls advance(4) on 'timeout'. Block 0 (max doc 4) decodes and confirms doc 4 is present.",
+     active:["ix-rare","ix-dense"], path:"ip-adv1", g:["hit","blue","blue"], b:["hit","","",""],
+     b1:"33 < 48 -> pending", b2:"48 <= 88 -> pending", b3:"120 -> pending",
+     res:"doc 4 matched! next target from 'gateway' is doc 48",
+     read:"step 2: advance(4) hits block 0 -> matches = [4]"},
+    {text:"Driver advances to doc 48 and calls advance(48) on 'timeout'. Skip metadata sees block 1 ends at doc 33 (< 48) and skips the whole block!",
+     active:["ix-rare","ix-dense"], path:"ip-jump", reject:true, g:["hit","teal","blue"], b:["blue","ghost","blue",""],
+     b1:"SKIPPED (33 < 48)", b2:"48 <= 88 -> check", b3:"120 -> pending",
+     res:"block 1 never decompressed! jumped straight to block 2 · matches: [4]",
+     read:"step 3: skip list sees block 1 max = 33 < 48 -> leapfrog over block 1"},
+    {text:"Block 2 (max doc 88 >= 48) decodes and confirms doc 48 matches. Notice doc 9, 17, 25, and 33 were never even unpacked.",
+     active:["ix-rare","ix-dense"], g:["hit","hit","blue"], b:["blue","ghost","hit",""],
+     b1:"SKIPPED (0 decoded)", b2:"doc 48 matched!", b3:"120 -> pending",
+     res:"doc 48 matched! next target from 'gateway' is doc 120",
+     read:"step 4: block 2 confirms doc 48 -> matches = [4, 48]"},
+    {text:"Driver advances to doc 120, skipping past 60, 74, 88, and 102 straight into block 3, where doc 120 matches.",
+     active:["ix-rare","ix-dense"], path:"ip-adv3", g:["hit","hit","hit"], b:["blue","ghost","blue","hit"],
+     b1:"SKIPPED (0 decoded)", b2:"left at 48", b3:"doc 120 matched!",
+     res:"intersection complete: [4, 48, 120] (3 matches, minimal decoding)",
+     read:"step 5: advance(120) hits block 3 -> matches = [4, 48, 120]"},
+    {text:"Bonus for OR queries (should): Lucene stores max-impact scores in the same skip blocks so Block-Max WAND/MAXSCORE skips blocks below top-k threshold theta.",
+     active:["ix-rare","ix-dense"], g:["hit","hit","hit"], b:["teal","ghost","teal","teal"],
+     b1:"skipped via impacts", b2:"max impact checked", b3:"top-k stops early",
+     res:"skip lists power fast AND leapfrogs and fast OR top-k pruning",
+     read:"step 6: skip metadata accelerates both AND intersections and top-k OR scoring"}
+  ], function(idx,s){
+    ixPaths.forEach(function(id){var p=_g(id); if(p) p.style.opacity=(id===s.path)?'1':'.16';});
+    ['ix-g0','ix-g1','ix-g2'].forEach(function(id,i){_g(id).setAttribute('class','sc-box'+(s.g[i]?' '+s.g[i]:''));});
+    ['ix-b0','ix-b1','ix-b2','ix-b3'].forEach(function(id,i){_g(id).setAttribute('class','sc-box'+(s.b[i]?' '+s.b[i]:''));});
+    _g('ix-b1-st').textContent=s.b1;
+    _g('ix-b2-st').textContent=s.b2;
+    _g('ix-b3-st').textContent=s.b3;
+    _g('ix-res').textContent=s.res;
+    _g('ix-read').textContent=s.read;
+  });
+
+  /* FIG 3 — Positions, slop, and character offsets */
+  makeStepper(_g('fig-positions'), [
+    {text:"Two documents are indexed with index_options: 'offsets' (which includes docs, freqs, positions, and start/end character offsets).",
+     active:["ps-docs","ps-post"], d1:"blue", d2:"blue", cmp:"teal", kbd:"teal", qbox:"teal",
+     qtitle:"Baseline postings",
+     qdetail:"doc 1: compact@0, mechanical@1, keyboard@2  |  doc 2: keyboard@0, compact@1",
+     read:"step 1: postings record both word positions and character offsets"},
+    {text:"A regular 'match' query (AND) checks only docIDs: both doc 1 and doc 2 appear in both postings lists, so both match regardless of word order.",
+     active:["ps-docs","ps-post","ps-eval"], d1:"hit", d2:"hit", cmp:"hit", kbd:"hit", qbox:"hit",
+     qtitle:"match: \"compact keyboard\" (operator: and) -> matches [doc 1, doc 2]",
+     qdetail:"only checks docID intersection — ignores positions completely",
+     read:"step 2: match needs only docIDs (even index_options: 'docs' suffices)"},
+    {text:"Now run match_phrase: \"compact keyboard\" with default slop: 0 (requires pos(keyboard) == pos(compact) + 1). Neither doc satisfies +1!",
+     active:["ps-docs","ps-post","ps-eval"], d1:"scan", d2:"scan", cmp:"scan", kbd:"scan", qbox:"scan",
+     qtitle:"match_phrase (slop: 0) -> 0 hits!",
+     qdetail:"doc 1 has pos 0 vs 2 (diff +2, 'mechanical' between); doc 2 has pos 1 vs 0 (reversed!)",
+     read:"step 3: slop 0 demands consecutive tokens in exact order -> both miss"},
+    {text:"Raise slop to 1: allows 1 intervening token. Doc 1 matches by shifting 'keyboard' or bridging 1 gap ('mechanical'); doc 2 is still reversed.",
+     active:["ps-docs","ps-post","ps-eval"], d1:"hit", d2:"scan", cmp:"teal", kbd:"teal", qbox:"hit",
+     qtitle:"match_phrase (slop: 1) -> matches [doc 1] only",
+     qdetail:"doc 1 aligns pos 0 + 1 gap -> pos 2; doc 2 needs 2 moves to swap order",
+     read:"step 4: slop 1 bridges 1 intervening word in doc 1, not reversed words"},
+    {text:"Raise slop to 2: moving 'compact' from pos 1 over 'keyboard' at pos 0 to pos -1 takes 2 steps. Transposed adjacent words ALWAYS need slop >= 2.",
+     active:["ps-docs","ps-post","ps-eval"], d1:"hit", d2:"hit", cmp:"hit", kbd:"hit", qbox:"hit",
+     qtitle:"match_phrase (slop: 2) -> matches [doc 1, doc 2]",
+     qdetail:"1 move puts 'compact' on pos 0; 2nd move puts it at pos -1 before 'keyboard'",
+     read:"step 5: transposed adjacent terms cost slop = 2"},
+    {text:"Finally, highlight: Unified Highlighter reads offsets [0..7] and [19..27] straight from postings to inject <em> tags without re-analyzing doc 1.",
+     active:["ps-docs","ps-post","ps-eval"], d1:"hit", d2:"blue", cmp:"violet", kbd:"violet", qbox:"violet",
+     qtitle:"Unified Highlighter with index_options: \"offsets\" -> zero re-analysis",
+     qdetail:"slices raw string [0..7] + [19..27] -> \"<em>compact</em> mechanical <em>keyboard</em>\"",
+     read:"step 6: character offsets skip query-time re-analysis during highlighting"}
+  ], function(idx,s){
+    _g('ps-d1').setAttribute('class','sc-box '+s.d1);
+    _g('ps-d2').setAttribute('class','sc-box '+s.d2);
+    _g('ps-p-cmp').setAttribute('class','sc-box '+s.cmp);
+    _g('ps-p-kbd').setAttribute('class','sc-box '+s.kbd);
+    _g('ps-qbox').setAttribute('class','sc-box '+s.qbox);
+    _g('ps-qtitle').textContent=s.qtitle;
+    _g('ps-qdetail').textContent=s.qdetail;
+    _g('ps-read').textContent=s.read;
+  });
+</script>
+</body>
+</html>
