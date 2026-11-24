@@ -73,13 +73,13 @@ prep, hosted as static HTML on GitHub Pages.
   talking to Redis (`redis-cli`, RESP & the command model) — are live and interactive (4 of 45);
   the rest are mapped.
 - **[Operating Systems & Networking](os-networking/index.html)** — the two layers under every
-  backend system. A 50-lesson map across eleven phases: the kernel boundary and the latency
-  ladder, processes, threads & IPC, CPU scheduling (EEVDF, `sched_ext`), concurrency &
-  synchronization, virtual memory, files, the page cache & `epoll`/`io_uring`, network
-  foundations (Ethernet, IP, CIDR, routing, NAT), TCP and congestion control, DNS, HTTP/2, TLS 1.3,
-  QUIC & HTTP/3, the Linux platform (namespaces & cgroups, Kubernetes networking, eBPF,
-  performance debugging), and an interview capstone. No lessons are live yet (0 of 50); the full
-  map is laid out.
+  backend system, scoped to what a working software engineer uses. A 37-lesson map across ten
+  phases: the kernel boundary and the latency ladder, processes, threads & scheduling,
+  concurrency & synchronization, virtual memory, files, the page cache & `epoll`/`io_uring`,
+  network foundations (layers, IP & CIDR, routing & NAT), TCP and congestion control, DNS,
+  HTTP/2, TLS 1.3, QUIC & HTTP/3, load balancers & CDNs, WebSockets & gRPC streaming,
+  containers & Kubernetes networking, production debugging, and an interview capstone. No
+  lessons are live yet (0 of 37); the full map is laid out.
 
 ## How to use
 
