@@ -228,7 +228,7 @@
       <h1>Strings &amp; the Keyspace</h1>
       <p class="lede">Phase&nbsp;1 opens the five core data structures one by one, starting with the primitive that every key name and every simple value shares: the binary-safe <strong><code>string</code></strong> and the <strong>single global keyspace</strong> around it. A Redis string is not a null-terminated text buffer &mdash; it is an up-to-<strong>512&nbsp;MB</strong> byte sequence that transparently morphs between a 64-bit integer (<code>int</code>), a single-cache-line allocation (<code>embstr</code>), and a preallocated dynamic buffer (<code>raw</code>), while a single <code>SET</code> command folds existence guards, compare-and-set checks, old-value reads, and TTL control into one atomic step.</p>
       <div class="disclaimer">
-        <strong>Original study chapter.</strong> Written from scratch for backend and system-design interviews. Target behavior follows <strong>Redis Open Source 8.10</strong> (latest stable GA patch <code>8.10.3</code>; <code>8.12</code> in release candidate as of late 2026), and runnable examples target Python&nbsp;3 with <code>redis==8.1.0</code> plus <code>redis-cli</code>. Contains <strong>four original figures &mdash; two interactive</strong> (press <em>Play</em>, or step with <em>Next</em>). Field&ndash;value hashes live in L05, bit-level string operations (<code>SETBIT</code>/<code>BITFIELD</code>) in L10, expiration and eviction mechanics in L15, full distributed locking in L25, rate limiters in L26, and deep memory optimization in L37.
+        <strong>Original study chapter.</strong> Written from scratch for backend and system-design interviews. Target behavior follows <strong>Redis Open Source 8.10</strong> (latest patch <code>8.10.3</code>; <code>8.12.0</code> went GA on 22&nbsp;November 2026, and the commands, encodings and error messages below were re-run on it), and runnable examples target Python&nbsp;3 with <code>redis==8.1.0</code> plus <code>redis-cli</code>. Contains <strong>four original figures &mdash; two interactive</strong> (press <em>Play</em>, or step with <em>Next</em>). Field&ndash;value hashes live in L05, bit-level string operations (<code>SETBIT</code>/<code>BITFIELD</code>) in L10, expiration and eviction mechanics in L15, full distributed locking in L25, rate limiters in L26, and deep memory optimization in L37.
       </div>
     </header>
 
@@ -534,7 +534,7 @@
             <text class="lbl-xs t-green" x="514" y="228" text-anchor="middle">Co-located on the same shard:</text>
             <text class="wire-mono t-blue" x="514" y="248" text-anchor="middle">MGET / MSETNX / MSETEX legal</text>
 
-            <text class="lbl-xs" x="340" y="308" text-anchor="middle">Without {42}, the two full key names hash to different slots (7071 vs 4227) and fail with CROSSSLOT.</text>
+            <text class="lbl-xs" x="340" y="308" text-anchor="middle">Without {42}, the two full key names hash to different slots (11551 vs 6671) and fail with CROSSSLOT.</text>
           </svg>
         </div>
         <figcaption>FIG. 3 &mdash; colons organize keys for humans and ACLs; curly braces <code>{42}</code> control which bytes Redis hashes for slot routing.</figcaption>
@@ -544,32 +544,36 @@
 
       <figure>
         <div class="blueprint" id="fig-set-matrix">
-          <svg viewBox="0 0 680 288" role="img" aria-label="Static decision matrix for string writes and keyspace lifecycle operations across four intents: conditional creation, in-place update preserving TTL, safe reads and consumption, and non-blocking deletion or renaming">
+          <svg viewBox="0 0 680 320" role="img" aria-label="Static decision matrix for string writes and keyspace lifecycle operations across four intents: conditional creation, in-place update preserving TTL, safe reads and consumption, and non-blocking deletion or renaming">
             <text class="lbl" x="22" y="26">STRING &amp; KEYSPACE DECISION MATRIX &middot; PICK THE ATOMIC PRIMITIVE</text>
 
-            <rect class="node-b" x="22" y="44" width="308" height="104" rx="9"/>
+            <rect class="node-b" x="22" y="44" width="308" height="120" rx="9"/>
             <text class="lbl" x="38" y="68">1 &middot; Claim / Create Conditionally</text>
             <text class="wire-mono t-blue" x="38" y="92">SET k v NX PX 30000 [GET]</text>
-            <text class="lbl-xs" x="38" y="114">Single key with TTL; add GET (7.0+) to read current</text>
-            <text class="lbl-xs" x="38" y="130">owner on conflict. Multi-key: MSETNX or MSETEX NX.</text>
+            <text class="lbl-xs" x="38" y="114">One key + TTL in one command. Add GET (7.0+)</text>
+            <text class="lbl-xs" x="38" y="130">to read the current owner on a conflict.</text>
+            <text class="lbl-xs" x="38" y="146">Many keys: MSETNX, or MSETEX with NX.</text>
 
-            <rect class="node-g" x="350" y="44" width="308" height="104" rx="9"/>
+            <rect class="node-g" x="350" y="44" width="308" height="120" rx="9"/>
             <text class="lbl" x="366" y="68">2 &middot; Update Value Without Losing TTL</text>
             <text class="wire-mono t-green" x="366" y="92">SET k v XX KEEPTTL  |  INCR k</text>
-            <text class="lbl-xs" x="366" y="114">Bare SET wipes TTL to -1! Pass KEEPTTL (or new EX),</text>
-            <text class="lbl-xs" x="366" y="130">or mutate in place via INCR / APPEND / SETRANGE.</text>
+            <text class="lbl-xs" x="366" y="114">Bare SET wipes the TTL to -1. Pass KEEPTTL,</text>
+            <text class="lbl-xs" x="366" y="130">or a fresh EX, or mutate in place with</text>
+            <text class="lbl-xs" x="366" y="146">INCR / APPEND / SETRANGE.</text>
 
-            <rect class="node-v" x="22" y="164" width="308" height="104" rx="9"/>
-            <text class="lbl" x="38" y="188">3 &middot; Optimistic CAS / One-Time Read</text>
-            <text class="wire-mono t-violet" x="38" y="212">SET k v IFEQ old | GETDEL | GETEX</text>
-            <text class="lbl-xs" x="38" y="234">IFEQ / IFDEQ (8.4+) updates only if value/digest matches;</text>
-            <text class="lbl-xs" x="38" y="250">GETDEL consumes once; GETEX slides or clears TTL.</text>
+            <rect class="node-v" x="22" y="180" width="308" height="120" rx="9"/>
+            <text class="lbl" x="38" y="204">3 &middot; Optimistic CAS / One-Time Read</text>
+            <text class="wire-mono t-violet" x="38" y="228">SET k v IFEQ old | GETDEL | GETEX</text>
+            <text class="lbl-xs" x="38" y="250">IFEQ / IFDEQ (8.4+) write only when the</text>
+            <text class="lbl-xs" x="38" y="266">value or digest matches. GETDEL consumes</text>
+            <text class="lbl-xs" x="38" y="282">a key once; GETEX slides or clears the TTL.</text>
 
-            <rect class="node-r" x="350" y="164" width="308" height="104" rx="9"/>
-            <text class="lbl" x="366" y="188">4 &middot; Delete / Inspect / Rename Safely</text>
-            <text class="wire-mono t-rust" x="366" y="212">UNLINK k  |  DELEX k IFEQ v</text>
-            <text class="lbl-xs" x="366" y="234">UNLINK detaches in O(1); DELEX (8.4+) deletes only on</text>
-            <text class="lbl-xs" x="366" y="250">value match; RENAMENX avoids clobbering target key.</text>
+            <rect class="node-r" x="350" y="180" width="308" height="120" rx="9"/>
+            <text class="lbl" x="366" y="204">4 &middot; Delete / Inspect / Rename Safely</text>
+            <text class="wire-mono t-rust" x="366" y="228">UNLINK k  |  DELEX k IFEQ v</text>
+            <text class="lbl-xs" x="366" y="250">UNLINK frees big values off-thread. DELEX</text>
+            <text class="lbl-xs" x="366" y="266">(8.4+) deletes only when the value matches.</text>
+            <text class="lbl-xs" x="366" y="282">RENAMENX refuses to overwrite the target.</text>
           </svg>
         </div>
         <figcaption>FIG. 4 &mdash; the four daily keyspace jobs and the single-command primitives that keep them race-free.</figcaption>
@@ -644,12 +648,13 @@
           <div class="wsteps">
             <div class="ws"><span class="wsk">1 &middot; Encoding boundaries</span><p>Write a 64-bit integer string (<code>int</code>), a 44-byte ASCII string (<code>embstr</code>), and a 45-byte string (<code>raw</code>); then <code>APPEND</code> 1 byte to a short 5-byte <code>embstr</code> to watch it promote to <code>raw</code>.</p></div>
             <div class="ws"><span class="wsk">2 &middot; TTL survival test</span><p>Attach a 120-second TTL, verify that <code>INCR</code> and <code>SET ... KEEPTTL</code> keep <code>TTL &gt; 0</code>, and verify that a bare <code>SET</code> resets <code>TTL</code> to <code>-1</code>.</p></div>
-            <div class="ws"><span class="wsk">3 &middot; Atomic claims &amp; {hashtag} batches</span><p>Test <code>SET ... NX PX</code> + conflict probe with <code>NX GET</code>, consume a one-time token with <code>GETDEL</code>, and verify <code>CLUSTER KEYSLOT</code> + all-or-nothing <code>MSETNX</code> on <code>shop:user:{42}:*</code>.</p></div>
+            <div class="ws"><span class="wsk">3 &middot; Atomic claims &amp; {hashtag} batches</span><p>Test <code>SET ... NX PX</code> + conflict probe with <code>NX GET</code>, consume a one-time token with <code>GETDEL</code>, and compute the hash slot client-side (<code>CLUSTER KEYSLOT</code> only answers on a cluster-enabled node) and verify all-or-nothing <code>MSETNX</code> on paired <code>{42}</code> keys.</p></div>
           </div>
           <h4 class="wh">The code</h4>
           <p class="codetag">python &middot; redis==8.1.0 &middot; strings_keyspace_probe.py</p>
           <pre class="code"><code><span class="kw">import</span> uuid
 <span class="kw">import</span> redis
+<span class="kw">from</span> redis.crc <span class="kw">import</span> key_slot
 
 r = redis.Redis(host=<span class="st2">"localhost"</span>, port=<span class="lit">6379</span>, db=<span class="lit">0</span>, decode_responses=<span class="lit">True</span>)
 p = <span class="st2">f"lab:s4:{uuid.uuid4().hex[:8]}"</span>
@@ -701,8 +706,8 @@ k_u1, k_u2 = <span class="st2">f"{p}:user:{{42}}:profile"</span>, <span class="s
     <span class="kw">assert</span> r.getdel(k_otp) == <span class="st2">"839201"</span> <span class="kw">and</span> r.getdel(k_otp) <span class="kw">is</span> <span class="lit">None</span>
 
     <span class="cm"># 4. {hashtag} slot co-location &amp; all-or-nothing MSETNX</span>
-    slot1 = r.execute_command(<span class="st2">"CLUSTER"</span>, <span class="st2">"KEYSLOT"</span>, k_u1)
-    slot2 = r.execute_command(<span class="st2">"CLUSTER"</span>, <span class="st2">"KEYSLOT"</span>, k_u2)
+    <span class="cm"># CLUSTER KEYSLOT errors on a standalone server, so compute the slot client-side</span>
+    slot1, slot2 = key_slot(k_u1.encode()), key_slot(k_u2.encode())
     <span class="kw">assert</span> slot1 == <span class="lit">8000</span> <span class="kw">and</span> slot2 == <span class="lit">8000</span>
 
     <span class="kw">assert</span> r.msetnx({k_u1: <span class="st2">"ada"</span>, k_u2: <span class="st2">"dark"</span>}) <span class="kw">is</span> <span class="lit">True</span>
@@ -718,7 +723,7 @@ SET demo:lock worker-b NX PX 30000 GET      <span class="cm"># "worker-a" (abort
 SET demo:lock worker-a XX KEEPTTL           <span class="cm"># OK (updates without resetting TTL)</span>
 SET demo:lock worker-b IFEQ worker-a KEEPTTL <span class="cm"># Redis 8.4+: atomic compare-and-set</span>
 DELEX demo:lock IFEQ worker-b               <span class="cm"># Redis 8.4+: delete only if value matches</span>
-CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</span></code></pre>
+CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000 (cluster-enabled node only)</span></code></pre>
           <div class="say">
             <span class="k">Explain it aloud in an interview</span>
             <p>&ldquo;A Redis string is a binary-safe byte array up to 512&nbsp;MB backed by Simple Dynamic Strings, so <code>STRLEN</code> is <code>O(1)</code> and payloads with null bytes work safely. Under the hood Redis picks one of three encodings &mdash; <code>int</code> for 64-bit integers inside the pointer itself, <code>embstr</code> for strings up to 44 bytes in a single 64-byte cache-line allocation, and <code>raw</code> with preallocation above 44 bytes or after <code>APPEND</code>. On the command side, modern <code>SET</code> replaces deprecated <code>SETNX</code>, <code>SETEX</code>, and <code>GETSET</code> by combining <code>NX</code>/<code>XX</code>/<code>IFEQ</code>, <code>GET</code>, and <code>EX</code>/<code>PX</code>/<code>KEEPTTL</code> in one atomic turn &mdash; and I always remember that bare <code>SET</code> strips an existing TTL while <code>INCR</code> preserves it.&rdquo;</p>
@@ -760,7 +765,7 @@ CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</s
       <details class="self-test-question"><summary>1. Why are <code>SETNX</code>, <code>SETEX</code>, <code>PSETEX</code>, and <code>GETSET</code> considered deprecated, and what replaces them?</summary><p>They could not be composed with one another (leading to racy two-step calls like <code>SETNX</code> then <code>EXPIRE</code>). Modern <code>SET</code> replaces all four via composable flags: <code>NX</code>/<code>XX</code>/<code>IFEQ</code>, <code>GET</code>, and <code>EX</code>/<code>PX</code>/<code>EXAT</code>/<code>PXAT</code>/<code>KEEPTTL</code>.</p></details>
       <details class="self-test-question"><summary>2. What is the difference between how <code>SET key val</code> and <code>INCR key</code> treat an existing expiration?</summary><p>A plain <code>SET key val</code> strips any existing TTL (resetting <code>TTL</code> to <code>-1</code>) unless you pass <code>KEEPTTL</code> or a new <code>EX</code>/<code>PX</code>. <code>INCR</code> (along with <code>INCRBY</code>, <code>DECR</code>, <code>INCRBYFLOAT</code>, <code>APPEND</code>, and <code>SETRANGE</code>) modifies the string in place and preserves the existing TTL.</p></details>
       <details class="self-test-question"><summary>3. When does Redis use <code>int</code>, <code>embstr</code>, and <code>raw</code> encodings for a string, and why is the cutoff 44 bytes?</summary><p><code>int</code> is used for base-10 integers fitting in a signed 64-bit integer; <code>embstr</code> is used for strings &le;&nbsp;44 bytes (because a 16-byte <code>redisObject</code> + 3-byte <code>sdshdr8</code> + 44 bytes + 1-byte <code>\0</code> = 64 bytes, fitting one cache line and allocator chunk); <code>raw</code> is used for strings &gt;&nbsp;44 bytes or any string modified by <code>APPEND</code>/<code>SETRANGE</code>.</p></details>
-      <details class="self-test-question"><summary>4. What happens if you call <code>INCR</code> on a missing key versus a key holding <code>"3.14"</code> or <code>"9223372036854775807"</code>?</summary><p>On a missing key, <code>INCR</code> initializes the key to <code>0</code> and increments it to <code>1</code>. On <code>"3.14"</code> or at the maximum signed 64-bit integer (<code>2^63 - 1</code>), it fails with <code>ERR value is not an integer or out of range</code> and leaves the key unchanged.</p></details>
+      <details class="self-test-question"><summary>4. What happens if you call <code>INCR</code> on a missing key versus a key holding <code>"3.14"</code> or <code>"9223372036854775807"</code>?</summary><p>On a missing key, <code>INCR</code> initializes the key to <code>0</code> and increments it to <code>1</code>. On <code>"3.14"</code> it fails with <code>ERR value is not an integer or out of range</code>; at the maximum signed 64-bit integer (<code>2^63 - 1</code>) the stored value parses fine but the add would wrap, so it fails with <code>ERR increment or decrement would overflow</code>. Either way the key is left unchanged.</p></details>
       <details class="self-test-question"><summary>5. What does <code>MSETNX k1 v1 k2 v2</code> do if <code>k1</code> is missing but <code>k2</code> already exists?</summary><p>Nothing is written and it returns <code>0</code>. <code>MSETNX</code> is atomic and all-or-nothing: if even one key in the argument list already exists, none of the keys are modified.</p></details>
       <details class="self-test-question"><summary>6. What do <code>TTL</code> return values <code>-1</code> and <code>-2</code> mean, and what hazard does <code>RENAME src dst</code> carry?</summary><p><code>TTL</code> returns <code>-1</code> when the key exists without an expiration, and <code>-2</code> when the key does not exist. <code>RENAME src dst</code> silently executes an implicit synchronous <code>DEL dst</code> if <code>dst</code> already exists &mdash; which can clobber data or block the event loop if <code>dst</code> held a huge container. Use <code>RENAMENX</code> to guard against overwriting.</p></details>
       <details class="self-test-question"><summary>7. Why should paired keys use <code>shop:user:{42}:profile</code> and <code>shop:user:{42}:prefs</code> instead of <code>shop:user:42:profile</code>?</summary><p>Curly braces define a Cluster hash tag: Redis hashes only the substring inside the first non-empty <code>{...}</code> (<code>42</code> &rarr; slot <code>8000</code>), ensuring related keys live on the same hash slot so multi-key operations like <code>MGET</code>, <code>MSETNX</code>, and <code>MSETEX</code> never fail with <code>CROSSSLOT</code>.</p></details>
@@ -961,7 +966,7 @@ CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</s
      rf1:"type: OBJ_STRING | enc: INT", rf2:"ptr = (void*) 42000",
      arrowOp:".14", sdsCls:"node-dash",
      st1:"(zero SDS bytes allocated)", st2:"64-bit signed integer lives inside the 8-byte ptr slot", st3:"STRLEN = 5 · range: -2^63 .. 2^63-1",
-     rule:"Why it matters: numeric strings <= 20 digits avoid heap string allocation and allow fast integer INCR/DECR.",
+     rule:"Why it matters: integer strings (up to 20 digits) skip heap allocation and keep INCR cheap.",
      read:"OBJECT ENCODING int stores 64-bit integers with zero SDS overhead"},
     {text:"Run INCRBY metric:hits 8. Redis reads the 64-bit integer straight out of ptr, adds 8 in CPU registers, and writes 42008 back in place — no string parsing or reallocation.",
      active:["en-top","en-mem"],
@@ -969,8 +974,8 @@ CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</s
      title:"2 · INCRBY ON INT ENCODING · ZERO ALLOCATIONS",
      rf1:"type: OBJ_STRING | enc: INT", rf2:"ptr = (void*) 42008",
      arrowOp:".14", sdsCls:"node-dash",
-     st1:"(still zero SDS bytes)", st2:"mutated in place as a 64-bit integer; any existing TTL is preserved", st3:"overflowing 2^63-1 raises ERR out of range",
-     rule:"Contrast: INCRBYFLOAT metric:hits 0.5 would convert this int encoding into an embstr decimal string.",
+     st1:"(still zero SDS bytes)", st2:"updated in place as an int; TTL is preserved", st3:"INCR at 2^63-1 fails: would overflow",
+     rule:"Contrast: INCRBYFLOAT metric:hits 0.5 turns this int into an embstr decimal string.",
      read:"INCR and DECR keep the value in int encoding across all 64-bit bounds"},
     {text:"Store a short 14-byte text string ('order:paid:usd'). Because it is non-numeric and <= 44 bytes, Redis picks embstr: one contiguous memory block holding both redisObject and sdshdr8.",
      active:["en-top","en-mem"], path:"en-ptr-arrow",
@@ -979,7 +984,7 @@ CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</s
      rf1:"type: OBJ_STRING | enc: EMBSTR", rf2:"ptr -> adjacent sdshdr8",
      arrowOp:"1", sdsCls:"node-b",
      st1:"contiguous sdshdr8 (3 B) + 14 B + \\0 (1 B)", st2:"len = 14 · alloc = 14 (zero spare slack)", st3:"total = 16 + 3 + 14 + 1 = 34 bytes in 1 malloc",
-     rule:"Why 44 bytes? 16B redisObject + 3B sdshdr8 + 44B payload + 1B '\\0' = 64 bytes (one CPU cache line & jemalloc slot).",
+     rule:"Why 44? 16 B redisObject + 3 B sdshdr8 + 44 B payload + 1 B NUL = 64 B, one allocation.",
      read:"embstr packs header and payload into a single allocation for strings <= 44 bytes"},
     {text:"Cross the 44-byte threshold: a 44-byte string is still embstr (64 B total), but a 45-byte string exceeds 64 bytes and switches to raw (two separate heap allocations).",
      active:["en-top","en-mem"], path:"en-ptr-arrow",
@@ -988,7 +993,7 @@ CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</s
      rf1:"type: OBJ_STRING | enc: RAW", rf2:"ptr -> separate heap SDS",
      arrowOp:"1", sdsCls:"node-v",
      st1:"separate sdshdr8 (3 B) + 45 B + \\0 (1 B)", st2:"len = 45 · alloc = 45 · max limit = 512 MB", st3:"STRLEN reads sdshdr.len in O(1)",
-     rule:"At 45+ bytes, decoupling the SDS buffer lets Redis resize the string payload without moving the redisObject.",
+     rule:"Past 44 B the SDS buffer is separate, so it can grow without moving the redisObject.",
      read:"44 bytes is embstr; 45 bytes is raw"},
     {text:"What if you APPEND '!' to a short 5-byte embstr ('hello')? Even though 6 bytes is well under 44 bytes, embstr is read-only — so APPEND promotes it to raw with spare capacity!",
      active:["en-top","en-mem"], path:"en-ptr-arrow",
@@ -997,7 +1002,7 @@ CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</s
      rf1:"type: OBJ_STRING | enc: RAW", rf2:"ptr -> growable SDS",
      arrowOp:"1", sdsCls:"node-a",
      st1:'SDS payload: "hello!" (6 B used)', st2:"len = 6 · alloc = 12 (doubled free capacity!)", st3:"next APPEND of <= 6 B needs zero realloc",
-     rule:"SDS doubles capacity on growth while under 1 MB (and adds 1 MB chunks above 1 MB) so APPEND is amortized O(1).",
+     rule:"SDS doubles spare room below 1 MB and adds 1 MB chunks above it: APPEND is amortized O(1).",
      read:"any in-place mutation (APPEND, SETRANGE) permanently promotes int/embstr to raw"},
     {text:"Run SETRANGE on a key at offset 10: if the string was 6 bytes long, Redis zero-pads the 4-byte gap with \\x00 bytes and writes at index 10 — proving full binary safety.",
      active:["en-top","en-mem"], path:"en-ptr-arrow",
@@ -1006,7 +1011,7 @@ CLUSTER KEYSLOT shop:user:{42}:profile      <span class="cm"># (integer) 8000</s
      rf1:"type: OBJ_STRING | enc: RAW", rf2:"ptr -> binary SDS buffer",
      arrowOp:"1", sdsCls:"node-a",
      st1:'bytes: "hello!\\x00\\x00\\x00\\x00Z" (11 B)', st2:"len = 11 · embedded \\x00 never truncates SDS", st3:"STRLEN = 11 in O(1)",
-     rule:"Because SDS tracks explicit byte length len instead of scanning for '\\0', null bytes are ordinary data.",
+     rule:"SDS stores len explicitly instead of scanning for NUL, so null bytes are ordinary data.",
      read:"SDS tracks explicit length, so \\x00 bytes are safe and STRLEN is always O(1)"}
   ], function(idx,s){
     _g('en-cmd').textContent=s.cmd;
