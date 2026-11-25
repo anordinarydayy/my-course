@@ -78,8 +78,9 @@ prep, hosted as static HTML on GitHub Pages.
   concurrency & synchronization, virtual memory, files, the page cache & `epoll`/`io_uring`,
   network foundations (layers, IP & CIDR, routing & NAT), TCP and congestion control, DNS,
   HTTP/2, TLS 1.3, QUIC & HTTP/3, load balancers & CDNs, WebSockets & gRPC streaming,
-  containers & Kubernetes networking, production debugging, and an interview capstone. No
-  lessons are live yet (0 of 37); the full map is laid out.
+  containers & Kubernetes networking, production debugging, and an interview capstone. The
+  first lesson — why OS & networking matter to a backend engineer — is live and interactive
+  (1 of 37); the rest are mapped.
 
 ## How to use
 
