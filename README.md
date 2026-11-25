@@ -68,10 +68,10 @@ prep, hosted as static HTML on GitHub Pages.
   the core and advanced data types, caching patterns & eviction, persistence (RDB/AOF),
   programmability (transactions, Lua, distributed locks, rate limiting), replication & Redis
   Cluster, the modern Redis 8 platform (Search, JSON, vector search for AI/RAG, semantic
-  caching), production operations, and a patterns & interview capstone. The first four lessons —
-  why Redis exists, the data-structure server mental model, the single-threaded event loop, and
-  talking to Redis (`redis-cli`, RESP & the command model) — are live and interactive (4 of 45);
-  the rest are mapped.
+  caching), production operations, and a patterns & interview capstone. The first five lessons —
+  why Redis exists, the data-structure server mental model, the single-threaded event loop,
+  talking to Redis (`redis-cli`, RESP & the command model), and strings & the keyspace —
+  are live and interactive (5 of 45); the rest are mapped.
 - **[Operating Systems & Networking](os-networking/index.html)** — the two layers under every
   backend system, scoped to what a working software engineer uses. A 37-lesson map across ten
   phases: the kernel boundary and the latency ladder, processes, threads & scheduling,
