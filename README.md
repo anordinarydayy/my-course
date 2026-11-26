@@ -79,8 +79,8 @@ prep, hosted as static HTML on GitHub Pages.
   network foundations (layers, IP & CIDR, routing & NAT), TCP and congestion control, DNS,
   HTTP/2, TLS 1.3, QUIC & HTTP/3, load balancers & CDNs, WebSockets & gRPC streaming,
   containers & Kubernetes networking, production debugging, and an interview capstone. The
-  first lesson — why OS & networking matter to a backend engineer — is live and interactive
-  (1 of 37); the rest are mapped.
+  first two lessons — why OS & networking matter to a backend engineer and the kernel boundary
+  (user space, kernel space & system calls) — are live and interactive (2 of 37); the rest are mapped.
 
 ## How to use
 

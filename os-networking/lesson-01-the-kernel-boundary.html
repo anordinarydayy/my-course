@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 01 — The Kernel Boundary: User Space, Kernel Space &amp; System Calls (Interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F3EB; --paper-2:#FDFBF6; --ink:#20201D; --ink-soft:#5A574E;
+    --blueprint:#1F4E79; --blueprint-soft:#4A7BA6; --blueprint-wash:#E9EFF5;
+    --rust:#B0532F; --rust-wash:#F6E7DE; --line:#E3DBCB; --line-strong:#D2C7B0;
+    --amber:#C98A2B; --amber-wash:#F6ECD8; --green:#69B34C; --green-wash:#EAF3E4;
+    --violet:#6E59A5; --violet-wash:#ECE7F4;
+    --accent:#5C7A2E; --accent-soft:#86A05A; --accent-wash:#ECF1E1; --accent-deep:#44591F;
+    --maxw:780px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(31,78,121,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.035) 1px,transparent 1px);background-size:32px 32px;}
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:var(--rust);transition:width .1s linear;}
+  .shell{position:relative;z-index:1;display:flex;max-width:1240px;margin:0 auto;}
+  nav.toc{width:288px;flex:0 0 288px;align-self:flex-start;position:sticky;top:0;height:100vh;
+    padding:40px 26px 40px 34px;overflow-y:auto;border-right:1px solid var(--line);}
+  main{flex:1 1 auto;min-width:0;padding:64px 56px 140px;max-width:calc(var(--maxw) + 112px);}
+  .brandmark{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .brandtitle{font-family:"Fraunces",serif;font-weight:700;font-size:22px;line-height:1.15;margin:0 0 26px;color:var(--ink);}
+  .toc h4{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px;font-weight:600;}
+  .toc ol{list-style:none;margin:0;padding:0;} .toc li{margin:0;}
+  .toc a{display:flex;gap:11px;align-items:baseline;padding:7px 10px;margin:1px 0;border-radius:7px;
+    text-decoration:none;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;font-size:12.5px;
+    line-height:1.35;transition:background .15s,color .15s;}
+  .toc a .n{color:var(--accent);font-weight:600;flex:0 0 22px;}
+  .toc a:hover{background:var(--accent-wash);color:var(--ink);}
+  .toc a.active{background:var(--accent);color:#fff;} .toc a.active .n{color:#dde6cc;}
+  .lessonmeta{display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);}
+  .lessonmeta .num{display:inline-grid;place-items:center;width:54px;height:54px;border:2px solid var(--rust);
+    border-radius:50%;font-family:"Fraunces",serif;font-weight:700;font-size:24px;letter-spacing:0;color:var(--rust);}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(36px,5.3vw,58px);line-height:1.03;
+    letter-spacing:-.015em;margin:0 0 22px;color:var(--ink);}
+  .lede{font-size:21px;color:var(--ink-soft);max-width:62ch;margin:0 0 14px;}
+  .disclaimer{margin-top:30px;padding:16px 20px;border-radius:10px;background:var(--paper-2);
+    border:1px solid var(--line);font-size:15px;color:var(--ink-soft);line-height:1.55;}
+  .disclaimer strong{color:var(--ink);}
+  .rule{height:1px;background:var(--line-strong);border:none;margin:54px 0;}
+  section{scroll-margin-top:28px;margin-top:64px;}
+  .steptag{display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-deep);}
+  .steptag b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 7px;
+    background:var(--accent);color:#fff;border-radius:6px;font-weight:600;letter-spacing:.05em;}
+  h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(27px,3.6vw,36px);line-height:1.1;
+    letter-spacing:-.01em;margin:0 0 18px;color:var(--ink);}
+  h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;margin:34px 0 10px;color:var(--ink);}
+  p{margin:0 0 18px;} main a{color:var(--blueprint);text-underline-offset:2px;}
+  strong{font-weight:600;color:var(--ink);}
+  em{font-style:italic;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.82em;background:var(--blueprint-wash);
+    color:var(--blueprint);padding:1px 6px;border-radius:5px;}
+  ul{margin:0 0 18px;padding-left:0;list-style:none;} ul li{position:relative;padding-left:24px;margin-bottom:9px;}
+  ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;background:var(--rust);
+    border-radius:1.5px;transform:rotate(45deg);}
+  figure{margin:30px 0;}
+  .blueprint{background:linear-gradient(rgba(31,78,121,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,78,121,.06) 1px,transparent 1px),var(--paper-2);
+    background-size:18px 18px,18px 18px,auto;border:1px solid var(--line-strong);border-radius:12px;padding:26px 22px 18px;}
+  .blueprint svg{display:block;width:100%;height:auto;}
+  figcaption{margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);text-align:center;}
+  .node{fill:var(--paper-2);stroke:var(--blueprint);stroke-width:2;}
+  .node-b{fill:var(--blueprint-wash);stroke:var(--blueprint);stroke-width:2;}
+  .node-r{fill:var(--rust-wash);stroke:var(--rust);stroke-width:2;}
+  .node-v{fill:var(--violet-wash);stroke:var(--violet);stroke-width:2;}
+  .node-g{fill:var(--green-wash);stroke:var(--green);stroke-width:2;}
+  .node-a{fill:var(--amber-wash);stroke:var(--amber);stroke-width:2;}
+  .node-o{fill:var(--accent-wash);stroke:var(--accent);stroke-width:2;}
+  .node-dash{fill:var(--paper-2);stroke:var(--line-strong);stroke-width:1.6;stroke-dasharray:5 4;}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:13px;fill:var(--ink);font-weight:500;}
+  .lbl-sm{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft);}
+  .lbl-xs{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--ink-soft);}
+  .flow{stroke:var(--blueprint);stroke-width:2;fill:none;}
+  .flow-r{stroke:var(--rust);stroke-width:2;fill:none;stroke-dasharray:5 4;}
+  .flow-d{stroke:var(--blueprint-soft);stroke-width:1.5;fill:none;stroke-dasharray:3 4;}
+  .flow-g{stroke:var(--green);stroke-width:2;fill:none;}
+  .flow-o{stroke:var(--accent);stroke-width:2;fill:none;}
+  .readout{font-family:"JetBrains Mono",monospace;font-size:14px;fill:var(--ink);}
+  .wire-mono{font-family:"JetBrains Mono",monospace;font-size:11.5px;fill:var(--ink);}
+  .t-rust{fill:var(--rust);} .t-blue{fill:var(--blueprint);} .t-green{fill:#3f7a2e;} .t-violet{fill:var(--violet);} .t-olive{fill:var(--accent-deep);}
+  .callout{margin:26px 0;padding:18px 22px;border-radius:10px;border-left:4px solid var(--blueprint);
+    background:var(--blueprint-wash);font-size:17px;}
+  .callout .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blueprint);margin-bottom:7px;font-weight:600;}
+  .callout.tip{border-left-color:var(--rust);background:var(--rust-wash);} .callout.tip .k{color:var(--rust);}
+  .callout.note{border-left-color:var(--accent);background:var(--accent-wash);} .callout.note .k{color:var(--accent-deep);}
+  .callout p:last-child{margin-bottom:0;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0;}
+  .vs.three{grid-template-columns:1fr 1fr 1fr;}
+  .vs .col{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .vs h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin:0 0 12px;}
+  .vs ul{margin:0;} .vs li{font-size:15.5px;line-height:1.5;}
+  .tradeoff{margin:28px 0;overflow-x:auto;}
+  .tradeoff table{width:100%;border-collapse:collapse;background:var(--paper-2);font-size:15.5px;}
+  .tradeoff th,.tradeoff td{padding:12px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  .tradeoff th{background:var(--blueprint-wash);font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .takeaways{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px;}
+  .tk{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .tk .num{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--rust);letter-spacing:.1em;}
+  .tk b{display:block;font-family:"Fraunces",serif;font-size:17px;margin:4px 0 5px;}
+  .tk span{font-size:14.5px;color:var(--ink-soft);line-height:1.45;}
+  /* ---- interactive stepper ---- */
+  .stepper .stepcap{display:flex;gap:10px;align-items:baseline;margin-top:16px;flex-wrap:wrap;}
+  .stepper .stepnum{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--rust);
+    white-space:nowrap;border:1px solid var(--rust);border-radius:20px;padding:3px 11px;}
+  .stepper .steptext{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.4;flex:1;min-width:220px;}
+  .stepper .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .stepper .controls button{font-family:"JetBrains Mono",monospace;font-size:12px;cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:7px 13px;border-radius:8px;
+    transition:background .15s,border-color .15s,transform .05s;}
+  .stepper .controls button:hover{background:var(--blueprint-wash);border-color:var(--blueprint-soft);}
+  .stepper .controls button:active{transform:translateY(1px);}
+  .stepper .controls [data-act="play"]{background:var(--blueprint);color:#fff;border-color:var(--blueprint);min-width:96px;}
+  .stepper .controls [data-act="play"]:hover{background:#173c5e;}
+  .stepper .controls [data-act="restart"]{font-size:15px;line-height:1;padding:6px 12px;}
+  .st{transition:opacity .3s ease;} .st.dim{opacity:.16;}
+  .packet{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  /* ---- worked example + narration ---- */
+  .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.e{background:#E6F1DF;color:#3f7a2e;} .pill.m{background:#FBEEDB;color:#9a6515;} .pill.h{background:var(--rust-wash);color:var(--rust);}
+  .worked{margin:30px 0;border:1px solid var(--line-strong);border-radius:14px;background:var(--paper-2);overflow:hidden;box-shadow:0 1px 0 rgba(31,78,121,.04);}
+  .worked .whead{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:14px 22px;background:var(--blueprint-wash);border-bottom:1px solid var(--line);}
+  .worked .wk{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);font-weight:600;}
+  .worked .lc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:20px;padding:3px 10px;margin-left:auto;white-space:nowrap;}
+  .worked .wbody{padding:4px 22px 20px;}
+  .worked .wname{font-family:"Fraunces",serif;font-weight:600;font-size:22px;color:var(--ink);margin:18px 0 7px;}
+  .worked .wprompt{font-size:16.5px;color:var(--ink);margin:0;}
+  .worked .wh{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--rust);font-weight:600;margin:22px 0 6px;}
+  .wsteps{margin:6px 0 4px;border-left:2px solid var(--line-strong);}
+  .ws{padding:0 0 0 16px;margin:0 0 13px;} .ws:last-child{margin-bottom:0;}
+  .wsk{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--blueprint);font-weight:600;margin-bottom:3px;}
+  .ws p{margin:0;font-size:16.5px;line-height:1.55;} .ws p b{color:var(--ink);}
+  .codetag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
+  pre.code{margin:0 0 4px;background:#FBF7EE;border:1px solid var(--line-strong);border-left:3px solid var(--blueprint-soft);border-radius:10px;padding:15px 18px;overflow-x:auto;line-height:1.6;}
+  pre.code code{font-family:"JetBrains Mono",monospace;font-size:13px;background:none;color:#2c2a25;padding:0;border-radius:0;display:block;white-space:pre;}
+  pre.code .cm{color:#9a8e76;font-style:italic;} pre.code .kw{color:var(--rust);font-weight:600;}
+  pre.code .fn{color:var(--blueprint);font-weight:600;} pre.code .lit{color:var(--violet);} pre.code .st2{color:#3f7a2e;}
+  .say{margin:18px 0 0;padding:16px 20px;border-radius:10px;background:var(--rust-wash);border-left:4px solid var(--rust);}
+  .say .k{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--rust);margin-bottom:8px;font-weight:600;}
+  .say p{margin:0 0 10px;font-size:16px;font-style:italic;color:var(--ink);line-height:1.55;} .say p:last-child{margin-bottom:0;}
+  .say .plain{font-style:normal;color:var(--ink-soft);font-size:14.5px;}
+  /* ---- practice ladder, self-test, sources, course-nav ---- */
+  .ladder{display:grid;gap:13px;margin:24px 0;}
+  .rung{padding:17px 19px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);}
+  .rung b{display:block;margin-bottom:5px;color:var(--rust);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .self-test-question{margin:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);}
+  .self-test-question summary{padding:14px 17px;cursor:pointer;font-weight:600;}
+  .self-test-question p{padding:0 17px 15px;margin:0;color:var(--ink-soft);font-size:16px;}
+  .sources-section ol{padding-left:22px;}
+  .sources-section li{margin-bottom:10px;}
+  .course-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:58px;padding-top:24px;border-top:1px solid var(--line-strong);}
+  .course-nav a{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;text-decoration:none;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--blueprint);}
+  .course-nav a:hover{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-deep);}
+  .course-nav span.done{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2);text-align:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--ink-soft);opacity:.55;display:block;}
+  footer{margin-top:36px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .menubtn{display:none;}
+  @media(max-width:980px){
+    nav.toc{position:fixed;z-index:50;top:0;left:0;height:100vh;width:280px;background:var(--paper);
+      transform:translateX(-105%);transition:transform .28s ease;box-shadow:0 0 40px rgba(0,0,0,.12);}
+    nav.toc.open{transform:translateX(0);}
+    main{padding:78px 22px 100px;}
+    .menubtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:55;top:14px;left:14px;
+      background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 14px;
+      font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;cursor:pointer;
+      box-shadow:0 4px 14px rgba(92,122,46,.32);}
+    body{font-size:18px;} .vs,.vs.three{grid-template-columns:1fr;}
+    .worked .lc{margin-left:0;} .worked .wbody{padding:4px 16px 18px;} pre.code code{font-size:12.5px;}
+    .course-nav{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){main{padding:74px 16px 90px;} h1{font-size:33px;}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1F4E79"/></marker>
+  <marker id="arrow-r" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0532F"/></marker>
+  <marker id="arrow-s" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4A7BA6"/></marker>
+  <marker id="arrow-g" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#69B34C"/></marker>
+  <marker id="arrow-o" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#5C7A2E"/></marker>
+</defs></svg>
+
+
+<button class="menubtn" id="menubtn" type="button">&#9776; Contents</button>
+<div class="shell">
+<nav class="toc" id="toc" aria-label="Lesson contents">
+<div class="brandmark">OS &amp; Networking &middot; Phase 0</div>
+<div class="brandtitle">The Kernel Boundary: User Space, Kernel Space &amp; System Calls</div><h4>The build-up</h4><ol><li><a href="#s0"><span class="n">00</span><span>Three different events</span></a></li>
+<li><a href="#s1"><span class="n">01</span><span>Protection domains</span></a></li>
+<li><a href="#s2"><span class="n">02</span><span>One read across the gate ▸</span></a></li>
+<li><a href="#s3"><span class="n">03</span><span>Progress &amp; errno</span></a></li>
+<li><a href="#s4"><span class="n">04</span><span>The vDSO shortcut ▸</span></a></li>
+<li><a href="#s5"><span class="n">05</span><span>Costs &amp; trade-offs</span></a></li>
+<li><a href="#s6"><span class="n">06</span><span>Build: observe the contract</span></a></li>
+<li><a href="#practice"><span class="n">↗</span><span>Practice ladder</span></a></li>
+<li><a href="#summary"><span class="n">★</span><span>Takeaways</span></a></li>
+<li><a href="#self-test"><span class="n">?</span><span>Self-test</span></a></li>
+<li><a href="#sources"><span class="n">↗</span><span>Primary sources</span></a></li></ol>
+<p style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blueprint-soft);margin-top:22px;">&#9656; marks an interactive figure</p>
+</nav>
+<main>
+<header><div class="lessonmeta"><span class="num">01</span><span>Concept &middot; Core &middot; Phase 0 &middot; OS &amp; Networking</span></div>
+<h1>The Kernel Boundary: User Space, Kernel Space &amp; System Calls</h1><p class="lede">Your runtime can parse a request in ordinary user-space code, then ask the kernel to read a socket, manage a mapping or wait for input. That boundary provides protection and a precise return contract. Understanding when you cross it—and when a library avoids crossing it—is the foundation for explaining both correctness bugs and avoidable overhead.</p><div class="disclaimer"><strong>Original study chapter · Core.</strong> Targets <strong>Linux 7.3.6 stable</strong> and <strong>6.18 LTS</strong> (6.18.65), checked against official kernel documentation and Linux man-pages on 26 November 2026. CPU examples distinguish x86-64 from AArch64; the C11 lab names its user-space tool versions and actual verification kernel. Contains <strong>four original SVG figures, two interactive</strong>. L02 owns latency estimates, L03 the full request-tracing lab, L07 scheduling, L11–L13 virtual-memory details and L17 I/O multiplexing.</div></header>
+<hr class="rule">
+<section id="s0"><div class="steptag"><b>00</b> Failure first</div><h2>One function call in your code, several different paths below it</h2>
+<p>A service calls <code>clock_gettime()</code> a thousand times, yet <code>strace</code> shows no matching syscall. Another service calls <code>read()</code> once and waits a second. A third reports “one context switch per syscall” and blames the scheduler. These observations become useful only after separating three events: calling a library function, entering the kernel, and switching which thread runs.</p>
+<p>A <strong>system call</strong> is a controlled request to the kernel through its binary interface. It is not an ordinary jump to an arbitrary privileged function. Your thread supplies an operation number and arguments; the processor enters a configured kernel entry point; the kernel decides whether and how to perform the request. The same thread can then return immediately, without another thread ever running.</p>
+<div class="callout"><span class="k">The invariant to keep</span><p><strong>Crossing the privilege boundary changes what code may do. A scheduler switch changes which task is executing.</strong> A syscall always requires the first transition when it actually enters the kernel; it does not require the second.</p></div>
+<p>This chapter stays at the level you use to debug services: permissions, call paths, return contracts and avoidable crossings. L02 supplies the latency ladder; L03 traces a whole request; L04–L07 open processes and scheduling. You do not need to memorize entry assembly to explain a slow <code>read</code>.</p></section>
+
+<section id="s1"><div class="steptag"><b>01</b> Protection</div><h2>User space and kernel space are protection domains</h2>
+<p>If any application could program devices, replace page tables or read another process's memory at will, a bad pointer in one service could corrupt the machine. The CPU's privilege rules and memory permissions let Linux expose selected operations while keeping control of shared resources.</p>
+<p><strong>User mode</strong> is where your application, runtime and libc normally execute. They use the memory mappings they are allowed to access. <strong>Kernel mode</strong> permits the kernel's privileged instructions and protected mappings. On conventional x86-64 Linux these correspond to ring 3 and ring 0; on AArch64 the usual host application/kernel distinction is EL0/EL1. Those names are architecture-specific, not extra processes on the machine.</p>
+<figure><div class="blueprint"><svg viewBox="0 0 680 280" role="img" aria-label="Static protection boundary: both a normal user process and a root process execute application code in user mode, and controlled entry reaches privileged kernel code">
+<rect class="node-o" x="20" y="20" width="300" height="86" rx="9"/><text class="lbl" x="170" y="50" text-anchor="middle">Service: ordinary UID</text><text class="lbl-sm" x="170" y="78" text-anchor="middle">application + runtime + libc</text>
+<rect class="node-o" x="350" y="20" width="310" height="86" rx="9"/><text class="lbl" x="505" y="50" text-anchor="middle">Service: UID 0 (root)</text><text class="lbl-sm" x="505" y="78" text-anchor="middle">still executing in user mode</text>
+<path class="flow-r" d="M20 132 H660"/><text class="lbl-xs" x="340" y="125" text-anchor="middle">CPU privilege boundary · credentials affect authorization</text>
+<path class="flow" d="M170 108 V166" marker-end="url(#arrow)"/><path class="flow" d="M505 108 V166" marker-end="url(#arrow)"/>
+<rect class="node-b" x="20" y="170" width="640" height="84" rx="9"/><text class="lbl" x="340" y="199" text-anchor="middle">Kernel entry → validate request → perform allowed operation</text><text class="lbl-sm" x="340" y="229" text-anchor="middle">Privileged code · page tables · scheduler · files · devices</text>
+</svg></div><figcaption>FIG. 1 — root is a credential, not a CPU execution mode.</figcaption></figure>
+<p>Being <code>root</code> does not turn a normal load instruction into a permitted read of kernel memory. Credentials and capabilities influence checks the kernel performs; they do not move the application's instructions into kernel mode. Containers also run ordinary user-space code against a kernel, with additional resource and policy boundaries.</p>
+<div class="vs"><div class="col"><h4>What runs without a syscall</h4><ul><li>Arithmetic, parsing and ordinary function calls on accessible memory.</li><li>Many allocator operations satisfied from a user-space arena.</li><li>Some time reads through the vDSO fast path.</li></ul></div><div class="col"><h4>What needs kernel involvement</h4><ul><li>Requesting I/O, creating a socket or changing memory mappings.</li><li>Enforcing permissions and resolving a descriptor to a kernel object.</li><li>Handling a hardware exception such as a page fault—even though it was not a syscall request.</li></ul></div></div>
+<div class="callout tip"><span class="k">What the interviewer probes next</span><p>“Does touching a fresh memory page call malloc in the kernel?” No. A load/store can fault and enter the kernel through an exception path. A library allocator, a mapping syscall and a page fault are different events. L11–L13 unpack that chain.</p></div></section>
+
+<section id="s2"><div class="steptag"><b>02</b> Mechanism</div><h2>Follow one read across the boundary ▸</h2>
+<p>Calling <code>read(fd, buf, 8)</code> begins as a C function call to a user-space wrapper. The wrapper puts the syscall number and arguments into the architecture's prescribed registers, then executes the entry instruction. On x86-64 that instruction is <code>syscall</code>; on AArch64 it is <code>svc #0</code>. The address in <code>buf</code> remains an address in the calling process's virtual address space; passing it is not transferring ownership of a C object.</p>
+<p>Hardware and Linux's entry code establish the privileged execution state, save the return state and register context needed by the entry path, and establish the kernel stack/frame. Entry work may include tracing, security filters and accounting. The dispatcher selects the implementation; the implementation checks the descriptor and accesses user memory through the kernel's user-access machinery. Bad input must produce a controlled failure rather than a trusted arbitrary kernel pointer.</p>
+<figure><div class="blueprint stepper" id="fig-entry"><svg viewBox="0 0 680 320" role="img" aria-label="Interactive lifecycle of a blocking read: thread A enters the kernel, waits for data while thread B can run, resumes in kernel context, and returns a short read to user space">
+<rect class="node-o" x="20" y="24" width="300" height="88" rx="9"/><text class="lbl" x="170" y="52" text-anchor="middle">Thread A</text><text id="k-task" class="lbl-sm" x="170" y="80" text-anchor="middle">running application code</text>
+<rect id="k-mode-box" class="node-o" x="350" y="24" width="310" height="88" rx="9"/><text class="lbl" x="505" y="52" text-anchor="middle">CPU execution</text><text id="k-mode" class="lbl-sm" x="505" y="80" text-anchor="middle">user mode · A</text>
+<rect class="node-b" x="20" y="138" width="640" height="100" rx="9"/><text id="k-stage" class="lbl" x="340" y="168" text-anchor="middle">Before entry</text><text id="k-contract" class="lbl-sm" x="340" y="197" text-anchor="middle">read(fd, buf, 8) asks for up to eight bytes.</text><text id="k-other" class="lbl-xs" x="340" y="222" text-anchor="middle">No other thread is needed to enter the kernel.</text>
+<text id="k-note" class="lbl-sm" x="340" y="280" text-anchor="middle">A fast syscall can take the path with no scheduler switch.</text><circle class="packet" r="7" style="display:none"/>
+</svg><div class="stepcap"><span class="stepnum"></span><span class="steptext" aria-live="polite"></span></div><div class="controls"><button type="button" data-act="restart" title="Restart">↻</button><button type="button" data-act="prev">◀ Prev</button><button type="button" data-act="play">▶ Play</button><button type="button" data-act="next">Next ▶</button></div></div><figcaption>FIG. 2 — interactive: kernel entry is certain; sleeping and a task switch depend on the operation.</figcaption></figure>
+<p>The kernel executes this syscall in the calling thread's context. It is not sending every request to a separate “kernel process.” If data is already available, the read may complete on this path without blocking. If a blocking socket has no data, the thread can sleep; the scheduler may run another task. Once data arrives and the thread gets CPU time again, its kernel path finishes and returns toward user mode. Signals and scheduling work may be handled before the final return.</p>
+<div class="tradeoff"><table><thead><tr><th>Event</th><th>What changed</th><th>What you cannot infer</th></tr></thead><tbody>
+<tr><td>Syscall entry / return</td><td>Privilege domain and execution path, with entry/exit bookkeeping.</td><td>That another thread ran, a disk was touched, or the requested operation fully completed.</td></tr>
+<tr><td>Scheduler context switch</td><td>The current runnable task on a CPU.</td><td>That it was caused by a syscall; preemption can happen for other reasons.</td></tr>
+<tr><td>Page fault / interrupt</td><td>Control enters a kernel handler for an exception or hardware event.</td><td>That the application explicitly called a system-call wrapper.</td></tr>
+</tbody></table></div>
+<p>Syscall numbers and register conventions vary by architecture. Use libc wrappers or <code>SYS_*</code> constants from <code>&lt;sys/syscall.h&gt;</code> for an experiment. In the lab, <code>syscall(SYS_clock_gettime, ...)</code> is itself a libc helper that performs the real kernel entry; it is not a portable replacement for the high-level API.</p></section>
+
+<section id="s3"><div class="steptag"><b>03</b> The return contract</div><h2>A successful call can still leave work for you</h2>
+<p>A server asks <code>read</code> for eight bytes, receives three, and treats the reply as a broken connection. The kernel did what the API promised: a read requests <em>up to</em> a count. The call's result is progress, not your application's message framing. TCP and application framing come later; this return contract already matters for pipes and files.</p>
+<div class="tradeoff"><table><thead><tr><th>Result</th><th>Meaning for this I/O call</th><th>Application decision</th></tr></thead><tbody>
+<tr><td><code>read</code> returns <code>n &gt; 0</code></td><td>Exactly <code>n</code> bytes were read, possibly fewer than requested.</td><td>Advance by <code>n</code>; decide whether the logical record needs more.</td></tr>
+<tr><td><code>read</code> returns <code>0</code></td><td>With a positive requested size on an ordinary file/pipe/stream socket, end of input.</td><td>Handle EOF; don't reinterpret it as “try again when readable”. Zero-length datagrams have different semantics.</td></tr>
+<tr><td><code>-1</code> with <code>EAGAIN</code>/<code>EWOULDBLOCK</code></td><td>A nonblocking descriptor would need to wait.</td><td>Arrange readiness notification, then retry. A busy retry loop wastes CPU.</td></tr>
+<tr><td><code>-1</code> with <code>EINTR</code></td><td>A signal interrupted the read before bytes were transferred.</td><td>Apply cancellation/retry policy. Some calls restart automatically under documented signal rules.</td></tr>
+<tr><td><code>-1</code> with <code>EBADF</code> / <code>EFAULT</code></td><td>Invalid descriptor / inaccessible buffer address.</td><td>Fix the handle or memory-lifetime bug; repeating the same request won't repair it.</td></tr>
+</tbody></table></div>
+<p>For the usual libc wrappers, an error becomes <code>-1</code> plus a thread-local <strong><code>errno</code></strong>. On x86-64 the raw kernel ABI uses negative error numbers, and libc translates them. Other architectures may use an error flag/register. The libc <code>syscall()</code> helper also performs error translation, so calling it does not give you the raw negative kernel error code.</p>
+<p>Read <code>errno</code> only after the return value indicates failure, and save it before another library call can change it. Success does not promise to clear a stale <code>errno</code>. Apply the same progress discipline to <code>write</code>: a positive short write needs the remaining bytes handled. A successful write is also not an application-level receipt or a disk-durability promise.</p>
+<div class="callout tip"><span class="k">What the interviewer probes next</span><p>“Why didn't the kernel fill all eight bytes?” Because availability and your desired logical message are separate contracts. Explain the return count, EOF and would-block behavior before suggesting a loop; a loop must also handle cancellation and backpressure.</p></div></section>
+
+<section id="s4"><div class="steptag"><b>04</b> Shortcut</div><h2>The vDSO: kernel-supplied code that can run in user mode ▸</h2>
+<p>Entering the kernel for every timestamp in a hot loop would repeat the boundary work even when the answer can be derived safely from information already exposed to the process. The <strong>vDSO</strong>—virtual dynamic shared object—is a small kernel-provided ELF library mapped into the process. libc can resolve supported functions there and call them like user-space functions.</p>
+<p>For a supported time-read fast path, this code combines kernel-maintained timing data with an appropriate clocksource reading. It does not grant user space permission to change kernel time. A <code>clock_gettime(CLOCK_MONOTONIC, ...)</code> call can therefore complete in user mode, while explicitly invoking <code>syscall(SYS_clock_gettime, ...)</code> takes the kernel route.</p>
+<figure><div class="blueprint stepper" id="fig-vdso"><svg viewBox="0 0 680 310" role="img" aria-label="Interactive comparison of clock_gettime through a user-mode vDSO fast path, an explicit syscall, and a fallback when the fast path cannot serve the request">
+<rect class="node-o" x="20" y="24" width="640" height="76" rx="9"/><text class="lbl" x="340" y="52" text-anchor="middle">USER SPACE · application → libc</text><text id="v-call" class="lbl-sm" x="340" y="80" text-anchor="middle">clock_gettime(CLOCK_MONOTONIC, &amp;ts)</text>
+<rect id="v-fast-box" class="node-g" x="20" y="122" width="300" height="92" rx="9"/><text class="lbl" x="170" y="151" text-anchor="middle">vDSO code</text><text id="v-fast" class="lbl-sm" x="170" y="180" text-anchor="middle">mapped code, runs as user</text>
+<rect id="v-kernel-box" class="node-dash" x="350" y="122" width="310" height="92" rx="9"/><text class="lbl" x="505" y="151" text-anchor="middle">Kernel clock service</text><text id="v-kernel" class="lbl-sm" x="505" y="180" text-anchor="middle">no entry on the fast path</text>
+<text id="v-trace" class="lbl-sm" x="340" y="254" text-anchor="middle">strace observes actual syscall entries, not every library call.</text><text id="v-note" class="lbl-xs" x="340" y="283" text-anchor="middle">Supported functions and fallbacks depend on architecture, kernel and clock.</text><circle class="packet" r="7" style="display:none"/>
+</svg><div class="stepcap"><span class="stepnum"></span><span class="steptext" aria-live="polite"></span></div><div class="controls"><button type="button" data-act="restart" title="Restart">↻</button><button type="button" data-act="prev">◀ Prev</button><button type="button" data-act="play">▶ Play</button><button type="button" data-act="next">Next ▶</button></div></div><figcaption>FIG. 3 — interactive: the API name stays the same while the implementation path changes.</figcaption></figure>
+<p>This is why a working time-read loop can be absent from <code>strace</code>. The vDSO path never made that syscall. The library can fall back to kernel entry when the function, requested clock or environment cannot use the fast path. A mapping named <code>[vdso]</code> proves the object is present; it does not prove a particular call used it.</p>
+<div class="callout"><span class="k">Keep the shortcut behind the API</span><p>Call <code>clock_gettime</code> normally. Resolving vDSO symbol names and versions yourself adds architecture and ABI dependencies that libc already handles. The vDSO is a carefully chosen fast path, not a general way to perform arbitrary protected I/O without the kernel.</p></div>
+<p>The reusable diagnostic lesson extends beyond clocks: <code>printf</code> can buffer many writes in user space, and an allocator can reuse an arena. Library-call count and syscall count need not match in either direction. Conversely, not seeing a syscall is not evidence that a function failed to execute.</p></section>
+
+<section id="s5"><div class="steptag"><b>05</b> Costs &amp; trade-offs</div><h2>Pay for a boundary when it buys useful work</h2>
+<p>One byte per <code>write</code> repeats the syscall entry and exit for every byte. Collecting a bounded chunk before writing can do the same useful I/O with fewer crossings. The reason is structural: a normal function call changes control flow within one protection domain; a syscall also pays for entry/exit state, dispatch and policy checks, plus whatever work the implementation performs.</p>
+<figure><div class="blueprint"><svg viewBox="0 0 680 240" role="img" aria-label="Static cost decomposition: an ordinary function call performs local work, while a syscall includes protected entry, checks and dispatch, operation work, and protected return; the boxes are not drawn to timing scale">
+<text class="lbl-sm" x="20" y="26">Ordinary function call</text><rect class="node-o" x="20" y="40" width="640" height="54" rx="8"/><text class="lbl" x="340" y="73" text-anchor="middle">call → local work → return</text>
+<text class="lbl-sm" x="20" y="126">Actual syscall · conceptual stages, not a timing scale</text>
+<rect class="node-b" x="20" y="142" width="145" height="64" rx="8"/><text class="lbl-sm" x="92" y="178" text-anchor="middle">protected entry</text>
+<rect class="node-v" x="177" y="142" width="156" height="64" rx="8"/><text class="lbl-sm" x="255" y="178" text-anchor="middle">checks + dispatch</text>
+<rect class="node-g" x="345" y="142" width="145" height="64" rx="8"/><text class="lbl-sm" x="417" y="178" text-anchor="middle">operation work</text>
+<rect class="node-b" x="502" y="142" width="158" height="64" rx="8"/><text class="lbl-sm" x="581" y="178" text-anchor="middle">protected return</text>
+</svg></div><figcaption>FIG. 4 — the boundary has work beyond the requested operation; there is no fixed multiplier here.</figcaption></figure>
+<p>On systems using page-table isolation, entry and exit can also change page-table context. Architecture, CPU mitigations, active tracing, cache state, kernel configuration and the syscall itself affect the cost. Do not say every syscall flushes the entire TLB, copies a payload, performs disk I/O or takes the same fixed number of nanoseconds.</p>
+<div class="vs"><div class="col"><h4>Fewer crossings can help</h4><ul><li>Bounded buffering amortizes entry/exit across several small records.</li><li>Normal libc time APIs can use the vDSO.</li><li>Measure call frequency and useful bytes per call before changing the design.</li></ul></div><div class="col"><h4>Batching has a price</h4><ul><li>Waiting to fill a batch adds delay to early records.</li><li>Buffers consume memory and need backpressure.</li><li>Long blocking waits are not explained by entry overhead alone. Find what the operation was waiting for.</li></ul></div></div>
+<p><code>strace -T</code> gives elapsed time between observed entry and return, with tracing overhead. It can include time the thread spent waiting. It is not a pure CPU instruction-cost measurement. A low syscall count can coexist with expensive user-space parsing, lock contention or waiting for the scheduler. L02 supplies orders of magnitude; L33 covers deeper performance diagnosis.</p></section>
+
+<section id="s6"><div class="steptag"><b>06</b> Build</div><h2>See a syscall, a short read and a missing time syscall</h2>
+<div class="worked"><div class="whead"><span class="wk">Verification checkpoint</span><span class="pill e">Runnable</span><span class="lc">C11 · Linux · glibc</span></div><div class="wbody">
+<div class="wname">One program, two clock paths, the same I/O contracts</div><p class="wprompt">Baseline: <strong>Debian 13</strong> user space, GCC 14.2, glibc 2.41, strace 6.13. The APIs apply to Linux 6.18 LTS and stable 7.3.6. A container uses its host's kernel: record <code>uname -r</code> rather than assuming a Debian image supplies that kernel. This is a behavior probe, not a timing benchmark.</p>
+<div class="wsteps"><div class="ws"><span class="wsk">1 · Predict the trace</span><p>Both modes call a clock API exactly 1,000 times. Only the <code>syscall</code> mode forces 1,000 real clock syscalls. The normal libc mode may use the vDSO; leave its fallback visible rather than asserting a universal zero.</p></div><div class="ws"><span class="wsk">2 · Make progress observable</span><p>A pipe contains three bytes and its writer is closed before an eight-byte read. Expect three, then EOF. An invalid descriptor must report <code>-1</code> with <code>EBADF</code>.</p></div></div>
+<p class="codetag">shell · run on Linux with gcc, libc headers and strace installed</p>
+<pre class="code"><code>uname -r
+gcc --version
+getconf GNU_LIBC_VERSION
+strace -V
+gcc -std=c11 -O2 -Wall -Wextra -Werror boundary_probe.c -o boundary_probe
+./boundary_probe libc
+./boundary_probe syscall
+strace -qq -e trace=clock_gettime -o clock-libc.trace ./boundary_probe libc
+strace -qq -e trace=clock_gettime -o clock-syscall.trace ./boundary_probe syscall
+wc -l clock-libc.trace clock-syscall.trace
+strace -qq -e trace=read,write -o io.trace ./boundary_probe libc</code></pre>
+<p class="codetag">C11 · boundary_probe.c · compile with assertions enabled</p><pre class="code"><code>#define _GNU_SOURCE
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/auxv.h&gt;
+#include &lt;sys/syscall.h&gt;
+#include &lt;time.h&gt;
+#include &lt;unistd.h&gt;
+
+int main(int argc, char **argv) {
+    if (argc != 2 || (strcmp(argv[1], &quot;libc&quot;) != 0 &amp;&amp;
+                      strcmp(argv[1], &quot;syscall&quot;) != 0)) {
+        fprintf(stderr, &quot;usage: %s libc|syscall\n&quot;, argv[0]);
+        return 2;
+    }
+    const int force_syscall = strcmp(argv[1], &quot;syscall&quot;) == 0;
+    const int clock_calls = 1000;
+    struct timespec timestamp;
+    for (int call = 0; call &lt; clock_calls; call++) {
+        long status;
+        if (force_syscall) {
+            status = syscall(SYS_clock_gettime, CLOCK_MONOTONIC, &amp;timestamp);
+        } else {
+            status = clock_gettime(CLOCK_MONOTONIC, &amp;timestamp);
+        }
+        assert(status == 0);
+    }
+
+    int channel[2];
+    assert(pipe(channel) == 0);
+    assert(write(channel[1], &quot;abc&quot;, 3) == 3);
+    assert(close(channel[1]) == 0);
+    char buffer[8];
+    ssize_t received = read(channel[0], buffer, sizeof buffer);
+    assert(received == 3);
+    assert(memcmp(buffer, &quot;abc&quot;, 3) == 0);
+    assert(read(channel[0], buffer, sizeof buffer) == 0);
+    assert(close(channel[0]) == 0);
+
+    ssize_t status = read(-1, buffer, sizeof buffer);
+    int saved_errno = errno;
+    assert(status == -1 &amp;&amp; saved_errno == EBADF);
+    printf(&quot;clock_mode=%s calls=%d vdso_mapping=%s\n&quot;, argv[1], clock_calls,
+           getauxval(AT_SYSINFO_EHDR) ? &quot;present&quot; : &quot;absent&quot;);
+    printf(&quot;short_read=%zd eof=0 invalid_fd=-1 errno=EBADF\n&quot;, received);
+    return 0;
+}
+</code></pre>
+<p>Use only this small experiment with assertions enabled; compiling with <code>-DNDEBUG</code> would remove the calls placed in <code>assert</code>. In <code>io.trace</code>, look for the pipe's <code>"abc"</code> read and the <code>read(-1, ...)</code> error; loader startup can contribute other reads. Do not expect numeric descriptor values to be fixed.</p>
+<p>On a machine using the vDSO for this clock, the two clock trace files have 0 and 1,000 lines respectively. These are conditional expected counts from the program, not latency measurements. If libc also makes clock syscalls, inspect the architecture/kernel/clock environment before concluding the tracer is wrong. Both modes must still pass the I/O assertions.</p>
+<p><strong>Local verification:</strong> this chapter's probe was run in Debian 13 user space on a Docker Linux <code>6.10.14-linuxkit</code> kernel. It passed the assertions and showed the vDSO fast path. The current 7.3.6 / 6.18 contracts above were checked against the official documentation; this run does not claim to be a test boot of either kernel.</p>
+<div class="say"><span class="k">Explain it aloud</span><p>“My library call may stay in user space or enter through the syscall ABI. Actual entry executes controlled kernel code on behalf of my thread, checks the request, and returns a result. It can block and cause a task switch, but entry alone does not require one. I check progress and errno at the return boundary. For time reads, libc can use a kernel-supplied vDSO function without leaving user mode.”</p><p class="plain">Follow-ups: root versus kernel mode, short reads, syscall retry policy, vDSO fallback, and elapsed syscall time versus CPU work.</p></div></div></div></section>
+
+<section id="practice"><div class="steptag"><b>↗</b> Practice</div><h2>Observe → Diagnose → Design</h2><div class="ladder">
+<div class="rung"><b>Observe · 10 minutes</b>Run both clock modes. Predict which file contains 1,000 clock syscall lines. Identify the short read, EOF and EBADF in the I/O trace. Explain why the vDSO mapping alone would not prove which implementation a call used.</div>
+<div class="rung"><b>Diagnose · 15 minutes</b>A teammate sees no clock syscalls and says the loop was optimized out. Another treats errno left over after a successful read as a new failure. A third equates 50,000 syscalls with 50,000 task switches. Give one observation or contract that separates each mistaken conclusion from what actually happened.</div>
+<div class="rung"><b>Design · 20 minutes</b>A service logs one short record per write. Propose bounded buffering with a maximum delay and memory budget, plus an error/backpressure policy. State what you would count to show fewer crossings, and what you would measure separately to ensure early records do not wait too long. Reserve durability decisions for L16.</div>
+</div><div class="callout tip"><span class="k">Practice the boundary, not the assembly</span><p>Redraw user mode → entry → checks/work → return, then add a branch for sleeping. In 60 seconds, explain which parts are required and which depend on the request. Give the vDSO exception to the “library call equals syscall” assumption.</p></div></section>
+<section id="summary"><div class="steptag"><b>★</b> Review</div><h2>Six takeaways</h2><div class="takeaways">
+<div class="tk"><span class="num">01</span><b>Privilege is not identity</b><span>UID 0 is still user-space code until it enters a privileged kernel path.</span></div>
+<div class="tk"><span class="num">02</span><b>The ABI is a controlled gate</b><span>Operation numbers and argument conventions select defined kernel services.</span></div>
+<div class="tk"><span class="num">03</span><b>A mode switch is not a task switch</b><span>The caller can enter and return without another thread running.</span></div>
+<div class="tk"><span class="num">04</span><b>Results describe progress</b><span>Short reads/writes, EOF and errno are part of the contract, not exceptional trivia.</span></div>
+<div class="tk"><span class="num">05</span><b>vDSO code can stay in user mode</b><span>A normal libc time call can avoid an actual syscall and be absent from strace.</span></div>
+<div class="tk"><span class="num">06</span><b>Amortize with limits</b><span>Fewer crossings help when they remove real overhead; batching adds delay and memory.</span></div>
+</div></section>
+<section id="self-test"><div class="steptag"><b>?</b> Active recall</div><h2>Self-test</h2>
+<details class="self-test-question"><summary>1. Is a root process executing in kernel mode?</summary><p>No. Credentials affect permission checks; the application's normal instructions still execute in user mode. Controlled entry changes the CPU's execution domain.</p></details>
+<details class="self-test-question"><summary>2. Must a syscall switch to a different process?</summary><p>No. It enters privileged kernel code in the caller's task context. Blocking or preemption can cause a scheduler switch, but the privilege transition itself does not require one.</p></details>
+<details class="self-test-question"><summary>3. Does an eight-byte read returning three mean an error?</summary><p>No. Three is a successful progress count. Handle the remaining logical input according to framing. A later zero-size result for a positive-length read on a pipe indicates EOF; a nonblocking would-block result is -1 with EAGAIN/EWOULDBLOCK.</p></details>
+<details class="self-test-question"><summary>4. Why can syscall(SYS_read, ...) return -1 rather than a negative EBADF code?</summary><p>syscall() is a libc helper. Like the ordinary wrapper, it translates the kernel's error convention into the library's -1 and errno convention. Only inspect errno when the return contract says the call failed.</p></details>
+<details class="self-test-question"><summary>5. Why might clock_gettime be absent from strace while the loop still works?</summary><p>libc can call the mapped vDSO implementation, which answers in user mode on a supported fast path. The explicit syscall mode forces kernel entry. Fallbacks depend on architecture, clock and environment.</p></details>
+<details class="self-test-question"><summary>6. A read took 100 ms under strace -T. Is that 100 ms of syscall entry overhead?</summary><p>No. It is traced elapsed time from entry to return and may include waiting, scheduling delay and tracing effects. Separate the operation's wait from the structural crossing cost before choosing a fix.</p></details>
+</section>
+<section id="sources" class="sources-section"><div class="steptag"><b>↗</b> Primary sources</div><h2>Official sources &amp; further reading</h2><ol>
+<li><a href="https://docs.kernel.org/core-api/entry.html">Linux kernel documentation — syscall entry/exit, state tracking and return work</a></li>
+<li><a href="https://docs.kernel.org/arch/x86/entry_64.html">Linux kernel documentation — architecture-specific kernel entry paths</a>; <a href="https://docs.kernel.org/arch/x86/pti.html">page-table isolation and conditional entry/exit overhead</a></li>
+<li><a href="https://man7.org/linux/man-pages/man2/syscalls.2.html">syscalls(2) — wrapper versus kernel interface</a>; <a href="https://man7.org/linux/man-pages/man2/syscall.2.html">syscall(2) — architecture ABIs, SYS_* and helper error translation</a></li>
+<li><a href="https://man7.org/linux/man-pages/man7/capabilities.7.html">capabilities(7) — credentials and authorization</a>; <a href="https://docs.kernel.org/core-api/mm-api.html#user-space-memory-access">kernel user-space memory access APIs</a></li>
+<li><a href="https://man7.org/linux/man-pages/man2/read.2.html">read(2)</a>; <a href="https://man7.org/linux/man-pages/man2/write.2.html">write(2)</a>; <a href="https://man7.org/linux/man-pages/man3/errno.3.html">errno(3)</a> — partial progress, EOF and failures</li>
+<li><a href="https://man7.org/linux/man-pages/man7/vdso.7.html">vdso(7) — mappings, architecture support and trace visibility</a>; <a href="https://man7.org/linux/man-pages/man2/clock_gettime.2.html">clock_gettime(2) — clocks and vDSO use</a></li>
+<li><a href="https://man7.org/linux/man-pages/man3/stdio.3.html">stdio(3) — user-space buffering</a>; <a href="https://man7.org/linux/man-pages/man1/strace.1.html">strace(1) — tracing and elapsed syscall time</a></li>
+<li><a href="https://www.kernel.org/">Linux Kernel Archives — stable 7.3.6 and longterm 6.18.65 on the 26 November 2026 verification date</a></li>
+</ol></section>
+
+<nav class="course-nav" aria-label="Course navigation">
+<a data-nav="previous" href="lesson-00-why-os-and-networking-matter-to-a-backend-engineer.html">&larr; Previous</a><a data-nav="index" href="index.html">Course index</a>
+<span class="done">Next: Lesson 02 &mdash; soon</span></nav>
+<footer>LESSON 01 &middot; THE KERNEL BOUNDARY: USER SPACE, KERNEL SPACE &AMP; SYSTEM CALLS &middot; ORIGINAL INTERACTIVE STUDY CHAPTER<br>Review, replay, and quiz yourself freely.</footer>
+</main></div>
+<script>
+  /* progress bar */
+  var bar=document.getElementById('progress');
+  function onScroll(){var h=document.documentElement,m=h.scrollHeight-h.clientHeight;
+    bar.style.width=(m>0?(h.scrollTop/m*100):0)+'%';}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  /* scroll-spy nav */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.toc a')),map={};
+  links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        if(map[e.target.id])map[e.target.id].classList.add('active');}});
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+
+  /* mobile drawer */
+  var toc=document.getElementById('toc'),btn=document.getElementById('menubtn');
+  btn.addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))toc.classList.remove('open');});
+
+  /* ---- reusable animated stepper engine ---- */
+  function makeStepper(root, steps, onStep){
+    if(!root) return;
+    var svg=root.querySelector('svg');
+    var packet=svg.querySelector('.packet');
+    var numEl=root.querySelector('.stepnum');
+    var txtEl=root.querySelector('.steptext');
+    var btnPlay=root.querySelector('[data-act="play"]');
+    var stage=Array.prototype.slice.call(svg.querySelectorAll('.st'));
+    var i=0, playing=false, raf=null, timer=null;
+
+    function pointAt(path,t){var L=path.getTotalLength(),p=path.getPointAtLength(L*t);
+      packet.setAttribute('cx',p.x);packet.setAttribute('cy',p.y);}
+    function animate(path){cancelAnimationFrame(raf);var dur=850,start=null;
+      function frame(ts){if(start===null)start=ts;var t=Math.min((ts-start)/dur,1);
+        pointAt(path,t);if(t<1)raf=requestAnimationFrame(frame);}
+      raf=requestAnimationFrame(frame);}
+
+    function show(idx,doAnim){
+      i=idx;var s=steps[idx];
+      numEl.textContent='Step '+(idx+1)+' / '+steps.length;
+      txtEl.textContent=s.text;
+      var act=s.active||[];
+      stage.forEach(function(el){var on=act.indexOf(el.id)!==-1;
+        el.classList.toggle('dim',act.length>0 && !on);});
+      if(onStep)onStep(idx,s);
+      if(s.path){var p=svg.querySelector('#'+s.path);
+        if(p){packet.style.display='';
+          packet.setAttribute('fill',s.reject?'var(--rust)':'var(--blueprint)');
+          if(doAnim)animate(p);else pointAt(p,1);}
+      }else{packet.style.display='none';}
+    }
+    function stop(){playing=false;btnPlay.innerHTML='&#9654; Play';clearInterval(timer);cancelAnimationFrame(raf);}
+    function play(){
+      if(playing){stop();return;}
+      playing=true;btnPlay.innerHTML='&#10073;&#10073; Pause';
+      if(i>=steps.length-1)show(0,true);else show(i,true);
+      timer=setInterval(function(){if(i>=steps.length-1){stop();return;}show(i+1,true);},1900);
+    }
+    root.querySelector('[data-act="next"]').onclick=function(){stop();show(Math.min(i+1,steps.length-1),true);};
+    root.querySelector('[data-act="prev"]').onclick=function(){stop();show(Math.max(i-1,0),false);};
+    root.querySelector('[data-act="restart"]').onclick=function(){stop();show(0,false);};
+    btnPlay.onclick=play;
+    show(0,false);
+  }
+
+
+  makeStepper(document.getElementById('fig-entry'), [
+    {text:'Thread A calls read on a blocking socket with no bytes available yet.', task:'running application code', mode:'user mode · A', stage:'1 · Library wrapper', contract:'read(fd, buf, 8) asks for up to eight bytes.', other:'Thread B does not need to run for this call to start.', note:'The wrapper itself is ordinary user-space code.', tone:'node-o'},
+    {text:'The wrapper supplies the operation and arguments, then executes the architecture entry instruction.', task:'entering the kernel', mode:'kernel mode · A', stage:'2 · Controlled entry', contract:'Save return state; establish the kernel entry frame.', other:'Still the same calling task, not a new kernel process.', note:'A privilege transition has occurred; a task switch is not required.', tone:'node-b'},
+    {text:'The kernel dispatches read, resolves the descriptor and checks access to the destination buffer.', task:'executing syscall code', mode:'kernel mode · A', stage:'3 · Checks and dispatch', contract:'The fd selects an object; the pointer is user memory.', other:'The implementation must handle invalid descriptors and addresses.', note:'The syscall ABI is an interface, not permission to jump anywhere.', tone:'node-b'},
+    {text:'This socket has no data. A blocking read can put A to sleep, allowing another runnable task to run.', task:'sleeping inside read', mode:'thread B can run', stage:'4 · Wait only when needed', contract:'A is waiting for input, not consuming a core in a spin loop.', other:'This branch can involve a scheduler context switch.', note:'If bytes had been ready, A could skip this wait branch.', tone:'node-a'},
+    {text:'Three bytes arrive. A becomes runnable, then resumes its kernel path when scheduled.', task:'resumes read in the kernel', mode:'kernel mode · A', stage:'5 · Resume and transfer', contract:'The read places three bytes in the user buffer.', other:'Readiness and actually getting CPU time are separate events.', note:'The requested count was a maximum, not a promise of eight bytes.', tone:'node-b'},
+    {text:'Exit handling completes and A returns to the wrapper with a successful count of three.', task:'continues after read', mode:'user mode · A', stage:'6 · Interpret the result', contract:'return = 3; the application consumes those three bytes.', other:'Do not treat a short successful read as an error.', note:'The fast path would have entered and returned without sleeping.', tone:'node-g'}
+  ], function(index, step){
+    document.getElementById('k-task').textContent=step.task;
+    document.getElementById('k-mode').textContent=step.mode;
+    document.getElementById('k-stage').textContent=step.stage;
+    document.getElementById('k-contract').textContent=step.contract;
+    document.getElementById('k-other').textContent=step.other;
+    document.getElementById('k-note').textContent=step.note;
+    document.getElementById('k-mode-box').setAttribute('class',step.tone);
+  });
+  makeStepper(document.getElementById('fig-vdso'), [
+    {text:'Call the normal libc API. The function name alone does not reveal the implementation path.', call:'clock_gettime(CLOCK_MONOTONIC, &ts)', fast:'available mapped implementation', kernel:'not entered yet', trace:'strace observes actual syscall entries, not every library call.', note:'The following fast path is conditional on platform support.', fastTone:'node-o', kernelTone:'node-dash'},
+    {text:'On the supported fast path, libc calls the vDSO using a normal function-call convention.', call:'application → libc → vDSO', fast:'executes in user mode', kernel:'no syscall entry', trace:'The time read does not create a clock_gettime trace line.', note:'The kernel supplies this code; its execution privilege is still user.', fastTone:'node-g', kernelTone:'node-dash'},
+    {text:'The vDSO derives the answer from exposed timing information and returns to the application.', call:'normal clock call returns success', fast:'answer returned without entry', kernel:'timing state remains protected', trace:'No trace line is compatible with a successful call.', note:'The process receives time information, not permission to set time.', fastTone:'node-g', kernelTone:'node-dash'},
+    {text:'Now use the explicit syscall helper. This bypasses the normal libc API fast-path selection.', call:'syscall(SYS_clock_gettime, CLOCK_MONOTONIC, &ts)', fast:'fast path bypassed in this mode', kernel:'controlled entry required', trace:'The forced call creates a clock_gettime trace line.', note:'SYS_* constants avoid hard-coding architecture-specific syscall numbers.', fastTone:'node-dash', kernelTone:'node-b'},
+    {text:'The kernel serves the forced clock request, and the libc helper returns the result.', call:'explicit syscall returns success', fast:'not used for this call', kernel:'kernel entry + work + exit', trace:'1,000 forced calls produce 1,000 clock syscall observations.', note:'This count says nothing by itself about task switches or latency.', fastTone:'node-dash', kernelTone:'node-g'},
+    {text:'A normal API call can also fall back when its vDSO fast path cannot answer the requested clock.', call:'normal clock API · fallback path', fast:'unavailable or unsuitable', kernel:'fallback enters the kernel', trace:'A libc-mode trace line can be valid too.', note:'A [vdso] mapping alone does not prove that a particular call used it.', fastTone:'node-a', kernelTone:'node-b'}
+  ], function(index, step){
+    document.getElementById('v-call').textContent=step.call;
+    document.getElementById('v-fast').textContent=step.fast;
+    document.getElementById('v-kernel').textContent=step.kernel;
+    document.getElementById('v-trace').textContent=step.trace;
+    document.getElementById('v-note').textContent=step.note;
+    document.getElementById('v-fast-box').setAttribute('class',step.fastTone);
+    document.getElementById('v-kernel-box').setAttribute('class',step.kernelTone);
+  });
+
+</script></body></html>
